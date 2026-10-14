@@ -9,6 +9,7 @@ export declare abstract class FlexBoxView extends LayoutDOMView {
     connect_signals(): void;
     get child_models(): UIElement[];
     protected _intrinsic_display(): FullDisplay;
+    measure_layout(): void;
     _update_layout(): void;
 }
 export declare namespace FlexBox {

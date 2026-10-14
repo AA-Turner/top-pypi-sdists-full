@@ -353,7 +353,8 @@ protected:
 
     void DoDirtyProcessing();
 
-    virtual wxSize DoGetBestSize() const override;
+    virtual wxSize DoGetBestClientSize() const override;
+    virtual int DoGetBestClientWidth(int height) const override;
 
 private:
     void OnSysColourChanged(wxSysColourChangedEvent& WXUNUSED(event))
@@ -373,7 +374,7 @@ private:
     enum
     {
         Next_Any     = 0,
-        Next_Visible = 1
+        Next_Opened  = 1
     };
     wxTreeItemId DoGetNext(const wxTreeItemId& item, int flags = 0) const;
 

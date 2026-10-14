@@ -8,13 +8,14 @@ import numpy as np
 import pytest
 from astropy.convolution import convolve
 from astropy.modeling.models import Gaussian2D
-from astropy.utils.exceptions import AstropyDeprecationWarning
+from numpy.testing import assert_equal
 
 from photutils.datasets import make_100gaussians_image
 from photutils.segmentation.finder import SourceFinder
+from photutils.segmentation.flags import SEGMENTATION_FLAGS
 from photutils.segmentation.utils import make_2dgaussian_kernel
-from photutils.utils._optional_deps import HAS_SKIMAGE
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 
 class TestSourceFinder:
@@ -24,12 +25,11 @@ class TestSourceFinder:
     threshold = 1.5 * 2.0
     n_pixels = 10
 
-    @pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
     def test_deblend(self):
         """
         Test deblend.
         """
-        finder = SourceFinder(n_pixels=self.n_pixels, progress_bar=False)
+        finder = SourceFinder(n_pixels=self.n_pixels)
         segm1 = finder(self.convolved_data, self.threshold)
         assert segm1.n_labels == 94
 
@@ -41,7 +41,7 @@ class TestSourceFinder:
         """
         Test invalid units.
         """
-        finder = SourceFinder(n_pixels=self.n_pixels, progress_bar=False)
+        finder = SourceFinder(n_pixels=self.n_pixels)
         match = 'must all have the same units'
         with pytest.raises(ValueError, match=match):
             finder(self.convolved_data << u.uJy, self.threshold)
@@ -54,8 +54,7 @@ class TestSourceFinder:
         """
         Test no deblend.
         """
-        finder = SourceFinder(n_pixels=self.n_pixels, deblend=False,
-                              progress_bar=False)
+        finder = SourceFinder(n_pixels=self.n_pixels, deblend=False)
         segm = finder(self.convolved_data, self.threshold)
         assert segm.n_labels == 87
 
@@ -63,15 +62,13 @@ class TestSourceFinder:
         """
         Test no sources.
         """
-        finder = SourceFinder(n_pixels=self.n_pixels, deblend=True,
-                              progress_bar=False)
+        finder = SourceFinder(n_pixels=self.n_pixels, deblend=True)
 
         match = 'No sources were found'
         with pytest.warns(NoDetectionsWarning, match=match):
             segm = finder(self.convolved_data, 1000)
         assert segm is None
 
-    @pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
     def test_n_pixels_tuple(self):
         """
         Test n_pixels tuple.
@@ -94,16 +91,81 @@ class TestSourceFinder:
         """
         Test repr.
         """
-        finder = SourceFinder(n_pixels=self.n_pixels, deblend=False,
-                              progress_bar=False)
+        finder = SourceFinder(n_pixels=self.n_pixels, deblend=False)
         cls_repr = repr(finder)
         assert cls_repr.startswith(finder.__class__.__name__)
 
 
 def test_finder_deprecations():
-    finder = SourceFinder(n_pixels=10, progress_bar=False)
+    finder = SourceFinder(n_pixels=10)
     match = 'attribute was deprecated'
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         _ = finder.npixels
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         _ = finder.nlevels
+
+    # Each deprecated keyword emits exactly one warning
+    for kwargs in ({'progress_bar': False}, {'n_processes': 2},
+                   {'nproc': 2}):
+        name = next(iter(kwargs))
+        with pytest.warns(PhotutilsDeprecationWarning,
+                          match=name) as record:
+            SourceFinder(n_pixels=10, **kwargs)
+        assert len(record) == 1
+
+
+def test_finder_n_threads():
+    """
+    Test that SourceFinder n_threads produces results identical to
+    the single-threaded computation.
+    """
+    yy, xx = np.mgrid[0:101, 0:101]
+    data = (Gaussian2D(100, 50, 50, 5, 5)(xx, yy)
+            + Gaussian2D(100, 35, 50, 5, 5)(xx, yy))
+    expected = SourceFinder(n_pixels=5)(data, 10)
+    finder = SourceFinder(n_pixels=5, n_threads=4)
+    assert 'n_threads=4' in repr(finder)
+    segm = finder(data, 10)
+    assert_equal(segm.data, expected.data)
+
+
+@pytest.mark.parametrize(('kwargs', 'match'), [
+    ({'connectivity': 3}, 'Invalid connectivity'),
+    ({'n_levels': 0}, 'n_levels must be a positive integer'),
+    ({'n_levels': 2.5}, 'n_levels must be a positive integer'),
+    ({'contrast': 1.5}, 'contrast must be'),
+    ({'contrast_method': 'invalid'}, 'contrast_method must be'),
+    ({'mode': 'invalid'}, 'mode must be'),
+    ({'n_threads': 0}, 'n_threads must be a positive integer'),
+    ({'n_threads': True}, 'n_threads must be a positive integer'),
+])
+def test_finder_invalid_kwargs(kwargs, match):
+    """
+    Test that invalid keyword values are rejected at construction.
+    """
+    with pytest.raises(ValueError, match=match):
+        SourceFinder(n_pixels=5, **kwargs)
+
+
+@pytest.mark.parametrize('name', ['deblend', 'relabel'])
+def test_finder_invalid_bool_kwargs(name):
+    """
+    Test that the boolean keywords must be booleans.
+    """
+    match = f"{name} must be a boolean, got 'yes'"
+    with pytest.raises(TypeError, match=match):
+        SourceFinder(n_pixels=5, **{name: 'yes'})
+    assert SourceFinder(n_pixels=5, **{name: np.True_}) is not None
+
+
+def test_finder_flags_passthrough():
+    """
+    Test that deblending provenance flags survive the SourceFinder
+    pipeline.
+    """
+    yy, xx = np.mgrid[0:101, 0:101]
+    data = (Gaussian2D(100, 50, 50, 5, 5)(xx, yy)
+            + Gaussian2D(100, 35, 50, 5, 5)(xx, yy))
+    finder = SourceFinder(n_pixels=5)
+    segm = finder(data, 10)
+    assert np.any(segm.flags & SEGMENTATION_FLAGS.DEBLENDED)

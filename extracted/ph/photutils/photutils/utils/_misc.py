@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Tools for getting the installed astropy and photutils versions.
+Tools for getting the installed package versions and the current date
+and time for use in output metadata.
 """
 
 import sys
@@ -20,8 +21,8 @@ def _get_version_info():
     """
     versions = {'Python': sys.version.split()[0]}
 
-    packages = ('photutils', 'astropy', 'numpy', 'scipy', 'skimage',
-                'matplotlib', 'gwcs', 'bottleneck')
+    packages = ('photutils', 'astropy', 'numpy', 'scipy', 'matplotlib',
+                'gwcs', 'bottleneck')
     for package in packages:
         try:
             pkg = __import__(package)
@@ -51,8 +52,8 @@ def _get_date(*, utc=False):
     try:
         now = datetime.now().astimezone() if not utc else datetime.now(UTC)
     except OSError:
-        # System timezone may be unavailable on some configurations;
-        # fall back to UTC
+        # System timezone may be unavailable on some configurations,
+        # so fall back to UTC
         now = datetime.now(UTC)
     return now.strftime('%Y-%m-%d %H:%M:%S %Z')
 

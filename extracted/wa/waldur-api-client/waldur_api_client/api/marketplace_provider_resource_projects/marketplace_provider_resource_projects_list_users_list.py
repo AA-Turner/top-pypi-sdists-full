@@ -6,7 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.user_role_details import UserRoleDetails
+from ...models.provider_user_role_details import ProviderUserRoleDetails
 from ...models.user_role_details_field_enum import UserRoleDetailsFieldEnum
 from ...models.user_role_details_o_enum import UserRoleDetailsOEnum
 from ...types import UNSET, Response, Unset
@@ -87,14 +87,16 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> list["UserRoleDetails"]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> list["ProviderUserRoleDetails"]:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
         for response_200_item_data in _response_200:
-            response_200_item = UserRoleDetails.from_dict(response_200_item_data)
+            response_200_item = ProviderUserRoleDetails.from_dict(response_200_item_data)
 
             response_200.append(response_200_item)
 
@@ -104,7 +106,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[list["UserRoleDetails"]]:
+) -> Response[list["ProviderUserRoleDetails"]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -129,7 +131,7 @@ def sync_detailed(
     user_slug: Union[Unset, str] = UNSET,
     user_url: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
-) -> Response[list["UserRoleDetails"]]:
+) -> Response[list["ProviderUserRoleDetails"]]:
     """List users and their roles in a scope
 
      Retrieves a list of users who have a role within a specific scope (e.g., a project or an
@@ -155,7 +157,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[list['UserRoleDetails']]
+        Response[list['ProviderUserRoleDetails']]
     """
 
     kwargs = _get_kwargs(
@@ -197,7 +199,7 @@ def sync(
     user_slug: Union[Unset, str] = UNSET,
     user_url: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
-) -> list["UserRoleDetails"]:
+) -> list["ProviderUserRoleDetails"]:
     """List users and their roles in a scope
 
      Retrieves a list of users who have a role within a specific scope (e.g., a project or an
@@ -223,7 +225,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        list['UserRoleDetails']
+        list['ProviderUserRoleDetails']
     """
 
     return sync_detailed(
@@ -260,7 +262,7 @@ async def asyncio_detailed(
     user_slug: Union[Unset, str] = UNSET,
     user_url: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
-) -> Response[list["UserRoleDetails"]]:
+) -> Response[list["ProviderUserRoleDetails"]]:
     """List users and their roles in a scope
 
      Retrieves a list of users who have a role within a specific scope (e.g., a project or an
@@ -286,7 +288,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[list['UserRoleDetails']]
+        Response[list['ProviderUserRoleDetails']]
     """
 
     kwargs = _get_kwargs(
@@ -326,7 +328,7 @@ async def asyncio(
     user_slug: Union[Unset, str] = UNSET,
     user_url: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
-) -> list["UserRoleDetails"]:
+) -> list["ProviderUserRoleDetails"]:
     """List users and their roles in a scope
 
      Retrieves a list of users who have a role within a specific scope (e.g., a project or an
@@ -352,7 +354,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        list['UserRoleDetails']
+        list['ProviderUserRoleDetails']
     """
 
     return (
@@ -389,7 +391,7 @@ def sync_all(
     user_slug: Union[Unset, str] = UNSET,
     user_url: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
-) -> list["UserRoleDetails"]:
+) -> list["ProviderUserRoleDetails"]:
     """Get All Pages
 
      Fetch all pages of paginated results. This function automatically handles pagination
@@ -415,11 +417,11 @@ def sync_all(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        list['UserRoleDetails']: Combined results from all pages
+        list['ProviderUserRoleDetails']: Combined results from all pages
     """
     from urllib.parse import parse_qs, urlparse
 
-    all_results: list[UserRoleDetails] = []
+    all_results: list[ProviderUserRoleDetails] = []
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
@@ -492,7 +494,7 @@ async def asyncio_all(
     user_slug: Union[Unset, str] = UNSET,
     user_url: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
-) -> list["UserRoleDetails"]:
+) -> list["ProviderUserRoleDetails"]:
     """Get All Pages (Async)
 
      Fetch all pages of paginated results asynchronously. This function automatically handles pagination
@@ -518,11 +520,11 @@ async def asyncio_all(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        list['UserRoleDetails']: Combined results from all pages
+        list['ProviderUserRoleDetails']: Combined results from all pages
     """
     from urllib.parse import parse_qs, urlparse
 
-    all_results: list[UserRoleDetails] = []
+    all_results: list[ProviderUserRoleDetails] = []
 
     # Get initial request kwargs
     kwargs = _get_kwargs(

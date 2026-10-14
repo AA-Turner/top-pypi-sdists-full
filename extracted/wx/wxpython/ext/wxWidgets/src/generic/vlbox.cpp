@@ -629,6 +629,9 @@ void wxVListBox::OnKeyDown(wxKeyEvent& event)
         case WXK_PAGEDOWN:
         case WXK_NUMPAD_PAGEDOWN:
         {
+            if ( !GetRowCount() )
+                return;
+
             size_t oldBegin = GetVisibleBegin();
             PageDown();
             if (GetVisibleBegin() > oldBegin)
@@ -644,6 +647,9 @@ void wxVListBox::OnKeyDown(wxKeyEvent& event)
 
         case WXK_PAGEUP:
         case WXK_NUMPAD_PAGEUP:
+            if ( !GetRowCount() )
+                return;
+
             if ( m_current == (int)GetVisibleBegin() )
             {
                 PageUp();
@@ -768,7 +774,7 @@ wxSize wxXRCPreviewVListBox::DoGetBestClientSize() const
     // safe to const_cast since we're just using GetTextExtent()
     wxInfoDC dc(const_cast<wxXRCPreviewVListBox*>(this));
     wxSize item99Size = dc.GetTextExtent(GetItem(99));
-    return wxSize(item99Size.x + wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, this),
+    return wxSize(item99Size.x + GetScrollbarSize(wxVERTICAL),
                     5 * item99Size.y);
 }
 

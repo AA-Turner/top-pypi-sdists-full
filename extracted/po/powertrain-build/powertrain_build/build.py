@@ -17,7 +17,7 @@ import time
 from os.path import join as pjoin
 from pathlib import Path
 
-from powertrain_build import __config_version__, __version__, build_defs
+from powertrain_build import __config_version__, __version__
 from powertrain_build.a2l_merge import A2lMerge
 from powertrain_build.build_proj_config import BuildProjConfig
 from powertrain_build.core import Core, HICore, ZCCore
@@ -27,8 +27,9 @@ from powertrain_build.dids import DIDs, HIDIDs, ZCDIDs
 from powertrain_build.dummy import DummyVar
 from powertrain_build.dummy_spm import DummySpm
 from powertrain_build.ext_dbg import ExtDbg
-from powertrain_build.ext_var import ExtVarCsv, ExtVarYaml
+from powertrain_build.ext_var import ExtVarCsv, ExtVarCsvAsil, ExtVarYaml
 from powertrain_build.feature_configs import FeatureConfigs
+from powertrain_build.lib import logger
 from powertrain_build.lib.helper_functions import create_dir, get_repo_root, merge_dicts
 from powertrain_build.memory_section import MemorySection
 from powertrain_build.nvm_def import NVMDef, ZCNVMDef
@@ -44,7 +45,7 @@ from powertrain_build.user_defined_types import UserDefinedTypes
 from powertrain_build.zone_controller.calibration import ZoneControllerCalibration
 from powertrain_build.zone_controller.composition_yaml import CompositionYaml
 
-LOG = logging.getLogger()
+LOGGER = logger.create_logger(__file__)
 REPO_ROOT = get_repo_root()
 
 
@@ -63,41 +64,37 @@ def setup_logging(log_dst_dir, problem_logger, debug=True, quiet=False):
         quiet (bool): False - disable logging to stdout
 
     """
-    LOG.setLevel(logging.DEBUG)
-    LOG.handlers = []  # Remove all previous loggers
+    LOGGER.handlers.clear()
+    LOGGER.setLevel(logging.INFO)
     logging.captureWarnings(True)
     # Setup debug build logger
     log_file = pjoin(log_dst_dir, "build_dbg.log")
     if debug:
         dbg = logging.FileHandler(log_file)
         dbg.setLevel(logging.DEBUG)
-        dbg_formatter = logging.Formatter(
-            "%(asctime)s - %(module)s."
-            "%(funcName)s [%(lineno)d]"
-            " - %(levelname)s - %(message)s"
-        )
+        dbg_formatter = logger.CustomFormatting()
         dbg.setFormatter(dbg_formatter)
-        LOG.addHandler(dbg)
+        LOGGER.addHandler(dbg)
     # Setup normal build logger
     log_file = pjoin(log_dst_dir, "build.log")
     nrm = logging.FileHandler(log_file)
     nrm.setLevel(logging.INFO)
-    build_log_frmt = logging.Formatter("%(asctime)s - %(levelname)s" " - %(message)s")
+    build_log_frmt = logger.CustomFormatting()
     nrm.setFormatter(build_log_frmt)
-    LOG.addHandler(nrm)
+    LOGGER.addHandler(nrm)
 
     if not quiet:
         nrm_strm = logging.StreamHandler(sys.stdout)
         nrm_strm.setLevel(logging.INFO)
         nrm_strm.setFormatter(build_log_frmt)
-        LOG.addHandler(nrm_strm)
+        LOGGER.addHandler(nrm_strm)
 
         error_strm = logging.StreamHandler(sys.stderr)
         error_strm.setLevel(logging.CRITICAL)
         error_strm.setFormatter(build_log_frmt)
-        LOG.addHandler(error_strm)
+        LOGGER.addHandler(error_strm)
 
-    problem_logger.init_logger(LOG)
+    problem_logger.init_logger(LOGGER)
 
 
 def check_interfaces(build_cfg, signal_if):
@@ -112,22 +109,22 @@ def check_interfaces(build_cfg, signal_if):
         signal_if (SignalInterfaces): class holding signal interface information
 
     """
-    LOG.info("******************************************************")
-    LOG.info("Start check interface inconsistencies")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start check interface inconsistencies")
     start_time = time.time()
     report_dst_dir = build_cfg.get_reports_dst_dir()
     signal_inconsistency_result = signal_if.check_config()
     sig_report = SigConsHtmlReport(signal_inconsistency_result)
-    LOG.info(
+    LOGGER.info(
         "Finished check interface inconsistencies (in %4.2f s)",
         time.time() - start_time,
     )
 
     start_time = time.time()
-    LOG.info("******************************************************")
-    LOG.info("Start generating interface inconsistencies html-report")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating interface inconsistencies html-report")
     sig_report.generate_report_file(pjoin(report_dst_dir, "SigCheck.html"))
-    LOG.info(
+    LOGGER.info(
         "Finished - generating interface inconsistencies html-report (in %4.2f s)",
         time.time() - start_time,
     )
@@ -146,14 +143,14 @@ def interface_report(build_cfg, unit_cfg, signal_if):
         signal_if (SignalInterfaces): class holding signal interface information.
 
     """
-    LOG.info("******************************************************")
-    LOG.info("Start creating interface report")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start creating interface report")
     start_time = time.time()
     report_dst_dir = build_cfg.get_reports_dst_dir()
 
     sig_if = SigIfHtmlReport(build_cfg, unit_cfg, signal_if)
     sig_if.generate_report_file(pjoin(report_dst_dir, "SigIf.html"))
-    LOG.info(
+    LOGGER.info(
         "Finished - create interface report (in %4.2f s)", time.time() - start_time
     )
 
@@ -190,8 +187,8 @@ def generate_dummy_spm(build_cfg, unit_cfg, feature_cfg, signal_if, udt, polyspa
             include_data = unit_cfg.get_unit_config(include_unit)
             _add_undefined_signals_from_unit(include_data)
 
-    LOG.info("******************************************************")
-    LOG.info("Start generating output vars")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating output vars")
     start_time = time.time()
     dst_dir = build_cfg.get_src_code_dst_dir()
     # Get out ports for all units in project regardless of code switches
@@ -202,7 +199,7 @@ def generate_dummy_spm(build_cfg, unit_cfg, feature_cfg, signal_if, udt, polyspa
     for data in unit_vars.values():
         for outport_name, outport_data in data.get("outports", {}).items():
             if not feature_cfg.check_if_active_in_config(outport_data["configs"]):
-                LOG.debug("Outport %s not active in current project", outport_name)
+                LOGGER.debug("Outport %s not active in current project", outport_name)
             elif outport_name not in defined_ports:
                 if not outport_data.get("class").startswith("CVC_EXT"):
                     defined_ports.append(outport_name)
@@ -215,7 +212,7 @@ def generate_dummy_spm(build_cfg, unit_cfg, feature_cfg, signal_if, udt, polyspa
         undefined_outports, build_cfg, feature_cfg, unit_cfg, udt, "VcDummy_spm", polyspace_comments
     )
     dummy_spm.generate_files(dst_dir)
-    LOG.info("Finished generating output vars (in %4.2f s)", time.time() - start_time)
+    LOGGER.info("Finished generating output vars (in %4.2f s)", time.time() - start_time)
 
 
 def generate_did_files(build_cfg, unit_cfg):
@@ -226,28 +223,27 @@ def generate_did_files(build_cfg, unit_cfg):
             files should be stored
         unit_cfg (UnitConfigs): class holding units definitions,
             and which units to include
-
     """
     start_time = time.time()
     did_defs_files = pjoin(build_cfg.get_src_code_dst_dir(), "VcDIDDefinition")
     car_com_file = build_cfg.get_car_com_dst()
-    LOG.info("******************************************************")
-    LOG.info("Start generating %s.c&h", did_defs_files)
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating %s.c&h", did_defs_files)
     dids = DIDs(build_cfg, unit_cfg)
     dids.gen_did_def_files(did_defs_files)
-    LOG.info(
+    LOGGER.info(
         "Finished generating %s.c&h  (in %4.2f s)",
         did_defs_files,
         time.time() - start_time,
     )
-    LOG.info("******************************************************")
-    LOG.info("Start generating %s", car_com_file)
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating %s", car_com_file)
     start_time = time.time()
     dids.gen_did_carcom_extract(car_com_file)
-    LOG.info(
+    LOGGER.info(
         "Finished generating %s  (in %4.2f s)", car_com_file, time.time() - start_time
     )
-    LOG.info("******************************************************")
+    LOGGER.info("******************************************************")
 
 
 def generate_core_dummy(build_cfg, core, unit_cfg):
@@ -265,26 +261,61 @@ def generate_core_dummy(build_cfg, core, unit_cfg):
         build_cfg (BuildProjConfig): Build project class holding where
             files should be stored
         core (Core): class holding core configuration information
-
     """
     core_dummy_fname = build_cfg.get_core_dummy_name()
-    LOG.info("******************************************************")
-    LOG.info("Start generating Core Dummy - %s", core_dummy_fname)
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating Core Dummy - %s", core_dummy_fname)
     start_time = time.time()
     core_dummy = CoreDummy(core.get_current_core_config(), unit_cfg)
     ecu_supplier = build_cfg.get_ecu_info()[0]
     if ecu_supplier in ["Denso", "CSP"]:
         core_dummy.generate_dg2_core_dummy_files(core_dummy_fname)
+    elif ecu_supplier == 'Phinia':
+        core_dummy.generate_phinia_core_dummy_files(core_dummy_fname)
     elif ecu_supplier == "RB":
         core_dummy.generate_rb_core_dummy_files(core_dummy_fname)
+    elif ecu_supplier == 'APP' or ecu_supplier == 'EURO7':
+        core_dummy.generate_generic_core_dummy_files(core_dummy_fname)
     else:
         msg = f"Could not generate VcCoreDummy, cannot identify the supplier {ecu_supplier}."
-        LOG.critical(msg)
+        LOGGER.critical(msg)
         raise ValueError(msg)
-    LOG.info("Finished generating Core Dummy (in %4.2f s)", time.time() - start_time)
+    LOGGER.info("Finished generating Core Dummy (in %4.2f s)", time.time() - start_time)
 
 
-def generate_external_var(build_cfg, unit_cfg, udt, asil_level_dep, nrm_dict, dep_dict, sec_dict, polyspace_comments):
+def generate_external_var_asil(build_cfg, unit_cfg, udt, qm, asil_a, asil_b, asil_c, polyspace_comments):
+    """Generate two c-files that define the signal interface to the supplier, divided by ASIL level.
+
+    The VcExtVar function assigns all variables to the CVC_DISP memory area
+    for the specified ASIL level as defined in the IF List
+    Note that this function only declares the variables
+    in the supplier interface, which the supplier writes to. All other
+    variables shall be declared by the function which writes to the variable.
+    Note that dummy functionality/variables should be created in the function
+    to keep the signalling interface consistent!
+
+    Args:
+        build_cfg (BuildProjConfig): Build project class holding where files should be stored.
+        unit_cfg (UnitConfigs) : Aggregated unit configs class.
+        udt (UserDefinedTypes): Class holding user defined data types.
+        qm (dict): Dictionary with QM variables.
+        asil_a (dict): Dictionary with ASIL A variables.
+        asil_b (dict): Dictionary with ASIL B variables.
+        asil_c (dict): Dictionary with ASIL C variables.
+        polyspace_comments (bool): Whether to insert polyspace comments for the variable definitions.
+    """
+    ext_var_instances = {
+        ExtVarCsvAsil(qm, build_cfg, unit_cfg, udt, "QM", polyspace_comments): "VcExtVarQM",
+        ExtVarCsvAsil(asil_a, build_cfg, unit_cfg, udt, "A", polyspace_comments): "VcExtVarASIL_A",
+        ExtVarCsvAsil(asil_b, build_cfg, unit_cfg, udt, "B", polyspace_comments): "VcExtVarASIL_B",
+        ExtVarCsvAsil(asil_c, build_cfg, unit_cfg, udt, "C", polyspace_comments): "VcExtVarASIL_C"
+    }
+    for instance, dir_name in ext_var_instances.items():
+        ext_var_path = Path(build_cfg.get_src_code_dst_dir(), dir_name)
+        instance.generate_files(ext_var_path)
+
+
+def generate_external_var(build_cfg, unit_cfg, udt, nrm_dict, dep_dict, sec_dict, polyspace_comments):
     """Generate two c-files that define the signal interface to the supplier.
 
     The VcExtVar function assigns all variables to the CVC_DISP memory area,
@@ -299,19 +330,18 @@ def generate_external_var(build_cfg, unit_cfg, udt, asil_level_dep, nrm_dict, de
         build_cfg (BuildProjConfig): Build project class holding where files should be stored.
         unit_cfg (UnitConfigs) : Aggregated unit configs class.
         udt (UserDefinedTypes): Class holding user defined data types.
-        asil_level_dep (str): ASIL level for the dependability variables.
         nrm_dict (dict): Dictionary with normal variables.
         dep_dict (dict): Dictionary with dependability variables.
         sec_dict (dict): Dictionary with secure variables.
         polyspace_comments (bool): Whether to insert polyspace comments for the variable definitions.
     """
     if build_cfg.has_yaml_interface:
-        ext_var_nrm = ExtVarYaml(nrm_dict, build_cfg, unit_cfg, udt, build_defs.ASIL_QM, polyspace_comments)
-        ext_var_dep = ExtVarYaml(dep_dict, build_cfg, unit_cfg, udt, asil_level_dep, polyspace_comments)
+        ext_var_nrm = ExtVarYaml(nrm_dict, build_cfg, unit_cfg, udt, "normal", polyspace_comments)
+        ext_var_dep = ExtVarYaml(dep_dict, build_cfg, unit_cfg, udt, "dependability", polyspace_comments)
     else:
-        ext_var_nrm = ExtVarCsv(nrm_dict, build_cfg, unit_cfg, udt, build_defs.ASIL_QM, polyspace_comments)
-        ext_var_dep = ExtVarCsv(dep_dict, build_cfg, unit_cfg, udt, asil_level_dep, polyspace_comments)
-        ext_var_sec = ExtVarCsv(sec_dict, build_cfg, unit_cfg, udt, build_defs.SECURE, polyspace_comments)
+        ext_var_nrm = ExtVarCsv(nrm_dict, build_cfg, unit_cfg, udt, "normal", polyspace_comments)
+        ext_var_dep = ExtVarCsv(dep_dict, build_cfg, unit_cfg, udt, "dependability", polyspace_comments)
+        ext_var_sec = ExtVarCsv(sec_dict, build_cfg, unit_cfg, udt, "secure", polyspace_comments)
 
     ext_var_instances = {
         ext_var_nrm: "VcExtVar",
@@ -326,6 +356,33 @@ def generate_external_var(build_cfg, unit_cfg, udt, asil_level_dep, nrm_dict, de
         instance.generate_files(ext_var_path)
 
 
+def generate_external_debug_var(build_cfg, unit_cfg, dbg_dict, dbg_asil_dict, polyspace_comments):
+    """Generate c-files that define the debug variables in the signal interface to the supplier.
+
+    Args:
+        build_cfg (BuildProjConfig): Build project class holding where files should be stored.
+        unit_cfg (UnitConfigs) : Aggregated unit configs class.
+        dbg_dict (dict): Dictionary with debug variables.
+        dbg_asil_dict (dict): Dictionary with ASIL debug variables.
+        polyspace_comments (bool): Whether to insert polyspace comments for the variable definitions.
+    """
+    restructured_dbg_dict = {}
+    dbg_instances = {
+        ExtDbg(dbg_dict, build_cfg, unit_cfg, False, polyspace_comments): ("VcDebug", "VcDebugOutput"),
+        ExtDbg(dbg_asil_dict, build_cfg, unit_cfg, True, polyspace_comments): ("VcDebugSafe", "VcDebugOutputSafe")
+    }
+    for instance, dir_names in dbg_instances.items():
+        restructured_dbg_dict.update({
+            dir_names[0]: instance.dbg_dict["inputs"],
+            dir_names[1]: instance.dbg_dict["outputs"]
+        })
+        instance.gen_dbg_files(
+            pjoin(build_cfg.get_src_code_dst_dir(), dir_names[0]),
+            pjoin(build_cfg.get_src_code_dst_dir(), dir_names[1])
+        )
+    return restructured_dbg_dict
+
+
 def generate_dummy_var(build_cfg, unit_cfg, signal_if, udt, polyspace_comments):
     """Generate c-file that define the missing signals.
 
@@ -336,8 +393,8 @@ def generate_dummy_var(build_cfg, unit_cfg, signal_if, udt, polyspace_comments):
         udt (UserDefinedTypes): Class holding user defined data types.
         polyspace_comments (bool): Whether to insert polyspace comments for the variable definitions.
     """
-    LOG.info("******************************************************")
-    LOG.info("Start generating VcDummy")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating VcDummy")
     start_time = time.time()
     dst_dir = build_cfg.get_src_code_dst_dir()
     nrm_dict, dep_dict, sec_dict, _ = signal_if.get_external_io()
@@ -346,7 +403,7 @@ def generate_dummy_var(build_cfg, unit_cfg, signal_if, udt, polyspace_comments):
     res_dict = signal_if.check_config()
     dummy = DummyVar(unit_cfg, nrm_dict, res_dict, build_cfg, udt, polyspace_comments)
     dummy.generate_file(pjoin(dst_dir, "VcDummy"))
-    LOG.info("Finished generating VcDummy (in %4.2f s)", time.time() - start_time)
+    LOGGER.info("Finished generating VcDummy (in %4.2f s)", time.time() - start_time)
 
 
 def generate_nvm_def(build_cfg, unit_cfg, no_nvm_a2l):
@@ -362,18 +419,18 @@ def generate_nvm_def(build_cfg, unit_cfg, no_nvm_a2l):
         unit_cfg (UnitConfigs): class holding units definitions, and which units to include.
         no_nvm_a2l (bool): Do not generate A2L for NVM structs.
     """
-    LOG.info("******************************************************")
-    LOG.info("Start generating NVMDefinitions")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start generating NVMDefinitions")
     start_time = time.time()
     tot_vars_nvm = unit_cfg.get_per_cfg_unit_cfg().get("nvm", {})
     nvm_def = NVMDef(build_cfg, unit_cfg, tot_vars_nvm)
     nvm_def.generate_nvm_config_files(no_nvm_a2l)
-    LOG.info(
+    LOGGER.info(
         "Finished generating NVMDefinitions (in %4.2f s)", time.time() - start_time
     )
 
 
-def copy_unit_src_to_src_out(build_cfg):
+def copy_unit_src_to_src_out(build_cfg, include_model_a2l):
     """Copy unit source code to delivery folder.
 
     Function to copy all relevant .c, .h and .a2l files to the src
@@ -383,9 +440,10 @@ def copy_unit_src_to_src_out(build_cfg):
     Args:
         build_cfg (BuildProjConfig): Build project class holding where
             files should be stored
+        include_model_a2l (bool): Move model a2l files to output folder.
     """
-    LOG.info("******************************************************")
-    LOG.info("Start copying unit source files")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start copying unit source files")
     start_time = time.time()
     src_dirs = build_cfg.get_unit_src_dirs()
     src_dst_dir = build_cfg.get_src_code_dst_dir()
@@ -394,10 +452,12 @@ def copy_unit_src_to_src_out(build_cfg):
         files.extend(glob.glob(pjoin(src_dir, "*.c")))
         files.extend(glob.glob(pjoin(src_dir, "*.cpp")))
         files.extend(glob.glob(pjoin(src_dir, "*.h")))
+        if include_model_a2l:
+            files.extend(glob.glob(pjoin(src_dir, '*.a2l')))
     for file_ in files:
         shutil.copy2(file_, src_dst_dir)
-        LOG.debug("copied %s to %s", file_, src_dst_dir)
-    LOG.info(
+        LOGGER.debug("copied %s to %s", file_, src_dst_dir)
+    LOGGER.info(
         "Finished copying unit source files (in %4.2f s)", time.time() - start_time
     )
 
@@ -414,12 +474,12 @@ def copy_common_src_to_src_out(build_cfg):
     Args:
         build_cfg (BuildProjConfig): Build project class holding where files should be stored.
     """
-    LOG.info("******************************************************")
+    LOGGER.info("******************************************************")
     prefix = build_cfg.get_scheduler_prefix()
     if prefix:
-        LOG.info("Start copying and patching common source files")
+        LOGGER.info("Start copying and patching common source files")
     else:
-        LOG.info("Start copying common source files")
+        LOGGER.info("Start copying common source files")
 
     start_time = time.time()
     src_dir = build_cfg.get_common_src_dir()
@@ -439,9 +499,9 @@ def copy_common_src_to_src_out(build_cfg):
             patch_and_copy_common_src_to_src_out(prefix, Path(file_), Path(src_dst_dir))
         else:
             shutil.copy2(file_, src_dst_dir)
-        LOG.debug("copied %s to %s", file_, src_dst_dir)
+        LOGGER.debug("copied %s to %s", file_, src_dst_dir)
 
-    LOG.info(
+    LOGGER.info(
         "Finished copying common source files (in %4.2f s)", time.time() - start_time
     )
 
@@ -485,8 +545,8 @@ def copy_files_to_include(build_cfg):
         build_cfg (BuildProjConfig): Build project class holding where
             files should be stored
     """
-    LOG.info("******************************************************")
-    LOG.info("Start copying extra included source files")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start copying extra included source files")
     start_time = time.time()
     src_dst_dir = build_cfg.get_src_code_dst_dir()
 
@@ -505,25 +565,25 @@ def copy_files_to_include(build_cfg):
         elif os.path.isfile(include_path):
             files.append(include_path)
         else:
-            LOG.critical("File or directory %s not found", include_path)
+            LOGGER.critical("File or directory %s not found", include_path)
     for file_ in files:
         shutil.copy2(file_, src_dst_dir)
-        LOG.debug("copied %s to %s", file_, src_dst_dir)
+        LOGGER.debug("copied %s to %s", file_, src_dst_dir)
 
     # Copy some directories as is to the destination directory
     include_tree_paths = [Path(p) for p in build_cfg.get_includes_paths_tree()]
     existing_tree_paths = [p for p in include_tree_paths if p.exists()]
     missing_tree_paths = [p for p in include_tree_paths if not p.exists()]
     if missing_tree_paths:
-        LOG.warning(f"Missing include paths: {missing_tree_paths}")
+        LOGGER.warning(f"Missing include paths: {missing_tree_paths}")
     for path in existing_tree_paths:
         for file_ in path.rglob("*"):
             if file_.is_file():
                 new_path = Path(src_dst_dir, file_.relative_to(path))
                 create_dir(new_path.parent)
                 shutil.copy2(file_, new_path)
-                LOG.debug("copied %s to %s", file_, new_path)
-    LOG.info(
+                LOGGER.debug("copied %s to %s", file_, new_path)
+    LOGGER.info(
         "Finished copying extra included files (in %4.2f s)", time.time() - start_time
     )
 
@@ -541,8 +601,8 @@ def copy_unit_cfgs_to_output(build_cfg):
     """
     cfg_dst_dir = build_cfg.get_unit_cfg_deliv_dir()
     if cfg_dst_dir is not None:
-        LOG.info("******************************************************")
-        LOG.info("Start copying the unit config files")
+        LOGGER.info("******************************************************")
+        LOGGER.info("Start copying the unit config files")
         start_time = time.time()
         cfg_dirs = build_cfg.get_unit_cfg_dirs()
         files = []
@@ -550,8 +610,8 @@ def copy_unit_cfgs_to_output(build_cfg):
             files.extend(glob.glob(pjoin(cfg_dir, "*.json")))
         for file_ in files:
             shutil.copy2(file_, cfg_dst_dir)
-            LOG.debug("copied %s to %s", file_, cfg_dst_dir)
-        LOG.info(
+            LOGGER.debug("copied %s to %s", file_, cfg_dst_dir)
+        LOGGER.info(
             "Finished copying the unit config files (in %4.2f s)",
             time.time() - start_time,
         )
@@ -568,8 +628,8 @@ def merge_a2l_files(build_cfg, unit_cfg, complete_a2l=False, silver_a2l=False):
     Returns:
         a2l (A2lMerge): A2lMerge class holding the merged a2l data.
     """
-    LOG.info("******************************************************")
-    LOG.info("Start merging A2L-files")
+    LOGGER.info("******************************************************")
+    LOGGER.info("Start merging A2L-files")
     start_time = time.time()
     src_dirs = build_cfg.get_unit_src_dirs()
     src_dst_dir = build_cfg.get_src_code_dst_dir()
@@ -579,9 +639,9 @@ def merge_a2l_files(build_cfg, unit_cfg, complete_a2l=False, silver_a2l=False):
     a2l_files_gen = glob.glob(pjoin(src_dst_dir, "*.a2l"))
     a2l = A2lMerge(build_cfg, unit_cfg, a2l_files_unit, a2l_files_gen)
     new_a2l_file = os.path.join(src_dst_dir, build_cfg.get_a2l_name())
-    # LOG.debug(new_a2l_file)
+    # LOGGER.debug(new_a2l_file)
     a2l.merge(new_a2l_file, complete_a2l, silver_a2l)
-    LOG.info("Finished merging A2L-files (in %4.2f s)", time.time() - start_time)
+    LOGGER.info("Finished merging A2L-files (in %4.2f s)", time.time() - start_time)
     return a2l
 
 
@@ -593,7 +653,7 @@ def find_all_project_configs(prj_cfg_file):
     return glob.glob(all_cfg_path, recursive=True)
 
 
-def propagate_tag_name(build_cfg, tag_name, problem_logger):
+def propagate_release_info(build_cfg, tag_name, problem_logger):
     """Set tag name in relevant files, for release builds.
 
     Args:
@@ -601,8 +661,8 @@ def propagate_tag_name(build_cfg, tag_name, problem_logger):
         tag_name (str): git tag name.
         problem_logger (object): logger for powertrain_build.
     """
-    LOG.info("******************************************************")
-    LOG.info("Propagating tag name: %s", tag_name)
+    LOGGER.info("******************************************************")
+    LOGGER.info("Propagating tag name: %s", tag_name)
     start_time = time.time()
 
     src_dst_dir = build_cfg.get_src_code_dst_dir()
@@ -612,16 +672,29 @@ def propagate_tag_name(build_cfg, tag_name, problem_logger):
         problem_logger.critical("Missing %s", h_file_path)
         return
 
-    with open(h_file_path, "r+", encoding="utf-8") as file_handle:
+    part_numbers = build_cfg.get_project_default_cfg()
+    part_number_SWLM = part_numbers[0]
+    part_number_SWCE = part_numbers[1]
+
+    with open(h_file_path, 'r+') as file_handle:
         contents = file_handle.read()
         file_handle.seek(0)
-        new_contents = contents.replace(
+        file_handle.truncate(0)
+        contents = contents.replace(
             '#define VCC_SOFTWARE_NAME "tagname"',
-            f'#define VCC_SOFTWARE_NAME "{tag_name}"',
+            '#define VCC_SOFTWARE_NAME "%s"' % tag_name
+        )  # Denso
+        contents = contents.replace(
+            '#define SW_PARTNO_SWLM "partnumber_SWLM"',
+            '#define SW_PARTNO_SWLM "%s"' % part_number_SWLM
         )
-        file_handle.write(new_contents)
+        contents = contents.replace(
+            '#define SW_PARTNO_SWCE "partnumber_SWCE"',
+            '#define SW_PARTNO_SWCE "%s"' % part_number_SWCE
+        )
+        file_handle.write(contents)
 
-    LOG.info("Finished propagating tag name (in %4.2f s)", time.time() - start_time)
+    LOGGER.info("Finished propagating tag name (in %4.2f s)", time.time() - start_time)
 
 
 def add_args(parser):
@@ -659,6 +732,11 @@ def add_args(parser):
     )
     powertrain_build_parser.add_argument(
         "--no-abort", action="store_true", help="Do not abort due to errors"
+    )
+    powertrain_build_parser.add_argument(
+        "--include-model-a2l",
+        action="store_true",
+        help="Move model a2l files to output folder",
     )
     powertrain_build_parser.add_argument(
         "--no-nvm-a2l",
@@ -700,6 +778,7 @@ def build(
     core_dummy=False,
     rte_dummy=False,
     no_abort=False,
+    include_model_a2l=False,
     no_nvm_a2l=False,
     debug=False,
     quiet=False,
@@ -718,6 +797,7 @@ def build(
         core_dummy (bool): Generate core dummy code. Default=False.
         rte_dummy (bool): Generate RTE dummy code. Default=False.
         no_abort (bool): Do not abort due to errors. Default=False.
+        include_model_a2l (bool): Move model a2l files to output folder. Default=False.
         no_nvm_a2l (bool): Do not generate A2L for NVM structs. Default=False.
         debug (bool): Activate the debug log. Default=False.
         quiet (bool): Disable logging to stdout. Default=False.
@@ -747,21 +827,21 @@ def build(
         src_dst_dir = build_cfg.get_src_code_dst_dir()
 
         setup_logging(build_cfg.get_log_dst_dir(), problem_logger, debug, quiet)
-        LOG.info("Starting build")
-        LOG.info("powertrain_build version is: %s", __version__)
-        LOG.info("Project/Model config file version is: %s", __config_version__)
-        LOG.info("Read SPM code switches")
+        LOGGER.info("Starting build")
+        LOGGER.info("powertrain_build version is: %s", __version__)
+        LOGGER.info("Project/Model config file version is: %s", __config_version__)
+        LOGGER.info("Read SPM code switches")
         start_time = time.time()
         feature_cfg = FeatureConfigs(build_cfg)
-        LOG.info(
+        LOGGER.info(
             "Finished reading SPM code switches (in %4.2f s)", time.time() - start_time
         )
 
-        LOG.info("******************************************************")
-        LOG.info("Start generating per project unit config data")
+        LOGGER.info("******************************************************")
+        LOGGER.info("Start generating per project unit config data")
         start_time = time.time()
         unit_cfg = UnitConfigs(build_cfg, feature_cfg)
-        LOG.info(
+        LOGGER.info(
             "Finished generating per project unit config data (in %4.2f s)",
             time.time() - start_time,
         )
@@ -773,10 +853,10 @@ def build(
 
         start_time = time.time()
         cnf_header = pjoin(src_dst_dir, build_cfg.get_feature_conf_header_name())
-        LOG.info("******************************************************")
-        LOG.info("Generate compiler switches header file %s", cnf_header)
+        LOGGER.info("******************************************************")
+        LOGGER.info("Generate compiler switches header file %s", cnf_header)
         feature_cfg.gen_unit_cfg_header_file(cnf_header)
-        LOG.info(
+        LOGGER.info(
             "Finished generating compiler switches header file (in %4.2f s)",
             time.time() - start_time,
         )
@@ -788,51 +868,41 @@ def build(
         if interface:
             interface_report(build_cfg, unit_cfg, signal_if)
 
-        LOG.info("******************************************************")
-        LOG.info("Start generating VcExtVar and VcDebug")
+        LOGGER.info("******************************************************")
+        LOGGER.info("Start generating VcExtVar and VcDebug")
         start_time = time.time()
-        asil_level_db = build_defs.CVC_ASIL_LEVEL_MAP[code_generation_config["generalAsilLevelDebug"]]
-        asil_level_dep = build_defs.ASIL_LEVEL_MAP[code_generation_config["generalAsilLevelDependability"]]
-        nrm_dict, dep_dict, sec_dict, dbg_dict = signal_if.get_external_io()
-
-        generate_external_var(
-            build_cfg, unit_cfg, udt, asil_level_dep, nrm_dict, dep_dict, sec_dict, polyspace_comments
-        )
-
-        restructured_dbg_dict = {}
-        dbg_instances = {
-            ExtDbg(
-                dbg_dict, build_cfg, unit_cfg, build_defs.CVC_ASIL_QM, polyspace_comments
-            ): ("VcDebug", "VcDebugOutput"),
-            ExtDbg(
-                dep_dict, build_cfg, unit_cfg, asil_level_db, polyspace_comments
-            ): ("VcDebugSafe", "VcDebugOutputSafe")
-        }
-        for instance, dir_names in dbg_instances.items():
-            restructured_dbg_dict.update({
-                dir_names[0]: instance.dbg_dict["inputs"],
-                dir_names[1]: instance.dbg_dict["outputs"]
-            })
-            instance.gen_dbg_files(
-                pjoin(build_cfg.get_src_code_dst_dir(), dir_names[0]),
-                pjoin(build_cfg.get_src_code_dst_dir(), dir_names[1])
+        use_external_asil_config = code_generation_config['useExternalAsilConfig']
+        if use_external_asil_config:
+            if build_cfg.has_yaml_interface:
+                LOGGER.critical("External ASIL config is not supported for YAML interface")
+            else:
+                qm, asil_a, asil_b, asil_c, dbg_qm_a, dbg_b_c = signal_if.get_asil_config()
+                generate_external_var_asil(build_cfg, unit_cfg, udt, qm, asil_a, asil_b, asil_c, polyspace_comments)
+                restructured_dbg_dict = generate_external_debug_var(
+                    build_cfg, unit_cfg, dbg_qm_a, dbg_b_c, polyspace_comments
+                )
+        else:
+            nrm_dict, dep_dict, sec_dict, dbg_dict = signal_if.get_external_io()
+            generate_external_var(build_cfg, unit_cfg, udt, nrm_dict, dep_dict, sec_dict, polyspace_comments)
+            restructured_dbg_dict = generate_external_debug_var(
+                build_cfg, unit_cfg, dbg_dict, dep_dict, polyspace_comments
             )
-        LOG.info("Finished generating VcExtVar and VcDebug (in %4.2f s)", time.time() - start_time)
+        LOGGER.info("Finished generating VcExtVar and VcDebug (in %4.2f s)", time.time() - start_time)
 
         if not code_generation_config["generateDummyVar"]:
-            LOG.info("******************************************************")
-            LOG.info("Skip generating VcDummy file")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Skip generating VcDummy file")
         else:
             generate_dummy_var(build_cfg, unit_cfg, signal_if, udt, polyspace_comments)
 
         custom_dummy_spm = build_cfg.get_use_custom_dummy_spm()
         if custom_dummy_spm is not None:
-            LOG.info("******************************************************")
+            LOGGER.info("******************************************************")
             if os.path.isfile(custom_dummy_spm):
-                LOG.info("Copying custom dummy spm file (%s)", custom_dummy_spm)
+                LOGGER.info("Copying custom dummy spm file (%s)", custom_dummy_spm)
                 shutil.copy2(custom_dummy_spm, build_cfg.get_src_code_dst_dir())
             else:
-                LOG.warning(
+                LOGGER.warning(
                     "Cannot find desired custom dummy spm file: %s", custom_dummy_spm
                 )
                 generate_dummy_spm(build_cfg, unit_cfg, feature_cfg, signal_if, udt, polyspace_comments)
@@ -841,26 +911,26 @@ def build(
 
         custom_sources = build_cfg.get_use_custom_sources()
         if custom_sources is not None:
-            LOG.info("******************************************************")
+            LOGGER.info("******************************************************")
             for custom_src in custom_sources:
                 if os.path.isfile(custom_src):
-                    LOG.info("Copying custom sourcefile (%s)", custom_src)
+                    LOGGER.info("Copying custom sourcefile (%s)", custom_src)
                     shutil.copy2(custom_src, build_cfg.get_src_code_dst_dir())
                 else:
-                    LOG.warning("Cannot find desired custom sourcefile: %s", custom_src)
+                    LOGGER.warning("Cannot find desired custom sourcefile: %s", custom_src)
 
-        LOG.info("******************************************************")
-        LOG.info("Start generating the scheduling functions")
+        LOGGER.info("******************************************************")
+        LOGGER.info("Start generating the scheduling functions")
         start_time = time.time()
         gen_schd = SchedFuncs(build_cfg, unit_cfg, restructured_dbg_dict)
         gen_schd.generate_sched_c_fncs(generate_rte_checkpoint_calls)
-        LOG.info("Finished generating the scheduling functions (in %4.2f s)", time.time() - start_time)
+        LOGGER.info("Finished generating the scheduling functions (in %4.2f s)", time.time() - start_time)
 
-        LOG.info("******************************************************")
-        LOG.info("Start generating the ts header file")
+        LOGGER.info("******************************************************")
+        LOGGER.info("Start generating the ts header file")
         start_time = time.time()
         gen_schd.generate_ts_defines(pjoin(src_dst_dir, build_cfg.get_ts_header_name()))
-        LOG.info("Finished generating ts header file (in %4.2f s)", time.time() - start_time)
+        LOGGER.info("Finished generating ts header file (in %4.2f s)", time.time() - start_time)
 
         # Generate AllSystemInfo.mat for DocGen compatibility
         if generate_system_info:
@@ -883,7 +953,7 @@ def build(
                 return 1
 
         # Copy files to output folder
-        copy_unit_src_to_src_out(build_cfg)
+        copy_unit_src_to_src_out(build_cfg, include_model_a2l)
         copy_common_src_to_src_out(build_cfg)
         copy_unit_cfgs_to_output(build_cfg)
         copy_files_to_include(build_cfg)
@@ -892,10 +962,10 @@ def build(
             memory_section.generate_required_header_files()
             memory_section.generate_optional_header_files()
 
-        # Propagate tag name for release builds, TAG_NAME must be set in environment
+        # Propagate release information for release builds, TAG_NAME must be set in environment
         tag_name = os.environ.get("TAG_NAME", "")
-        if tag_name and code_generation_config["propagateTagName"]:
-            propagate_tag_name(build_cfg, tag_name, problem_logger)
+        if tag_name and code_generation_config["propagateReleaseInfo"]:
+            propagate_release_info(build_cfg, tag_name, problem_logger)
 
         # Copy header files (subversion is using an external that points to
         # the correct set of pragma section header_files
@@ -913,15 +983,15 @@ def build(
         if code_generation_config["generateYamlInterfaceFile"]:
             zc_core = ZCCore(build_cfg, unit_cfg)
             zc_dids = ZCDIDs(build_cfg, unit_cfg)
-            LOG.info("******************************************************")
-            LOG.info("Start generating NVMDefinitions")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Start generating NVMDefinitions")
             start_time = time.time()
             project_nvm_defintions = unit_cfg.get_per_cfg_unit_cfg().get("nvm", {})
             zc_nvm = ZCNVMDef(build_cfg, unit_cfg, project_nvm_defintions)
-            LOG.info(
+            LOGGER.info(
                 "Finished generating NVMDefinitions (in %4.2f s)", time.time() - start_time
             )
-            LOG.info("******************************************************")
+            LOGGER.info("******************************************************")
             axis_data = merged_a2l.get_characteristic_axis_data()
             composition_yaml = CompositionYaml(
                 build_cfg,
@@ -934,42 +1004,42 @@ def build(
                 udt.get_enumerations()
             )
             composition_yaml.generate_yaml()
-            LOG.info("******************************************************")
-            LOG.info("Generating Core header")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Generating Core header")
             zc_core.generate_dtc_files()
-            LOG.info("******************************************************")
-            LOG.info("Generating DID files")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Generating DID files")
             zc_dids.generate_did_files()
-            LOG.info("******************************************************")
-            LOG.info("Generating NVM definitions")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Generating NVM definitions")
             zc_nvm.generate_nvm_rte_files()
 
             if rte_dummy:
-                LOG.info("******************************************************")
-                LOG.info("Generating RTE dummy files")
+                LOGGER.info("******************************************************")
+                LOGGER.info("Generating RTE dummy files")
                 zc_rte = RteDummy(build_cfg, zc_core, zc_nvm, composition_yaml.cal_class_info["tl"])
                 zc_rte.generate_rte_dummy()
 
             if code_generation_config["generateCalibrationInterfaceFiles"]:
-                LOG.info("******************************************************")
+                LOGGER.info("******************************************************")
                 if code_generation_config["useCalibrationRteMacroExpansion"]:
-                    LOG.warning(
+                    LOGGER.warning(
                         "Skip generating calibration interface files as useCalibrationRteMacroExpansion is set to true"
                     )
                 else:
-                    LOG.info("Generating calibration interface files")
+                    LOGGER.info("Generating calibration interface files")
                     zc_calibration = ZoneControllerCalibration(
                         build_cfg, composition_yaml.cal_class_info["tl"]
                     )
                     zc_calibration.generate_calibration_interface_files()
         elif build_cfg.get_ecu_info()[0] == "HI":
             generate_nvm_def(build_cfg, unit_cfg, no_nvm_a2l)
-            LOG.info("******************************************************")
-            LOG.info("Generating Core header")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Generating Core header")
             hi_core = HICore(build_cfg, unit_cfg)
             hi_core.generate_dtc_files()
-            LOG.info("******************************************************")
-            LOG.info("Generating DID files")
+            LOGGER.info("******************************************************")
+            LOGGER.info("Generating DID files")
             dids = HIDIDs(build_cfg, unit_cfg)
             dids.generate_did_files()
         else:
@@ -979,11 +1049,11 @@ def build(
             if core_dummy:
                 core_dummy_fname = os.path.basename(build_cfg.get_core_dummy_name())
                 if CodeGenerators.embedded_coder in unit_cfg.code_generators:
-                    LOG.info("******************************************************")
-                    LOG.info("Skip generating %s for EC projects", core_dummy_fname)
+                    LOGGER.info("******************************************************")
+                    LOGGER.info("Skip generating %s for EC projects", core_dummy_fname)
                 elif not code_generation_config["generateCoreDummy"]:
-                    LOG.info("******************************************************")
-                    LOG.info("Skip generating %s since generateCoreDummy is set to False", core_dummy_fname)
+                    LOGGER.info("******************************************************")
+                    LOGGER.info("Skip generating %s since generateCoreDummy is set to False", core_dummy_fname)
                 else:
                     core = Core(build_cfg, unit_cfg)
                     generate_core_dummy(build_cfg, core, unit_cfg)
@@ -995,7 +1065,7 @@ def build(
             )
             return 1
 
-        LOG.info("Finished build in %4.2f s", time.time() - tot_start_time)
+        LOGGER.info("Finished build in %4.2f s", time.time() - tot_start_time)
         return 0
 
     finally:

@@ -3,14 +3,16 @@
 Tests for the epsf_stars module.
 """
 
+import copy
 import warnings
 from multiprocessing.reduction import ForkingPickler
 
+import astropy.units as u
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from astropy.nddata import (InverseVariance, NDData, StdDevUncertainty,
-                            VarianceUncertainty)
+                            UnknownUncertainty, VarianceUncertainty)
 from astropy.table import Table
 from astropy.utils.exceptions import AstropyUserWarning
 from astropy.wcs import WCS
@@ -196,7 +198,32 @@ def test_prepare_uncertainty_info_variants():
 
     info = _prepare_uncertainty_info(data)
     assert info['type'] == 'uncertainty'
-    assert 'uncertainty' in info
+    assert_allclose(info['array'], np.ones((5, 5)) * 0.1)
+
+    # Test variance uncertainty (converted to standard deviation)
+    data.uncertainty = VarianceUncertainty(np.ones((5, 5)) * 0.04)
+    info = _prepare_uncertainty_info(data)
+    assert info['type'] == 'uncertainty'
+    assert_allclose(info['array'], np.ones((5, 5)) * 0.2)
+
+
+def test_prepare_uncertainty_info_no_represent_as():
+    """
+    Test uncertainty preparation for a duck-typed uncertainty that
+    cannot be converted to a standard deviation.
+    """
+    class PlainUncertainty:
+        uncertainty_type = 'std'
+
+        def __init__(self, array):
+            self.array = array
+
+    data = NDData(np.ones((5, 5)))
+    data.uncertainty = PlainUncertainty(np.ones((5, 5)) * 0.5)
+
+    info = _prepare_uncertainty_info(data)
+    assert info['type'] == 'uncertainty'
+    assert_allclose(info['array'], np.ones((5, 5)) * 0.5)
 
 
 def test_create_weights_cutout():
@@ -226,11 +253,10 @@ def test_create_weights_cutout_with_uncertainty():
     """
     Test weights cutout creation with uncertainty.
     """
-    # Create uncertainty info
-    uncertainty = StdDevUncertainty(np.ones((5, 5)) * 0.1)
+    # Create uncertainty info with a standard deviation array
     info = {
         'type': 'uncertainty',
-        'uncertainty': uncertainty,
+        'array': np.ones((5, 5)) * 0.1,
     }
 
     slices = (slice(1, 4), slice(1, 4))
@@ -245,9 +271,9 @@ def test_create_weights_cutout_with_uncertainty():
 
 def test_create_weights_cutout_non_finite_warning():
     """
-    Test detection of non-finite weights.
+    Test detection of nonfinite weights.
     """
-    # Create weights with non-finite values
+    # Create weights with nonfinite values
     bad_weights = np.ones((5, 5))
     bad_weights[2, 2] = np.inf
 
@@ -263,7 +289,7 @@ def test_create_weights_cutout_non_finite_warning():
     # emitted by caller)
     weights, has_nonfinite = _create_weights_cutout(info, mask, slices)
     assert has_nonfinite
-    # Non-finite value should be set to zero
+    # Nonfinite value should be set to zero
     assert weights[1, 1] == 0.0
 
 
@@ -325,19 +351,16 @@ class TestEPSFStar:
         with pytest.raises(ValueError, match=match):
             EPSFStar(data, weights=wrong_weights)
 
-        # Test non-finite weights (should generate warning)
+        # Test nonfinite weights (should generate warning)
         bad_weights = np.ones((5, 5))
         bad_weights[2, 2] = np.inf
         bad_weights[1, 1] = np.nan
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'Nonfinite weight values'
+        with pytest.warns(AstropyUserWarning, match=match):
             star = EPSFStar(data, weights=bad_weights)
-            assert len(w) == 1
-            assert issubclass(w[0].category, AstropyUserWarning)
-            assert 'Non-finite weight values' in str(w[0].message)
 
-        # Check that non-finite weights were set to zero
+        # Check that nonfinite weights were set to zero
         assert star.weights[2, 2] == 0.0
         assert star.weights[1, 1] == 0.0
 
@@ -351,20 +374,19 @@ class TestEPSFStar:
         data[3, 3] = np.nan
         data[4, 4] = np.inf
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'contains invalid data'
+        with pytest.warns(AstropyUserWarning, match=match):
             star = EPSFStar(data)
-            # Should mask invalid pixels
-            assert star.mask[1, 1]
-            assert star.mask[2, 2]
-            assert star.mask[3, 3]
-            assert star.mask[4, 4]
-            assert star.weights[1, 1] == 0.0
-            assert star.weights[2, 2] == 0.0
-            assert star.weights[3, 3] == 0.0
-            assert star.weights[4, 4] == 0.0
-            # Check that warning was issued about invalid data
-            assert len(w) > 0
+
+        # Should mask invalid pixels
+        assert star.mask[1, 1]
+        assert star.mask[2, 2]
+        assert star.mask[3, 3]
+        assert star.mask[4, 4]
+        assert star.weights[1, 1] == 0.0
+        assert star.weights[2, 2] == 0.0
+        assert star.weights[3, 3] == 0.0
+        assert star.weights[4, 4] == 0.0
 
     def test_cutout_center_validation(self):
         """
@@ -378,20 +400,15 @@ class TestEPSFStar:
         with pytest.raises(ValueError, match=match):
             star.cutout_center = [1, 2, 3]
 
-        # Test non-finite values
+        # Test nonfinite values
         match = 'must be finite'
         with pytest.raises(ValueError, match=match):
             star.cutout_center = [np.nan, 2.0]
 
         # Test bounds warnings (should warn but not raise)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'outside the cutout bounds'
+        with pytest.warns(AstropyUserWarning, match=match):
             star.cutout_center = [-1, 2]  # Outside bounds
-            assert len(w) >= 1
-            # Check that warning mentions coordinates outside bounds
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('outside the cutout bounds' in msg
-                       for msg in warning_messages)
 
     def test_origin_validation(self):
         """
@@ -404,10 +421,24 @@ class TestEPSFStar:
         with pytest.raises(ValueError, match=match):
             EPSFStar(data, origin=[1, 2, 3])
 
-        # Test non-finite origin
+        # Test nonfinite origin
         match = 'Origin coordinates must be finite'
         with pytest.raises(ValueError, match=match):
             EPSFStar(data, origin=[np.inf, 2])
+
+        # Test scalar origin
+        match = 'Origin must have exactly 2 elements'
+        with pytest.raises(ValueError, match=match):
+            EPSFStar(data, origin=5)
+
+    def test_quantity_data_rejected(self):
+        """
+        Test that Quantity data inputs raise a clear TypeError.
+        """
+        data = np.ones((5, 5)) * u.Jy
+        match = 'Quantity inputs are not supported'
+        with pytest.raises(TypeError, match=match):
+            EPSFStar(data)
 
     def test_estimate_flux_masked_data(self):
         """
@@ -448,7 +479,7 @@ class TestEPSFStar:
         weights = np.zeros((5, 5))  # All masked data
 
         # This should raise ValueError because all data is masked
-        match = 'Star cutout is completely masked; no valid data available'
+        match = 'Star cutout is completely masked. No valid data available'
         with pytest.raises(ValueError, match=match):
             EPSFStar(data, weights=weights)
 
@@ -461,7 +492,7 @@ class TestEPSFStar:
         weights = np.zeros((7, 7))
 
         # Should raise ValueError with appropriate message
-        match = 'Star cutout is completely masked; no valid data available'
+        match = 'Star cutout is completely masked. No valid data available'
         with pytest.raises(ValueError, match=match):
             EPSFStar(data, weights=weights)
 
@@ -494,13 +525,9 @@ class TestEPSFStar:
         data = np.zeros((5, 5))
 
         # EPSFStar should emit warning when called directly
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'All unmasked data values in star cutout are zero'
+        with pytest.warns(AstropyUserWarning, match=match):
             star = EPSFStar(data)
-            # Should have warning about all-zero data
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('All unmasked data values' in msg and 'zero' in msg
-                       for msg in warning_messages)
 
         # Star should be created with flux=0 and flag set
         assert star.flux == 0.0
@@ -518,6 +545,21 @@ class TestEPSFStar:
         star_array = star.__array__()
         assert_array_equal(star_array, data)
 
+    def test_array_copy_false(self):
+        """
+        Test that np.array(star, copy=False) works without warnings
+        (NumPy 2 __array__ signature) and that the default is a copy.
+        """
+        data = np.random.default_rng(42).random((5, 5))
+        star = EPSFStar(data)
+
+        arr = np.array(star, copy=False)
+        assert_array_equal(arr, data)
+
+        arr = np.array(star)
+        arr[0, 0] = -100.0
+        assert star.data[0, 0] != -100.0
+
     def test_properties(self):
         """
         Test star properties.
@@ -534,17 +576,43 @@ class TestEPSFStar:
         assert_array_equal(star.center, expected_center)
 
         # Test slices property
-        # Implementation uses (origin_y to origin_y+shape[0],
-        # origin_x to origin_x+shape[1])
-        expected_slices = (slice(20, 29), slice(10, 17))
+        expected_slices = (slice(20, 27), slice(10, 19))
         assert star.slices == expected_slices
 
         # Test bbox property
         bbox = star.bbox
         assert bbox.ixmin == 10
-        assert bbox.ixmax == 17
+        assert bbox.ixmax == 19
         assert bbox.iymin == 20
-        assert bbox.iymax == 29
+        assert bbox.iymax == 27
+
+    def test_slices_bbox_rectangular_roundtrip(self):
+        """
+        Regression test that slices/bbox are correct for nonsquare
+        cutouts. Indexing the parent image with star.slices must
+        return the cutout.
+        """
+        img = np.arange(60 * 80, dtype=float).reshape(60, 80)
+        stars = extract_stars(NDData(img),
+                              Table({'x': [40.0], 'y': [30.0]}),
+                              size=(11, 15))
+        star = stars[0]
+        assert star.data.shape == (11, 15)
+        assert_array_equal(img[star.slices], star.data)
+
+    def test_flux_update_invalidates_normalization(self):
+        """
+        Regression test that updating flux (including on a shallow
+        copy, as the ePSF builder does) refreshes the cached
+        normalized data values.
+        """
+        star = EPSFStar(np.ones((5, 5)))
+        norm = star._data_values_normalized.copy()
+        star2 = copy.copy(star)
+        star2.flux = star.flux * 2
+        assert_allclose(star2._data_values_normalized, norm / 2)
+        star.flux = star.flux * 4
+        assert_allclose(star._data_values_normalized, norm / 4)
 
     def test_flux_estimation_interpolation_fallback(self):
         """
@@ -635,22 +703,13 @@ class TestEPSFStar:
         star = EPSFStar(data)
 
         # Test y-coordinate outside bounds
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'y-coordinate .* is outside the cutout bounds'
+        with pytest.warns(AstropyUserWarning, match=match):
             star.cutout_center = (2.0, -1.0)  # y < 0
-            assert len(w) >= 1
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('y-coordinate' in msg and 'outside' in msg
-                       for msg in warning_messages)
 
         # Test y-coordinate at upper bound
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        with pytest.warns(AstropyUserWarning, match=match):
             star.cutout_center = (2.0, 6.0)  # y >= shape[0]
-            assert len(w) >= 1
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('y-coordinate' in msg and 'outside' in msg
-                       for msg in warning_messages)
 
     def test_empty_data_validation(self):
         """
@@ -679,7 +738,10 @@ class TestEPSFStar:
         tbl['y'] = [12]
         stars = extract_stars(NDData(data), tbl, size=23)
         residual = stars[0].compute_residual_image(epsf)
-        assert_allclose(np.sum(residual), 0.0)
+        # The star flux is the sum of the cutout, which can differ from
+        # the input flux by rounding, so the residual is not exactly
+        # zero on every platform.
+        assert_allclose(residual, 0.0, atol=1e-12)
 
 
 class TestEPSFStars:
@@ -709,6 +771,10 @@ class TestEPSFStars:
         with pytest.raises(TypeError, match=match):
             EPSFStars('invalid')
 
+        # Test list with invalid element types
+        with pytest.raises(TypeError, match=match):
+            EPSFStars([star1, 'not_a_star'])
+
     def test_indexing_operations(self):
         """
         Test indexing and slicing operations.
@@ -731,6 +797,24 @@ class TestEPSFStars:
             count += 1
             assert isinstance(star, EPSFStar)
         assert count == 2
+
+    def test_delitem_invalidates_caches(self):
+        """
+        Regression test that deleting a star invalidates the cached
+        star counts and flat star list.
+        """
+        stars = [EPSFStar(np.ones((5, 5))) for _ in range(3)]
+        stars_obj = EPSFStars(stars)
+
+        # Populate the cached properties
+        assert stars_obj.n_stars == 3
+        assert stars_obj.n_all_stars == 3
+        assert len(stars_obj.all_stars) == 3
+
+        del stars_obj[0]
+        assert stars_obj.n_stars == len(stars_obj)
+        assert stars_obj.n_all_stars == len(stars_obj)
+        assert len(stars_obj.all_stars) == len(stars_obj)
 
     def test_pickle_operations(self):
         """
@@ -823,9 +907,38 @@ class TestEPSFStars:
         Verify that EPSFStars can be successfully pickled/unpickled for
         multiprocessing.
         """
-        # This should not fail
-        stars = EPSFStars([1])
-        ForkingPickler.loads(ForkingPickler.dumps(stars))
+        data = np.random.default_rng(42).random((5, 5))
+        stars = EPSFStars([EPSFStar(data)])
+        unpickled = ForkingPickler.loads(ForkingPickler.dumps(stars))
+        assert len(unpickled) == 1
+        assert_array_equal(unpickled[0].data, data)
+
+    def test_getattr_with_linked_stars(self, simple_wcs):
+        """
+        Regression test that attribute delegation works for a mix of
+        EPSFStar and multistar LinkedEPSFStar objects (ragged
+        per-star values return an object array).
+        """
+        star = EPSFStar(np.ones((5, 5)))
+        linked_star1 = EPSFStar(np.ones((7, 7)), wcs_large=simple_wcs)
+        linked_star2 = EPSFStar(np.ones((9, 9)), wcs_large=simple_wcs)
+        linked = LinkedEPSFStar([linked_star1, linked_star2])
+        stars = EPSFStars([star, linked])
+
+        centers = stars.cutout_center
+        assert len(centers) == 2
+        assert_array_equal(centers[0], star.cutout_center)
+        assert_array_equal(centers[1], linked.cutout_center)
+
+        fluxes = stars.flux
+        assert len(fluxes) == 2
+        assert fluxes[0] == star.flux
+        assert_array_equal(fluxes[1], linked.flux)
+
+        excluded = stars._excluded_from_fit
+        assert len(excluded) == 2
+        assert not excluded[0]
+        assert_array_equal(excluded[1], [False, False])
 
     def test_cutout_center_flat_with_linked_stars(self, simple_wcs):
         """
@@ -911,13 +1024,9 @@ class TestLinkedEPSFStar:
         linked = LinkedEPSFStar([star1, star2])
 
         # Should warn about no good stars
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'have all been excluded'
+        with pytest.warns(AstropyUserWarning, match=match):
             linked.constrain_centers()
-            assert len(w) >= 1
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('have all been excluded' in msg
-                       for msg in warning_messages)
 
     def test_constraint_single_star(self, simple_wcs):
         """
@@ -972,6 +1081,30 @@ class TestLinkedEPSFStar:
         # Test constrain_centers (should execute without error)
         linked.constrain_centers()
 
+    @pytest.mark.parametrize('ctype', [('RA---TAN', 'DEC--TAN'),
+                                       ('DEC--TAN', 'RA---TAN')])
+    def test_constrain_centers_wcs_axis_order(self, ctype):
+        """
+        Test that constrain_centers handles a WCS whose latitude axis
+        comes first.
+        """
+        wcs = WCS(naxis=2)
+        wcs.wcs.crpix = [25, 25]
+        wcs.wcs.crval = [200, 30] if ctype[0].startswith('RA') else [30, 200]
+        wcs.wcs.cdelt = [0.01, 0.01]
+        wcs.wcs.ctype = ctype
+
+        centers = np.array([(3.1, 3.1), (2.9, 2.9), (3.0, 3.2)])
+        stars = [EPSFStar(np.ones((7, 7)), wcs_large=wcs,
+                          cutout_center=center, origin=(20, 20))
+                 for center in centers]
+        linked = LinkedEPSFStar(stars)
+        linked.constrain_centers()
+
+        expected = np.mean(centers, axis=0)
+        for star in stars:
+            assert_allclose(star.cutout_center, expected, atol=1e-4)
+
     def test_constrain_centers_with_some_excluded_stars(self, simple_wcs):
         """
         Test constrain_centers with some excluded stars.
@@ -987,7 +1120,7 @@ class TestLinkedEPSFStar:
 
         linked = LinkedEPSFStar([star1, star2, star3])
 
-        # This should process only the good stars; should not raise
+        # This should process only the good stars. It should not raise
         # warnings since there are good stars
         linked.constrain_centers()
 
@@ -1005,14 +1138,51 @@ class TestLinkedEPSFStar:
         linked = LinkedEPSFStar([star1, star2])
 
         # Should trigger early return and emit warning
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'Cannot constrain centers'
+        with pytest.warns(AstropyUserWarning, match=match):
             linked.constrain_centers()
-            # Should get warning about no good stars
-            warning_messages = [str(warning.message) for warning in w]
-            has_warning = any('Cannot constrain centers' in msg
-                              for msg in warning_messages)
-            assert has_warning
+
+    def test_constrain_fluxes(self, simple_wcs):
+        """
+        Test that constrain_fluxes sets the fluxes of the good linked
+        stars to their mean and leaves excluded stars unchanged.
+        """
+        star1 = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs, flux=10.0)
+        star2 = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs, flux=20.0)
+        star3 = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs, flux=90.0)
+        star3._excluded_from_fit = True
+        linked = LinkedEPSFStar([star1, star2, star3])
+
+        linked.constrain_fluxes()
+        assert star1.flux == 15.0
+        assert star2.flux == 15.0
+        assert star3.flux == 90.0
+
+    def test_constrain_fluxes_single_star(self, simple_wcs):
+        """
+        Test that constrain_fluxes is a no-op for a single star.
+        """
+        star = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs, flux=10.0)
+        linked = LinkedEPSFStar([star])
+        linked.constrain_fluxes()
+        assert star.flux == 10.0
+
+    def test_constrain_fluxes_all_excluded(self, simple_wcs):
+        """
+        Test that constrain_fluxes warns and does nothing when all
+        stars are excluded.
+        """
+        star1 = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs, flux=10.0)
+        star2 = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs, flux=20.0)
+        star1._excluded_from_fit = True
+        star2._excluded_from_fit = True
+        linked = LinkedEPSFStar([star1, star2])
+
+        match = 'Cannot constrain fluxes'
+        with pytest.warns(AstropyUserWarning, match=match):
+            linked.constrain_fluxes()
+        assert star1.flux == 10.0
+        assert star2.flux == 20.0
 
     def test_len_getitem_iter(self, simple_wcs):
         """
@@ -1069,15 +1239,31 @@ class TestLinkedEPSFStar:
         assert flux == star.flux
         assert not isinstance(flux, np.ndarray)
 
+    def test_excluded_from_fit_delegation(self, simple_wcs):
+        """
+        Regression test that _excluded_from_fit returns a per-star
+        array instead of raising AttributeError.
+        """
+        star1 = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs)
+        star2 = EPSFStar(np.ones((7, 7)), wcs_large=simple_wcs)
+        linked = LinkedEPSFStar([star1, star2])
+
+        excluded = linked._excluded_from_fit
+        assert_array_equal(excluded, [False, False])
+
+        star2._excluded_from_fit = True
+        excluded = linked._excluded_from_fit
+        assert_array_equal(excluded, [False, True])
+
     def test_getattr_private_attribute_error(self, simple_wcs):
         """
-        Test that accessing non-existent private attributes raises
+        Test that accessing nonexistent private attributes raises
         error.
         """
         star = EPSFStar(np.ones((5, 5)), wcs_large=simple_wcs)
         linked = LinkedEPSFStar([star])
 
-        # Accessing non-existent private attribute should raise
+        # Accessing nonexistent private attribute should raise
         match = "'LinkedEPSFStar' object has no attribute"
         with pytest.raises(AttributeError, match=match):
             _ = linked._nonexistent_attribute
@@ -1164,10 +1350,6 @@ class TestExtractStars:
         """
         Test extract_stars input validation.
         """
-        match = 'data must be a single NDData object or list of NDData objects'
-        with pytest.raises(TypeError, match=match):
-            extract_stars(np.ones(3), stars_table)
-
         match = 'All catalog elements must be Table objects'
         with pytest.raises(TypeError, match=match):
             extract_stars(stars_nddata, [(1, 1), (2, 2), (3, 3)])
@@ -1180,6 +1362,84 @@ class TestExtractStars:
         with pytest.raises(ValueError, match=match):
             extract_stars([stars_nddata, stars_nddata], stars_table)
 
+    def test_array_input(self, stars_data, stars_nddata, stars_table):
+        """
+        Test that a plain array gives the same stars as NDData.
+        """
+        stars = extract_stars(stars_data, stars_table, size=11)
+        expected = extract_stars(stars_nddata, stars_table, size=11)
+        assert len(stars) == len(expected) == 4
+        for star, expected_star in zip(stars, expected, strict=True):
+            assert_array_equal(star.data, expected_star.data)
+            assert_array_equal(star.weights, np.ones((11, 11)))
+            assert star.flux == expected_star.flux
+            assert_array_equal(star.center, expected_star.center)
+            assert star.wcs_large is None
+
+    def test_array_list_input(self, stars_data, stars_nddata, stars_table):
+        """
+        Test a list of arrays and a list mixing arrays and NDData.
+        """
+        catalogs = [stars_table, stars_table]
+        stars = extract_stars([stars_data, stars_data], catalogs, size=11)
+        assert len(stars) == 8
+
+        stars = extract_stars([stars_data, stars_nddata], catalogs, size=11)
+        assert len(stars) == 8
+        assert_array_equal(stars[0].data, stars[4].data)
+
+    def test_masked_array_input(self, stars_data, stars_table):
+        """
+        Test that the mask of a masked array zeros the star weights.
+        """
+        mask = np.zeros(stars_data.shape, dtype=bool)
+        mask[15, 15] = True
+        data = np.ma.array(stars_data, mask=mask)
+        stars = extract_stars(data, stars_table, size=11)
+        assert stars[0].weights[5, 5] == 0
+        assert np.count_nonzero(stars[0].weights == 0) == 1
+        assert_array_equal(stars[1].weights, np.ones((11, 11)))
+
+    def test_unmasked_masked_array_input(self, stars_data, stars_table):
+        """
+        Test a masked array that has no masked values.
+        """
+        stars = extract_stars(np.ma.array(stars_data), stars_table, size=11)
+        assert len(stars) == 4
+        assert_array_equal(stars[0].weights, np.ones((11, 11)))
+
+    def test_quantity_input(self, stars_data, stars_table):
+        """
+        Test that the unit of a Quantity array is ignored.
+        """
+        stars = extract_stars(stars_data * u.Jy, stars_table, size=11)
+        expected = extract_stars(stars_data, stars_table, size=11)
+        assert not isinstance(stars[0].data, u.Quantity)
+        assert_array_equal(stars[0].data, expected[0].data)
+
+    def test_array_input_invalid(self, simple_data, simple_table):
+        """
+        Test invalid array inputs.
+        """
+        match = 'All input images must be 2D'
+        with pytest.raises(ValueError, match=match):
+            extract_stars(np.ones(3), simple_table)
+        with pytest.raises(ValueError, match=match):
+            extract_stars(np.ones((2, 50, 50)), simple_table)
+
+        # A nested list is not interpreted as a 2D image
+        match = 'All data elements must be 2D arrays or NDData objects'
+        with pytest.raises(TypeError, match=match):
+            extract_stars(simple_data.tolist(), simple_table)
+
+        skycoord_table = Table()
+        skycoord_table['skycoord'] = [SkyCoord(0, 0, unit='deg')]
+        match = 'must be an NDData object with a wcs attribute'
+        with pytest.raises(ValueError, match=match):
+            extract_stars(simple_data, skycoord_table)
+        with pytest.raises(ValueError, match=match):
+            extract_stars([simple_data, simple_data], skycoord_table)
+
     def test_empty_catalog(self, simple_nddata):
         """
         Test extraction with empty catalog.
@@ -1188,14 +1448,10 @@ class TestExtractStars:
         empty_table['x'] = []
         empty_table['y'] = []
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'is empty'
+        with pytest.warns(AstropyUserWarning, match=match):
             stars = extract_stars(simple_nddata, empty_table)
-            assert len(stars) == 0
-            # Should warn about empty catalog
-            assert len(w) >= 1
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('empty' in msg.lower() for msg in warning_messages)
+        assert len(stars) == 0
 
     def test_stars_outside_image(self, simple_nddata):
         """
@@ -1205,14 +1461,27 @@ class TestExtractStars:
         table['x'] = [-10, 100]  # Outside image bounds
         table['y'] = [25, 25]
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = '2 star cutout\\(s\\) were not extracted'
+        with pytest.warns(AstropyUserWarning, match=match):
             stars = extract_stars(simple_nddata, table, size=11)
-            assert len(stars) == 0
-            # Should warn about excluded stars
-            assert len(w) >= 1
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('not extracted' in msg for msg in warning_messages)
+        assert len(stars) == 0
+
+    def test_star_cutout_ends_at_image_edge(self, simple_nddata):
+        """
+        Test extraction with a star whose cutout ends exactly at the
+        lower edge of the image.
+
+        Regression test for the array-valued ``size`` being compared to
+        a tuple in ``overlap_slices``.
+        """
+        table = Table()
+        table['x'] = [-6, 25]
+        table['y'] = [25, -6]
+
+        match = '2 star cutout\\(s\\) were not extracted'
+        with pytest.warns(AstropyUserWarning, match=match):
+            stars = extract_stars(simple_nddata, table, size=11)
+        assert len(stars) == 0
 
     def test_invalid_input_types(self, simple_nddata):
         """
@@ -1223,7 +1492,7 @@ class TestExtractStars:
         table['y'] = [25]
 
         # Test invalid data type
-        match = 'must be a single NDData object or list of NDData objects'
+        match = 'data must be a 2D array, an NDData object, or a list'
         with pytest.raises(TypeError, match=match):
             extract_stars('not_nddata', table)
 
@@ -1258,13 +1527,13 @@ class TestExtractStars:
         Test data input validation.
         """
         # Test invalid data types in list
-        match = 'All data elements must be NDData objects'
+        match = 'All data elements must be 2D arrays or NDData objects'
         with pytest.raises(TypeError, match=match):
             extract_stars(['not_nddata'], simple_table)
 
         # Test NDData with no data array
         empty_nddata = NDData(np.array([]))  # Provide empty array
-        match = 'must contain 2D data'
+        match = 'All input images must be 2D'
         with pytest.raises(ValueError, match=match):
             extract_stars(empty_nddata, simple_table)
 
@@ -1290,7 +1559,7 @@ class TestExtractStars:
         skycoord_table = Table()
         skycoord_table['skycoord'] = [SkyCoord(0, 0, unit='deg')]
 
-        match = 'NDData object must have a wcs attribute'
+        match = 'must be an NDData object with a wcs attribute'
         with pytest.raises(ValueError, match=match):
             extract_stars(simple_nddata, skycoord_table)
 
@@ -1313,8 +1582,10 @@ class TestExtractStars:
 
         stars = extract_stars(nddata_with_wcs, table, size=(11, 11))
 
-        valid_stars = [s for s in stars.all_stars if s is not None]
-        assert len(valid_stars) >= 1
+        # The WCS reference pixel (1-based crpix [25, 25]) maps the
+        # (0, 0) sky position to the 0-based pixel position (24, 24)
+        assert len(stars) == 1
+        assert_allclose(stars[0].center, (24, 24))
 
     def test_extract_stars_size_validation_coverage(self, simple_nddata):
         """
@@ -1442,13 +1713,31 @@ class TestExtractStars:
         table = Table()
         table['skycoord'] = [SkyCoord(0, 0, unit='deg')]  # Center
 
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter('always')
+        match = '1 star cutout\\(s\\) were not extracted'
+        with pytest.warns(AstropyUserWarning, match=match):
             stars = extract_stars([nddata1, nddata2], table, size=11)
 
-        # Should have extracted at least 1 star (from first image)
         # The second image star is outside bounds so only 1 is extracted
-        assert len(stars) >= 1
+        assert len(stars) == 1
+
+    def test_extract_stars_flux_column(self):
+        """
+        Test that a catalog flux column is used for the star fluxes.
+        """
+        data = np.ones((50, 50))
+        catalog = Table({'x': [25.0], 'y': [25.0], 'flux': [12345.0]})
+        stars = extract_stars(NDData(data), catalog, size=11)
+        assert stars[0].flux == 12345.0
+
+    def test_extract_stars_no_flux_column(self):
+        """
+        Test that star fluxes are estimated from the cutout data when
+        the catalog has no flux column.
+        """
+        data = np.ones((50, 50))
+        catalog = Table({'x': [25.0], 'y': [25.0]})
+        stars = extract_stars(NDData(data), catalog, size=11)
+        assert_allclose(stars[0].flux, 121.0)
 
     def test_extract_stars_flux_estimation_failure(self):
         """
@@ -1499,9 +1788,9 @@ class TestExtractStars:
             # Check warnings
             warning_messages = [str(warning.message) for warning in w]
 
-            # Should have one warning about non-finite weights
+            # Should have one warning about nonfinite weights
             nonfinite_warnings = [msg for msg in warning_messages
-                                  if 'non-finite weight values' in msg]
+                                  if 'nonfinite weight values' in msg]
             assert len(nonfinite_warnings) == 1
 
             # Should have warnings about failed EPSFStar creation
@@ -1518,28 +1807,66 @@ class TestExtractStars:
 
     def test_extract_stars_nonfinite_weights_warning(self):
         """
-        Test that non-finite weights in uncertainty emit warning.
+        Test that nonfinite weights in uncertainty emit warning.
         """
         data = np.ones((50, 50)) * 100
         nddata = NDData(data)
 
-        # Create uncertainty with non-finite values
+        # Create uncertainty with nonfinite values
         uncertainty = np.ones((50, 50)) * 0.1
         uncertainty[20:30, 20:30] = 0  # Will cause 1/0 = inf in weights
         nddata.uncertainty = StdDevUncertainty(uncertainty)
 
         table = Table({'x': [25], 'y': [25]})
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
+        match = 'nonfinite weight values'
+        with pytest.warns(AstropyUserWarning, match=match):
             stars = extract_stars(nddata, table, size=11)
-            # Should warn about non-finite weights
-            warning_messages = [str(warning.message) for warning in w]
-            assert any('non-finite weight values' in msg
-                       for msg in warning_messages)
 
-        # Star should still be extracted (non-finite weights set to 0)
+        # Star should still be extracted (nonfinite weights set to 0)
         assert len(stars) == 1
+
+    def test_extract_stars_weights_input_not_modified(self):
+        """
+        Regression test that extract_stars does not modify a
+        user-supplied float weights uncertainty array when masking is
+        applied, and that masked pixels get zero weight in the star.
+        """
+        class WeightsUncertainty(StdDevUncertainty):
+            @property
+            def uncertainty_type(self):
+                return 'weights'
+
+        data = np.ones((50, 50))
+        weights = np.ones((50, 50))
+        weights_orig = weights.copy()
+        mask = np.zeros((50, 50), dtype=bool)
+        mask[25, 25] = True
+        nddata = NDData(data, uncertainty=WeightsUncertainty(weights),
+                        mask=mask)
+
+        table = Table({'x': [25.0], 'y': [25.0]})
+        stars = extract_stars(nddata, table, size=11)
+
+        assert len(stars) == 1
+        # The masked pixel has zero weight in the star cutout
+        assert stars[0].weights[5, 5] == 0.0
+        # The user's weights array is unchanged
+        assert_array_equal(weights, weights_orig)
+
+    def test_extract_stars_nonfinite_positions(self, simple_nddata):
+        """
+        Regression test that nonfinite source positions are skipped
+        with a warning instead of raising an error.
+        """
+        table = Table({'x': [25.0, np.nan], 'y': [25.0, 30.0]})
+
+        match = 'positions were not finite'
+        with pytest.warns(AstropyUserWarning, match=match):
+            stars = extract_stars(simple_nddata, table, size=11)
+
+        assert len(stars) == 1
+        assert_allclose(stars[0].center, (25, 25))
 
     def test_extract_stars_all_zero_data_warnings(self):
         """
@@ -1593,7 +1920,7 @@ class TestExtractStars:
         table['skycoord'] = [SkyCoord(0, 0, unit='deg')]
 
         # Should raise because images don't have WCS
-        match = 'must have a wcs attribute'
+        match = 'must be an NDData object with a wcs attribute'
         with pytest.raises(ValueError, match=match):
             extract_stars([nddata1, nddata2], table, size=11)
 
@@ -1610,17 +1937,18 @@ class TestExtractStars:
         table['skycoord'] = [SkyCoord(0, 0, unit='deg')]
 
         # Should raise because NDData does not have WCS
-        match = 'NDData object must have a wcs attribute'
+        match = 'must be an NDData object with a wcs attribute'
         with pytest.raises(ValueError, match=match):
             extract_stars(nddata, table, size=11)
 
-    def test_validate_multiple_catalogs_skycoord_only_no_wcs(self, simple_wcs):
+    def test_validate_multiple_catalogs_mixed_wcs(self, simple_wcs):
         """
-        Test validation when catalog has only skycoord and some NDData
-        objects lack WCS.
+        Test validation with multiple catalogs where each catalog
+        pairs with a usable image.
 
-        This tests the branch where the corresponding NDData has WCS,
-        but another NDData in the list does not have WCS.
+        A missing WCS is allowed on an image whose catalog has pixel
+        coordinates. A skycoord-only catalog requires a WCS only on
+        its corresponding image.
         """
         nddata1 = NDData(np.ones((50, 50)))
         # nddata1 intentionally has no WCS
@@ -1633,10 +1961,17 @@ class TestExtractStars:
         table2 = Table()
         table2['skycoord'] = [SkyCoord(0, 0, unit='deg')]
 
-        # nddata2 has WCS, but nddata1 does not
-        match = 'each NDData object must have a wcs'
+        # Each catalog pairs with a usable image, so extraction
+        # succeeds
+        stars = extract_stars([nddata1, nddata2], [table1, table2],
+                              size=11)
+        assert len(stars) == 2
+
+        # A skycoord-only catalog paired with an image lacking a WCS
+        # raises an error
+        match = 'the corresponding image must be an NDData object'
         with pytest.raises(ValueError, match=match):
-            extract_stars([nddata1, nddata2], [table1, table2], size=11)
+            extract_stars([nddata1, nddata2], [table2, table1], size=11)
 
     def test_extract_stars_uncertainties(self, epsf_test_data):
         """
@@ -1668,19 +2003,35 @@ class TestExtractStars:
         assert_allclose(outputs[0].weights, outputs[1].weights)
         assert_allclose(outputs[0].weights, outputs[2].weights)
 
+    def test_extract_stars_unknown_uncertainty(self, epsf_test_data):
+        """
+        Test that an uncertainty of unknown type is treated as a
+        standard deviation.
+        """
+        rng = np.random.default_rng(seed=0)
+        data = epsf_test_data['nddata'].data
+        error = rng.uniform(0.5, 2.0, size=data.shape)
+        ndd1 = NDData(data, uncertainty=StdDevUncertainty(error))
+        ndd2 = NDData(data, uncertainty=UnknownUncertainty(error))
+
+        init = epsf_test_data['init_stars']
+        stars1 = extract_stars(ndd1, init, size=25)
+        stars2 = extract_stars(ndd2, init, size=25)
+        assert_allclose(stars2.weights, stars1.weights)
+
     def test_extract_stars_nonfinite_weights(self, epsf_test_data):
         """
         Test extract_stars with sparse zero uncertainty values that create
-        non-finite weights at specific locations. The stars should still
+        nonfinite weights at specific locations. The stars should still
         be extracted successfully, with only the expected warning about
-        non-finite weights being set to zero.
+        nonfinite weights being set to zero.
         """
         shape = epsf_test_data['nddata'].data.shape
         init = epsf_test_data['init_stars']
 
-        # Create an uncertainty array with mostly valid (non-zero) values,
+        # Create an uncertainty array with mostly valid (nonzero) values,
         # but include some zero uncertainty values at specific locations
-        # within the star cutout regions to trigger non-finite weights
+        # within the star cutout regions to trigger nonfinite weights
         uncertainty_data = np.ones(shape)
         for i in range(min(3, len(init))):
             x_pix = int(init['x'][i])
@@ -1692,9 +2043,9 @@ class TestExtractStars:
         ndd = NDData(epsf_test_data['nddata'].data, uncertainty=uncertainty)
         size = 25
 
-        # Should only get the non-finite weights warning; stars should
+        # Should only get the nonfinite weights warning. Stars should
         # still be extracted successfully
-        match = 'non-finite weight values'
+        match = 'nonfinite weight values'
         with pytest.warns(AstropyUserWarning, match=match):
             stars = extract_stars(ndd, init[0:3], size=size)
 
@@ -1722,7 +2073,7 @@ class TestExtractStars:
         # masked errors because all weights are set to zero (fully
         # masked data).
         match1 = 'Star cutout is completely masked'
-        match2 = 'non-finite weight values'
+        match2 = 'nonfinite weight values'
         with (pytest.warns(AstropyUserWarning, match=match1),
               pytest.warns(AstropyUserWarning, match=match2)):
             stars = extract_stars(ndd,
@@ -1731,3 +2082,105 @@ class TestExtractStars:
 
         # All stars should fail (None) because they are completely masked
         assert len(stars) == 0
+
+
+def test_star_nonfinite_flux_raises():
+    """
+    Regression test that a nonfinite flux raises a clear error
+    instead of crashing later deep inside the ePSF fitter.
+    """
+    match = 'flux must be a finite value'
+    with pytest.raises(ValueError, match=match):
+        EPSFStar(np.ones((5, 5)), flux=np.nan)
+    star = EPSFStar(np.ones((5, 5)))
+    with pytest.raises(ValueError, match=match):
+        star.flux = np.inf
+
+
+def test_extract_stars_nonfinite_flux_column():
+    """
+    Regression test that nonfinite catalog flux values are skipped
+    with a warning, like nonfinite positions.
+    """
+    data = np.ones((50, 50))
+    catalog = Table({'x': [25.0, 10.0], 'y': [25.0, 10.0],
+                     'flux': [100.0, np.nan]})
+    match = 'flux values were not finite'
+    with pytest.warns(AstropyUserWarning, match=match):
+        stars = extract_stars(NDData(data), catalog, size=11)
+    assert len(stars) == 1
+    assert stars[0].flux == 100.0
+
+
+def test_zero_flux_star_normalization_no_warning():
+    """
+    Regression test that normalizing a zero-flux star does not leak a
+    RuntimeWarning during ePSF building.
+    """
+    match = 'All unmasked data values in star cutout are zero'
+    with pytest.warns(AstropyUserWarning, match=match):
+        star = EPSFStar(np.zeros((5, 5)))
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        values = star._data_values_normalized
+    assert np.all(np.isnan(values))
+
+
+def test_masked_array_data_raises():
+    data = np.ma.MaskedArray(np.ones((5, 5)),
+                             mask=np.zeros((5, 5), dtype=bool))
+    match = 'MaskedArray inputs are not supported'
+    with pytest.raises(TypeError, match=match):
+        EPSFStar(data)
+
+
+def test_non_integral_origin_raises():
+    match = 'origin must have integer values'
+    with pytest.raises(ValueError, match=match):
+        EPSFStar(np.ones((5, 5)), origin=(1.7, 2.3))
+    star = EPSFStar(np.ones((5, 5)), origin=(1.0, 2.0))
+    assert_array_equal(star.origin, [1, 2])
+
+
+def test_container_getattr_private_and_empty():
+    """
+    Regression test that EPSFStars matches LinkedEPSFStar in not
+    delegating private attributes (except _excluded_from_fit) and
+    that empty containers raise AttributeError.
+    """
+    star = EPSFStar(np.ones((5, 5)))
+    stars = EPSFStars([star])
+    assert_array_equal(stars._excluded_from_fit, [False])
+    with pytest.raises(AttributeError):
+        stars._fit_error_status  # noqa: B018
+    empty = EPSFStars([])
+    match = ("'EPSFStars' object is empty and has no attribute "
+             "'cutout_center'")
+    with pytest.raises(AttributeError, match=match):
+        empty.cutout_center  # noqa: B018
+
+
+def test_epsfstars_array_conversion():
+    """
+    Regression test that a single-star EPSFStars container (e.g., from
+    indexing) converts to the 2D star cutout, so that it can be passed
+    directly to matplotlib's imshow, and that a multistar container
+    stacks the cutouts along the first axis.
+    """
+    data1 = np.arange(25.0).reshape(5, 5)
+    data2 = data1 * 2.0
+    stars = EPSFStars([EPSFStar(data1), EPSFStar(data2)])
+
+    single = np.asarray(stars[0])
+    assert single.shape == (5, 5)
+    assert_array_equal(single, data1)
+
+    stacked = np.asarray(stars)
+    assert stacked.shape == (2, 5, 5)
+    assert_array_equal(stacked[1], data2)
+
+    # dtype and copy keywords are honored
+    assert np.asarray(stars[0], dtype=np.float32).dtype == np.float32
+    arr = np.array(stars[0], copy=True)
+    arr[0, 0] = -99.0
+    assert stars[0].data[0, 0] == 0.0

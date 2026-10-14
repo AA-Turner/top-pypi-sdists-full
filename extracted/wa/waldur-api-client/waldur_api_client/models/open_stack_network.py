@@ -53,6 +53,8 @@ class OpenStackNetwork:
         tenant (Union[Unset, str]): OpenStack tenant this network belongs to
         tenant_name (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
+        tenant_is_managed (Union[Unset, bool]): False when the network belongs to an OpenStack project that Waldur does
+            not manage and only reaches tenants through an RBAC share.
         is_external (Union[Unset, bool]): Defines whether this network is external (public) or internal (private)
         type_ (Union[Unset, str]): Network type, such as local, flat, vlan, vxlan, or gre
         segmentation_id (Union[None, Unset, int]): VLAN ID for VLAN networks or tunnel ID for VXLAN/GRE networks
@@ -103,6 +105,7 @@ class OpenStackNetwork:
     tenant: Union[Unset, str] = UNSET
     tenant_name: Union[Unset, str] = UNSET
     tenant_uuid: Union[Unset, UUID] = UNSET
+    tenant_is_managed: Union[Unset, bool] = UNSET
     is_external: Union[Unset, bool] = UNSET
     type_: Union[Unset, str] = UNSET
     segmentation_id: Union[None, Unset, int] = UNSET
@@ -208,6 +211,8 @@ class OpenStackNetwork:
         tenant_uuid: Union[Unset, str] = UNSET
         if not isinstance(self.tenant_uuid, Unset):
             tenant_uuid = str(self.tenant_uuid)
+
+        tenant_is_managed = self.tenant_is_managed
 
         is_external = self.is_external
 
@@ -370,6 +375,8 @@ class OpenStackNetwork:
             field_dict["tenant_name"] = tenant_name
         if tenant_uuid is not UNSET:
             field_dict["tenant_uuid"] = tenant_uuid
+        if tenant_is_managed is not UNSET:
+            field_dict["tenant_is_managed"] = tenant_is_managed
         if is_external is not UNSET:
             field_dict["is_external"] = is_external
         if type_ is not UNSET:
@@ -528,6 +535,8 @@ class OpenStackNetwork:
             tenant_uuid = UNSET
         else:
             tenant_uuid = UUID(_tenant_uuid)
+
+        tenant_is_managed = d.pop("tenant_is_managed", UNSET)
 
         is_external = d.pop("is_external", UNSET)
 
@@ -709,6 +718,7 @@ class OpenStackNetwork:
             tenant=tenant,
             tenant_name=tenant_name,
             tenant_uuid=tenant_uuid,
+            tenant_is_managed=tenant_is_managed,
             is_external=is_external,
             type_=type_,
             segmentation_id=segmentation_id,

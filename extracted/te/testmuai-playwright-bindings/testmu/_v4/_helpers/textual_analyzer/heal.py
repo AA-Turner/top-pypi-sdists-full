@@ -45,6 +45,9 @@ class HealOutcome:
     # the regenerated operator/transforms from the heal response are intentionally
     # not surfaced here.
     value: str
+    # The healed extraction, so a re-read runs it again without another heal.
+    wrapped_js: str = ""
+    locators: list[str] | None = None
 
 
 async def _post_heal(
@@ -125,6 +128,7 @@ async def _attempt_heal(
     indices = parse_el_references(code)
 
     handles = []
+    healed_locators: list[str] = []
     cdp = await page.context.new_cdp_session(page)
     try:
         for i in indices:
@@ -139,6 +143,7 @@ async def _attempt_heal(
             if handle is None:
                 return None
             handles.append(handle)
+            healed_locators.append(loc)
     finally:
         await cdp.detach()
 
@@ -151,4 +156,4 @@ async def _attempt_heal(
     if value is None or value == "":
         return None  # regenerated code still couldn't find the value -> miss
 
-    return HealOutcome(value=str(value))
+    return HealOutcome(value=str(value), wrapped_js=wrapped, locators=healed_locators)

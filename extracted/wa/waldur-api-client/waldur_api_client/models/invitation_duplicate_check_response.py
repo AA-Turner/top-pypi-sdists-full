@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
     from ..models.invitation_duplicate import InvitationDuplicate
+    from ..models.invitation_existing_role import InvitationExistingRole
 
 
 T = TypeVar("T", bound="InvitationDuplicateCheckResponse")
@@ -16,9 +17,11 @@ class InvitationDuplicateCheckResponse:
     """
     Attributes:
         duplicates (list['InvitationDuplicate']):
+        existing_roles (list['InvitationExistingRole']):
     """
 
     duplicates: list["InvitationDuplicate"]
+    existing_roles: list["InvitationExistingRole"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -27,11 +30,17 @@ class InvitationDuplicateCheckResponse:
             duplicates_item = duplicates_item_data.to_dict()
             duplicates.append(duplicates_item)
 
+        existing_roles = []
+        for existing_roles_item_data in self.existing_roles:
+            existing_roles_item = existing_roles_item_data.to_dict()
+            existing_roles.append(existing_roles_item)
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "duplicates": duplicates,
+                "existing_roles": existing_roles,
             }
         )
 
@@ -40,6 +49,7 @@ class InvitationDuplicateCheckResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.invitation_duplicate import InvitationDuplicate
+        from ..models.invitation_existing_role import InvitationExistingRole
 
         d = dict(src_dict)
         duplicates = []
@@ -49,8 +59,16 @@ class InvitationDuplicateCheckResponse:
 
             duplicates.append(duplicates_item)
 
+        existing_roles = []
+        _existing_roles = d.pop("existing_roles")
+        for existing_roles_item_data in _existing_roles:
+            existing_roles_item = InvitationExistingRole.from_dict(existing_roles_item_data)
+
+            existing_roles.append(existing_roles_item)
+
         invitation_duplicate_check_response = cls(
             duplicates=duplicates,
+            existing_roles=existing_roles,
         )
 
         invitation_duplicate_check_response.additional_properties = d

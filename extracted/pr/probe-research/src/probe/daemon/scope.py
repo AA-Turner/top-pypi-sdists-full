@@ -114,7 +114,7 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
 #: exactly one of the two tables (tests/test_daemon_scope.py).
 NO_SCOPE: frozenset[str] = frozenset({
     *precheck.DELETES,
-    "daemon override", "notes checkout", "notes sync",
+    "daemon override", "feedback send", "notes checkout", "notes sync",
     "run set", "run tag", "run end",
     "artifact set", "artifact version-add",
     "group set", "edge add", "paper update", "paper tag",

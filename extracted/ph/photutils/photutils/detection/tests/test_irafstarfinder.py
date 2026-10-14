@@ -6,12 +6,12 @@ Tests for the irafstarfinder module.
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.utils.exceptions import AstropyDeprecationWarning
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_allclose, assert_array_equal
 
 from photutils.detection import IRAFStarFinder
 from photutils.psf import CircularGaussianPRF
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 
 class TestIRAFStarFinder:
@@ -56,7 +56,7 @@ class TestIRAFStarFinder:
             IRAFStarFinder(10, 1.5, n_brightest=3.1)
 
         match = 'minsep_fwhm must be >= 0'
-        with (pytest.warns(AstropyDeprecationWarning),
+        with (pytest.warns(PhotutilsDeprecationWarning),
               pytest.raises(ValueError, match=match)):
             IRAFStarFinder(10, 1.5, minsep_fwhm=-1)
 
@@ -121,6 +121,32 @@ class TestIRAFStarFinder:
         finder1 = IRAFStarFinder(threshold=8.0, fwhm=2, xycoords=xycoords)
         tbl1 = finder1(data)
         assert_array_equal(tbl0, tbl1)
+
+    def test_xycoords_non_integer(self, data):
+        """
+        Test that noninteger xycoords are rounded to the nearest pixel.
+        """
+        finder0 = IRAFStarFinder(threshold=8.0, fwhm=2)
+        tbl0 = finder0(data)
+        xycoords = np.transpose((tbl0['x_centroid'], tbl0['y_centroid']))
+        xycoords = np.round(xycoords)
+
+        finder1 = IRAFStarFinder(threshold=8.0, fwhm=2,
+                                 xycoords=xycoords + 0.3)
+        tbl1 = finder1(data)
+        assert_array_equal(tbl0, tbl1)
+
+    @pytest.mark.parametrize('xycoords', [[[500, 50]], [[50, 500]],
+                                          [[-50, 50]], [[50, -50]]])
+    def test_xycoords_out_of_bounds(self, data, xycoords):
+        """
+        Test that out-of-bounds xycoords raise a ValueError.
+        """
+        match = 'xycoords must be within the bounds'
+        finder = IRAFStarFinder(threshold=5.0, fwhm=2.0,
+                                xycoords=np.array(xycoords))
+        with pytest.raises(ValueError, match=match):
+            finder(data)
 
     def test_min_separation(self, data):
         """
@@ -318,8 +344,9 @@ class TestIRAFStarFinder:
     def test_interval_ends_included(self):
         """
         Test that filter interval endpoints are inclusive.
+
+        See issue: https://github.com/astropy/photutils/issues/1977
         """
-        # https://github.com/astropy/photutils/issues/1977
         data = np.zeros((46, 64))
 
         x = 33
@@ -341,6 +368,48 @@ class TestIRAFStarFinder:
         assert len(tbl) == 1
         assert tbl[0]['roundness'] < 1.e-15
         assert tbl[0]['peak'] == 0.8
+
+    def test_min_n_pixels(self):
+        """
+        Test that sources with fewer than min_n_pixels positive pixels
+        are rejected.
+        """
+        rng = np.random.default_rng(1)
+        data = rng.normal(0.0, 1.0, (80, 90))
+        finder = IRAFStarFinder(threshold=0.5, fwhm=2.0, min_separation=2,
+                                sharpness_range=None, roundness_range=None)
+        tbl = finder(data)
+        assert len(tbl) > 100
+        assert np.min(tbl['n_pixels']) == 5
+
+        finder2 = IRAFStarFinder(threshold=0.5, fwhm=2.0, min_separation=2,
+                                 sharpness_range=None, roundness_range=None,
+                                 min_n_pixels=2)
+        assert 'min_n_pixels=2' in repr(finder2)
+        tbl2 = finder2(data)
+        assert len(tbl2) > len(tbl)
+        assert np.min(tbl2['n_pixels']) == 2
+
+        match = 'min_n_pixels must be >= 1'
+        with pytest.raises(ValueError, match=match):
+            IRAFStarFinder(threshold=0.5, fwhm=2.0, min_n_pixels=0)
+
+    def test_centroid_outside_image(self):
+        """
+        Test that sources with a centroid outside the image are
+        rejected, as in IRAF's starfind.
+        """
+        rng = np.random.default_rng(1)
+        shape = (80, 90)
+        data = rng.normal(0.0, 1.0, shape)
+        finder = IRAFStarFinder(threshold=0.5, fwhm=2.0, min_separation=2,
+                                sharpness_range=None, roundness_range=None)
+        tbl = finder(data)
+        assert len(tbl) > 100
+        assert np.all(tbl['x_centroid'] >= -0.5)
+        assert np.all(tbl['x_centroid'] <= shape[1] - 0.5)
+        assert np.all(tbl['y_centroid'] >= -0.5)
+        assert np.all(tbl['y_centroid'] <= shape[0] - 0.5)
 
     def test_data_not_mutated(self, data):
         """
@@ -458,31 +527,56 @@ class TestIRAFStarFinder:
                                 roundness_range=(-np.inf, np.inf))
         cat = finder._get_raw_catalog(data)
         assert cat is not None
-        nsrc = len(cat)
+        n_sources = len(cat)
 
         # sky should be finite and have same length as nsources
         sky = cat.sky
-        assert sky.shape == (nsrc,)
+        assert sky.shape == (n_sources,)
         assert np.all(np.isfinite(sky))
 
-        # cutout_data_nosub should have shape (nsrc, ky, kx) with no
+        # cutout_data_nosub should have shape (n_sources, ky, kx) with no
         # sky subtraction
         cdata = cat.cutout_data_nosub
         assert cdata.ndim == 3
-        assert cdata.shape[0] == nsrc
+        assert cdata.shape[0] == n_sources
 
         # cutout_xorigin/cutout_yorigin should be finite 1D arrays
         xorig = cat.cutout_xorigin
         yorig = cat.cutout_yorigin
-        assert xorig.shape == (nsrc,)
-        assert yorig.shape == (nsrc,)
+        assert xorig.shape == (n_sources,)
+        assert yorig.shape == (n_sources,)
         assert np.all(np.isfinite(xorig))
         assert np.all(np.isfinite(yorig))
 
         # sharpness should be finite for detected sources
         sharpness = cat.sharpness
-        assert sharpness.shape == (nsrc,)
+        assert sharpness.shape == (n_sources,)
         assert np.all(np.isfinite(sharpness))
+
+    def test_sky_no_sky_pixels(self, data):
+        """
+        Test the sky estimate when the kernel footprint covers the
+        entire kernel array.
+
+        The sky is then the central data value minus the central
+        convolved data value, as in IRAF starfind.
+        """
+        finder = IRAFStarFinder(threshold=1.0, fwhm=4.6)
+        assert np.all(finder.kernel.mask == 1)
+
+        cat = finder._get_raw_catalog(data)
+        xpos, ypos = cat.xypos.T
+        expected = data[ypos, xpos] - cat.convolved_data[ypos, xpos]
+        assert_allclose(cat.sky, expected)
+
+        tbl = finder(data)
+        assert len(tbl) > 0
+        assert np.all(np.isfinite(tbl['flux']))
+
+        tbl_units = IRAFStarFinder(threshold=1.0 * u.Jy, fwhm=4.6)(
+            data << u.Jy)
+        assert tbl_units['flux'].unit == u.Jy
+        assert_allclose(tbl_units['flux'].value, tbl['flux'])
 
     def test_deprecated_sharplo_sharphi(self):
         """
@@ -490,11 +584,11 @@ class TestIRAFStarFinder:
         warning and still work.
         """
         match = "The 'sharplo' and 'sharphi' parameters are deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0, sharplo=0.3)
         assert finder.sharpness_range == (0.3, 2.0)
 
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0, sharphi=3.0)
         assert finder.sharpness_range == (0.5, 3.0)
 
@@ -504,11 +598,11 @@ class TestIRAFStarFinder:
         warning and still work.
         """
         match = "The 'roundlo' and 'roundhi' parameters are deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0, roundlo=-0.1)
         assert finder.roundness_range == (-0.1, 0.2)
 
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0, roundhi=0.5)
         assert finder.roundness_range == (0.0, 0.5)
 
@@ -518,7 +612,7 @@ class TestIRAFStarFinder:
         and still works.
         """
         match = "'brightest' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0, brightest=5)
         assert finder.n_brightest == 5
 
@@ -528,7 +622,7 @@ class TestIRAFStarFinder:
         and still works.
         """
         match = "'peakmax' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0, peakmax=100.0)
         assert finder.peak_max == 100.0
 
@@ -540,7 +634,7 @@ class TestIRAFStarFinder:
         fwhm = 3.0
         minsep_fwhm = 2.5
         match = "The 'minsep_fwhm' parameter is deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=fwhm,
                                     minsep_fwhm=minsep_fwhm)
         expected = max(2, int((fwhm * minsep_fwhm) + 0.5))
@@ -551,7 +645,7 @@ class TestIRAFStarFinder:
         Test that min_separation takes priority over minsep_fwhm.
         """
         match = "The 'minsep_fwhm' parameter is deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = IRAFStarFinder(threshold=5.0, fwhm=3.0,
                                     minsep_fwhm=2.5, min_separation=7.0)
         assert finder.min_separation == 7.0

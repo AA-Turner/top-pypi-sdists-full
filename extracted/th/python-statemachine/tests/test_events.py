@@ -59,6 +59,26 @@ class TestExplicitEvent:
         assert [e.name for e in StartMachine.events] == ["Start the machine"]
         assert StartMachine.start.name == "Start the machine"
 
+    @pytest.mark.parametrize(
+        ("declared", "expected"),
+        [
+            pytest.param({"delay": 50}, (50, False), id="delay"),
+            pytest.param({"internal": True}, (0, True), id="internal"),
+        ],
+    )
+    def test_accept_delay_or_internal(self, declared, expected):
+        class BeaconsOfGondor(StateChart):
+            dark = State(initial=True)
+            lit = State(final=True)
+
+            light = Event(dark.to(lit), **declared)
+
+        (registered,) = BeaconsOfGondor.events
+        bound = BeaconsOfGondor().light
+        assert (registered.delay, registered.internal) == expected
+        assert (BeaconsOfGondor.light.delay, BeaconsOfGondor.light.internal) == expected
+        assert (bound.delay, bound.internal) == expected
+
     def test_derive_name_from_id(self):
         class StartMachine(StateChart):
             created = State(initial=True)
@@ -232,6 +252,30 @@ class TestExplicitEvent:
         assert sm.send("cycle") == "Running cycle from green to yellow"
         assert sm.send("cycle") == "Running cycle from yellow to red"
         assert sm.send("cycle") == "Running cycle from red to green"
+
+    def test_placeholder_bound_to_several_names_declares_each_as_an_id(self):
+        class TrafficLightMachine(StateChart):
+            green = State(initial=True)
+            yellow = State(final=True)
+
+            cycle = Event()
+            slowdown = cycle
+            green.to(yellow, event=cycle)
+
+        assert [event.id for event in TrafficLightMachine.events] == ["cycle", "slowdown"]
+        assert [str(t.events) for t in TrafficLightMachine.green.transitions] == ["cycle slowdown"]
+
+    def test_wildcard_transition_coexists_with_an_event_attribute(self):
+        class TrafficLightMachine(StateChart):
+            green = State(initial=True)
+            yellow = State()
+            red = State(final=True)
+
+            cycle = Event(green.to(yellow), name="Loop")
+            yellow.to(red, event="*")
+
+        assert [str(t.events) for t in TrafficLightMachine.yellow.transitions] == ["*"]
+        assert {event.id for event in TrafficLightMachine.events} == {"cycle", "*"}
 
     def test_allow_registering_callbacks_using_decorator(self):
         class TrafficLightMachine(StateChart):

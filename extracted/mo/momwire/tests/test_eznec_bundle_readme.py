@@ -4,7 +4,7 @@
 and writes the README.txt beside them.  The freeze itself runs only on the
 Windows lane (`eznec-dropin.yml`), so the roster and the README's table are
 gated here, from the same constants the copy loop reads (momwire#1295
-phase 4: `momwire-nec5*` / `momwire-nec4*` primary, `momwire-eznec*`
+phase 4: `momwire-nec5*` / `momwire-nec42*` primary, `momwire-eznec*`
 deprecated but still shipped).
 """
 
@@ -56,7 +56,7 @@ def test_the_bundle_ships_seven_launchers_in_three_families():
     stems = build.launcher_stems()
     assert len(stems) == len(set(stems)) == 7
     assert set(build.NEC5_LAUNCHERS) == {"momwire-nec5", "momwire-nec5-razor-2p"}
-    assert set(build.NEC4_LAUNCHERS) == {"momwire-nec4", "momwire-nec4-sinusoidal"}
+    assert set(build.NEC4_LAUNCHERS) == {"momwire-nec42", "momwire-nec42-sinusoidal"}
     deprecated = set(stems) - set(build.NEC5_LAUNCHERS) - set(build.NEC4_LAUNCHERS)
     assert deprecated == {
         "momwire-eznec",
@@ -74,8 +74,8 @@ def test_every_launcher_answers_the_slot_and_basis_its_family_claims():
     for stem in build.NEC4_LAUNCHERS:
         dialect, basis = _resolved(stem)
         assert dialect == "nec4" and basis in NEC2_BASES, stem
-    assert _resolved("momwire-nec4") == ("nec4", _serve.BASIS)
-    assert _resolved("momwire-nec4-sinusoidal") == ("nec4", "sinusoidal")
+    assert _resolved("momwire-nec42") == ("nec4", _serve.BASIS)
+    assert _resolved("momwire-nec42-sinusoidal") == ("nec4", "sinusoidal")
 
 
 def test_a_deprecated_name_answers_exactly_as_its_successor():
@@ -150,3 +150,36 @@ def test_the_readme_table_has_one_row_per_shipped_executable():
     # ~70-column wrap.
     table = build.launcher_table(".exe")
     assert max(len(line) for line in table.splitlines()) <= 72
+
+
+def test_only_the_win7_readme_states_the_win7_prerequisites():
+    """momwire#1456: the Windows 7 zip names what the PC needs; the release
+    zip does not, and an unknown target refuses rather than defaulting."""
+    build = _build()
+    args = ("9.9.9", "SIGNING: this build is unsigned.", ".exe")
+    standard = build.readme_text(*args)
+    assert standard == build.readme_text(*args, "standard")
+    assert standard == build.readme_text(*args, "standard", True)
+    assert "WINDOWS 7 BUILD" not in standard
+    for bundled in (False, True):
+        win7 = build.readme_text(*args, "win7", bundled)
+        block = build.win7_prerequisites(bundled)
+        for needed in (
+            "Windows 7 SP1, 64-bit",
+            "KB2533623",
+            "KB2999226",
+            "2015-2022 x64",
+        ):
+            assert needed in win7, (bundled, needed)
+        # The Win7 README is the standard one plus the prerequisites, nothing else.
+        assert win7.replace(block, "", 1) == standard
+        assert max(len(line) for line in block.splitlines()) <= 72
+    # The UCRT line says which this bundle is, never both.
+    assert "carries its own copy" in build.win7_prerequisites(True)
+    assert "does not carry its own copy" in build.win7_prerequisites(False)
+    try:
+        build.readme_text(*args, "win8")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unknown bundle target must refuse")

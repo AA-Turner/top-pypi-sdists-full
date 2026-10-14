@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laya
-Version: 0.4.6
+Version: 0.4.7
 Summary: Fast, non-autoregressive System 1 decision engine with calibrated probabilities
 Author: Convai Innovations
 License: Apache-2.0
@@ -147,25 +147,30 @@ The shipped checkpoints work zero-shot, but fine-tuning on decisions from your o
 
 **[nandhakishorm.github.io/laya](https://nandhakishorm.github.io/laya/)**: guides for [prediction hooks](https://nandhakishorm.github.io/laya/hooks/), [schema-driven decisions](https://nandhakishorm.github.io/laya/structured/), [Docker](https://nandhakishorm.github.io/laya/docker/) and [LangChain and LangGraph](https://nandhakishorm.github.io/laya/langchain/), plus a full [API reference](https://nandhakishorm.github.io/laya/reference/).
 
-## What's new in 0.4.6
+## What's new in 0.4.7
 
-* **`laya.load(..., backend="onnx")` is annotated as what it returns.** It builds an `ONNXAgent`,
-  which shares the hook machinery with `Agent` but is not a subclass of it, so a caller who trusted
-  the `-> Agent` annotation and reached for the PyTorch-side controls got an `AttributeError` the
-  type checker called impossible (#1166).
-* **`Router.route_batch` rejects a `None` state before loading a checkpoint**, naming the request
-  index instead of failing later inside `Agent.predict_batch` (#1165).
-
-Carried over from 0.4.5, an hour earlier, because they are the ones to read before upgrading:
-
-* **laya-ts routes unidentified text to multilingual**, matching Python since 0.4.0. This changes
-  the default: pass `new Router({ default: "english" })` for the old fallback (#1157). It also
-  clears a stale `low_confidence` marker on a reused result, gating on the same number Python does
-  (#1153, #910).
-* **A ragged calibration pool keeps its fit.** `fit_one_temperature` squared off rows of different
-  option counts with a pad value that then competed in the same softmax, so a question type pooled
-  across option-count bands could report the neutral `1.0`, or the ceiling, for a fit that ran.
-  Single-width fits are unchanged to twelve decimal places (#1158).
+* **`laya-ts` reports `act_probability` the way Python does.** The port softmaxed the action row a
+  second time inside the decoder, so a row the reference reads as 0.9 came back as 0.6899. It is
+  normalised once, at the model boundary (#1195). The same port now honours a question's
+  `option_order` end to end, validating it as a permutation and un-permuting the answer (#1196),
+  reads a temperature as `float()` does rather than as `Number()` does, so a `[2]` or a `" "` in a
+  checkpoint config no longer loads as a real temperature (#1192, #1191), and cleans an email body
+  on Python's Unicode character classes instead of JavaScript's ASCII-ish ones (#1188).
+* **A checkpoint or calibration file that ships `true` where a temperature belongs is named.**
+  `float(True)` is exactly the neutral 1.0 the clamp installs for it, so the old diagnostic compared
+  the two numbers and said nothing; `lang_temperatures` overrides now report a clamped value for
+  their language too (#1190, #1208). A calibration JSON whose `version` is `1.9` is refused instead
+  of truncated to 1, which used to skip the checkpoint-identity check (#1202).
+* **Large choices have two more routes.** `laya_tournament` answers them over MCP by elimination
+  with no embedding pass (#1178), and `LAYA_TOURNAMENT_GROUP` now covers
+  `POST /v1/systemone/batch` as well as `/v1/systemone` (#1204). For a labelled set,
+  `laya.evals_tournament.evaluate_tournament` says whether a miss lost the gold label during
+  elimination or among the finalists (#1175).
+* **An interactive session exits with the code its requests earned.** `laya < requests.txt` used to
+  exit 0 with every answer missing (#1184), and `laya-evals run --json`/`--markdown` to a path it
+  cannot write is exit 2 with a diagnostic, not exit 1 with a traceback (#1171).
+* **The Go port decodes answers.** `laya-go` gains the question schema, sequence building and answer
+  decoding, with goldens regenerated from Python in CI (#1169).
 
 Earlier releases are in the [GitHub releases](https://github.com/NandhaKishorM/laya/releases).
 
@@ -1400,7 +1405,7 @@ TileLang fast path and `compile=True` refuse such a checkpoint, and `backend="au
 
 Laya can be exposed as an [MCP](https://modelcontextprotocol.io) stdio server, so any MCP
 client (OpenClaw, Claude Desktop, Cursor, ...) can call typed decisions as tools
-(`laya_predict`, `laya_predict_batch`, `laya_route`, `laya_route_batch`, `laya_decide`, `laya_shortlist`, `laya_preset`, `laya_status`) without writing glue code.
+(`laya_predict`, `laya_predict_batch`, `laya_route`, `laya_route_batch`, `laya_decide`, `laya_shortlist`, `laya_tournament`, `laya_preset`, `laya_status`) without writing glue code.
 This is an **optional extra**: the core package has no `mcp` dependency.
 
 ```bash
@@ -1411,8 +1416,9 @@ laya-mcp-server          # or: python -m laya.mcp.server
 To share a `laya-serve` on your own hardware across editor sessions, set
 `LAYA_BASE_URL=http://127.0.0.1:8000` in each MCP client's environment. Its prediction tools use
 HTTP and import no torch; routing stays local. Set `LAYA_API_KEY` to the server's bearer key and
-`LAYA_REMOTE_TIMEOUT` to the allowed HTTP wait (300 seconds by default). `laya_shortlist` is
-unavailable in this mode. See [shared-server MCP setup](https://github.com/NandhaKishorM/laya/blob/main/docs/cli-mcp.md#share-one-model-server-across-mcp-sessions).
+`LAYA_REMOTE_TIMEOUT` to the allowed HTTP wait (300 seconds by default). `laya_shortlist` and
+`laya_tournament` are unavailable in this mode; use `laya_predict` with the HTTP server's
+`LAYA_TOURNAMENT_GROUP` enabled for shared-server tournament selection. See [shared-server MCP setup](https://github.com/NandhaKishorM/laya/blob/main/docs/cli-mcp.md#share-one-model-server-across-mcp-sessions).
 
 Example MCP client configuration (stdio transport):
 
@@ -1460,8 +1466,14 @@ it shortlists a many-option choice question to its `k` most likely labels by emb
 similarity (mean-pooled from the answering checkpoint's own encoder, so no extra model is
 downloaded), answers in one forward pass, and returns per-question shortlist metadata
 (kept labels, cosine scores, `k`, option count, and whether the question passed through
-unshortlisted). The guardrails shown on every decision
-tool point clients to `laya_shortlist` for >20-option choices. As with the SDK, use it for structured
+unshortlisted). `laya_tournament` is the in-process MCP form of [`predict_tournament`](#honest-limits):
+the decision model narrows large choices in balanced groups of `group_size=16` by default,
+then answers the complete request with the finalists. It returns `tournament` metadata per choice
+(`labels`, original count `n`, elimination `rounds`), finalist-only probabilities, and total latency.
+Small choices pass through with `rounds: 0`; narrowed questions report discarded `option_order`
+values under `option_order_dropped`. Routing uses the original request; language, budget and
+confidence controls reach every round. The guardrails shown on every decision
+tool point clients to `laya_shortlist` or `laya_tournament` for >20-option choices. As with the SDK, use it for structured
 decisions only; not for open Q&A or
 text generation. Tests: `tests/test_mcp.py` (CI, no weights) and
 `tests/test_mcp_local_e2e.py` (local, real weights and a real stdio handshake).

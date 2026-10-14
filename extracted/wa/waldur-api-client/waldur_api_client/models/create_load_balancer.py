@@ -1,9 +1,11 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="CreateLoadBalancer")
 
@@ -17,6 +19,8 @@ class CreateLoadBalancer:
         name (str):
         tenant (str): OpenStack tenant this load balancer belongs to
         vip_subnet (str):
+        vip_address (Union[None, Unset, str]): Virtual IP address to request, IPv4 or IPv6. It must be of the same
+            family as vip_subnet and lie inside it. Octavia allocates one from vip_subnet when omitted.
     """
 
     url: str
@@ -24,6 +28,7 @@ class CreateLoadBalancer:
     name: str
     tenant: str
     vip_subnet: str
+    vip_address: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,6 +42,12 @@ class CreateLoadBalancer:
 
         vip_subnet = self.vip_subnet
 
+        vip_address: Union[None, Unset, str]
+        if isinstance(self.vip_address, Unset):
+            vip_address = UNSET
+        else:
+            vip_address = self.vip_address
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -48,6 +59,8 @@ class CreateLoadBalancer:
                 "vip_subnet": vip_subnet,
             }
         )
+        if vip_address is not UNSET:
+            field_dict["vip_address"] = vip_address
 
         return field_dict
 
@@ -64,12 +77,22 @@ class CreateLoadBalancer:
 
         vip_subnet = d.pop("vip_subnet")
 
+        def _parse_vip_address(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        vip_address = _parse_vip_address(d.pop("vip_address", UNSET))
+
         create_load_balancer = cls(
             url=url,
             uuid=uuid,
             name=name,
             tenant=tenant,
             vip_subnet=vip_subnet,
+            vip_address=vip_address,
         )
 
         create_load_balancer.additional_properties = d

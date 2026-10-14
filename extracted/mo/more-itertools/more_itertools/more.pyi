@@ -1,8 +1,5 @@
 """Stubs for more_itertools.more"""
 
-from __future__ import annotations
-
-import sys
 import types
 
 from collections.abc import (
@@ -16,19 +13,24 @@ from collections.abc import (
     Sized,
 )
 from contextlib import AbstractContextManager
-from decimal import Decimal
-from fractions import Fraction
 from threading import Lock
 from typing import (
     Any,
     Callable,
     Generic,
     Literal,
+    Protocol,
+    Self,
+    TypeAlias,
     TypeVar,
     overload,
     type_check_only,
 )
-from typing_extensions import Protocol
+from _typeshed import (
+    SupportsDunderLT,
+    SupportsGetItem,
+    Viewable as _SizedIterable,
+)
 
 __all__ = [
     'AbortThread',
@@ -44,6 +46,7 @@ __all__ = [
     'chunked',
     'chunked_even',
     'circular_shifts',
+    'classify_unique',
     'collapse',
     'combination_index',
     'combination_with_replacement_index',
@@ -63,7 +66,6 @@ __all__ = [
     'doublestarmap',
     'duplicates_everseen',
     'duplicates_justseen',
-    'classify_unique',
     'exactly_n',
     'extract',
     'filter_except',
@@ -72,8 +74,8 @@ __all__ = [
     'gray_product',
     'groupby_transform',
     'ichunked',
-    'iequals',
     'idft',
+    'iequals',
     'ilen',
     'interleave',
     'interleave_evenly',
@@ -82,8 +84,8 @@ __all__ = [
     'intersperse',
     'is_sorted',
     'islice_extended',
-    'iterate',
     'iter_suppress',
+    'iterate',
     'join_mappings',
     'last',
     'locate',
@@ -95,11 +97,11 @@ __all__ = [
     'map_reduce',
     'mark_ends',
     'minmax',
+    'nth_combination_with_replacement',
     'nth_or_last',
     'nth_permutation',
     'nth_prime',
     'nth_product',
-    'nth_combination_with_replacement',
     'numeric_range',
     'one',
     'only',
@@ -112,6 +114,7 @@ __all__ = [
     'powerset_of_sets',
     'product_index',
     'raise_',
+    'random_ordered_range',
     'repeat_each',
     'repeat_last',
     'replace',
@@ -133,8 +136,9 @@ __all__ = [
     'split_when',
     'spy',
     'stagger',
-    'strip',
     'strictly_n',
+    'strip',
+    'subfactorial',
     'substrings',
     'substrings_indexes',
     'synchronized',
@@ -155,32 +159,21 @@ __all__ = [
 _T = TypeVar('_T')
 _T1 = TypeVar('_T1')
 _T2 = TypeVar('_T2')
-_T3 = TypeVar('_T3')
-_T4 = TypeVar('_T4')
-_T5 = TypeVar('_T5')
 _U = TypeVar('_U')
 _V = TypeVar('_V')
 _W = TypeVar('_W')
 _T_co = TypeVar('_T_co', covariant=True)
+_U_co = TypeVar('_U_co', covariant=True)
 _GenFn = TypeVar('_GenFn', bound=Callable[..., Iterator[Any]])
 _Raisable = BaseException | type[BaseException]
-_NumberT = TypeVar("_NumberT", float, Decimal, Fraction)
 
 # The type of isinstance's second argument (from typeshed builtins)
-if sys.version_info >= (3, 10):
-    _ClassInfo = type | types.UnionType | tuple[_ClassInfo, ...]
-else:
-    _ClassInfo = type | tuple[_ClassInfo, ...]
+_ClassInfo = type | types.UnionType | tuple[_ClassInfo, ...]
+
+_SupportsLessThan: TypeAlias = SupportsDunderLT[Any]
 
 @type_check_only
-class _SizedIterable(Protocol[_T_co], Sized, Iterable[_T_co]): ...
-
-@type_check_only
-class _SizedReversible(Protocol[_T_co], Sized, Reversible[_T_co]): ...
-
-@type_check_only
-class _SupportsSlicing(Protocol[_T_co]):
-    def __getitem__(self, __k: slice) -> _T_co: ...
+class _SizedReversible(Sized, Reversible[_T_co], Protocol[_T_co]): ...
 
 def chunked(
     iterable: Iterable[_T], n: int | None, strict: bool = ...
@@ -200,7 +193,7 @@ def nth_or_last(iterable: Iterable[_T], n: int, default: _U) -> _T | _U: ...
 
 class peekable(Generic[_T], Iterator[_T]):
     def __init__(self, iterable: Iterable[_T]) -> None: ...
-    def __iter__(self) -> peekable[_T]: ...
+    def __iter__(self) -> Self: ...
     def __bool__(self) -> bool: ...
     @overload
     def peek(self) -> _T: ...
@@ -222,10 +215,10 @@ def with_iter(
     context_manager: AbstractContextManager[Iterable[_T]],
 ) -> Iterator[_T]: ...
 
-class sized_iterator(Generic[_T], Iterator[_T], Sized):
-    def __init__(self, iterable: Iterable[_T], length: int) -> None: ...
-    def __next__(self) -> _T: ...
-    def __iter__(self) -> sized_iterator[_T]: ...
+class sized_iterator(Generic[_T_co], Iterator[_T_co], Sized):
+    def __init__(self, iterable: Iterable[_T_co], length: int) -> None: ...
+    def __next__(self) -> _T_co: ...
+    def __iter__(self) -> Self: ...
     def __len__(self) -> int: ...
 
 def one(
@@ -305,7 +298,7 @@ def side_effect(
     after: Callable[[], object] | None = ...,
 ) -> Iterator[_T]: ...
 def sliced(
-    seq: _SupportsSlicing[_T], n: int, strict: bool = ...
+    seq: SupportsGetItem[slice, _T], n: int, strict: bool = ...
 ) -> Iterator[_T]: ...
 def split_at(
     iterable: Iterable[_T],
@@ -457,23 +450,38 @@ def groupby_transform(
 def groupby_transform(
     iterable: Iterable[_T],
     keyfunc: Callable[[_T], _U],
-    valuefunc: None,
-    reducefunc: None,
+    valuefunc: None = None,
+    reducefunc: None = None,
 ) -> Iterator[tuple[_U, Iterator[_T]]]: ...
+@overload
+def groupby_transform(
+    iterable: Iterable[_T],
+    *,
+    valuefunc: Callable[[_T], _V],
+    reducefunc: None = None,
+) -> Iterator[tuple[_T, Iterator[_V]]]: ...
 @overload
 def groupby_transform(
     iterable: Iterable[_T],
     keyfunc: None,
     valuefunc: Callable[[_T], _V],
-    reducefunc: None,
+    reducefunc: None = None,
 ) -> Iterator[tuple[_T, Iterator[_V]]]: ...
 @overload
 def groupby_transform(
     iterable: Iterable[_T],
     keyfunc: Callable[[_T], _U],
     valuefunc: Callable[[_T], _V],
-    reducefunc: None,
+    reducefunc: None = None,
 ) -> Iterator[tuple[_U, Iterator[_V]]]: ...
+@overload
+def groupby_transform(
+    iterable: Iterable[_T],
+    keyfunc: None = None,
+    valuefunc: None = None,
+    *,
+    reducefunc: Callable[[Iterator[_T]], _W],
+) -> Iterator[tuple[_T, _W]]: ...
 @overload
 def groupby_transform(
     iterable: Iterable[_T],
@@ -488,6 +496,27 @@ def groupby_transform(
     valuefunc: None,
     reducefunc: Callable[[Iterator[_T]], _W],
 ) -> Iterator[tuple[_U, _W]]: ...
+@overload
+def groupby_transform(
+    iterable: Iterable[_T],
+    keyfunc: Callable[[_T], _U],
+    *,
+    reducefunc: Callable[[Iterator[_T]], _W],
+) -> Iterator[tuple[_U, _W]]: ...
+@overload
+def groupby_transform(
+    iterable: Iterable[_T],
+    keyfunc: Callable[[_T], _U],
+    valuefunc: None,
+    reducefunc: Callable[[Iterator[_T]], _W],
+) -> Iterator[tuple[_U, _W]]: ...
+@overload
+def groupby_transform(
+    iterable: Iterable[_T],
+    *,
+    valuefunc: Callable[[_T], _V],
+    reducefunc: Callable[[Iterator[_V]], _W],
+) -> Iterator[tuple[_T, _W]]: ...
 @overload
 def groupby_transform(
     iterable: Iterable[_T],
@@ -503,30 +532,37 @@ def groupby_transform(
     reducefunc: Callable[[Iterator[_V]], _W],
 ) -> Iterator[tuple[_U, _W]]: ...
 
-class numeric_range(Generic[_T, _U], Sequence[_T], Hashable, Reversible[_T]):
+class numeric_range(
+    Generic[_T_co, _U_co], Sequence[_T_co], Hashable, Reversible[_T_co]
+):
     @overload
-    def __init__(self, __stop: _T) -> None: ...
+    def __init__(self, __stop: _T_co) -> None: ...
     @overload
-    def __init__(self, __start: _T, __stop: _T) -> None: ...
+    def __init__(self, __start: _T_co, __stop: _T_co) -> None: ...
     @overload
-    def __init__(self, __start: _T, __stop: _T, __step: _U) -> None: ...
+    def __init__(
+        self, __start: _T_co, __stop: _T_co, __step: _U_co
+    ) -> None: ...
     def __bool__(self) -> bool: ...
     def __contains__(self, elem: object) -> bool: ...
     def __eq__(self, other: object) -> bool: ...
     @overload
-    def __getitem__(self, key: int) -> _T: ...
+    def __getitem__(self, key: int) -> _T_co: ...
     @overload
-    def __getitem__(self, key: slice) -> numeric_range[_T, _U]: ...
+    def __getitem__(self, key: slice) -> numeric_range[_T_co, _U_co]: ...
     def __hash__(self) -> int: ...
-    def __iter__(self) -> Iterator[_T]: ...
+    def __iter__(self) -> Iterator[_T_co]: ...
     def __len__(self) -> int: ...
     def __reduce__(
         self,
-    ) -> tuple[type[numeric_range[_T, _U]], tuple[_T, _T, _U]]: ...
+    ) -> tuple[
+        type[numeric_range[_T_co, _U_co]],
+        tuple[_T_co, _T_co, _U_co],
+    ]: ...
     def __repr__(self) -> str: ...
-    def __reversed__(self) -> Iterator[_T]: ...
-    def count(self, value: _T) -> int: ...
-    def index(self, value: _T) -> int: ...  # type: ignore
+    def __reversed__(self) -> Iterator[_T_co]: ...
+    def count(self, value: Any) -> int: ...
+    def index(self, value: Any) -> int: ...  # type: ignore[override]
 
 def count_cycle(
     iterable: Iterable[_T], n: int | None = ...
@@ -549,11 +585,13 @@ def strip(
     iterable: Iterable[_T], pred: Callable[[_T], object]
 ) -> Iterator[_T]: ...
 
-class islice_extended(Generic[_T], Iterator[_T]):
-    def __init__(self, iterable: Iterable[_T], *args: int | None) -> None: ...
-    def __iter__(self) -> islice_extended[_T]: ...
-    def __next__(self) -> _T: ...
-    def __getitem__(self, index: slice) -> islice_extended[_T]: ...
+class islice_extended(Generic[_T_co], Iterator[_T_co]):
+    def __init__(
+        self, iterable: Iterable[_T_co], *args: int | None
+    ) -> None: ...
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> _T_co: ...
+    def __getitem__(self, index: slice) -> islice_extended[_T_co]: ...
 
 def always_reversible(iterable: Iterable[_T]) -> Iterator[_T]: ...
 def consecutive_groups(
@@ -562,38 +600,53 @@ def consecutive_groups(
 @overload
 def difference(
     iterable: Iterable[_T],
-    func: Callable[[_T, _T], _U] = ...,
+    func: Callable[[_T, _T], _U],
     *,
     initial: None = ...,
 ) -> Iterator[_T | _U]: ...
 @overload
 def difference(
-    iterable: Iterable[_T], func: Callable[[_T, _T], _U] = ..., *, initial: _U
+    iterable: Iterable[_T],
+    *,
+    initial: None = ...,
+) -> Iterator[Any]: ...
+@overload
+def difference(
+    iterable: Iterable[_T],
+    func: Callable[[_T, _T], _U],
+    *,
+    initial: Any,
 ) -> Iterator[_U]: ...
+@overload
+def difference(
+    iterable: Iterable[_T],
+    *,
+    initial: Any,
+) -> Iterator[Any]: ...
 
-class SequenceView(Generic[_T], Sequence[_T]):
-    def __init__(self, target: Sequence[_T]) -> None: ...
+class SequenceView(Generic[_T_co], Sequence[_T_co]):
+    def __init__(self, target: Sequence[_T_co]) -> None: ...
     @overload
-    def __getitem__(self, index: int) -> _T: ...
+    def __getitem__(self, index: int) -> _T_co: ...
     @overload
-    def __getitem__(self, index: slice) -> Sequence[_T]: ...
+    def __getitem__(self, index: slice) -> Sequence[_T_co]: ...
     def __len__(self) -> int: ...
 
-class seekable(Generic[_T], Iterator[_T]):
+class seekable(Generic[_T_co], Iterator[_T_co]):
     def __init__(
-        self, iterable: Iterable[_T], maxlen: int | None = ...
+        self, iterable: Iterable[_T_co], maxlen: int | None = ...
     ) -> None: ...
-    def __iter__(self) -> seekable[_T]: ...
-    def __next__(self) -> _T: ...
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> _T_co: ...
     def __bool__(self) -> bool: ...
     @overload
-    def peek(self) -> _T: ...
+    def peek(self) -> _T_co: ...
     @overload
-    def peek(self, default: _U) -> _T | _U: ...
-    def elements(self) -> SequenceView[_T]: ...
+    def peek(self, default: _U) -> _T_co | _U: ...
+    def elements(self) -> SequenceView[_T_co]: ...
     def seek(self, index: int) -> None: ...
     def relative_seek(self, count: int) -> None: ...
-    def __getitem__(self, index: int) -> _T: ...
+    def __getitem__(self, index: int) -> _T_co: ...
 
 class run_length:
     @staticmethod
@@ -658,12 +711,14 @@ def set_partitions(
     max_size: int | None = ...,
 ) -> Iterator[list[list[_T]]]: ...
 
-class time_limited(Generic[_T], Iterator[_T]):
+class time_limited(Generic[_T_co], Iterator[_T_co]):
+    limit_seconds: float
+    timed_out: bool
     def __init__(
-        self, limit_seconds: float, iterable: Iterable[_T]
+        self, limit_seconds: float, iterable: Iterable[_T_co]
     ) -> None: ...
-    def __iter__(self) -> islice_extended[_T]: ...
-    def __next__(self) -> _T: ...
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> _T_co: ...
 
 @overload
 def only(
@@ -720,23 +775,23 @@ def is_sorted(
 class AbortThread(BaseException):
     pass
 
-class callback_iter(Generic[_T], Iterator[_T]):
+class callback_iter(Generic[_T_co], Iterator[_T_co]):
     def __init__(
         self,
         func: Callable[..., Any],
         callback_kwd: str = ...,
         wait_seconds: float = ...,
     ) -> None: ...
-    def __enter__(self) -> callback_iter[_T]: ...
+    def __enter__(self) -> Self: ...
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: types.TracebackType | None,
     ) -> bool | None: ...
-    def __iter__(self) -> callback_iter[_T]: ...
-    def __next__(self) -> _T: ...
-    def _reader(self) -> Iterator[_T]: ...
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> _T_co: ...
+    def _reader(self) -> Iterator[_T_co]: ...
     @property
     def done(self) -> bool: ...
     @property
@@ -772,10 +827,10 @@ def permutation_index(
 ) -> int: ...
 def repeat_each(iterable: Iterable[_T], n: int = ...) -> Iterator[_T]: ...
 
-class countable(Generic[_T], Iterator[_T]):
-    def __init__(self, iterable: Iterable[_T]) -> None: ...
-    def __iter__(self) -> countable[_T]: ...
-    def __next__(self) -> _T: ...
+class countable(Generic[_T_co], Iterator[_T_co]):
+    def __init__(self, iterable: Iterable[_T_co]) -> None: ...
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> _T_co: ...
     items_seen: int
 
 def chunked_even(iterable: Iterable[_T], n: int) -> Iterator[list[_T]]: ...
@@ -848,9 +903,6 @@ def duplicates_justseen(
 def classify_unique(
     iterable: Iterable[_T], key: Callable[[_T], _U] | None = ...
 ) -> Iterator[tuple[_T, bool, bool]]: ...
-
-class _SupportsLessThan(Protocol):
-    def __lt__(self, __other: Any) -> bool: ...
 
 _SupportsLessThanT = TypeVar("_SupportsLessThanT", bound=_SupportsLessThan)
 
@@ -950,14 +1002,15 @@ def extract(
     *,
     monotonic: bool = ...,
 ) -> Iterator[_T]: ...
+def subfactorial(n: int) -> int: ...
 
-class serialize(Generic[_T], Iterator[_T]):
-    iterator: Iterator[_T]
+class serialize(Generic[_T_co], Iterator[_T_co]):
+    iterator: Iterator[_T_co]
     lock: Lock
-    def __init__(self, iterable: Iterable[_T]) -> None: ...
-    def __iter__(self) -> serialize[_T]: ...
-    def __next__(self) -> _T: ...
-    def send(self, value: object, /) -> _T: ...
+    def __init__(self, iterable: Iterable[_T_co]) -> None: ...
+    def __iter__(self) -> Self: ...
+    def __next__(self) -> _T_co: ...
+    def send(self, value: object, /) -> _T_co: ...
     def throw(self, *args: object) -> None: ...
     def close(self) -> None: ...
 
@@ -967,3 +1020,6 @@ def concurrent_tee(
 def synchronized(
     func: Callable[..., Iterator[_T]],
 ) -> Callable[..., Iterator[_T]]: ...
+def random_ordered_range(
+    *args: int,
+) -> Iterator[int]: ...

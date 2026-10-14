@@ -10,37 +10,54 @@ from .role_type import RoleType
 
 
 class Message(UniversalBaseModel):
-    content: str = pydantic.Field()
+    content: typing.Optional[str] = pydantic.Field(default=None)
     """
     The content of the message.
     """
 
     created_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The timestamp of when the message was created.
+    The time Zep received the message.
     """
 
-    metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    The metadata associated with the message. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
+    Arbitrary key-value metadata attached to the message.
     """
 
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Customizable name of the sender of the message (e.g., "john", "sales_agent").
+    A custom name for the message's sender, for example a specific user or
+    agent name.
     """
 
     processed: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Whether the message has been processed.
+    Whether the message has finished being ingested into the user's graph.
     """
 
-    role: RoleType = pydantic.Field()
+    reference_time: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The role of message sender (e.g., "user", "system").
+    The message's reference time: the time that the developer supplied on
+    add, or the ingestion time when the developer supplied no time.
     """
 
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = pydantic.Field(default=None)
+    role: typing.Optional[RoleType] = pydantic.Field(default=None)
+    """
+    The role of the message's sender: system, assistant, user, function, or
+    tool.
+    """
+
+    thread_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the thread this message belongs to.
+    """
+
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the message."),
+    ] = None
     """
     The unique identifier of the message.
     """

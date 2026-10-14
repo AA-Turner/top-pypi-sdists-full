@@ -14,6 +14,7 @@ class RoleDetailsFieldEnum(str, Enum):
     DESCRIPTION_ES = "description_es"
     DESCRIPTION_ET = "description_et"
     DESCRIPTION_FR = "description_fr"
+    DESCRIPTION_HR = "description_hr"
     DESCRIPTION_IT = "description_it"
     DESCRIPTION_KM = "description_km"
     DESCRIPTION_LT = "description_lt"

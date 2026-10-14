@@ -18,6 +18,7 @@ from photutils.psf.photometry import PSFPhotometry
 from photutils.psf.utils import _create_call_docstring
 from photutils.utils._deprecation import (deprecated_positional_kwargs,
                                           deprecated_renamed_argument)
+from photutils.utils._parameters import as_pair
 from photutils.utils._repr import make_repr
 from photutils.utils.exceptions import NoDetectionsWarning
 
@@ -43,34 +44,58 @@ class IterativePSFPhotometry:
         named ``x_0``, ``y_0``, and ``flux``, corresponding to the
         center (x, y) position and flux, or it must have 'x_name',
         'y_name', and 'flux_name' attributes that map to the x, y, and
-        flux parameters (i.e., a model output from `make_psf_model`).
-        The model must be two-dimensional such that it accepts 2 inputs
-        (e.g., x and y) and provides 1 output.
+        flux parameters. The model must be two-dimensional such that it
+        accepts 2 inputs (e.g., x and y) and provides 1 output.
+
+        The model is evaluated at the center of each pixel, and the
+        result is compared with the pixel value. The value of the model
+        at a position must therefore be the flux in a pixel centered at
+        that position, as for the analytic models whose names end in
+        ``PRF`` and for an image-based model made from an ePSF (see
+        :ref:`psf-terminology`). A model that is not integrated over
+        the pixels gives biased fluxes and positions for undersampled
+        data.
+
+        The analytic models whose names end in ``PSF``
+        (e.g., `~photutils.psf.CircularGaussianPSF` and
+        `~photutils.psf.MoffatPSF`) are not integrated over the pixels
+        and should not be used here. Each has a counterpart whose name
+        ends in ``PRF`` (e.g., `~photutils.psf.CircularGaussianPRF` and
+        `~photutils.psf.MoffatPRF`). With a ``PSF`` model whose shape
+        parameters are fixed, the fitted flux is biased by a few percent
+        even for a FWHM of 2 to 3 pixels.
+
+        The fitted source positions are the fitted values of the model
+        position parameters. For an image-based model, they give the
+        position of the center of the model image, or of the
+        ``origin`` of an `ImagePSF`. The PSF must therefore be centered
+        on that point of the model image. Otherwise, the fitted
+        positions are all offset by the distance of the PSF center
+        from that point.
 
     fit_shape : int or length-2 array_like
         The rectangular shape around the initial center of a source that
         will be used to define the PSF-fitting data. If ``fit_shape``
         is a scalar then a square shape of size ``fit_shape`` will be
         used. If ``fit_shape`` has two elements, they must be in ``(ny,
-        nx)`` order. Each element of ``fit_shape`` must be an odd number
-        greater than or equal to 3. In general, ``fit_shape`` should be
-        set to a small size (e.g., ``(5, 5)``) that covers the region
-        with the highest flux signal-to-noise.
+        nx)`` order. Each element of ``fit_shape`` must be a positive
+        odd number. In general, ``fit_shape`` should be set to a small
+        size (e.g., ``(5, 5)``) that covers the region with the highest
+        flux signal-to-noise.
 
     finder : callable or `~photutils.detection.StarFinderBase`
         A callable used to identify sources in an image. This is a
-        required input for `IterativePSFPhotometry`. The ``finder`` must
-        accept a 2D image as input and return a `~astropy.table.Table`
-        containing the x and y centroid positions. These positions are
-        used as the starting points for the PSF fitting. The allowed
-        ``x`` column names are (same suffix for ``y``): ``'x_init'``,
+        required input for `IterativePSFPhotometry`. The ``finder``
+        must accept a 2D image as the first argument and a ``mask``
+        keyword argument, and return a `~astropy.table.Table` containing
+        the x and y centroid positions. These positions are used as
+        the starting points for the PSF fitting. The allowed ``x``
+        column names are (same suffix for ``y``): ``'x_init'``,
         ``'xinit'``, ``'x'``, ``'x_0'``, ``'x0'``, ``'xcentroid'``,
         ``'x_centroid'``, ``'x_peak'``, ``'xcen'``, ``'x_cen'``,
-        ``'xpos'``, ``'x_pos'``, ``'x_fit'``, and ``'xfit'``. If `None`,
-        then the initial (x, y) model positions must be input using
-        the ``init_params`` keyword when calling the class. The (x, y)
-        values in ``init_params`` override this keyword *only for the
-        first iteration*. If this class is run on an image that has
+        ``'xpos'``, ``'x_pos'``, ``'x_fit'``, and ``'xfit'``. The (x,
+        y) values in ``init_params`` override this keyword *only for
+        the first iteration*. If this class is run on an image that has
         units (i.e., a `~astropy.units.Quantity` array), then certain
         ``finder`` keywords (e.g., ``threshold``) must have the same
         units. Please see the documentation for the specific ``finder``
@@ -83,7 +108,7 @@ class IterativePSFPhotometry:
         the x and y coordinates of the sources and return an integer
         array of the group ID numbers (starting from 1) indicating
         the group in which a given source belongs. If `None`, then no
-        grouping is performed, i.e. each source is fit independently.
+        grouping is performed, i.e., each source is fit independently.
         The ``group_id`` values in ``init_params`` override this keyword
         *only for the first iteration*. A warning is raised if any group
         size is larger than ``group_warning_threshold`` sources.
@@ -123,20 +148,20 @@ class IterativePSFPhotometry:
     aperture_radius : float, optional
         The radius of the circular aperture used to estimate the
         initial flux of each source. This is a required input for
-        `IterativePSFPhotometry`. If `None`, then the initial flux
-        values must be provided in the ``init_params`` table. The
-        aperture radius must be a strictly positive scalar. If initial
-        flux values are present in the ``init_params`` table, they will
-        override this keyword *only for the first iteration*.
+        `IterativePSFPhotometry`. The aperture radius must be a strictly
+        positive scalar. If initial flux values are present in the
+        ``init_params`` table, they will override this keyword *only for
+        the first iteration*.
 
     local_bkg_estimator : `~photutils.background.LocalBackground` or `None`, \
             optional
         The object used to estimate the local background around each
         source. If `None`, then no local background is subtracted. The
         ``local_bkg`` values in ``init_params`` override this keyword.
-        This option should be used with care, especially in crowded
-        fields where the ``fit_shape`` of sources overlap (see Notes
-        below).
+        In the 'all' mode, the local background values of previously
+        fit sources are carried into subsequent iterations. This option
+        should be used with care, especially in crowded fields where the
+        ``fit_shape`` of sources overlap (see Notes below).
 
     group_warning_threshold : int, optional
         The maximum number of sources in a group before a warning is
@@ -145,21 +170,46 @@ class IterativePSFPhotometry:
         groups may take a long time and be error-prone. The default is
         25 sources.
 
-    sub_shape : `None`, int, or length-2 array_like
+    sub_shape : `None`, int, or length-2 array_like, optional
         The rectangular shape around the fitted center of a source
         that will be used when subtracting the fitted PSF models.
         If ``sub_shape`` is a scalar then a square shape of size
         ``sub_shape`` will be used. If ``sub_shape`` has two
-        elements, they must be in ``(ny, nx)`` order. Each element
-        of ``sub_shape`` must be an odd number. If `None`, then
+        elements, they must be in ``(ny, nx)`` order. Each element of
+        ``sub_shape`` must be a positive odd number. If `None`, then
         ``sub_shape`` will be defined by the model bounding box.
         This keyword must be specified if the model does not have a
         ``bounding_box`` attribute.
+
+    n_threads : int, optional
+        The number of threads used to fit the sources. The default is
+        1 (no multithreading). When ``n_threads`` > 1, the source
+        groups are divided into chunks that are fitted concurrently.
+        Each group is fitted independently, so the results are
+        identical to the single-threaded computation. Every thread
+        fits with its own copy of the PSF model and the ``fitter``,
+        so the input ``fitter`` is not called and its ``fit_info`` is
+        not updated. The fitting runs mostly in Python code that
+        holds the global interpreter lock (GIL), so multithreading
+        speeds up the fitting only on a free-threaded Python build.
+        When the GIL is enabled, a warning is issued and the sources
+        are fitted in a single thread.
 
     progress_bar : bool, optional
         Whether to display a progress bar when fitting the sources
         (or groups). The progress bar requires that the `tqdm
         <https://tqdm.github.io/>`_ optional dependency be installed.
+
+    Attributes
+    ----------
+    results : `~astropy.table.QTable` or `None`
+        The table of fit results from the most recent call, or `None`
+        if the instance has not yet been run or no sources were found.
+
+    fit_results : list of `PSFPhotometry`
+        A list with one `PSFPhotometry` instance per fitting iteration
+        of the most recent call, each holding the results of that
+        iteration.
 
     Notes
     -----
@@ -189,7 +239,7 @@ class IterativePSFPhotometry:
 
     If the fitted model parameter errors are NaN, then either the fit
     did not converge, the model parameter was fixed, or the input
-    ``fitter`` did not return parameter errors. For the later case, one
+    ``fitter`` did not return parameter errors. For the latter case, one
     can try a different Astropy fitter that returns parameter errors.
 
     The local background value around each source is optionally
@@ -215,7 +265,7 @@ class IterativePSFPhotometry:
     is reached.
 
     In the 'all' mode, a new source list combining the sources from
-    first `PSFPhotometry` run and the new sources detected in the
+    the first `PSFPhotometry` run and the new sources detected in the
     residual image is created. `PSFPhotometry` is then run on the
     original, unsubtracted, data with this combined source list. This
     allows the source ``grouper`` (which is required for the 'all'
@@ -223,14 +273,24 @@ class IterativePSFPhotometry:
     the fit. Again, the process is repeated until no new sources are
     detected or a maximum number of iterations is reached.
 
+    In the 'all' mode, sources whose fitted parameters are nonfinite in
+    one iteration are excluded from subsequent iterations. Such sources
+    therefore appear in the final ``results`` table (as NaN rows) only
+    if they became invalid in the last iteration. In the 'new' mode,
+    invalid sources are always kept as NaN rows.
+
     Care should be taken in defining the source groups. Simultaneously
     fitting very large source groups is computationally expensive and
-    error-prone. Internally, source grouping requires the creation of
-    a compound Astropy model. Due to the way compound Astropy models
-    are currently constructed, large groups also require excessively
-    large amounts of memory; this will hopefully be fixed in a future
-    Astropy version. A warning will be raised if the number of sources
-    in a group exceeds the ``group_warning_threshold`` value.
+    error-prone, because the number of fitted parameters grows with the
+    group size. A warning will be raised if the number of sources in a
+    group exceeds the ``group_warning_threshold`` value.
+
+    This class stores per-call state on the instance (e.g., ``results``
+    and ``fit_results``), so a single instance must not be called
+    concurrently from multiple threads. Create one instance per thread
+    for concurrent use. Sharing a single Astropy fitter instance across
+    concurrently-used objects is also unsafe because Astropy fitters
+    store ``fit_info`` on themselves.
     """
 
     @deprecated_renamed_argument('localbkg_estimator',
@@ -240,7 +300,7 @@ class IterativePSFPhotometry:
                  fitter=None, fitter_maxiters=100, xy_bounds=None,
                  maxiters=3, mode='new', aperture_radius=None,
                  local_bkg_estimator=None, group_warning_threshold=25,
-                 sub_shape=None, progress_bar=False):
+                 sub_shape=None, n_threads=1, progress_bar=False):
 
         if finder is None:
             msg = 'finder cannot be None for IterativePSFPhotometry'
@@ -258,6 +318,7 @@ class IterativePSFPhotometry:
                                       aperture_radius=aperture_radius,
                                       local_bkg_estimator=local_bkg_estimator,
                                       group_warning_threshold=threshold,
+                                      n_threads=n_threads,
                                       progress_bar=progress_bar)
 
         self.maxiters = self._validate_maxiters(maxiters)
@@ -270,7 +331,11 @@ class IterativePSFPhotometry:
             raise ValueError(msg)
         self.mode = mode
 
-        self.sub_shape = sub_shape
+        if sub_shape is None:
+            self.sub_shape = sub_shape
+        else:
+            self.sub_shape = as_pair('sub_shape', sub_shape,
+                                     lower_bound=(0, 0), check_odd=True)
 
         self._reset_results()
 
@@ -284,7 +349,8 @@ class IterativePSFPhotometry:
     def __repr__(self):
         params = ('psf_model', 'fit_shape', 'finder', 'grouper', 'fitter',
                   'fitter_maxiters', 'xy_bounds', 'maxiters', 'mode',
-                  'local_bkg_estimator', 'aperture_radius', 'sub_shape',
+                  'local_bkg_estimator', 'aperture_radius',
+                  'group_warning_threshold', 'sub_shape', 'n_threads',
                   'progress_bar')
         overrides = {
             'psf_model': self._psfphot.psf_model,
@@ -296,20 +362,24 @@ class IterativePSFPhotometry:
             'xy_bounds': self._psfphot.xy_bounds,
             'local_bkg_estimator': self._psfphot.local_bkg_estimator,
             'aperture_radius': self._psfphot.aperture_radius,
+            'group_warning_threshold':
+                self._psfphot.group_warning_threshold,
+            'n_threads': self._psfphot.n_threads,
             'progress_bar': self._psfphot.progress_bar,
         }
         return make_repr(self, params, overrides=overrides)
 
     @staticmethod
     def _validate_maxiters(maxiters):
-        if (not np.isscalar(maxiters) or maxiters <= 0
-                or ~np.isfinite(maxiters)):
+        if (isinstance(maxiters, bool)
+                or not isinstance(maxiters, (int, float, np.number))
+                or not np.isfinite(maxiters) or maxiters <= 0):
             msg = 'maxiters must be a strictly-positive scalar'
             raise ValueError(msg)
         if maxiters != int(maxiters):
             msg = 'maxiters must be an integer'
             raise ValueError(msg)
-        return maxiters
+        return int(maxiters)
 
     @staticmethod
     def _emit_warnings(recorded_warnings):
@@ -336,8 +406,6 @@ class IterativePSFPhotometry:
         """
         Move a column to a new position in a table.
 
-        The table is modified in place.
-
         Parameters
         ----------
         table : `~astropy.table.Table`
@@ -352,7 +420,9 @@ class IterativePSFPhotometry:
         Returns
         -------
         table : `~astropy.table.Table`
-            The input table with the column moved.
+            A new table with the column moved. If either column is
+            not in the table, or the two names are the same, the input
+            table is returned unchanged.
         """
         colnames = table.colnames
         if colname not in colnames or colname_after not in colnames:
@@ -375,7 +445,9 @@ class IterativePSFPhotometry:
         The fluxes are added in place to the input ``sources`` table.
 
         The fluxes are measured using aperture photometry with a
-        circular aperture of radius ``aperture_radius``.
+        circular aperture of radius ``aperture_radius``. If ``sources``
+        has a ``local_bkg`` column, each finite value times the aperture
+        area is subtracted from the flux.
 
         Parameters
         ----------
@@ -396,8 +468,11 @@ class IterativePSFPhotometry:
         sources : `~astropy.table.Table`
             The input ``sources`` table with the new flux column added.
         """
-        flux = self._psfphot._data_processor.get_aper_fluxes(data, mask,
-                                                             sources)
+        local_bkg = None
+        if 'local_bkg' in sources.colnames:
+            local_bkg = np.asarray(sources['local_bkg'].value)
+        flux = self._psfphot._data_processor.get_aper_fluxes(
+            data, mask, sources, local_bkg=local_bkg)
         flux_col = self._psfphot._param_mapper.init_colnames['flux']
         sources[flux_col] = flux
         return sources
@@ -426,8 +501,9 @@ class IterativePSFPhotometry:
             newly detected sources.
 
         orig_sources : `~astropy.table.Table`
-            The results table (from the previous iteration's fit) for
-            the original sources.
+            The initial-parameters table made from the previous
+            iteration's fit results (the fitted values in ``_init``
+            columns), for the sources fit so far.
 
         Returns
         -------
@@ -437,7 +513,7 @@ class IterativePSFPhotometry:
         """
         param_mapper = self._psfphot._param_mapper
 
-        # build a new table constructively, converting _fit columns to
+        # Build a new table constructively, converting _fit columns to
         # _init columns
         prepared_orig = QTable()
         prepared_orig['id'] = orig_sources['id']
@@ -445,15 +521,37 @@ class IterativePSFPhotometry:
         for alias in param_mapper.alias_to_model_param:
             init_col = param_mapper.init_colnames.get(alias)
             if init_col and init_col in orig_sources.colnames:
-                # use the previous fit result as the initial guess for
+                # Use the previous fit result as the initial guess for
                 # the next iteration
                 prepared_orig[init_col] = orig_sources[init_col]
 
-        # prepare the newly found sources
+        # Carry the local background values into the next iteration
+        if 'local_bkg' in orig_sources.colnames:
+            prepared_orig['local_bkg'] = orig_sources['local_bkg']
+
+        # Prepare the newly found sources
         max_id = np.max(orig_sources['id']) if len(orig_sources) > 0 else 0
         new_sources['id'] = np.arange(len(new_sources)) + max_id + 1
 
-        # measure initial fluxes and add default values for other model
+        # Estimate the local background for the new sources from the
+        # residual data. If no estimator was input, use zero, matching
+        # the values assigned by PSFPhotometry.
+        if 'local_bkg' in prepared_orig.colnames:
+            estimator = self._psfphot.local_bkg_estimator
+            if estimator is None:
+                local_bkg = np.zeros(len(new_sources))
+                unit = getattr(prepared_orig['local_bkg'], 'unit', None)
+                if unit is not None:
+                    local_bkg <<= unit
+            else:
+                x_col = param_mapper.init_colnames['x']
+                y_col = param_mapper.init_colnames['y']
+                local_bkg = estimator(residual_data,
+                                      new_sources[x_col],
+                                      new_sources[y_col], mask=mask)
+            new_sources['local_bkg'] = local_bkg
+
+        # Measure initial fluxes and add default values for other model
         # parameters
         new_sources = self._measure_init_fluxes(residual_data, mask,
                                                 new_sources)
@@ -466,7 +564,7 @@ class IterativePSFPhotometry:
                                         model_param_name)
                 new_sources[init_col] = default_value
 
-        # combine tables
+        # Combine tables
         new_sources.meta.pop('date', None)  # prevent merge conflicts
 
         return vstack([prepared_orig, new_sources])
@@ -474,43 +572,47 @@ class IterativePSFPhotometry:
     @_create_call_docstring(iterative=True)
     def __call__(self, data, *, mask=None, error=None, init_params=None):
         if isinstance(data, NDData):
+            PSFPhotometry._check_nddata_kwargs(mask=mask, error=error)
             data_, mask, error = PSFPhotometry._coerce_nddata(data)
             return self.__call__(data_, mask=mask, error=error,
                                  init_params=init_params)
 
-        # reset results from previous runs
+        # Reset results from previous runs
         self._reset_results()
 
         with warnings.catch_warnings(record=True) as rwarn0:
+            warnings.simplefilter('always')
             phot_tbl = self._psfphot(data, mask=mask, error=error,
                                      init_params=init_params)
             self.fit_results.append(deepcopy(self._psfphot))
 
-        # this needs to be run outside the context manager to be able
-        # to reemit any warnings
+        # This needs to be run outside the context manager to be able
+        # to emit any warnings again
         if phot_tbl is None:
             self._emit_warnings(rwarn0)
             return None
 
         residual_data = data
         with warnings.catch_warnings(record=True) as rwarn1:
+            warnings.simplefilter('always')
             phot_tbl['iter_detected'] = 1
             if self.mode == 'all':
                 iter_detected = np.ones(len(phot_tbl), dtype=int)
 
             iter_num = 2
-            while iter_num <= self.maxiters and phot_tbl is not None:
+            while iter_num <= self.maxiters:
                 residual_data = self._psfphot.make_residual_image(
                     residual_data, psf_shape=self.sub_shape)
 
-                # do not warn if no sources are found beyond the first
+                # Do not warn if no sources are found beyond the first
                 # iteration
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore', NoDetectionsWarning)
 
                     new_sources = self._psfphot.finder(residual_data,
                                                        mask=mask)
-                    if new_sources is None:  # no new sources detected
+                    # No new sources detected
+                    if new_sources is None or len(new_sources) == 0:
                         break
 
                 finder_results = new_sources.copy()
@@ -521,20 +623,30 @@ class IterativePSFPhotometry:
                     new_sources)
 
                 if self.mode == 'all':
+                    prev_results = self._psfphot.results
+                    prev_init = PSFPhotometry._results_to_init_params(
+                        prev_results, remove_invalid=False)
+                    keep = PSFPhotometry._finite_fit_mask(prev_init)
+                    prev_init = prev_init[keep]
+                    prev_init['id'] = np.arange(1, len(prev_init) + 1)
+                    if 'local_bkg' in prev_results.colnames:
+                        prev_init['local_bkg'] = (
+                            prev_results['local_bkg'][keep])
+                    iter_detected = iter_detected[keep]
+
                     init_params = self._prepare_next_iteration_sources(
-                        residual_data, mask, new_sources,
-                        self._psfphot.results_to_init_params())
+                        residual_data, mask, new_sources, prev_init)
 
                     residual_data = data
 
-                    # keep track of the iteration number in which the source
-                    # was detected
-                    current_iter = (np.ones(len(new_sources), dtype=int)
-                                    * iter_num)
+                    # Keep track of the iteration number in which the
+                    # source was detected
+                    current_iter = np.full(len(new_sources), iter_num,
+                                           dtype=int)
                     iter_detected = np.concatenate((iter_detected,
                                                     current_iter))
                 elif self.mode == 'new':
-                    # fit new sources on the residual data
+                    # Fit new sources on the residual data
                     init_params = new_sources
 
                 new_tbl = self._psfphot(residual_data, mask=mask, error=error,
@@ -547,7 +659,7 @@ class IterativePSFPhotometry:
                     phot_tbl = new_tbl
 
                 elif self.mode == 'new':
-                    # combine tables
+                    # Combine tables
                     new_tbl['id'] += np.max(phot_tbl['id'])
                     new_tbl['group_id'] += np.max(phot_tbl['group_id'])
                     new_tbl['iter_detected'] = iter_num
@@ -556,27 +668,27 @@ class IterativePSFPhotometry:
 
                 iter_num += 1
 
-            # move 'iter_detected' column
+            # Move 'iter_detected' column
             phot_tbl = self._move_column(phot_tbl, 'iter_detected',
                                          'group_size')
 
-        # add table metadata not already set by PSFPhotometry
+        # Add table metadata not already set by PSFPhotometry
         phot_tbl.meta['psf_class'] = self.__class__.__name__
         phot_tbl.meta['maxiters'] = self.maxiters
         phot_tbl.meta['mode'] = self.mode
         phot_tbl.meta['sub_shape'] = self.sub_shape
 
-        # emit unique warnings
+        self.results = phot_tbl
+
+        # Emit unique warnings
         recorded_warnings = rwarn0 + rwarn1
         self._emit_warnings(recorded_warnings)
-
-        self.results = phot_tbl
 
         return phot_tbl
 
     def results_to_init_params(self, *, remove_invalid=True, reset_ids=True):
         """
-        Create a table of the fitted model parameters from the results.
+        Create a table of initial parameters from the fitted results.
 
         The table columns are named according to those expected for the
         initial parameters table. It can be used as the ``init_params``
@@ -585,7 +697,7 @@ class IterativePSFPhotometry:
         Parameters
         ----------
         remove_invalid : bool, optional
-            If `True`, rows that contain non-finite fitted values are
+            If `True`, rows that contain nonfinite fitted values are
             removed.
 
         reset_ids : bool, optional
@@ -593,6 +705,12 @@ class IterativePSFPhotometry:
             numbering starting from 1. If `False`, the 'id' column will
             remain unchanged from the results table. This option is
             ignored if ``remove_invalid`` is `False`.
+
+        Returns
+        -------
+        init_params_tbl : `~astropy.table.QTable` or `None`
+            The table of initial parameters, or `None` if the
+            instance has not yet been run.
         """
         return self._psfphot._results_to_init_params(
             self.results, remove_invalid=remove_invalid, reset_ids=reset_ids)
@@ -608,7 +726,7 @@ class IterativePSFPhotometry:
         Parameters
         ----------
         remove_invalid : bool, optional
-            If `True`, rows that contain non-finite fitted values are
+            If `True`, rows that contain nonfinite fitted values are
             removed.
 
         reset_ids : bool, optional
@@ -616,6 +734,12 @@ class IterativePSFPhotometry:
             numbering starting from 1. If `False`, the 'id' column will
             remain unchanged from the results table. This option is
             ignored if ``remove_invalid`` is `False`.
+
+        Returns
+        -------
+        model_params_tbl : `~astropy.table.QTable` or `None`
+            The table of model parameters, or `None` if the instance
+            has not yet been run.
         """
         return self._psfphot._results_to_model_params(
             self.results, self._psfphot._param_mapper,
@@ -634,15 +758,19 @@ class IterativePSFPhotometry:
         ----------
         return_bit_values : bool, optional
             If `True`, return the decoded bit flags (integers) instead
-            of the flag descriptions (strings). Default is `False`.
+            of the flag names (strings). Default is `False`.
 
         Returns
         -------
-        decoded : list of list of str or list of list of int
-            List of lists where each inner list contains the active flag
-            names (or bit values) for the corresponding source in the
-            results table. If no flags are set for a source, an empty
-            list is returned for that source.
+        decoded : dict
+            A dictionary mapping each source id from the results table
+            to the list of its active flag names (or bit values). If no
+            flags are set for a source, its value is an empty list. The
+            entries follow the results-table order.
+
+            .. versionchanged:: 3.1
+                The result is now a dictionary keyed by source id.
+                Previously, a positional list of lists was returned.
 
         Raises
         ------
@@ -677,19 +805,21 @@ class IterativePSFPhotometry:
         ...                                     aperture_radius=4,
         ...                                     maxiters=1)
         >>> results = photometry(data, init_params=init_params)
-        >>> decoded_flags = photometry.decode_flags()
-        >>> for i, flags in enumerate(decoded_flags):
-        ...     print(f'Source {i+1}: {flags}')  # doctest: +SKIP
+        >>> for source_id, flags in photometry.decode_flags().items():
+        ...     print(f'Source {source_id}: {flags}')  # doctest: +SKIP
         Source 1: []
-        Source 2: ['negative_flux']
+        Source 2: ['non_positive_flux']
         """
         if self.results is None:
             msg = ('No results available. Please run the '
                    'IterativePSFPhotometry instance first.')
             raise ValueError(msg)
 
-        return decode_psf_flags(self.results['flags'],
-                                return_bit_values=return_bit_values)
+        decoded = decode_psf_flags(self.results['flags'],
+                                   return_bit_values=return_bit_values)
+        return {int(id_): flags
+                for id_, flags in zip(self.results['id'], decoded,
+                                      strict=True)}
 
     def _get_model_image_params(self):
         # Convert fitted parameters to model parameter names without
@@ -711,7 +841,7 @@ class IterativePSFPhotometry:
     @_make_model_image_docstring
     def make_model_image(self, shape, *, psf_shape=None,
                          include_local_bkg=False):
-        if not self.fit_results:
+        if self.results is None:
             msg = ('No results available. Please run the '
                    'IterativePSFPhotometry instance first.')
             raise ValueError(msg)
@@ -728,7 +858,7 @@ class IterativePSFPhotometry:
     @_make_residual_image_docstring
     def make_residual_image(self, data, *, psf_shape=None,
                             include_local_bkg=False):
-        if not self.fit_results:
+        if self.results is None:
             msg = ('No results available. Please run the '
                    'IterativePSFPhotometry instance first.')
             raise ValueError(msg)

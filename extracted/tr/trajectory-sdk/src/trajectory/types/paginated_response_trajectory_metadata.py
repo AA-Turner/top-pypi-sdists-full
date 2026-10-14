@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.trajectory_metadata import TrajectoryMetadata
 
 
-class PaginatedResponseTrajectoryMetadata(BaseModel):
+class PaginatedResponseTrajectoryMetadata(SyncPage[TrajectoryMetadata]):
   items: list[TrajectoryMetadata]
 
   next_cursor: str | None = None

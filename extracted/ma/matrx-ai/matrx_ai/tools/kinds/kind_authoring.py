@@ -166,7 +166,7 @@ class ComponentAuthoringBundle(KindSubModel):
         "organization_id": "bb22bb22-0000-4000-8000-000000000000",
         "published_to_web": False,
         "platform_kind": False,
-        "is_active": False,
+        "is_active": True,
         "canonical_example_id": "cc33cc33-0000-4000-8000-000000000000",
         "canonical_example_status": "passed",
         "input_component_id": None,

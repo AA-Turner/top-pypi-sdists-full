@@ -91,10 +91,12 @@ struct OpenArgs {
     size_t io_depth;
     Backend backend;
     vector<pair<size_t, size_t>> tensor_offsets;
+    vector<bool> tensor_keep;
     OpenArgs(const vector<string> &filenames, int device_idx, ncclComm_t group_communicator, int rank,
-        int world_size, size_t buffer_size, size_t chunk_size, size_t concurrency, size_t io_depth, Backend backend, const vector<pair<size_t, size_t>>& tensor_offsets)
+        int world_size, size_t buffer_size, size_t chunk_size, size_t concurrency, size_t io_depth, Backend backend, const vector<pair<size_t, size_t>>& tensor_offsets,
+        const vector<bool>& tensor_keep)
         : filenames(filenames), device_idx(device_idx), group_communicator(group_communicator), rank(rank), world_size(world_size),
-        buffer_size(buffer_size), chunk_size(chunk_size), concurrency(concurrency), io_depth(io_depth), backend(backend), tensor_offsets(tensor_offsets)
+        buffer_size(buffer_size), chunk_size(chunk_size), concurrency(concurrency), io_depth(io_depth), backend(backend), tensor_offsets(tensor_offsets), tensor_keep(tensor_keep)
         {}
 };
 

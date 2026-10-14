@@ -22,8 +22,9 @@ THE POLICY, the consensus rule the team's earlier auto-tracking study kept
   or `import probe` / `probe.init(` / `probe.log(` in a Python file the agent
   wrote (never the SDK's own source), a training or job launch or `probe exec`
   the shell ran (never text a command only writes), a Probe SDK run event (the
-  SDK really ran), a notebook, `nvidia-smi`. One signal and the session is ML for good: the gate
-  never asks again and lifts a pause at once.
+  SDK really ran), a notebook, `nvidia-smi`, a request the main agent sent the
+  daemon's writer (`probe ask --writer`: Richard 2026-10-13, O6=B). One signal
+  and the session is ML for good: the gate never asks again and lifts a pause at once.
 - JEV is asked when each of the researcher's first ASK_TURNS turns ends (or
   the next prompt arrives). The gate pauses when the last PAUSE_ANSWERS
   answers are all below PAUSE_BELOW and no signal fired -- two answers, and a
@@ -54,6 +55,8 @@ from collections import Counter
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
+
+from probe.daemon.events import REQUEST_TOOL
 
 log = logging.getLogger("probe.daemon")
 
@@ -173,6 +176,8 @@ def ml_signal(row: Any) -> str | None:
     kind = row["kind"]
     if kind == "run_event":
         return "a Probe run event"  # the SDK announced a run over the local socket
+    if kind == "meta" and row["tool"] == REQUEST_TOOL:
+        return "the main agent asked the writer"  # `probe ask --writer`: work on the record
     if kind == "file_change":
         hit = _NOTEBOOK_CHANGE.match(row["text"] or "")
         return f"notebook {_one_line(hit.group(1))}" if hit else None

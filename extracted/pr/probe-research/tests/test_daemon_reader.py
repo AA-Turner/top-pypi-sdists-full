@@ -163,6 +163,7 @@ def sections(name: str) -> dict[str, str]:
 
 def test_every_approved_reads_file_is_pinned_here():
     used = {"job/read-session.NEW.md", "tools/final_result.NEW.md", "tools/read.NEW.md", "tools/session.NEW.md",
+            "tools/feedback.NEW.md",
             "conversation/ask-line.NEW.md", "conversation/divider.NEW.md",
             "conversation/memory-index-framing.NEW.md", "conversation/summary-prompt.NEW.md",
             "replies/message-too-long.NEW.md", "replies/turn-limit.NEW.md", "agent-facing/message.NEW.md",
@@ -194,6 +195,7 @@ def test_the_readers_tools_and_replies_are_the_approved_text():
     assert f"{agent_mod.ReadResult.__doc__.strip()}\n\nmessage: {field}" == body("tools/final_result.NEW.md")
     assert agent_mod.READER_READ_DESCRIPTION == body("tools/read.NEW.md")
     assert agent_mod.READER_SESSION_DESCRIPTION == body("tools/session.NEW.md")
+    assert agent_mod.READER_FEEDBACK_DESCRIPTION == body("tools/feedback.NEW.md")
     assert agent_mod.READER_SUMMARY_PROMPT == body("conversation/summary-prompt.NEW.md")
     assert agent_mod.MESSAGE_TOO_LONG == body("replies/message-too-long.NEW.md")
     assert agent_mod.TURN_LIMIT == body("replies/turn-limit.NEW.md")
@@ -269,7 +271,46 @@ def test_the_readers_turn_shows_the_approved_lines(tmp_path):
     assert f"{rl.DIVIDER}\n\n[researcher · turn 1" in first
     assert first.rstrip().endswith("The main agent asks: what did we get for C=10 last time?")
     assert script.seen[0][1].output_tools[0].name == "final_result"
-    assert {t.name for t in script.seen[0][1].function_tools} == {"read", "session"}, "no shell, no writes"
+    # `feedback` holds a question for the researcher; it writes nothing to Probe.
+    assert {t.name for t in script.seen[0][1].function_tools} == {"read", "session", "feedback"}, "no shell, no writes"
+
+
+def test_the_readers_feedback_is_a_question_for_the_researcher(tmp_path):
+    """The reader has no shell: its `feedback` tool holds the same question
+    `probe feedback send` does, for the watched session (`probe.feedback`)."""
+    from probe.daemon import approvals as appr
+
+    w = _worker(tmp_path)
+    text = "search returned five runs from another project for a project-scoped question"
+    script = Reader([("tool", ("feedback", {"text": text}))], end="")
+    lane = _lane(w, script)
+    mailbox.write_ask(SID, "what did we get for C=10 last time?")
+    lane.take_asks()
+    asyncio.run(lane.run_turn("ask"))
+    (req,) = appr.Board().all(session_id=SID)
+    assert (req.policy, req.state, req.facts["source"], req.facts["text"]) == (
+        appr.FEEDBACK, appr.WAITING, "daemon_reader", text)
+    assert req.question.question.startswith("Feedback about Probe from the Probe daemon's reader:")
+    assert req.facts["harness"] == "Claude Code"
+    assert agent_mod.READER_FEEDBACK_HELD.format(header=req.question.header) in _text(script.seen[1][0])
+
+
+@pytest.mark.parametrize("text, reply", [("   ", "not sent: the feedback is empty"),
+                                         ("the same feedback", "not sent: the researcher already said no")])
+def test_the_readers_feedback_tool_says_why_it_held_nothing(tmp_path, text, reply):
+    from probe import feedback as fb
+    from probe.daemon import approvals as appr
+
+    w = _worker(tmp_path)
+    denied = fb.hold("the same feedback", session_id=SID, source=fb.Source.DAEMON_READER, harness="claude_code")
+    appr.Board().answer(denied.id, "Don't send", channel="question-tool")
+    script = Reader([("tool", ("feedback", {"text": text}))], end="")
+    lane = _lane(w, script)
+    mailbox.write_ask(SID, "anything?")
+    lane.take_asks()
+    asyncio.run(lane.run_turn("ask"))
+    assert reply in _text(script.seen[1][0])
+    assert [r.id for r in appr.Board().all(session_id=SID)] == [denied.id]
 
 
 # ---------------------------------------------------------------------------
@@ -473,20 +514,46 @@ def test_a_turn_out_of_rounds_is_told_to_end_and_a_runaway_is_stopped(tmp_path):
     assert status["state"] == rl.Status.TURN_STOPPED
 
 
-def test_the_reader_session_tool_refuses_the_writers_ops(tmp_path):
+def test_the_reader_session_tool_refuses_the_writers_status(tmp_path):
     w = _worker(tmp_path)
     seen = {}
 
-    def logbook(messages, info):
-        return ("tool", ("session", {"op": "logbook"}))
+    def status(messages, info):
+        return ("tool", ("session", {"op": "status"}))
 
     def look(messages, info):
         seen["reply"] = _text(messages[-1:])
         return ("end", "")
 
-    lane = _lane(w, Reader([logbook, look]))
+    lane = _lane(w, Reader([status, look]))
     asyncio.run(lane.run_turn("prompt"))
-    assert "'open', 'outline' or 'search'" in seen["reply"]
+    assert "'open', 'outline', 'search' or 'logbook'" in seen["reply"]
+
+
+def test_the_reader_reads_the_writers_logbook(tmp_path):
+    """Writer channel (10-13): the reader can say what the writer filed."""
+    w = _worker(tmp_path)
+    with w.store.tx():
+        w.store.log_write(bite=1, op_id="o1", argv=["probe", "experiment", "create", "sft-wave1"],
+                          head="experiment create", status="ran")
+    seen = {}
+
+    def logbook(messages, info):
+        return ("tool", ("session", {"op": "logbook", "query": "sft-wave1"}))
+
+    def missing(messages, info):
+        seen["hit"] = _text(messages[-1:])
+        return ("tool", ("session", {"op": "logbook", "query": "nothing-like-this"}))
+
+    def look(messages, info):
+        seen["miss"] = _text(messages[-1:])
+        return ("end", "")
+
+    lane = _lane(w, Reader([logbook, missing, look]))
+    asyncio.run(lane.run_turn("prompt"))
+    assert "experiment" in seen["hit"] and "sft-wave1" in seen["hit"]
+    assert "nothing in the writer's logbook matches" in seen["miss"]
+    assert not w.store.db.execute("SELECT 1 FROM lookups").fetchone(), "the reader's look is not the writer's"
 
 
 def test_the_reader_never_needs_or_renews_the_writers_lease(tmp_path):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.55.0
+Version: 0.56.0
 Summary: The official capability library and harness for Pydantic AI
 Project-URL: Homepage, https://pydantic.dev/docs/ai/harness/
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -17,37 +17,38 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Requires-Dist: genai-prices>=0.0.71
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: json-repair>=0.58.0
-Requires-Dist: pydantic-ai-slim==2.55.0
+Requires-Dist: pydantic-ai-slim==2.56.0
 Provides-Extra: absurd
 Requires-Dist: absurd-sdk<1,>=0.5.0; extra == 'absurd'
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: anthropic
-Requires-Dist: pydantic-ai-slim[anthropic]==2.55.0; extra == 'anthropic'
+Requires-Dist: pydantic-ai-slim[anthropic]==2.56.0; extra == 'anthropic'
 Provides-Extra: aws-lambda
 Requires-Dist: aws-durable-execution-sdk-python<2,>=1.7.0; (python_full_version >= '3.11') and extra == 'aws-lambda'
 Provides-Extra: browser-use
 Requires-Dist: browser-use<0.14,>=0.13.6; (python_full_version >= '3.11') and extra == 'browser-use'
 Provides-Extra: cli
-Requires-Dist: pydantic-ai-slim[cli]==2.55.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[cli]==2.56.0; extra == 'cli'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.55.0; extra == 'code-mode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.56.0; extra == 'code-mode'
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'code-mode'
 Provides-Extra: codemode
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.55.0; extra == 'codemode'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.56.0; extra == 'codemode'
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'codemode'
 Provides-Extra: coder
 Requires-Dist: ripgrep==14.1.0; (sys_platform != 'android') and extra == 'coder'
 Provides-Extra: day-ai
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'day-ai'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'day-ai'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.55.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.56.0; extra == 'dbos'
 Provides-Extra: dynamic-workflow
 Requires-Dist: pydantic-monty<2,>=1.0.0; extra == 'dynamic-workflow'
 Provides-Extra: e2b
@@ -55,51 +56,59 @@ Requires-Dist: e2b>=2.48.0; extra == 'e2b'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: github
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'github'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'github'
 Provides-Extra: google-workspace
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'google-workspace'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'google-workspace'
 Provides-Extra: grain
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'grain'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'grain'
 Provides-Extra: linear
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'linear'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'linear'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.31.0; extra == 'logfire'
-Requires-Dist: pydantic-ai-slim[spec]==2.55.0; extra == 'logfire'
+Requires-Dist: pydantic-ai-slim[spec]==2.56.0; extra == 'logfire'
 Requires-Dist: pydantic-handlebars>=0.2.1; extra == 'logfire'
 Provides-Extra: logfire-mcp
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'logfire-mcp'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'logfire-mcp'
 Provides-Extra: modal
 Requires-Dist: modal>=1.5.2; extra == 'modal'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.17.0; extra == 'mongodb'
 Provides-Extra: notion
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'notion'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'notion'
 Provides-Extra: ordinal
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'ordinal'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'ordinal'
+Provides-Extra: pgtask
+Requires-Dist: pgtask<1,>=0.2.0; extra == 'pgtask'
 Provides-Extra: playwright
 Requires-Dist: idna>=3.4; extra == 'playwright'
 Requires-Dist: playwright>=1.61.0; extra == 'playwright'
 Provides-Extra: posthog
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'posthog'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'posthog'
 Provides-Extra: prompt-injection-defender
 Requires-Dist: stackone-defender<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender'
 Provides-Extra: prompt-injection-defender-ml
-Requires-Dist: stackone-defender[onnx]<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender-ml'
+Requires-Dist: stackone-defender<0.8,>=0.7.3; (python_full_version >= '3.11') and extra == 'prompt-injection-defender-ml'
+Requires-Dist: stackone-defender[onnx]<0.8,>=0.7.3; (python_full_version >= '3.11' and python_version < '3.15') and extra == 'prompt-injection-defender-ml'
 Provides-Extra: pylon
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'pylon'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'pylon'
+Provides-Extra: render
+Requires-Dist: render>=1.2.0; extra == 'render'
 Provides-Extra: researcher
-Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.55.0; extra == 'researcher'
+Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]==2.56.0; extra == 'researcher'
 Provides-Extra: skills
 Requires-Dist: pyyaml>=6.0.2; extra == 'skills'
 Provides-Extra: slack
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'slack'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'slack'
+Provides-Extra: smol
+Requires-Dist: smolmachines<2,>=1.22.2; ((sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64'))) and extra == 'smol'
 Provides-Extra: sprites
 Requires-Dist: sprites-py<0.8,>=0.7.0; extra == 'sprites'
 Provides-Extra: stackone
+Requires-Dist: beartype>=0.23.0rc2; (python_version >= '3.15') and extra == 'stackone'
 Requires-Dist: fastmcp<4,>=3.4.5; extra == 'stackone'
-Requires-Dist: pydantic-ai-slim[mcp]==2.55.0; extra == 'stackone'
+Requires-Dist: pydantic-ai-slim[mcp]==2.56.0; extra == 'stackone'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.55.0; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.56.0; extra == 'temporal'
 Provides-Extra: youdotcom
 Requires-Dist: youdotcom<3.2,>=3.1.2; extra == 'youdotcom'
 Description-Content-Type: text/markdown
@@ -204,7 +213,7 @@ agent = Agent(
 
 ## No magic: it's capabilities all the way down
 
-`Coder` is a regular combined capability: [`FileSystem`](pydantic_ai_harness/filesystem/) with five of its tools and content hashes off, [`Shell`](pydantic_ai_harness/shell/) with its persistent `shell` tool and no allowlist, [`RepoContext`](pydantic_ai_harness/repo_context/), [`SubAgents`](pydantic_ai_harness/subagents/) delegating to the agent itself, [`ClearToolResults` and `WarnNearLimits`](pydantic_ai_harness/compaction/), and a bounded [`ToolOutputLimits`](pydantic_ai_harness/tool_output_limits/), plus its default instructions and JSON argument repair. Use it whole, or build the same agent from those capabilities to change any setting; the [Coder page](pydantic_ai_harness/coder/) lists the exact configuration, tool signatures, delegation, and the persistent shell lifecycle.
+`Coder` is a regular combined capability: [`FileSystem`](pydantic_ai_harness/filesystem/) with five of its tools and content hashes off, [`Shell`](pydantic_ai_harness/shell/) with its persistent `shell` tool and no allowlist, [`RepoContext`](pydantic_ai_harness/repo_context/), [`SubAgents`](pydantic_ai_harness/subagents/) delegating to the agent itself, [`ClearToolResults`](pydantic_ai_harness/compaction/), and a bounded [`ToolOutputLimits`](pydantic_ai_harness/tool_output_limits/), plus its default instructions and JSON argument repair. Use it whole, or build the same agent from those capabilities to change any setting; the [Coder page](pydantic_ai_harness/coder/) lists the exact configuration, tool signatures, delegation, and the persistent shell lifecycle.
 
 ## Workspaces
 
@@ -256,6 +265,7 @@ The workspace the agent acts in: the files it edits and the commands it runs, lo
 | [Modal Sandbox](pydantic_ai_harness/modal_sandbox/) | Harness | Commands and files in an isolated [Modal](https://modal.com) cloud sandbox |
 | [E2B Sandbox](pydantic_ai_harness/e2b_sandbox/) | Harness | Commands and files in an isolated [E2B](https://e2b.dev) cloud sandbox |
 | [Sprites Sandbox](pydantic_ai_harness/sprites_sandbox/) | Harness | Commands and files in a persistent [Fly.io Sprite](https://sprites.dev) |
+| [Smol Sandbox](pydantic_ai_harness/smol_sandbox/) | Harness | Commands and files in a [smolvm](https://github.com/smol-machines/smolvm) microVM on your own machine; no cloud account |
 | [SSH Workspace](pydantic_ai_harness/ssh_workspace/) | Harness | Commands and files on a remote host over your `ssh` client; no isolation |
 | [Bubblewrap Sandbox](pydantic_ai_harness/bubblewrap_sandbox/) | Harness | Wraps another workspace capability so its commands run in a Linux [bubblewrap](https://github.com/containers/bubblewrap) sandbox on that workspace's host |
 
@@ -367,6 +377,8 @@ Outside the loop: how runs persist, survive failures, and get observed and confi
 | [Durable execution](https://ai.pydantic.dev/capabilities/durable_execution/overview/) | Core | Runs that survive restarts and failures on [Temporal](https://ai.pydantic.dev/capabilities/durable_execution/temporal/), [DBOS](https://ai.pydantic.dev/capabilities/durable_execution/dbos/), or [Prefect](https://ai.pydantic.dev/capabilities/durable_execution/prefect/), with [Restate](https://ai.pydantic.dev/capabilities/durable_execution/restate/), [Kitaru](https://ai.pydantic.dev/capabilities/durable_execution/kitaru/), and [Airflow](https://ai.pydantic.dev/capabilities/durable_execution/airflow/) integrations. See [what works on each engine](https://pydantic.dev/docs/ai/harness/durable-execution/) for Coder, Shell, and FileSystem |
 | [AWS Lambda durability](pydantic_ai_harness/aws_lambda/) | Harness | Checkpoint model requests and tool calls into AWS Lambda durable function steps |
 | [Absurd durability](pydantic_ai_harness/absurd/) | Harness | Checkpoint model requests, MCP calls, and tool calls into Absurd steps on PostgreSQL |
+| [pgtask durability](pydantic_ai_harness/pgtask/) | Harness | Checkpoint model requests, MCP calls, and tool calls into pgtask steps on PostgreSQL |
+| [Render Workflows](pydantic_ai_harness/render/) | Harness | Run model requests and tool calls as chained task runs with separate retries, timeouts, and compute settings; retrying the task that runs the agent can repeat completed work |
 | [Step Persistence](pydantic_ai_harness/step_persistence/) | Harness | Save, restore, resume (`continue_run`), and fork (`fork_run`) runs; file/SQLite/Mongo backends |
 | [Instrumentation](https://ai.pydantic.dev/capabilities/instrumentation/) | Core | OpenTelemetry GenAI spans for every model and tool call; the raw material for [Logfire](https://pydantic.dev/logfire) traces |
 | [Logfire MCP](pydantic_ai_harness/logfire_mcp/) | Harness | Query Logfire telemetry and manage observability resources. |

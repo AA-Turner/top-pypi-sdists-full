@@ -1,10 +1,12 @@
 from http import HTTPStatus
 from typing import Any, Union
+from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.backend_resource_req_o_enum import BackendResourceReqOEnum
 from ...models.event_consumer import EventConsumer
 from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
@@ -12,14 +14,36 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    params["is_global"] = is_global
+
+    json_o: Union[Unset, list[str]] = UNSET
+    if not isinstance(o, Unset):
+        json_o = []
+        for o_item_data in o:
+            o_item = o_item_data.value
+            json_o.append(o_item)
+
+    params["o"] = json_o
 
     params["page"] = page
 
     params["page_size"] = page_size
+
+    params["user_username"] = user_username
+
+    json_user_uuid: Union[Unset, str] = UNSET
+    if not isinstance(user_uuid, Unset):
+        json_user_uuid = str(user_uuid)
+    params["user_uuid"] = json_user_uuid
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -61,13 +85,21 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["EventConsumer"]]:
     """
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -78,8 +110,12 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        is_global=is_global,
+        o=o,
         page=page,
         page_size=page_size,
+        user_username=user_username,
+        user_uuid=user_uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -92,13 +128,21 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["EventConsumer"]:
     """
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -110,21 +154,33 @@ def sync(
 
     return sync_detailed(
         client=client,
+        is_global=is_global,
+        o=o,
         page=page,
         page_size=page_size,
+        user_username=user_username,
+        user_uuid=user_uuid,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["EventConsumer"]]:
     """
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -135,8 +191,12 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        is_global=is_global,
+        o=o,
         page=page,
         page_size=page_size,
+        user_username=user_username,
+        user_uuid=user_uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -147,13 +207,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["EventConsumer"]:
     """
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -166,8 +234,12 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            is_global=is_global,
+            o=o,
             page=page,
             page_size=page_size,
+            user_username=user_username,
+            user_uuid=user_uuid,
         )
     ).parsed
 
@@ -175,6 +247,10 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["EventConsumer"]:
     """Get All Pages
 
@@ -184,6 +260,10 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -197,7 +277,12 @@ def sync_all(
     all_results: list[EventConsumer] = []
 
     # Get initial request kwargs
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        is_global=is_global,
+        o=o,
+        user_username=user_username,
+        user_uuid=user_uuid,
+    )
 
     # Set page_size to maximum
     if "params" not in kwargs:
@@ -244,6 +329,10 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["EventConsumer"]:
     """Get All Pages (Async)
 
@@ -253,6 +342,10 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -266,7 +359,12 @@ async def asyncio_all(
     all_results: list[EventConsumer] = []
 
     # Get initial request kwargs
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        is_global=is_global,
+        o=o,
+        user_username=user_username,
+        user_uuid=user_uuid,
+    )
 
     # Set page_size to maximum
     if "params" not in kwargs:

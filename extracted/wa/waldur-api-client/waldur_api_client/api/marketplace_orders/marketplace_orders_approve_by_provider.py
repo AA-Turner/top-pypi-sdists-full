@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Union
+from typing import Any, Union, cast
 from uuid import UUID
 
 import httpx
@@ -31,19 +31,24 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> OrderInfoResponse:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Union[Any, OrderInfoResponse]:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
     if response.status_code == 200:
         response_200 = OrderInfoResponse.from_dict(response.json())
 
         return response_200
+    if response.status_code == 409:
+        response_409 = cast(Any, None)
+        return response_409
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
 
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[OrderInfoResponse]:
+) -> Response[Union[Any, OrderInfoResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -57,7 +62,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: OrderApproveByProviderRequest,
-) -> Response[OrderInfoResponse]:
+) -> Response[Union[Any, OrderInfoResponse]]:
     """Approve an order (provider)
 
      Approves a pending order from the provider's side. This typically transitions the order to the
@@ -72,7 +77,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[OrderInfoResponse]
+        Response[Union[Any, OrderInfoResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -92,7 +97,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: OrderApproveByProviderRequest,
-) -> OrderInfoResponse:
+) -> Union[Any, OrderInfoResponse]:
     """Approve an order (provider)
 
      Approves a pending order from the provider's side. This typically transitions the order to the
@@ -107,7 +112,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        OrderInfoResponse
+        Union[Any, OrderInfoResponse]
     """
 
     return sync_detailed(
@@ -122,7 +127,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: OrderApproveByProviderRequest,
-) -> Response[OrderInfoResponse]:
+) -> Response[Union[Any, OrderInfoResponse]]:
     """Approve an order (provider)
 
      Approves a pending order from the provider's side. This typically transitions the order to the
@@ -137,7 +142,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[OrderInfoResponse]
+        Response[Union[Any, OrderInfoResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -155,7 +160,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: OrderApproveByProviderRequest,
-) -> OrderInfoResponse:
+) -> Union[Any, OrderInfoResponse]:
     """Approve an order (provider)
 
      Approves a pending order from the provider's side. This typically transitions the order to the
@@ -170,7 +175,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        OrderInfoResponse
+        Union[Any, OrderInfoResponse]
     """
 
     return (

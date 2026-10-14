@@ -15,6 +15,7 @@ class EventGroupsEnum(str, Enum):
     OPENSTACK_NETWORK = "openstack_network"
     OPENSTACK_PORT = "openstack_port"
     OPENSTACK_RBAC = "openstack_rbac"
+    OPENSTACK_RESOURCES = "openstack_resources"
     OPENSTACK_ROUTER = "openstack_router"
     OPENSTACK_SECURITY_GROUP = "openstack_security_group"
     OPENSTACK_SUBNET = "openstack_subnet"

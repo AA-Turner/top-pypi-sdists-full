@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 This file shows how you can define a custom stringifier for PuDB.
 
@@ -46,8 +45,8 @@ class TimeOutError(Exception):
     pass
 
 
-def timeout(signum, frame, time):
-    raise TimeOutError("Timed out after %d seconds" % time)
+def timeout(_signum: int, _frame: object, time: float):
+    raise TimeOutError(f"Timed out after {time} seconds")
 
 
 def run_with_timeout(code, time, globals=None):
@@ -65,7 +64,7 @@ def run_with_timeout(code, time, globals=None):
     return r
 
 
-def pudb_stringifier(obj):
+def pudb_stringifier(obj: object):
     """
     This is the custom stringifier.
 

@@ -1002,6 +1002,7 @@
     <ClCompile Include="graphics\clipper.cpp" />
     <ClCompile Include="graphics\clippingbox.cpp" />
     <ClCompile Include="graphics\svgattributes.cpp" />
+    <ClCompile Include="graphics\svgfiledc.cpp" />
     <ClCompile Include="graphics\coords.cpp" />
     <ClCompile Include="graphics\graphbitmap.cpp" />
     <ClCompile Include="graphics\graphmatrix.cpp" />
@@ -1024,13 +1025,18 @@
     <ClCompile Include="misc\selstoretest.cpp" />
     <ClCompile Include="misc\settings.cpp" />
     <ClCompile Include="misc\textwrap.cpp" />
+    <ClCompile Include="net\ipc.cpp" />
+    <ClCompile Include="net\ipc_test_server.cpp" />
     <ClCompile Include="net\socket.cpp" />
+    <ClCompile Include="net\webrequest_local.cpp" />
     <ClCompile Include="persistence\tlw.cpp" />
     <ClCompile Include="persistence\dataview.cpp" />
     <ClCompile Include="sizers\boxsizer.cpp" />
     <ClCompile Include="sizers\gridsizer.cpp" />
     <ClCompile Include="sizers\wrapsizer.cpp" />
-    <ClCompile Include="test.cpp" />
+    <ClCompile Include="test.cpp">
+      <PreprocessorDefinitions>TEST_HAS_IPC_SERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="testableframe.cpp" />
     <ClCompile Include="toplevel\toplevel.cpp" />
     <ClCompile Include="validators\valnum.cpp" />

@@ -50,7 +50,9 @@ export declare class PatchesGL extends BaseGLGlyph {
     private _draw_do?;
     _poly_data?: PolygonData;
     private _pv_dirty;
+    private _pv_elements;
     private _topology?;
+    private _topology_scales?;
     private _elements_signature;
     constructor(regl_wrapper: ReglWrapper, glyph: PatchesView);
     draw(indices: number[], main_glyph: GlyphView, transform: Transform): void;

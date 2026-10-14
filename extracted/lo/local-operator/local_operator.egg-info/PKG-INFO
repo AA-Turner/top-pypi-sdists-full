@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: local-operator
-Version: 0.70.15
+Version: 0.70.26
 Summary: A team of proactive AI assistants that can work together behind the scenes to help you get mundane tasks done so you can focus on the fun stuff.
 Author-email: "Radient Inc." <contact@radienthq.com>
 License: MIT License
@@ -34,6 +34,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: packaging>=24.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: pydantic>=2.7
 Requires-Dist: typing-extensions>=4.13.0

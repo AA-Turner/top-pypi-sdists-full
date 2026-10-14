@@ -116,3 +116,13 @@ def test_the_worker_refuses_the_held_action_on_pis_no(tmp_path, monkeypatch):
     assert settled.channel == "pi-dialog"
     assert settled.outcome == f"no ({REQUEST['question']['no_label']!r})"
     assert w.replay.calls == []
+
+
+def test_pi_names_the_feedback_policy_and_its_unsent_outcome_as_python_does():
+    """pi asks feedback questions in its own dialog and starts the send after a
+    yes (`approvals.ts`); its constants are read from this same fixture."""
+    from probe import feedback as fb
+
+    assert FIXTURE["feedback"] == {"policy": appr.FEEDBACK, "unsent_outcome": fb.UNSENT,
+                                   "old_daemon_void": fb.OLD_DAEMON_VOID}
+

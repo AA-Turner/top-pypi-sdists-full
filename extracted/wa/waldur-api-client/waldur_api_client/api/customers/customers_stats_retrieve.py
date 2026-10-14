@@ -14,10 +14,13 @@ def _get_kwargs(
     uuid: UUID,
     *,
     for_current_month: Union[Unset, bool] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
     params["for_current_month"] = for_current_month
+
+    params["include_terminated"] = include_terminated
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -56,6 +59,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     for_current_month: Union[Unset, bool] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> Response[ComponentsUsageStats]:
     """Get customer resource usage statistics
 
@@ -65,6 +69,7 @@ def sync_detailed(
     Args:
         uuid (UUID):
         for_current_month (Union[Unset, bool]):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -77,6 +82,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         uuid=uuid,
         for_current_month=for_current_month,
+        include_terminated=include_terminated,
     )
 
     response = client.get_httpx_client().request(
@@ -91,6 +97,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     for_current_month: Union[Unset, bool] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> ComponentsUsageStats:
     """Get customer resource usage statistics
 
@@ -100,6 +107,7 @@ def sync(
     Args:
         uuid (UUID):
         for_current_month (Union[Unset, bool]):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -113,6 +121,7 @@ def sync(
         uuid=uuid,
         client=client,
         for_current_month=for_current_month,
+        include_terminated=include_terminated,
     ).parsed
 
 
@@ -121,6 +130,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     for_current_month: Union[Unset, bool] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> Response[ComponentsUsageStats]:
     """Get customer resource usage statistics
 
@@ -130,6 +140,7 @@ async def asyncio_detailed(
     Args:
         uuid (UUID):
         for_current_month (Union[Unset, bool]):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -142,6 +153,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         uuid=uuid,
         for_current_month=for_current_month,
+        include_terminated=include_terminated,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -154,6 +166,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     for_current_month: Union[Unset, bool] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> ComponentsUsageStats:
     """Get customer resource usage statistics
 
@@ -163,6 +176,7 @@ async def asyncio(
     Args:
         uuid (UUID):
         for_current_month (Union[Unset, bool]):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -177,5 +191,6 @@ async def asyncio(
             uuid=uuid,
             client=client,
             for_current_month=for_current_month,
+            include_terminated=include_terminated,
         )
     ).parsed

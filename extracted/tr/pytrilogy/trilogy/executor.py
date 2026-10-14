@@ -26,7 +26,12 @@ from trilogy.core.exceptions import ConfigurationException, QueryTimeoutExceptio
 from trilogy.core.models.author import Comment, Comparison, Concept, Function
 from trilogy.core.models.build import BuildDatasource, BuildFunction
 from trilogy.core.models.core import ListWrapper, MapWrapper
-from trilogy.core.models.datasource import Address, Datasource, UpdateKeys
+from trilogy.core.models.datasource import (
+    Address,
+    Datasource,
+    DatasourceTemplate,
+    UpdateKeys,
+)
 from trilogy.core.models.environment import Environment
 from trilogy.core.models.execute import collect_source_addresses
 from trilogy.core.statements.author import (
@@ -270,6 +275,9 @@ class Executor:
             dict[str, Datasource | BuildDatasource] | None
         ) = None
         self._validation_temp_tables: list[str] = []
+        # True while a build runs with its datasource's `assert` clauses
+        # deliberately skipped (refresh --skip-validation).
+        self._assertions_suspended = False
         # TODO: make generic
         if self.dialect == Dialects.DATAFRAME:
             self.engine.setup(self.environment, self.connection)
@@ -405,10 +413,11 @@ class Executor:
         """Setup DuckDB macro for Python script datasources."""
         import sys
 
-        from trilogy.dialect.config import DuckDBConfig
+        from trilogy.dialect.config import DuckDBConfig, PythonDatasourceTransport
         from trilogy.dialect.duckdb import (
             PYTHON_DATASOURCE_GUARD_MARKER,
             get_python_datasource_setup_sql,
+            get_vgi_setup_sql,
         )
 
         # A read-only handle can't CREATE the guard macro — and python
@@ -434,6 +443,15 @@ class Executor:
         ):
             return
         is_windows = sys.platform == "win32"
+        if (
+            enabled
+            and isinstance(self.config, DuckDBConfig)
+            and self.config.python_datasource_transport == PythonDatasourceTransport.VGI
+        ):
+            self._execute_setup_ddl(
+                get_vgi_setup_sql(Path(sys.executable).as_posix(), is_windows)
+            )
+            return
         self._execute_setup_ddl(
             get_python_datasource_setup_sql(
                 enabled, is_windows, self._instance_id, self.staging
@@ -508,10 +526,7 @@ class Executor:
             return datasource
 
         address = datasource.address
-        if (
-            not isinstance(address, Address)
-            or address.type != AddressType.PYTHON_SCRIPT
-        ):
+        if not isinstance(address, Address) or not address.type.is_program:
             return datasource
 
         cached = cache.get(datasource.identifier)
@@ -543,6 +558,7 @@ class Executor:
         keys: UpdateKeys | None = None,
         dry_run: bool = False,
         partitions: list | None = None,
+        check_assertions: bool = True,
     ) -> str | None:
         """Update a datasource with optional filtering based on update keys.
 
@@ -555,22 +571,42 @@ class Executor:
         a range is filled without rebuilding the range. Slice count is chunked
         only to keep the rendered filter within statement-size limits; how wide
         to fan out is the orchestrator's call, not this method's.
+
+        ``check_assertions=False`` builds without evaluating the datasource's
+        ``assert`` clauses (``refresh --skip-validation``); it is logged, since
+        overriding a guard must never be silent.
         """
-        chunks = self._partition_chunks(partitions)
-        if chunks is not None:
-            rendered = [
-                sql
-                for chunk in chunks
-                if (
-                    sql := self._update_datasource_once(
-                        datasource, None, dry_run, chunk
+        if not check_assertions and datasource.assertions and not dry_run:
+            self.logger.warning(
+                "Skipping %d assertion(s) on %s: validation disabled for this build",
+                len(datasource.assertions),
+                datasource.identifier,
+            )
+        with self._assertions_suspended_if(not check_assertions):
+            chunks = self._partition_chunks(partitions)
+            if chunks is not None:
+                rendered = [
+                    sql
+                    for chunk in chunks
+                    if (
+                        sql := self._update_datasource_once(
+                            datasource, None, dry_run, chunk
+                        )
                     )
-                )
-            ]
-            # No chunks means no stale slices, which means nothing to refresh —
-            # never an unfiltered rebuild.
-            return "\n".join(rendered) if rendered else None
-        return self._update_datasource_once(datasource, keys, dry_run, None)
+                ]
+                # No chunks means no stale slices, which means nothing to
+                # refresh — never an unfiltered rebuild.
+                return "\n".join(rendered) if rendered else None
+            return self._update_datasource_once(datasource, keys, dry_run, None)
+
+    @contextmanager
+    def _assertions_suspended_if(self, suspend: bool) -> Generator[None, None, None]:
+        previous = self._assertions_suspended
+        self._assertions_suspended = previous or suspend
+        try:
+            yield
+        finally:
+            self._assertions_suspended = previous
 
     def _partition_chunks(self, partitions: list | None) -> list[list] | None:
         """Split a slice list into statement-sized chunks, or None if unsliced.
@@ -687,6 +723,10 @@ class Executor:
     @execute_query.register
     def _(self, query: Datasource) -> ResultProtocol | None:
         return handle_datasource(query)
+
+    @execute_query.register
+    def _(self, query: DatasourceTemplate) -> ResultProtocol | None:
+        return MockResult([{"name": query.name}], ["name"])
 
     @execute_query.register
     def _(self, query: str) -> ResultProtocol | None:
@@ -856,7 +896,13 @@ class Executor:
                 column_aliases=column_aliases,
                 append_to=addr if appending else None,
             )
-            self.execute_query(copy_statement)
+            prior = self._collect_prior_values(query.datasource)
+            self._execute_copy(
+                copy_statement,
+                verify=lambda staged: self._check_assertions(
+                    query.datasource, Address(location=staged, type=addr.type), prior
+                ),
+            )
             if query.persist_mode == PersistMode.OVERWRITE:
                 self.environment.add_datasource(query.datasource)
             return None
@@ -867,21 +913,50 @@ class Executor:
             self.environment.add_datasource(query.datasource)
         return output
 
+    def _collect_prior_values(self, datasource: Datasource):
+        """The ``prior(...)`` side of the datasource's assertions, read before
+        the write replaces the asset. None when there is nothing to check."""
+        if not datasource.assertions or self._assertions_suspended:
+            return None
+        from trilogy.execution.assertions import collect_prior_values
+
+        return collect_prior_values(self, datasource)
+
+    def _check_assertions(
+        self, datasource: Datasource, new_address: Address, prior
+    ) -> None:
+        if not datasource.assertions or self._assertions_suspended:
+            return
+        from trilogy.execution.assertions import check_assertions
+
+        check_assertions(self, datasource, new_address, prior)
+
     def _execute_persist(self, query: ProcessedQueryPersist) -> ResultProtocol:
         """Offer the write to the engine's own API, then fall back to SQL.
 
         Source preparation runs first either way — a native writer still reads
         through whatever the dialect had to stage (BigQuery's python datasources
         land in GCS before any job can name them), and it renders its select
-        from the same processed statement."""
+        from the same processed statement.
+
+        Assertions on a table build are checked inside the write transaction,
+        so a failure rolls the write back on engines with transactional DDL.
+        A native writer has already committed by the time it returns, so there
+        the check can only report; it still raises so the run fails."""
+        datasource = query.datasource
+        prior = self._collect_prior_values(datasource)
         self._prepare_query_sources(query)
         if isinstance(self.engine, SupportsNativePersist):
             native = self.engine.execute_persist(query, self)
             if native is not None:
+                self._check_assertions(datasource, query.output_to.address, prior)
                 return native
         return self.execute_write_statements(
             self.generator.compile_statements(query),
             local_concepts=query.local_concepts,
+            verify=lambda: self._check_assertions(
+                datasource, query.output_to.address, prior
+            ),
         )
 
     def _build_aliased_copy_sql(self, query: ProcessedCopyStatement) -> str:
@@ -952,6 +1027,15 @@ class Executor:
 
     @execute_query.register
     def _(self, query: ProcessedCopyStatement) -> ResultProtocol | None:
+        return self._execute_copy(query, verify=None)
+
+    def _execute_copy(
+        self,
+        query: ProcessedCopyStatement,
+        verify: Callable[[str], None] | None,
+    ) -> ResultProtocol | None:
+        """Write the copy through a staged path; ``verify`` sees the staged
+        file before it replaces the target, and a raise there discards it."""
         sql = self._build_aliased_copy_sql(query)
         target = self._resolve_copy_target(query.target)
         if query.append_to is not None:
@@ -992,6 +1076,8 @@ class Executor:
                     f"COPY ({sql}) TO '{staged}' ({options})",
                     local_concepts=query.local_concepts,
                 )
+                if verify is not None:
+                    verify(staged)
             self._drop_external_file_cache()
         else:
             raise NotImplementedError(
@@ -1530,13 +1616,15 @@ class Executor:
         self,
         statements: Sequence[str | Path],
         local_concepts: Mapping[str, Concept] | None = None,
+        verify: Callable[[], None] | None = None,
     ) -> ResultProtocol:
         """Run statements that change database state, in order, then commit.
 
         One driver call per statement: sqlite3 rejects a multi-statement execute,
         so a persist's DDL and INSERT cannot be sent together. The last result is
         copied out before committing, which discards an unconsumed cursor on some
-        drivers (duckdb among them)."""
+        drivers (duckdb among them). ``verify`` runs after the statements and
+        before the commit; a raise there rolls the whole write back."""
         buffered = BufferedResult([], [])
         try:
             for statement in statements:
@@ -1547,6 +1635,8 @@ class Executor:
                     )
                 else:
                     buffered = BufferedResult([], [])
+            if verify is not None:
+                verify()
         except Exception:
             self._rollback_transaction()
             raise

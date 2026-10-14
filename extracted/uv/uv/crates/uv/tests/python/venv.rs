@@ -1,15 +1,13 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use indoc::indoc;
 use predicates::prelude::*;
-use uv_cache::Cache;
 use uv_cache_key::cache_digest;
 use uv_fs::{LockedFile, LockedFileMode};
 use uv_python_discovery::{PYTHON_VERSION_FILENAME, PYTHON_VERSIONS_FILENAME};
-use uv_python_interpreter::PythonEnvironment;
 use uv_static::EnvVars;
 
 #[cfg(unix)]
@@ -19,7 +17,7 @@ use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 #[cfg(windows)]
 use std::{ffi::OsString, os::windows::ffi::OsStringExt};
 
-use uv_test::{site_packages_path, uv_snapshot};
+use uv_test::{assert_link_target, site_packages_path, uv_snapshot};
 
 #[test]
 fn create_venv() {
@@ -71,109 +69,6 @@ fn create_venv() {
     );
 
     context.venv.assert(predicates::path::is_dir());
-}
-
-/// Creating a venv caches the same interpreter metadata that Python would report.
-#[test]
-fn create_venv_caches_interpreter() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    let cache = Cache::from_path(context.cache_dir.path().to_path_buf())
-        .init_no_wait()?
-        .context("Interpreter cache is locked")?;
-
-    // It should cache for both a system interpreter and when starting from another venv.
-    for python in [Path::new("3.12"), context.venv.path()] {
-        let root = tempfile::tempdir_in(context.temp_dir.path())?;
-        // Check that cached metadata matches Python's output even when the venv path has
-        // a Windows verbatim prefix.
-        let root_path = root.path().canonicalize()?;
-        context
-            .venv()
-            .arg(&root_path)
-            .arg("--clear")
-            .arg("--python")
-            .arg(python)
-            .assert()
-            .success();
-
-        let site_packages = site_packages_path(&root_path, "python3.12");
-        fs_err::write(
-            site_packages.join("sitecustomize.py"),
-            indoc! {r#"
-                from pathlib import Path
-
-                Path(__file__).with_name("interpreter-started").touch()
-            "#},
-        )?;
-        let startup_marker = site_packages.join("interpreter-started");
-
-        let cached = PythonEnvironment::from_root(&root_path, &cache)?;
-        assert!(!startup_marker.exists());
-
-        let fresh_cache = Cache::temp()?
-            .init_no_wait()?
-            .context("Fresh interpreter cache is locked")?;
-        let queried = PythonEnvironment::from_root(&root_path, &fresh_cache)?;
-        assert!(startup_marker.is_file());
-        assert_eq!(cached, queried);
-    }
-
-    Ok(())
-}
-
-/// Cached metadata matches Python after recreating an upgradeable venv.
-#[test]
-#[cfg(feature = "test-python-managed")]
-fn create_venv_caches_upgradeable_interpreter() -> Result<()> {
-    let context = uv_test::test_context_with_versions!(&[]).with_managed_python_dirs();
-    context.python_install().arg("3.12.9").assert().success();
-
-    let output = context.python_find().arg("3.12.9").assert().success();
-    let python = std::str::from_utf8(&output.get_output().stdout)?.trim();
-    context
-        .venv()
-        .arg("--python")
-        .arg("3.12")
-        .assert()
-        .success();
-
-    let site_packages = site_packages_path(context.venv.path(), "python3.12");
-    fs_err::write(
-        site_packages.join("sitecustomize.py"),
-        indoc! {r#"
-            from pathlib import Path
-
-            Path(__file__).with_name("interpreter-started").touch()
-        "#},
-    )?;
-    let startup_marker = site_packages.join("interpreter-started");
-    let cache = Cache::from_path(context.cache_dir.path().to_path_buf())
-        .init_no_wait()?
-        .context("Interpreter cache is locked")?;
-    PythonEnvironment::from_root(context.venv.path(), &cache)?;
-    if startup_marker.is_file() {
-        fs_err::remove_file(&startup_marker)?;
-    }
-    PythonEnvironment::from_root(context.venv.path(), &cache)?;
-    assert!(!startup_marker.exists());
-
-    context
-        .venv()
-        .arg("--allow-existing")
-        .arg("--python")
-        .arg(python)
-        .assert()
-        .success();
-
-    let fresh_cache = Cache::temp()?
-        .init_no_wait()?
-        .context("Fresh interpreter cache is locked")?;
-    let cached = PythonEnvironment::from_root(context.venv.path(), &cache)?;
-    let queried = PythonEnvironment::from_root(context.venv.path(), &fresh_cache)?;
-    assert!(startup_marker.is_file());
-    assert_eq!(cached, queried);
-
-    Ok(())
 }
 
 #[test]
@@ -499,6 +394,58 @@ async fn create_venv_project_environment_lock() -> Result<()> {
     Ok(())
 }
 
+/// Project aliases share the workspace lock even before the environment exists.
+#[tokio::test]
+async fn create_venv_project_environment_lock_symlink() -> Result<()> {
+    let context = uv_test::test_context_with_versions!(&["3.12"]);
+
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+            [project]
+            name = "project"
+            version = "0.1.0"
+            requires-python = ">=3.12"
+            "#,
+    )?;
+    let project_link = context.temp_dir.child("project-link");
+    uv_fs::create_symlink(context.temp_dir.path(), project_link.path())?;
+
+    // Simulate another project command holding the environment lock.
+    let install_path = dunce::canonicalize(context.temp_dir.path())?;
+    let lock_path = std::env::temp_dir().join(format!("uv-{}.lock", cache_digest(&install_path)));
+    let lock = LockedFile::acquire(
+        &lock_path,
+        LockedFileMode::Exclusive,
+        context.temp_dir.path().display(),
+    )
+    .await?;
+    let context = context.with_filtered_path(&lock_path, "PROJECT_ENVIRONMENT_LOCK");
+
+    // A project alias uses the same lock, including when `UV_PROJECT_ENVIRONMENT` changes the
+    // environment path. Lock errors warn and continue.
+    uv_snapshot!(context.filters(), context.venv()
+        .arg("--project")
+        .arg(project_link.path())
+        .env(EnvVars::UV_PROJECT_ENVIRONMENT, "foo")
+        .env(EnvVars::RUST_LOG, "warn")
+        .env(EnvVars::UV_LOCK_TIMEOUT, "1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    Creating virtual environment at: project-link/foo
+    WARN Failed to acquire project environment lock: Timeout ([TIME]) when waiting for lock on `[TEMP_DIR]/project-link` at `[PROJECT_ENVIRONMENT_LOCK]/`, is another uv process running? You can set `UV_LOCK_TIMEOUT` to increase the timeout.
+    Activate with: source project-link/foo/[BIN]/activate
+    ");
+    drop(lock);
+
+    context
+        .temp_dir
+        .child("foo")
+        .assert(predicates::path::is_dir());
+
+    Ok(())
+}
+
 #[test]
 fn create_centralized_project_environment() -> Result<()> {
     let context = uv_test::test_context_with_versions!(&["3.12"])
@@ -556,10 +503,7 @@ fn create_centralized_project_environment() -> Result<()> {
         .arg("centralized-project-envs")
         .assert()
         .success();
-    assert_eq!(
-        target,
-        fs_err::read_link(context.temp_dir.child(".venv").path())?
-    );
+    assert_link_target(context.temp_dir.child(".venv"), &target);
     assert!(marker.exists());
 
     // Preserve an existing centralized environment with `--no-clear`.
@@ -577,10 +521,7 @@ fn create_centralized_project_environment() -> Result<()> {
     hint: Use the `--clear` flag or set `UV_VENV_CLEAR=1` to replace the existing virtual environment
     "#);
 
-    assert_eq!(
-        target,
-        fs_err::read_link(context.temp_dir.child(".venv").path())?
-    );
+    assert_link_target(context.temp_dir.child(".venv"), &target);
     assert!(marker.exists());
 
     let environment = context.temp_dir.child(".venv");
@@ -589,7 +530,7 @@ fn create_centralized_project_environment() -> Result<()> {
 
     // Without the preview, `--allow-existing` operates on the environment through the link.
     context.venv().arg("--allow-existing").assert().success();
-    assert_eq!(target, fs_err::read_link(environment.path())?);
+    assert_link_target(&environment, &target);
     assert!(cache_marker.is_file());
 
     // Without the preview, `.venv` is replaced locally without clearing its cached target.
@@ -609,7 +550,7 @@ fn create_centralized_project_environment() -> Result<()> {
         .assert()
         .success();
 
-    assert_eq!(target, fs_err::read_link(environment.path())?);
+    assert_link_target(&environment, &target);
     assert!(!local_marker.exists());
     assert!(cache_marker.is_file());
 
@@ -624,7 +565,7 @@ fn create_centralized_project_environment() -> Result<()> {
     Activate with: source .venv/[BIN]/activate
     "#);
 
-    assert_eq!(target, fs_err::read_link(environment.path())?);
+    assert_link_target(&environment, &target);
     assert!(!cache_marker.exists());
     Ok(())
 }
@@ -812,10 +753,7 @@ fn create_centralized_project_environment_with_seed_packages() -> Result<()> {
         .assert()
         .success();
 
-    assert_eq!(
-        target,
-        fs_err::read_link(context.temp_dir.child(".venv").path())?
-    );
+    assert_link_target(context.temp_dir.child(".venv"), &target);
     assert!(marker.is_file());
     Ok(())
 }
@@ -2099,16 +2037,16 @@ fn path_with_trailing_space_gives_proper_error() {
     // Windows translates error messages, for example i get:
     // ": Das System kann den angegebenen Pfad nicht finden. (os error 3)"
     let context = context.with_filter((
-        r"CACHEDIR.TAG`: .* \(os error 3\)",
-        "CACHEDIR.TAG`: The system cannot find the path specified. (os error 3)",
+        r"\.lock`: .* \(os error 3\)",
+        ".lock`: The system cannot find the path specified. (os error 3)",
     ));
     uv_snapshot!(context.filters(), std::process::Command::new(uv_test::get_bin!())
         .arg("venv")
         .env(EnvVars::UV_CACHE_DIR, path_with_trailing_slash), @r###"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: Failed to initialize cache at `[CACHE_DIR]/ `
-      cause: failed to open file `[CACHE_DIR]/ /CACHEDIR.TAG`: The system cannot find the path specified. (os error 3)
+    error: Could not acquire lock
+      cause: failed to open file `[CACHE_DIR]/ /.lock`: The system cannot find the path specified. (os error 3)
     "###
     );
     // Note the extra trailing `/` in the snapshot is due to the filters, not the actual output.

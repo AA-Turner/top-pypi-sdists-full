@@ -16,7 +16,15 @@ class TrajectoriesLogRewardParams(TypedDict, total=False):
   """
   value: Required[float]
   """
-  Raw reward value.
+  Raw reward value within the declared inclusive bounds.
+  """
+  min_value: float
+  """
+  Minimum raw reward; must be less than max_value.
+  """
+  max_value: float
+  """
+  Maximum raw reward, must be larger than min_value
   """
   explanation: str
   """

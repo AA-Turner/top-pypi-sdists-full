@@ -100,7 +100,7 @@ where
 }
 
 /// Something that holds information about a span, which is simply a start and end index.
-pub trait Span: 'static + Debug + Clone + Default {
+pub trait Span: 'static + Debug + Clone + Default + PartialEq + Eq {
 	fn new(start: usize, end: usize) -> Self;
 
 	/// Widens this span to also cover `other`.
@@ -114,7 +114,7 @@ impl Span for () {
 }
 
 /// A debug span containing information about the start and end of the value.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TrackedSpan {
 	pub start: usize,
 	pub end: usize,

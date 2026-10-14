@@ -99,9 +99,8 @@ class SourceLine(urwid.Widget):
 
         if focus:
             attrs.append("focused")
-        elif self.highlight:
-            if not self.has_breakpoint:
-                attrs.append("highlighted")
+        elif self.highlight and not self.has_breakpoint:
+            attrs.append("highlighted")
 
         text = self.text
         if not attrs and self.attr is not None:
@@ -227,14 +226,14 @@ class ArgumentParser:
 
 
 try:
-    import pygments  # noqa
+    import pygments  # ruff:ignore[unused-import]
 except ImportError:
     def format_source(
                 debugger_ui: DebuggerUI,
                 lines: Sequence[str],
                 breakpoints: Collection[int],
             ) -> list[SourceLine]:
-        lineno_format = "%%%dd " % (len(str(len(lines))))
+        lineno_format = f"%{len(str(len(lines)))}d "
         return [
             SourceLine(
                 debugger_ui,
@@ -334,9 +333,8 @@ else:
                 ttype = new_ttype
 
             # Translate tokens
-            if ttype in ATTR_TRANSLATE:
-                if s in ATTR_TRANSLATE[ttype]:
-                    ttype = ATTR_TRANSLATE[ttype][s]
+            if ttype in ATTR_TRANSLATE and s in ATTR_TRANSLATE[ttype]:
+                ttype = ATTR_TRANSLATE[ttype][s]
 
             # Translate dunder method tokens
             # NOTE: leaves "Magic" name tokens alone
@@ -390,7 +388,7 @@ else:
                 lines: Sequence[str],
                 breakpoints: Collection[int],
             ) -> list[SourceLine]:
-        lineno_format = "%%%dd " % (len(str(len(lines))))
+        lineno_format = f"%{len(str(len(lines)))}d "
         formatter = UrwidFormatter(debugger_ui, lineno_format, breakpoints)
         highlight(
             "".join(line.expandtabs(TABSTOP) for line in lines),

@@ -1,3 +1,4 @@
+import datetime
 from http import HTTPStatus
 from typing import Any, Union
 from uuid import UUID
@@ -15,15 +16,29 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_created: Union[Unset, str] = UNSET
+    if not isinstance(created, Unset):
+        json_created = created.isoformat()
+    params["created"] = json_created
+
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
 
     params["customer"] = customer
 
@@ -42,6 +57,16 @@ def _get_kwargs(
             json_field.append(field_item)
 
     params["field"] = json_field
+
+    json_modified: Union[Unset, str] = UNSET
+    if not isinstance(modified, Unset):
+        json_modified = modified.isoformat()
+    params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     json_o: Union[Unset, list[str]] = UNSET
     if not isinstance(o, Unset):
@@ -96,10 +121,14 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
@@ -109,10 +138,14 @@ def sync_detailed(
      Returns a paginated list of service providers.
 
     Args:
+        created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_keyword (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         field (Union[Unset, list[ServiceProviderFieldEnum]]):
+        modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[CallManagingOrganisationOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
@@ -126,10 +159,14 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        created=created,
+        created_before=created_before,
         customer=customer,
         customer_keyword=customer_keyword,
         customer_uuid=customer_uuid,
         field=field,
+        modified=modified,
+        modified_before=modified_before,
         o=o,
         page=page,
         page_size=page_size,
@@ -145,10 +182,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
@@ -158,10 +199,14 @@ def sync(
      Returns a paginated list of service providers.
 
     Args:
+        created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_keyword (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         field (Union[Unset, list[ServiceProviderFieldEnum]]):
+        modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[CallManagingOrganisationOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
@@ -176,10 +221,14 @@ def sync(
 
     return sync_detailed(
         client=client,
+        created=created,
+        created_before=created_before,
         customer=customer,
         customer_keyword=customer_keyword,
         customer_uuid=customer_uuid,
         field=field,
+        modified=modified,
+        modified_before=modified_before,
         o=o,
         page=page,
         page_size=page_size,
@@ -189,10 +238,14 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
@@ -202,10 +255,14 @@ async def asyncio_detailed(
      Returns a paginated list of service providers.
 
     Args:
+        created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_keyword (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         field (Union[Unset, list[ServiceProviderFieldEnum]]):
+        modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[CallManagingOrganisationOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
@@ -219,10 +276,14 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        created=created,
+        created_before=created_before,
         customer=customer,
         customer_keyword=customer_keyword,
         customer_uuid=customer_uuid,
         field=field,
+        modified=modified,
+        modified_before=modified_before,
         o=o,
         page=page,
         page_size=page_size,
@@ -236,10 +297,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
@@ -249,10 +314,14 @@ async def asyncio(
      Returns a paginated list of service providers.
 
     Args:
+        created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_keyword (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         field (Union[Unset, list[ServiceProviderFieldEnum]]):
+        modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[CallManagingOrganisationOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
@@ -268,10 +337,14 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            created=created,
+            created_before=created_before,
             customer=customer,
             customer_keyword=customer_keyword,
             customer_uuid=customer_uuid,
             field=field,
+            modified=modified,
+            modified_before=modified_before,
             o=o,
             page=page,
             page_size=page_size,
@@ -282,10 +355,14 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
 ) -> list["ServiceProvider"]:
     """Get All Pages
@@ -296,10 +373,14 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_keyword (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         field (Union[Unset, list[ServiceProviderFieldEnum]]):
+        modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[CallManagingOrganisationOEnum]]):
 
     Raises:
@@ -315,10 +396,14 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        created=created,
+        created_before=created_before,
         customer=customer,
         customer_keyword=customer_keyword,
         customer_uuid=customer_uuid,
         field=field,
+        modified=modified,
+        modified_before=modified_before,
         o=o,
     )
 
@@ -367,10 +452,14 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_keyword: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     field: Union[Unset, list[ServiceProviderFieldEnum]] = UNSET,
+    modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[CallManagingOrganisationOEnum]] = UNSET,
 ) -> list["ServiceProvider"]:
     """Get All Pages (Async)
@@ -381,10 +470,14 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_keyword (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         field (Union[Unset, list[ServiceProviderFieldEnum]]):
+        modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[CallManagingOrganisationOEnum]]):
 
     Raises:
@@ -400,10 +493,14 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        created=created,
+        created_before=created_before,
         customer=customer,
         customer_keyword=customer_keyword,
         customer_uuid=customer_uuid,
         field=field,
+        modified=modified,
+        modified_before=modified_before,
         o=o,
     )
 

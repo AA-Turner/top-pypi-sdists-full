@@ -26,23 +26,17 @@ class MessageClient:
         """
         return self._raw_client
 
-    def update(
-        self,
-        message_uuid: str,
-        *,
-        metadata: typing.Dict[str, typing.Optional[typing.Any]],
-        request_options: typing.Optional[RequestOptions] = None,
+    def get(
+        self, thread_uuid: str, message_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Message:
         """
-        Updates a message.
-
         Parameters
         ----------
-        message_uuid : str
-            The UUID of the message.
+        thread_uuid : str
+            Thread UUID
 
-        metadata : typing.Dict[str, typing.Optional[typing.Any]]
-            Metadata to store on the message. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
+        message_uuid : str
+            Message UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -50,7 +44,53 @@ class MessageClient:
         Returns
         -------
         Message
-            The updated message.
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.thread.message.get(
+            thread_uuid="thread_uuid",
+            message_uuid="message_uuid",
+        )
+        """
+        _response = self._raw_client.get(thread_uuid, message_uuid, request_options=request_options)
+        return _response.data
+
+    def update(
+        self,
+        thread_uuid: str,
+        message_uuid: str,
+        *,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Message:
+        """
+        Parameters
+        ----------
+        thread_uuid : str
+            Thread UUID
+
+        message_uuid : str
+            Message UUID
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to merge onto the message; a key set to null is removed. Max 10 keys after the merge. Values must be strings, numbers, booleans, or arrays of scalars.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Message
+            OK
 
         Examples
         --------
@@ -60,11 +100,17 @@ class MessageClient:
             api_key="YOUR_API_KEY",
         )
         client.thread.message.update(
-            message_uuid="messageUUID",
-            metadata={"key": "value"},
+            thread_uuid="thread_uuid",
+            message_uuid="message_uuid",
         )
         """
-        _response = self._raw_client.update(message_uuid, metadata=metadata, request_options=request_options)
+        _response = self._raw_client.update(
+            thread_uuid,
+            message_uuid,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
         return _response.data
 
 
@@ -83,23 +129,17 @@ class AsyncMessageClient:
         """
         return self._raw_client
 
-    async def update(
-        self,
-        message_uuid: str,
-        *,
-        metadata: typing.Dict[str, typing.Optional[typing.Any]],
-        request_options: typing.Optional[RequestOptions] = None,
+    async def get(
+        self, thread_uuid: str, message_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Message:
         """
-        Updates a message.
-
         Parameters
         ----------
-        message_uuid : str
-            The UUID of the message.
+        thread_uuid : str
+            Thread UUID
 
-        metadata : typing.Dict[str, typing.Optional[typing.Any]]
-            Metadata to store on the message. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
+        message_uuid : str
+            Message UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -107,7 +147,61 @@ class AsyncMessageClient:
         Returns
         -------
         Message
-            The updated message.
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.thread.message.get(
+                thread_uuid="thread_uuid",
+                message_uuid="message_uuid",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get(thread_uuid, message_uuid, request_options=request_options)
+        return _response.data
+
+    async def update(
+        self,
+        thread_uuid: str,
+        message_uuid: str,
+        *,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Message:
+        """
+        Parameters
+        ----------
+        thread_uuid : str
+            Thread UUID
+
+        message_uuid : str
+            Message UUID
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to merge onto the message; a key set to null is removed. Max 10 keys after the merge. Values must be strings, numbers, booleans, or arrays of scalars.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Message
+            OK
 
         Examples
         --------
@@ -122,12 +216,18 @@ class AsyncMessageClient:
 
         async def main() -> None:
             await client.thread.message.update(
-                message_uuid="messageUUID",
-                metadata={"key": "value"},
+                thread_uuid="thread_uuid",
+                message_uuid="message_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.update(message_uuid, metadata=metadata, request_options=request_options)
+        _response = await self._raw_client.update(
+            thread_uuid,
+            message_uuid,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
         return _response.data

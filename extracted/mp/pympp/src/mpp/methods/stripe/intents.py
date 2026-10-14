@@ -10,6 +10,7 @@ import base64
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import mpp.methods.stripe._defaults as stripe_defaults
 from mpp import Credential, Receipt
 from mpp._defaults import DEFAULT_TIMEOUT
 from mpp.errors import (
@@ -17,23 +18,9 @@ from mpp.errors import (
     PaymentExpiredError,
     VerificationFailedError,
 )
-from mpp.methods.stripe._defaults import STRIPE_API_BASE
+from mpp.methods.stripe.analytics import merge_metadata
+from mpp.methods.stripe.payment_intent_options import PaymentIntentInput, resolve_options
 from mpp.methods.stripe.schemas import ChargeRequest, StripeCredentialPayload
-
-
-def _build_analytics(credential: Credential) -> dict[str, str]:
-    """Build MPP analytics metadata for the Stripe PaymentIntent."""
-    challenge = credential.challenge
-    analytics: dict[str, str] = {
-        "mpp_challenge_id": challenge.id,
-        "mpp_intent": challenge.intent,
-        "mpp_is_mpp": "true",
-        "mpp_server_id": challenge.realm,
-        "mpp_version": "1",
-    }
-    if credential.source:
-        analytics["mpp_client_id"] = credential.source
-    return analytics
 
 
 def _resolve_payment_intents(client: Any) -> Any:
@@ -51,6 +38,24 @@ def _resolve_payment_intents(client: Any) -> Any:
     if pi is not None:
         return pi
     raise TypeError("Unsupported Stripe client: expected .v1.payment_intents or .payment_intents")
+
+
+async def _create_payment_intent(client: Any, body: dict[str, Any], options: dict[str, Any]) -> Any:
+    """Create through either an asynchronous or synchronous Stripe client."""
+    payment_intents = _resolve_payment_intents(client)
+    if callable(create_async := getattr(payment_intents, "create_async", None)):
+        return await cast(Any, create_async)(body, options=options)
+    return await asyncio.to_thread(payment_intents.create, body, options=options)
+
+
+def _is_idempotent_replay(headers: Any) -> bool:
+    """Return whether Stripe replayed a cached idempotent response."""
+    if headers is None or not callable(items := getattr(headers, "items", None)):
+        return False
+    return any(
+        str(name).lower() == "idempotent-replayed" and str(value).lower() == "true"
+        for name, value in cast(Any, items)()
+    )
 
 
 class ChargeIntent:
@@ -86,8 +91,7 @@ class ChargeIntent:
 
         Args:
             client: Pre-configured Stripe SDK instance (duck-typed).
-                Supports both ``StripeClient`` (v8+, ``client.v1.payment_intents``)
-                and legacy clients (``client.payment_intents``).
+                Supports ``client.payment_intents`` and ``client.v1.payment_intents``.
             secret_key: Stripe secret API key for raw HTTP verification.
                 Used only when ``client`` is not provided.
             http_client: Optional httpx client for raw HTTP calls.
@@ -151,6 +155,14 @@ class ChargeIntent:
             PaymentExpiredError: If the challenge has expired.
             PaymentActionRequiredError: If 3DS or other action is needed.
         """
+        return await self._verify(credential, request, None)
+
+    def with_payment_intent_options(self, options: PaymentIntentInput) -> _PreparedChargeIntent:
+        return _PreparedChargeIntent(self, options)
+
+    async def _verify(
+        self, credential: Credential, request: dict[str, Any], options_input: PaymentIntentInput
+    ) -> Receipt:
         challenge = credential.challenge
 
         if challenge.expires:
@@ -172,9 +184,12 @@ class ChargeIntent:
             ) from err
 
         spt = parsed.spt
+        if not spt.strip():
+            raise VerificationFailedError("Invalid credential payload: empty spt")
 
         user_metadata = parsed_request.methodDetails.metadata
-        resolved_metadata = {**_build_analytics(credential), **(user_metadata or {})}
+        payment_options = await resolve_options(options_input, credential, request)
+        resolved_metadata = merge_metadata(credential, user_metadata, payment_options)
 
         if self._client is not None:
             pi = await self._create_with_client(
@@ -183,6 +198,7 @@ class ChargeIntent:
                 request=parsed_request,
                 spt=spt,
                 metadata=resolved_metadata,
+                payment_options=payment_options,
             )
         else:
             pi = await self._create_with_secret_key(
@@ -191,8 +207,11 @@ class ChargeIntent:
                 request=parsed_request,
                 spt=spt,
                 metadata=resolved_metadata,
+                payment_options=payment_options,
             )
 
+        if pi["replayed"]:
+            raise VerificationFailedError("Payment has already been processed")
         if pi["status"] == "requires_action":
             raise PaymentActionRequiredError("Stripe PaymentIntent requires action")
         if pi["status"] != "succeeded":
@@ -211,11 +230,12 @@ class ChargeIntent:
         request: ChargeRequest,
         spt: str,
         metadata: dict[str, str],
-    ) -> dict[str, str]:
+        payment_options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create a PaymentIntent using the Stripe SDK client."""
         try:
-            payment_intents = _resolve_payment_intents(client)
             body = {
+                **{k: v for k, v in payment_options.items() if k != "metadata"},
                 "amount": int(request.amount),
                 "confirm": True,
                 "currency": request.currency,
@@ -223,14 +243,18 @@ class ChargeIntent:
                 "payment_method_types": list(request.methodDetails.paymentMethodTypes),
                 "shared_payment_granted_token": spt,
             }
-            options = {"idempotency_key": f"mpp_{challenge_id}_{spt}"}
+            options = {
+                "headers": {"X-Request-Source": stripe_defaults.STRIPE_REQUEST_SOURCE},
+                "idempotency_key": f"mpp_{challenge_id}_{spt}",
+                # Keep replay responses attributable to separate verify calls.
+                "max_network_retries": 0,
+                "stripe_version": stripe_defaults.MACHINE_PAYMENTS_API_VERSION,
+            }
 
-            create_async = getattr(payment_intents, "create_async", None)
-            if callable(create_async):
-                result = await cast(Any, create_async)(body, options=options)
-            else:
-                result = await asyncio.to_thread(payment_intents.create, body, options=options)
-            return {"id": result.id, "status": result.status}
+            result = await _create_payment_intent(client, body, options)
+            last_response = getattr(result, "last_response", None)
+            replayed = _is_idempotent_replay(getattr(last_response, "headers", None))
+            return {"id": result.id, "status": result.status, "replayed": replayed}
         except (VerificationFailedError, TypeError):
             raise
         except Exception as err:
@@ -243,7 +267,8 @@ class ChargeIntent:
         request: ChargeRequest,
         spt: str,
         metadata: dict[str, str],
-    ) -> dict[str, str]:
+        payment_options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create a PaymentIntent using raw HTTP with a secret key."""
         http_client = await self._get_http_client()
 
@@ -259,27 +284,56 @@ class ChargeIntent:
             body[f"payment_method_types[{index}]"] = payment_method_type
         for key, value in metadata.items():
             body[f"metadata[{key}]"] = value
+        for key in ("customer", "receipt_email"):
+            if key in payment_options:
+                body[key] = payment_options[key]
+        if "hooks" in payment_options:
+            body["hooks[inputs][tax][calculation]"] = payment_options["hooks"]["inputs"]["tax"][
+                "calculation"
+            ]
 
         response = await http_client.post(
-            f"{STRIPE_API_BASE}/payment_intents",
+            f"{stripe_defaults.STRIPE_API_BASE}/payment_intents",
             headers={
                 "Authorization": f"Basic {auth_value}",
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Idempotency-Key": f"mpp_{challenge_id}_{spt}",
+                "Stripe-Version": stripe_defaults.MACHINE_PAYMENTS_API_VERSION,
+                "X-Request-Source": stripe_defaults.STRIPE_REQUEST_SOURCE,
             },
             data=body,
         )
 
         if not response.is_success:
-            detail = None
-            try:
-                err = response.json().get("error", {})
-                detail = err.get("message") or err.get("code")
-            except Exception:
-                detail = response.text[:200] if response.text else None
+            if not payment_options:
+                try:
+                    error = response.json().get("error", {})
+                    detail = error.get("message") or error.get("code")
+                except Exception:
+                    detail = response.text[:200] if response.text else None
+                raise VerificationFailedError(
+                    detail or f"Stripe PaymentIntent failed (HTTP {response.status_code})"
+                )
             raise VerificationFailedError(
-                detail or f"Stripe PaymentIntent failed (HTTP {response.status_code})"
+                f"Stripe PaymentIntent failed (HTTP {response.status_code})"
             )
 
         result = response.json()
-        return {"id": result["id"], "status": result["status"]}
+        return {
+            "id": result["id"],
+            "status": result["status"],
+            "replayed": _is_idempotent_replay(response.headers),
+        }
+
+
+class _PreparedChargeIntent:
+    """An SPT attempt sharing its owner's client and resource lifecycle."""
+
+    name = "charge"
+
+    def __init__(self, owner: ChargeIntent, options: PaymentIntentInput) -> None:
+        self._owner = owner
+        self._options = options
+
+    async def verify(self, credential: Credential, request: dict[str, Any]) -> Receipt:
+        return await self._owner._verify(credential, request, self._options)

@@ -28,6 +28,7 @@ class ProviderTicket:
         modified (datetime.datetime):
         parent_issue_key (str):
         parent_issue_uuid (UUID):
+        provider_helpdesk_uuid (Union[None, UUID]):
         is_escalated (bool): Whether this issue has been escalated.
         provider_assignee (Union[None, UUID]):
         provider_assignee_name (str):
@@ -56,6 +57,7 @@ class ProviderTicket:
     modified: datetime.datetime
     parent_issue_key: str
     parent_issue_uuid: UUID
+    provider_helpdesk_uuid: Union[None, UUID]
     is_escalated: bool
     provider_assignee: Union[None, UUID]
     provider_assignee_name: str
@@ -96,6 +98,12 @@ class ProviderTicket:
         parent_issue_key = self.parent_issue_key
 
         parent_issue_uuid = str(self.parent_issue_uuid)
+
+        provider_helpdesk_uuid: Union[None, str]
+        if isinstance(self.provider_helpdesk_uuid, UUID):
+            provider_helpdesk_uuid = str(self.provider_helpdesk_uuid)
+        else:
+            provider_helpdesk_uuid = self.provider_helpdesk_uuid
 
         is_escalated = self.is_escalated
 
@@ -181,6 +189,7 @@ class ProviderTicket:
                 "modified": modified,
                 "parent_issue_key": parent_issue_key,
                 "parent_issue_uuid": parent_issue_uuid,
+                "provider_helpdesk_uuid": provider_helpdesk_uuid,
                 "is_escalated": is_escalated,
                 "provider_assignee": provider_assignee,
                 "provider_assignee_name": provider_assignee_name,
@@ -229,6 +238,21 @@ class ProviderTicket:
         parent_issue_key = d.pop("parent_issue_key")
 
         parent_issue_uuid = UUID(d.pop("parent_issue_uuid"))
+
+        def _parse_provider_helpdesk_uuid(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                provider_helpdesk_uuid_type_0 = UUID(data)
+
+                return provider_helpdesk_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        provider_helpdesk_uuid = _parse_provider_helpdesk_uuid(d.pop("provider_helpdesk_uuid"))
 
         is_escalated = d.pop("is_escalated")
 
@@ -388,6 +412,7 @@ class ProviderTicket:
             modified=modified,
             parent_issue_key=parent_issue_key,
             parent_issue_uuid=parent_issue_uuid,
+            provider_helpdesk_uuid=provider_helpdesk_uuid,
             is_escalated=is_escalated,
             provider_assignee=provider_assignee,
             provider_assignee_name=provider_assignee_name,

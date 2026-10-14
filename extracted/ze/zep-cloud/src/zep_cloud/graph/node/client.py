@@ -3,14 +3,23 @@
 import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
-from ...types.entity_edge import EntityEdge
-from ...types.entity_node import EntityNode
-from ...types.episode_response import EpisodeResponse
-from ...types.graph_node_neighbor import GraphNodeNeighbor
+from ...types.add_nodes_result import AddNodesResult
+from ...types.async_result import AsyncResult
+from ...types.neighbor_entry import NeighborEntry
+from ...types.neighbor_page import NeighborPage
+from ...types.node import Node
+from ...types.node_input import NodeInput
+from ...types.node_list_filters import NodeListFilters
+from ...types.node_page import NodePage
 from ...types.search_filters import SearchFilters
-from ...types.success_response import SuccessResponse
 from .raw_client import AsyncRawNodeClient, RawNodeClient
+from .types.neighbors_request_direction import NeighborsRequestDirection
+from .types.node_list_neighbors_request_order import NodeListNeighborsRequestOrder
+from .types.node_list_neighbors_request_order_by import NodeListNeighborsRequestOrderBy
+from .types.node_list_request_order import NodeListRequestOrder
+from .types.node_list_request_order_by import NodeListRequestOrderBy
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -31,57 +40,99 @@ class NodeClient:
         """
         return self._raw_client
 
-    def get_by_graph_id(
+    def add(
         self,
-        graph_id: str,
+        graph_uuid: str,
         *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
+        nodes: typing.Sequence[NodeInput],
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[EntityNode]:
+    ) -> AddNodesResult:
         """
-        Returns all nodes for a graph.
-
         Parameters
         ----------
-        graph_id : str
-            Graph ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
+        nodes : typing.Sequence[NodeInput]
+            The nodes to add to the graph.
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
-
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
-
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[EntityNode]
-            Nodes
+        AddNodesResult
+            Accepted
+
+        Examples
+        --------
+        from zep_cloud import NodeInput, Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.graph.node.add(
+            graph_uuid="graph_uuid",
+            nodes=[
+                NodeInput(
+                    name="name",
+                )
+            ],
+        )
+        """
+        _response = self._raw_client.add(
+            graph_uuid, nodes=nodes, idempotency_key=idempotency_key, request_options=request_options
+        )
+        return _response.data
+
+    def list(
+        self,
+        graph_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[NodeListRequestOrderBy] = None,
+        order: typing.Optional[NodeListRequestOrder] = None,
+        filters: typing.Optional[NodeListFilters] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[Node, NodePage]:
+        """
+        Lists the nodes of a graph and returns one page of results. The default `page_size` is 50, and the maximum `page_size` is 100.
+        You can sort by `uuid`, `created_at`, or `degree`. The default sort is `uuid` in descending order.
+        You cannot use these `filters` fields: `connected_node_uuids`, `source_node_uuids`, `target_node_uuids`, and `content_policy_violated`.
+        If the request has an unsupported or unknown filter field, the API returns an `unsupported_filter` error.
+
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        order_by : typing.Optional[NodeListRequestOrderBy]
+            Sort key: uuid (default), created_at, or degree
+
+        order : typing.Optional[NodeListRequestOrder]
+            Sort direction: asc or desc (default desc)
+
+        filters : typing.Optional[NodeListFilters]
+            Filters that limit the items in the list. The operation description
+            names the filter fields that the operation does not support.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[Node, NodePage]
+            OK
 
         Examples
         --------
@@ -90,105 +141,32 @@ class NodeClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.graph.node.get_by_graph_id(
-            graph_id="graph_id",
+        response = client.graph.node.list(
+            graph_uuid="graph_uuid",
         )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.get_by_graph_id(
-            graph_id,
+        return self._raw_client.list(
+            graph_uuid,
+            page_size=page_size,
             cursor=cursor,
-            direction=direction,
-            filters=filters,
-            limit=limit,
             order_by=order_by,
-            uuid_cursor=uuid_cursor,
+            order=order,
+            filters=filters,
             request_options=request_options,
         )
-        return _response.data
 
-    def get_by_user_id(
-        self,
-        user_id: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[EntityNode]:
+    def get(self, graph_uuid: str, node_uuid: str, *, request_options: typing.Optional[RequestOptions] = None) -> Node:
         """
-        Returns all nodes for a user
-
         Parameters
         ----------
-        user_id : str
-            User ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
-
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
-
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
-
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[EntityNode]
-            Nodes
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.graph.node.get_by_user_id(
-            user_id="user_id",
-        )
-        """
-        _response = self._raw_client.get_by_user_id(
-            user_id,
-            cursor=cursor,
-            direction=direction,
-            filters=filters,
-            limit=limit,
-            order_by=order_by,
-            uuid_cursor=uuid_cursor,
-            request_options=request_options,
-        )
-        return _response.data
-
-    def get_edges(
-        self, node_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[EntityEdge]:
-        """
-        Deprecated. Use edge listing with `filters.connected_node_uuids`, or the neighbors endpoint (`POST /graph/node/{node_uuid}/neighbors`), instead. Returns all edges for a node, subject to an internal cap; responses reduced by that cap set the Zep-Truncated header.
-
-        Parameters
-        ----------
         node_uuid : str
             Node UUID
 
@@ -197,151 +175,8 @@ class NodeClient:
 
         Returns
         -------
-        typing.List[EntityEdge]
-            Edges
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.graph.node.get_edges(
-            node_uuid="node_uuid",
-        )
-        """
-        _response = self._raw_client.get_edges(node_uuid, request_options=request_options)
-        return _response.data
-
-    def get_episodes(
-        self, node_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> EpisodeResponse:
-        """
-        Deprecated. Read the `episodes` field on the node; when `episodes_truncated` is true, use the episode list SDK methods `graph.episode.list_by_graph_id` or `graph.episode.list_by_user_id` with the `mentioned_node_uuids` filter. Returns episodes that mentioned a given node, subject to an internal cap; responses reduced by that cap set the Zep-Truncated header.
-
-        Parameters
-        ----------
-        node_uuid : str
-            Node UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EpisodeResponse
-            Episodes
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.graph.node.get_episodes(
-            node_uuid="node_uuid",
-        )
-        """
-        _response = self._raw_client.get_episodes(node_uuid, request_options=request_options)
-        return _response.data
-
-    def get_neighbors(
-        self,
-        node_uuid: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        direction_sort: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[GraphNodeNeighbor]:
-        """
-        Enumerates the distinct entity nodes directly connected to a node, together with the edges connecting each to it.
-
-        Parameters
-        ----------
-        node_uuid : str
-            Node UUID
-
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor
-            response header of the previous page.
-
-        direction : typing.Optional[str]
-            Orientation of the connecting edge relative to the anchor node: "out"
-            (anchor is the edge's source), "in" (anchor is the edge's target), or
-            "both" (either). Defaults to "both".
-
-        direction_sort : typing.Optional[str]
-            Sort direction for order_by. One of "asc" or "desc". Defaults to
-            "desc". Named direction_sort to avoid clashing with the traversal
-            Direction field above.
-
-        filters : typing.Optional[SearchFilters]
-            Filters constraining the connecting edges (edge types, dates, and the
-            node- and episode-anchored UUID fields) and the neighbor nodes
-            (node_labels/exclude_node_labels). Reuses the graph.search filter
-            type.
-
-        limit : typing.Optional[int]
-            Maximum number of neighbor nodes to return. An explicit value is
-            clamped to 50; when omitted, the default page size (100) applies.
-
-        order_by : typing.Optional[str]
-            Field to sort neighbor nodes by. One of "uuid" or "created_at".
-            Defaults to "uuid".
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[GraphNodeNeighbor]
-            Neighbors
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.graph.node.get_neighbors(
-            node_uuid="node_uuid",
-        )
-        """
-        _response = self._raw_client.get_neighbors(
-            node_uuid,
-            cursor=cursor,
-            direction=direction,
-            direction_sort=direction_sort,
-            filters=filters,
-            limit=limit,
-            order_by=order_by,
-            request_options=request_options,
-        )
-        return _response.data
-
-    def get(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> EntityNode:
-        """
-        Returns a specific node by its UUID.
-
-        Parameters
-        ----------
-        uuid_ : str
-            Node UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EntityNode
-            Node
+        Node
+            OK
 
         Examples
         --------
@@ -351,28 +186,39 @@ class NodeClient:
             api_key="YOUR_API_KEY",
         )
         client.graph.node.get(
-            uuid_="uuid",
+            graph_uuid="graph_uuid",
+            node_uuid="node_uuid",
         )
         """
-        _response = self._raw_client.get(uuid_, request_options=request_options)
+        _response = self._raw_client.get(graph_uuid, node_uuid, request_options=request_options)
         return _response.data
 
-    def delete(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> SuccessResponse:
+    def delete(
+        self,
+        graph_uuid: str,
+        node_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncResult:
         """
-        Deletes a node by UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        node_uuid : str
             Node UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SuccessResponse
-            Node deleted
+        AsyncResult
+            Accepted
 
         Examples
         --------
@@ -382,49 +228,54 @@ class NodeClient:
             api_key="YOUR_API_KEY",
         )
         client.graph.node.delete(
-            uuid_="uuid",
+            graph_uuid="graph_uuid",
+            node_uuid="node_uuid",
         )
         """
-        _response = self._raw_client.delete(uuid_, request_options=request_options)
+        _response = self._raw_client.delete(
+            graph_uuid, node_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     def update(
         self,
-        uuid_: str,
+        graph_uuid: str,
+        node_uuid: str,
         *,
-        attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
-        labels: typing.Optional[typing.Sequence[str]] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         name: typing.Optional[str] = OMIT,
         summary: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EntityNode:
+    ) -> Node:
         """
-        Updates an entity node by UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        node_uuid : str
             Node UUID
 
-        attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Updated attributes. Merged with existing attributes. Set a key to null to delete it.
-
-        labels : typing.Optional[typing.Sequence[str]]
-            Updated labels for the node
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Additional attributes to merge onto the node; a key set to null is
+            removed.
 
         name : typing.Optional[str]
-            Updated name for the node
+            The node's name.
 
         summary : typing.Optional[str]
-            Updated summary for the node
+            A summary of the node.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        EntityNode
-            Updated node
+        Node
+            OK
 
         Examples
         --------
@@ -434,13 +285,97 @@ class NodeClient:
             api_key="YOUR_API_KEY",
         )
         client.graph.node.update(
-            uuid_="uuid",
+            graph_uuid="graph_uuid",
+            node_uuid="node_uuid",
         )
         """
         _response = self._raw_client.update(
-            uuid_, attributes=attributes, labels=labels, name=name, summary=summary, request_options=request_options
+            graph_uuid,
+            node_uuid,
+            attributes=attributes,
+            name=name,
+            summary=summary,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
         )
         return _response.data
+
+    def list_neighbors(
+        self,
+        graph_uuid: str,
+        node_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[NodeListNeighborsRequestOrderBy] = None,
+        order: typing.Optional[NodeListNeighborsRequestOrder] = None,
+        direction: typing.Optional[NeighborsRequestDirection] = OMIT,
+        filters: typing.Optional[SearchFilters] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[NeighborEntry, NeighborPage]:
+        """
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        node_uuid : str
+            Node UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        order_by : typing.Optional[NodeListNeighborsRequestOrderBy]
+            Sort field
+
+        order : typing.Optional[NodeListNeighborsRequestOrder]
+            Sort direction: asc or desc
+
+        direction : typing.Optional[NeighborsRequestDirection]
+            The edge orientation to follow from the node: in, out, or both.
+
+        filters : typing.Optional[SearchFilters]
+            Filters constraining the connecting edges and the neighbor nodes.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[NeighborEntry, NeighborPage]
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        response = client.graph.node.list_neighbors(
+            graph_uuid="graph_uuid",
+            node_uuid="node_uuid",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_neighbors(
+            graph_uuid,
+            node_uuid,
+            page_size=page_size,
+            cursor=cursor,
+            order_by=order_by,
+            order=order,
+            direction=direction,
+            filters=filters,
+            request_options=request_options,
+        )
 
 
 class AsyncNodeClient:
@@ -458,57 +393,107 @@ class AsyncNodeClient:
         """
         return self._raw_client
 
-    async def get_by_graph_id(
+    async def add(
         self,
-        graph_id: str,
+        graph_uuid: str,
         *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
+        nodes: typing.Sequence[NodeInput],
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[EntityNode]:
+    ) -> AddNodesResult:
         """
-        Returns all nodes for a graph.
-
         Parameters
         ----------
-        graph_id : str
-            Graph ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
+        nodes : typing.Sequence[NodeInput]
+            The nodes to add to the graph.
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
-
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
-
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[EntityNode]
-            Nodes
+        AddNodesResult
+            Accepted
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep, NodeInput
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.graph.node.add(
+                graph_uuid="graph_uuid",
+                nodes=[
+                    NodeInput(
+                        name="name",
+                    )
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.add(
+            graph_uuid, nodes=nodes, idempotency_key=idempotency_key, request_options=request_options
+        )
+        return _response.data
+
+    async def list(
+        self,
+        graph_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[NodeListRequestOrderBy] = None,
+        order: typing.Optional[NodeListRequestOrder] = None,
+        filters: typing.Optional[NodeListFilters] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[Node, NodePage]:
+        """
+        Lists the nodes of a graph and returns one page of results. The default `page_size` is 50, and the maximum `page_size` is 100.
+        You can sort by `uuid`, `created_at`, or `degree`. The default sort is `uuid` in descending order.
+        You cannot use these `filters` fields: `connected_node_uuids`, `source_node_uuids`, `target_node_uuids`, and `content_policy_violated`.
+        If the request has an unsupported or unknown filter field, the API returns an `unsupported_filter` error.
+
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        order_by : typing.Optional[NodeListRequestOrderBy]
+            Sort key: uuid (default), created_at, or degree
+
+        order : typing.Optional[NodeListRequestOrder]
+            Sort direction: asc or desc (default desc)
+
+        filters : typing.Optional[NodeListFilters]
+            Filters that limit the items in the list. The operation description
+            names the filter fields that the operation does not support.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[Node, NodePage]
+            OK
 
         Examples
         --------
@@ -522,116 +507,38 @@ class AsyncNodeClient:
 
 
         async def main() -> None:
-            await client.graph.node.get_by_graph_id(
-                graph_id="graph_id",
+            response = await client.graph.node.list(
+                graph_uuid="graph_uuid",
             )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_by_graph_id(
-            graph_id,
+        return await self._raw_client.list(
+            graph_uuid,
+            page_size=page_size,
             cursor=cursor,
-            direction=direction,
-            filters=filters,
-            limit=limit,
             order_by=order_by,
-            uuid_cursor=uuid_cursor,
+            order=order,
+            filters=filters,
             request_options=request_options,
         )
-        return _response.data
 
-    async def get_by_user_id(
-        self,
-        user_id: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[EntityNode]:
+    async def get(
+        self, graph_uuid: str, node_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> Node:
         """
-        Returns all nodes for a user
-
         Parameters
         ----------
-        user_id : str
-            User ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
-
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
-
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
-
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[EntityNode]
-            Nodes
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.graph.node.get_by_user_id(
-                user_id="user_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_by_user_id(
-            user_id,
-            cursor=cursor,
-            direction=direction,
-            filters=filters,
-            limit=limit,
-            order_by=order_by,
-            uuid_cursor=uuid_cursor,
-            request_options=request_options,
-        )
-        return _response.data
-
-    async def get_edges(
-        self, node_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[EntityEdge]:
-        """
-        Deprecated. Use edge listing with `filters.connected_node_uuids`, or the neighbors endpoint (`POST /graph/node/{node_uuid}/neighbors`), instead. Returns all edges for a node, subject to an internal cap; responses reduced by that cap set the Zep-Truncated header.
-
-        Parameters
-        ----------
         node_uuid : str
             Node UUID
 
@@ -640,175 +547,8 @@ class AsyncNodeClient:
 
         Returns
         -------
-        typing.List[EntityEdge]
-            Edges
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.graph.node.get_edges(
-                node_uuid="node_uuid",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_edges(node_uuid, request_options=request_options)
-        return _response.data
-
-    async def get_episodes(
-        self, node_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> EpisodeResponse:
-        """
-        Deprecated. Read the `episodes` field on the node; when `episodes_truncated` is true, use the episode list SDK methods `graph.episode.list_by_graph_id` or `graph.episode.list_by_user_id` with the `mentioned_node_uuids` filter. Returns episodes that mentioned a given node, subject to an internal cap; responses reduced by that cap set the Zep-Truncated header.
-
-        Parameters
-        ----------
-        node_uuid : str
-            Node UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EpisodeResponse
-            Episodes
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.graph.node.get_episodes(
-                node_uuid="node_uuid",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_episodes(node_uuid, request_options=request_options)
-        return _response.data
-
-    async def get_neighbors(
-        self,
-        node_uuid: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        direction_sort: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[GraphNodeNeighbor]:
-        """
-        Enumerates the distinct entity nodes directly connected to a node, together with the edges connecting each to it.
-
-        Parameters
-        ----------
-        node_uuid : str
-            Node UUID
-
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor
-            response header of the previous page.
-
-        direction : typing.Optional[str]
-            Orientation of the connecting edge relative to the anchor node: "out"
-            (anchor is the edge's source), "in" (anchor is the edge's target), or
-            "both" (either). Defaults to "both".
-
-        direction_sort : typing.Optional[str]
-            Sort direction for order_by. One of "asc" or "desc". Defaults to
-            "desc". Named direction_sort to avoid clashing with the traversal
-            Direction field above.
-
-        filters : typing.Optional[SearchFilters]
-            Filters constraining the connecting edges (edge types, dates, and the
-            node- and episode-anchored UUID fields) and the neighbor nodes
-            (node_labels/exclude_node_labels). Reuses the graph.search filter
-            type.
-
-        limit : typing.Optional[int]
-            Maximum number of neighbor nodes to return. An explicit value is
-            clamped to 50; when omitted, the default page size (100) applies.
-
-        order_by : typing.Optional[str]
-            Field to sort neighbor nodes by. One of "uuid" or "created_at".
-            Defaults to "uuid".
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[GraphNodeNeighbor]
-            Neighbors
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.graph.node.get_neighbors(
-                node_uuid="node_uuid",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_neighbors(
-            node_uuid,
-            cursor=cursor,
-            direction=direction,
-            direction_sort=direction_sort,
-            filters=filters,
-            limit=limit,
-            order_by=order_by,
-            request_options=request_options,
-        )
-        return _response.data
-
-    async def get(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> EntityNode:
-        """
-        Returns a specific node by its UUID.
-
-        Parameters
-        ----------
-        uuid_ : str
-            Node UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EntityNode
-            Node
+        Node
+            OK
 
         Examples
         --------
@@ -823,31 +563,42 @@ class AsyncNodeClient:
 
         async def main() -> None:
             await client.graph.node.get(
-                uuid_="uuid",
+                graph_uuid="graph_uuid",
+                node_uuid="node_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get(uuid_, request_options=request_options)
+        _response = await self._raw_client.get(graph_uuid, node_uuid, request_options=request_options)
         return _response.data
 
-    async def delete(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> SuccessResponse:
+    async def delete(
+        self,
+        graph_uuid: str,
+        node_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncResult:
         """
-        Deletes a node by UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        node_uuid : str
             Node UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SuccessResponse
-            Node deleted
+        AsyncResult
+            Accepted
 
         Examples
         --------
@@ -862,52 +613,57 @@ class AsyncNodeClient:
 
         async def main() -> None:
             await client.graph.node.delete(
-                uuid_="uuid",
+                graph_uuid="graph_uuid",
+                node_uuid="node_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.delete(uuid_, request_options=request_options)
+        _response = await self._raw_client.delete(
+            graph_uuid, node_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     async def update(
         self,
-        uuid_: str,
+        graph_uuid: str,
+        node_uuid: str,
         *,
-        attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
-        labels: typing.Optional[typing.Sequence[str]] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         name: typing.Optional[str] = OMIT,
         summary: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EntityNode:
+    ) -> Node:
         """
-        Updates an entity node by UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        node_uuid : str
             Node UUID
 
-        attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Updated attributes. Merged with existing attributes. Set a key to null to delete it.
-
-        labels : typing.Optional[typing.Sequence[str]]
-            Updated labels for the node
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Additional attributes to merge onto the node; a key set to null is
+            removed.
 
         name : typing.Optional[str]
-            Updated name for the node
+            The node's name.
 
         summary : typing.Optional[str]
-            Updated summary for the node
+            A summary of the node.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        EntityNode
-            Updated node
+        Node
+            OK
 
         Examples
         --------
@@ -922,13 +678,106 @@ class AsyncNodeClient:
 
         async def main() -> None:
             await client.graph.node.update(
-                uuid_="uuid",
+                graph_uuid="graph_uuid",
+                node_uuid="node_uuid",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            uuid_, attributes=attributes, labels=labels, name=name, summary=summary, request_options=request_options
+            graph_uuid,
+            node_uuid,
+            attributes=attributes,
+            name=name,
+            summary=summary,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
         )
         return _response.data
+
+    async def list_neighbors(
+        self,
+        graph_uuid: str,
+        node_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[NodeListNeighborsRequestOrderBy] = None,
+        order: typing.Optional[NodeListNeighborsRequestOrder] = None,
+        direction: typing.Optional[NeighborsRequestDirection] = OMIT,
+        filters: typing.Optional[SearchFilters] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[NeighborEntry, NeighborPage]:
+        """
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        node_uuid : str
+            Node UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        order_by : typing.Optional[NodeListNeighborsRequestOrderBy]
+            Sort field
+
+        order : typing.Optional[NodeListNeighborsRequestOrder]
+            Sort direction: asc or desc
+
+        direction : typing.Optional[NeighborsRequestDirection]
+            The edge orientation to follow from the node: in, out, or both.
+
+        filters : typing.Optional[SearchFilters]
+            Filters constraining the connecting edges and the neighbor nodes.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[NeighborEntry, NeighborPage]
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            response = await client.graph.node.list_neighbors(
+                graph_uuid="graph_uuid",
+                node_uuid="node_uuid",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_neighbors(
+            graph_uuid,
+            node_uuid,
+            page_size=page_size,
+            cursor=cursor,
+            order_by=order_by,
+            order=order,
+            direction=direction,
+            filters=filters,
+            request_options=request_options,
+        )

@@ -73,8 +73,8 @@ extern "C" {
 
 
 /* The version of the code generator. */
-#define SIP_VERSION                 0x60f01
-#define SIP_VERSION_STR             "6.15.1"
+#define SIP_VERSION                 0x61101
+#define SIP_VERSION_STR             "6.17.1"
 
 /* These are all dependent on the user-specified name of the sip module. */
 #define _SIP_MODULE_FQ_NAME         "wx.siplib"

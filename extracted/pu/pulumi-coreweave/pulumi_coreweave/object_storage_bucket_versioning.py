@@ -98,7 +98,7 @@ class ObjectStorageBucketVersioning(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  bucket: pulumi.Input[Optional[_builtins.str]] = None,
-                 versioning_configuration: pulumi.Input[Optional[Union['ObjectStorageBucketVersioningVersioningConfigurationArgs', 'ObjectStorageBucketVersioningVersioningConfigurationArgsDict']]] = None,
+                 versioning_configuration: pulumi.Input[Optional[Union['ObjectStorageBucketVersioningVersioningConfigurationArgs', 'ObjectStorageBucketVersioningVersioningConfigurationArgsDict', 'outputs.ObjectStorageBucketVersioningVersioningConfiguration']]] = None,
                  __props__=None):
         """
         Versioning protects your data by preserving all versions of objects and preventing permanent deletion. When objects are deleted, they are "soft deleted" with delete markers, allowing you to restore previous versions and recover data. After creating a versioned bucket with Terraform, [use `rclone` to manage versioned objects and delete markers](https://docs.coreweave.com/products/storage/object-storage/buckets/rclone-versioned-buckets).
@@ -178,7 +178,7 @@ class ObjectStorageBucketVersioning(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  bucket: pulumi.Input[Optional[_builtins.str]] = None,
-                 versioning_configuration: pulumi.Input[Optional[Union['ObjectStorageBucketVersioningVersioningConfigurationArgs', 'ObjectStorageBucketVersioningVersioningConfigurationArgsDict']]] = None,
+                 versioning_configuration: pulumi.Input[Optional[Union['ObjectStorageBucketVersioningVersioningConfigurationArgs', 'ObjectStorageBucketVersioningVersioningConfigurationArgsDict', 'outputs.ObjectStorageBucketVersioningVersioningConfiguration']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -203,7 +203,7 @@ class ObjectStorageBucketVersioning(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             bucket: pulumi.Input[Optional[_builtins.str]] = None,
-            versioning_configuration: pulumi.Input[Optional[Union['ObjectStorageBucketVersioningVersioningConfigurationArgs', 'ObjectStorageBucketVersioningVersioningConfigurationArgsDict']]] = None) -> 'ObjectStorageBucketVersioning':
+            versioning_configuration: pulumi.Input[Optional[Union['ObjectStorageBucketVersioningVersioningConfigurationArgs', 'ObjectStorageBucketVersioningVersioningConfigurationArgsDict', 'outputs.ObjectStorageBucketVersioningVersioningConfiguration']]] = None) -> 'ObjectStorageBucketVersioning':
         """
         Get an existing ObjectStorageBucketVersioning resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.

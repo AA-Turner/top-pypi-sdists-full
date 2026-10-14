@@ -7,8 +7,15 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class UserInstruction(UniversalBaseModel):
-    name: str
-    text: str
+    name: str = pydantic.Field()
+    """
+    logical key for identifying the instruction
+    """
+
+    text: str = pydantic.Field()
+    """
+    the actual instruction text
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

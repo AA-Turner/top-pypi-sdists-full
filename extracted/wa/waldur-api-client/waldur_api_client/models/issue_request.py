@@ -28,6 +28,8 @@ class IssueRequest:
         is_reported_manually (Union[Unset, bool]): Set true if issue is created by regular user via portal. Default:
             False.
         template (Union[None, Unset, str]):
+        first_comment (Union[Unset, str]): Opening message, posted as the first public comment of an issue reported on
+            behalf of another user.
     """
 
     type_: str
@@ -43,6 +45,7 @@ class IssueRequest:
     offering: Union[None, UUID, Unset] = UNSET
     is_reported_manually: Union[Unset, bool] = False
     template: Union[None, Unset, str] = UNSET
+    first_comment: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -102,6 +105,8 @@ class IssueRequest:
         else:
             template = self.template
 
+        first_comment = self.first_comment
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -132,6 +137,8 @@ class IssueRequest:
             field_dict["is_reported_manually"] = is_reported_manually
         if template is not UNSET:
             field_dict["template"] = template
+        if first_comment is not UNSET:
+            field_dict["first_comment"] = first_comment
 
         return field_dict
 
@@ -221,6 +228,8 @@ class IssueRequest:
 
         template = _parse_template(d.pop("template", UNSET))
 
+        first_comment = d.pop("first_comment", UNSET)
+
         issue_request = cls(
             type_=type_,
             summary=summary,
@@ -235,6 +244,7 @@ class IssueRequest:
             offering=offering,
             is_reported_manually=is_reported_manually,
             template=template,
+            first_comment=first_comment,
         )
 
         issue_request.additional_properties = d

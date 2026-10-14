@@ -77,6 +77,8 @@ class OfferingUser:
             linking
         service_provider_comment_url (Union[Unset, str]): URL link for additional information or actions related to
             service provider comment
+        service_provider_account_uuid (Union[None, UUID, Unset]):
+        service_provider_account_username (Union[None, Unset, str]):
         has_consent (Union[Unset, bool]): Check if the user has active consent for this offering.
         requires_reconsent (Union[Unset, bool]): Check if the user needs to re-consent due to ToS changes.
         offering_has_active_tos (Union[Unset, bool]):
@@ -137,6 +139,8 @@ class OfferingUser:
     runtime_state: Union[Unset, RuntimeStateEnum] = UNSET
     service_provider_comment: Union[Unset, str] = UNSET
     service_provider_comment_url: Union[Unset, str] = UNSET
+    service_provider_account_uuid: Union[None, UUID, Unset] = UNSET
+    service_provider_account_username: Union[None, Unset, str] = UNSET
     has_consent: Union[Unset, bool] = UNSET
     requires_reconsent: Union[Unset, bool] = UNSET
     offering_has_active_tos: Union[Unset, bool] = UNSET
@@ -297,6 +301,20 @@ class OfferingUser:
 
         service_provider_comment_url = self.service_provider_comment_url
 
+        service_provider_account_uuid: Union[None, Unset, str]
+        if isinstance(self.service_provider_account_uuid, Unset):
+            service_provider_account_uuid = UNSET
+        elif isinstance(self.service_provider_account_uuid, UUID):
+            service_provider_account_uuid = str(self.service_provider_account_uuid)
+        else:
+            service_provider_account_uuid = self.service_provider_account_uuid
+
+        service_provider_account_username: Union[None, Unset, str]
+        if isinstance(self.service_provider_account_username, Unset):
+            service_provider_account_username = UNSET
+        else:
+            service_provider_account_username = self.service_provider_account_username
+
         has_consent = self.has_consent
 
         requires_reconsent = self.requires_reconsent
@@ -436,6 +454,10 @@ class OfferingUser:
             field_dict["service_provider_comment"] = service_provider_comment
         if service_provider_comment_url is not UNSET:
             field_dict["service_provider_comment_url"] = service_provider_comment_url
+        if service_provider_account_uuid is not UNSET:
+            field_dict["service_provider_account_uuid"] = service_provider_account_uuid
+        if service_provider_account_username is not UNSET:
+            field_dict["service_provider_account_username"] = service_provider_account_username
         if has_consent is not UNSET:
             field_dict["has_consent"] = has_consent
         if requires_reconsent is not UNSET:
@@ -662,6 +684,36 @@ class OfferingUser:
 
         service_provider_comment_url = d.pop("service_provider_comment_url", UNSET)
 
+        def _parse_service_provider_account_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                service_provider_account_uuid_type_0 = UUID(data)
+
+                return service_provider_account_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        service_provider_account_uuid = _parse_service_provider_account_uuid(
+            d.pop("service_provider_account_uuid", UNSET)
+        )
+
+        def _parse_service_provider_account_username(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        service_provider_account_username = _parse_service_provider_account_username(
+            d.pop("service_provider_account_username", UNSET)
+        )
+
         has_consent = d.pop("has_consent", UNSET)
 
         requires_reconsent = d.pop("requires_reconsent", UNSET)
@@ -773,6 +825,8 @@ class OfferingUser:
             runtime_state=runtime_state,
             service_provider_comment=service_provider_comment,
             service_provider_comment_url=service_provider_comment_url,
+            service_provider_account_uuid=service_provider_account_uuid,
+            service_provider_account_username=service_provider_account_username,
             has_consent=has_consent,
             requires_reconsent=requires_reconsent,
             offering_has_active_tos=offering_has_active_tos,

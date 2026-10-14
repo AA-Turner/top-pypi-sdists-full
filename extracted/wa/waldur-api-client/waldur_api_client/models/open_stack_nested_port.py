@@ -27,7 +27,7 @@ class OpenStackNestedPort:
         subnet_uuid (Union[None, UUID, Unset]):
         subnet_name (Union[None, Unset, str]):
         subnet_description (Union[None, Unset, str]):
-        subnet_cidr (Union[None, Unset, str]): IPv4 network address in CIDR format (e.g. 192.168.0.0/24)
+        subnet_cidr (Union[None, Unset, str]): Network address in CIDR format (e.g. 192.168.0.0/24 or 2001:db8::/64)
         allowed_address_pairs (Union[Unset, list['OpenStackAllowedAddressPair']]):
         device_id (Union[None, Unset, str]): ID of device (instance, router etc) to which this port is connected
         device_owner (Union[None, Unset, str]): Entity that uses this port (e.g. network:router_interface)

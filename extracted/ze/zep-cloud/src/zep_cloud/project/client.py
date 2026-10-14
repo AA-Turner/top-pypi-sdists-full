@@ -3,10 +3,22 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
-from ..types.observation_steering_config import ObservationSteeringConfig
+from ..types.content_policy import ContentPolicy
+from ..types.content_policy_category_request import ContentPolicyCategoryRequest
+from ..types.content_policy_revision_page import ContentPolicyRevisionPage
+from ..types.content_policy_rule_request import ContentPolicyRuleRequest
+from ..types.custom_instruction import CustomInstruction
+from ..types.edge_type import EdgeType
+from ..types.entity_type import EntityType
+from ..types.instructions import Instructions
+from ..types.observation_steering import ObservationSteering
 from ..types.observation_type import ObservationType
-from ..types.project_info_response import ProjectInfoResponse
+from ..types.ontology import Ontology
+from ..types.project import Project
+from ..types.user_instruction import UserInstruction
+from ..types.user_summary_instructions import UserSummaryInstructions
 from .raw_client import AsyncRawProjectClient, RawProjectClient
 
 # this is used as the default value for optional parameters
@@ -28,10 +40,8 @@ class ProjectClient:
         """
         return self._raw_client
 
-    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> ProjectInfoResponse:
+    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> Project:
         """
-        Retrieve project info based on the provided api key.
-
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
@@ -39,8 +49,8 @@ class ProjectClient:
 
         Returns
         -------
-        ProjectInfoResponse
-            Retrieved
+        Project
+            OK
 
         Examples
         --------
@@ -55,23 +65,40 @@ class ProjectClient:
         return _response.data
 
     def update(
-        self, *, default_time_zone: typing.Optional[str] = OMIT, request_options: typing.Optional[RequestOptions] = None
-    ) -> ProjectInfoResponse:
+        self,
+        *,
+        default_time_zone: typing.Optional[str] = OMIT,
+        hyperedges_enabled: typing.Optional[bool] = OMIT,
+        include_policy_violating_episodes: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Project:
         """
-        Sets or clears the project-level fallback time zone for the API key's project.
+        Set `hyperedges_enabled` to `true` to enable extraction. A member needs the `project.edit` permission. Project API keys receive `403 permission_denied`.
 
         Parameters
         ----------
         default_time_zone : typing.Optional[str]
-            The project's IANA fallback time zone. Null clears the existing value.
+            The project's IANA fallback time zone. Set to null to clear the existing
+            value.
+
+        hyperedges_enabled : typing.Optional[bool]
+            Set to true to enable hyperedge extraction. This setting cannot be disabled.
+            A member needs project.edit. Project API keys receive 403 permission_denied.
+
+        include_policy_violating_episodes : typing.Optional[bool]
+            When true, episode reads on graphs with a content policy include the
+            episodes that violated the policy.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ProjectInfoResponse
-            Updated
+        Project
+            OK
 
         Examples
         --------
@@ -82,34 +109,28 @@ class ProjectClient:
         )
         client.project.update()
         """
-        _response = self._raw_client.update(default_time_zone=default_time_zone, request_options=request_options)
+        _response = self._raw_client.update(
+            default_time_zone=default_time_zone,
+            hyperedges_enabled=hyperedges_enabled,
+            include_policy_violating_episodes=include_policy_violating_episodes,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
         return _response.data
 
-    def get_observation_steering(
-        self,
-        *,
-        user_id: typing.Optional[str] = None,
-        graph_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationSteeringConfig:
+    def get_content_policy(self, *, request_options: typing.Optional[RequestOptions] = None) -> ContentPolicy:
         """
-        Returns project steering or the effective user/graph steering with project fallback. This API is experimental and may change in future releases.
+        Returns the current content policy revision of the project. A new graph binds this revision at creation.
 
         Parameters
         ----------
-        user_id : typing.Optional[str]
-            User ID for user-specific steering
-
-        graph_id : typing.Optional[str]
-            Graph ID for graph-specific steering
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ObservationSteeringConfig
-            Retrieved
+        ContentPolicy
+            OK
 
         Examples
         --------
@@ -118,47 +139,259 @@ class ProjectClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.project.get_observation_steering(
-            user_id="user_id",
-            graph_id="graph_id",
+        client.project.get_content_policy()
+        """
+        _response = self._raw_client.get_content_policy(request_options=request_options)
+        return _response.data
+
+    def set_content_policy(
+        self,
+        *,
+        categories: typing.Optional[typing.Sequence[ContentPolicyCategoryRequest]] = OMIT,
+        rules: typing.Optional[typing.Sequence[ContentPolicyRuleRequest]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ContentPolicy:
+        """
+        Replaces the project content policy and creates a new immutable revision. Graphs that already exist keep the revision they bound. An empty policy (no categories and no rules) removes the content policy for new graphs.
+
+        Parameters
+        ----------
+        categories : typing.Optional[typing.Sequence[ContentPolicyCategoryRequest]]
+            The categories of the policy. Maximum 16. An empty list with no rules
+            means no content policy.
+
+        rules : typing.Optional[typing.Sequence[ContentPolicyRuleRequest]]
+            The rules of the policy. Maximum 32.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ContentPolicy
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.set_content_policy()
+        """
+        _response = self._raw_client.set_content_policy(
+            categories=categories, rules=rules, idempotency_key=idempotency_key, request_options=request_options
+        )
+        return _response.data
+
+    def list_content_policy_revisions(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[ContentPolicy, ContentPolicyRevisionPage]:
+        """
+        Lists every revision of the project content policy, newest first, including revision 0.
+
+        Parameters
+        ----------
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[ContentPolicy, ContentPolicyRevisionPage]
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        response = client.project.list_content_policy_revisions()
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_content_policy_revisions(
+            page_size=page_size, cursor=cursor, request_options=request_options
+        )
+
+    def get_content_policy_revision(
+        self, revision_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ContentPolicy:
+        """
+        Parameters
+        ----------
+        revision_uuid : str
+            Revision UUID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ContentPolicy
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.get_content_policy_revision(
+            revision_uuid="revision_uuid",
         )
         """
-        _response = self._raw_client.get_observation_steering(
-            user_id=user_id, graph_id=graph_id, request_options=request_options
+        _response = self._raw_client.get_content_policy_revision(revision_uuid, request_options=request_options)
+        return _response.data
+
+    def get_instructions(self, *, request_options: typing.Optional[RequestOptions] = None) -> Instructions:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Instructions
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
         )
+        client.project.get_instructions()
+        """
+        _response = self._raw_client.get_instructions(request_options=request_options)
+        return _response.data
+
+    def set_instructions(
+        self,
+        *,
+        inherited: typing.Optional[bool] = OMIT,
+        instructions: typing.Optional[typing.Sequence[CustomInstruction]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Instructions:
+        """
+        Parameters
+        ----------
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
+
+        instructions : typing.Optional[typing.Sequence[CustomInstruction]]
+            The custom extraction instructions in effect at this scope, each with a
+            name and text.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Instructions
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.set_instructions()
+        """
+        _response = self._raw_client.set_instructions(
+            inherited=inherited,
+            instructions=instructions,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get_observation_steering(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ObservationSteering:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ObservationSteering
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.get_observation_steering()
+        """
+        _response = self._raw_client.get_observation_steering(request_options=request_options)
         return _response.data
 
     def set_observation_steering(
         self,
         *,
-        user_id: typing.Optional[str] = None,
-        graph_id: typing.Optional[str] = None,
+        inherited: typing.Optional[bool] = OMIT,
         instruction: typing.Optional[str] = OMIT,
         types: typing.Optional[typing.Sequence[ObservationType]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationSteeringConfig:
+    ) -> ObservationSteering:
         """
-        Replaces project, user, or graph steering. An empty configuration clears the project default or removes the user/graph override. Changes affect later materializer runs only. This API is experimental and may change in future releases.
-
         Parameters
         ----------
-        user_id : typing.Optional[str]
-            User ID for user-specific steering
-
-        graph_id : typing.Optional[str]
-            Graph ID for graph-specific steering
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
 
         instruction : typing.Optional[str]
+            The natural-language instruction steering how observations are generated
+            at this scope.
 
         types : typing.Optional[typing.Sequence[ObservationType]]
+            The named observation types, each with a description, that generation
+            should steer toward at this scope.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ObservationSteeringConfig
-            Updated
+        ObservationSteering
+            OK
 
         Examples
         --------
@@ -167,13 +400,167 @@ class ProjectClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.project.set_observation_steering(
-            user_id="user_id",
-            graph_id="graph_id",
-        )
+        client.project.set_observation_steering()
         """
         _response = self._raw_client.set_observation_steering(
-            user_id=user_id, graph_id=graph_id, instruction=instruction, types=types, request_options=request_options
+            inherited=inherited,
+            instruction=instruction,
+            types=types,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get_ontology(self, *, request_options: typing.Optional[RequestOptions] = None) -> Ontology:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Ontology
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.get_ontology()
+        """
+        _response = self._raw_client.get_ontology(request_options=request_options)
+        return _response.data
+
+    def set_ontology(
+        self,
+        *,
+        edge_types: typing.Optional[typing.Sequence[EdgeType]] = OMIT,
+        entity_type_hierarchy: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        entity_types: typing.Optional[typing.Sequence[EntityType]] = OMIT,
+        inherited: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Ontology:
+        """
+        Replaces the entity types and the edge types that the project uses.
+
+        Parameters
+        ----------
+        edge_types : typing.Optional[typing.Sequence[EdgeType]]
+            The edge types defined in the ontology in effect at this scope.
+
+        entity_type_hierarchy : typing.Optional[typing.Dict[str, typing.Any]]
+            The entity type hierarchy (spec ontology-1). Omitted when the ontology is flat.
+
+        entity_types : typing.Optional[typing.Sequence[EntityType]]
+            The entity types defined in the ontology in effect at this scope.
+
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Ontology
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.set_ontology()
+        """
+        _response = self._raw_client.set_ontology(
+            edge_types=edge_types,
+            entity_type_hierarchy=entity_type_hierarchy,
+            entity_types=entity_types,
+            inherited=inherited,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def get_user_summary_instructions(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> UserSummaryInstructions:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSummaryInstructions
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.get_user_summary_instructions()
+        """
+        _response = self._raw_client.get_user_summary_instructions(request_options=request_options)
+        return _response.data
+
+    def set_user_summary_instructions(
+        self,
+        *,
+        inherited: typing.Optional[bool] = OMIT,
+        instructions: typing.Optional[typing.Sequence[UserInstruction]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UserSummaryInstructions:
+        """
+        Parameters
+        ----------
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
+
+        instructions : typing.Optional[typing.Sequence[UserInstruction]]
+            The custom instructions used when generating a user's summary at this
+            scope, each with a name and text.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSummaryInstructions
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.project.set_user_summary_instructions()
+        """
+        _response = self._raw_client.set_user_summary_instructions(
+            inherited=inherited,
+            instructions=instructions,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
         )
         return _response.data
 
@@ -193,10 +580,8 @@ class AsyncProjectClient:
         """
         return self._raw_client
 
-    async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> ProjectInfoResponse:
+    async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> Project:
         """
-        Retrieve project info based on the provided api key.
-
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
@@ -204,8 +589,8 @@ class AsyncProjectClient:
 
         Returns
         -------
-        ProjectInfoResponse
-            Retrieved
+        Project
+            OK
 
         Examples
         --------
@@ -228,23 +613,40 @@ class AsyncProjectClient:
         return _response.data
 
     async def update(
-        self, *, default_time_zone: typing.Optional[str] = OMIT, request_options: typing.Optional[RequestOptions] = None
-    ) -> ProjectInfoResponse:
+        self,
+        *,
+        default_time_zone: typing.Optional[str] = OMIT,
+        hyperedges_enabled: typing.Optional[bool] = OMIT,
+        include_policy_violating_episodes: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Project:
         """
-        Sets or clears the project-level fallback time zone for the API key's project.
+        Set `hyperedges_enabled` to `true` to enable extraction. A member needs the `project.edit` permission. Project API keys receive `403 permission_denied`.
 
         Parameters
         ----------
         default_time_zone : typing.Optional[str]
-            The project's IANA fallback time zone. Null clears the existing value.
+            The project's IANA fallback time zone. Set to null to clear the existing
+            value.
+
+        hyperedges_enabled : typing.Optional[bool]
+            Set to true to enable hyperedge extraction. This setting cannot be disabled.
+            A member needs project.edit. Project API keys receive 403 permission_denied.
+
+        include_policy_violating_episodes : typing.Optional[bool]
+            When true, episode reads on graphs with a content policy include the
+            episodes that violated the policy.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ProjectInfoResponse
-            Updated
+        Project
+            OK
 
         Examples
         --------
@@ -263,34 +665,28 @@ class AsyncProjectClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.update(default_time_zone=default_time_zone, request_options=request_options)
+        _response = await self._raw_client.update(
+            default_time_zone=default_time_zone,
+            hyperedges_enabled=hyperedges_enabled,
+            include_policy_violating_episodes=include_policy_violating_episodes,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
         return _response.data
 
-    async def get_observation_steering(
-        self,
-        *,
-        user_id: typing.Optional[str] = None,
-        graph_id: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationSteeringConfig:
+    async def get_content_policy(self, *, request_options: typing.Optional[RequestOptions] = None) -> ContentPolicy:
         """
-        Returns project steering or the effective user/graph steering with project fallback. This API is experimental and may change in future releases.
+        Returns the current content policy revision of the project. A new graph binds this revision at creation.
 
         Parameters
         ----------
-        user_id : typing.Optional[str]
-            User ID for user-specific steering
-
-        graph_id : typing.Optional[str]
-            Graph ID for graph-specific steering
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ObservationSteeringConfig
-            Retrieved
+        ContentPolicy
+            OK
 
         Examples
         --------
@@ -304,50 +700,311 @@ class AsyncProjectClient:
 
 
         async def main() -> None:
-            await client.project.get_observation_steering(
-                user_id="user_id",
-                graph_id="graph_id",
+            await client.project.get_content_policy()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_content_policy(request_options=request_options)
+        return _response.data
+
+    async def set_content_policy(
+        self,
+        *,
+        categories: typing.Optional[typing.Sequence[ContentPolicyCategoryRequest]] = OMIT,
+        rules: typing.Optional[typing.Sequence[ContentPolicyRuleRequest]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ContentPolicy:
+        """
+        Replaces the project content policy and creates a new immutable revision. Graphs that already exist keep the revision they bound. An empty policy (no categories and no rules) removes the content policy for new graphs.
+
+        Parameters
+        ----------
+        categories : typing.Optional[typing.Sequence[ContentPolicyCategoryRequest]]
+            The categories of the policy. Maximum 16. An empty list with no rules
+            means no content policy.
+
+        rules : typing.Optional[typing.Sequence[ContentPolicyRuleRequest]]
+            The rules of the policy. Maximum 32.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ContentPolicy
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.set_content_policy()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.set_content_policy(
+            categories=categories, rules=rules, idempotency_key=idempotency_key, request_options=request_options
+        )
+        return _response.data
+
+    async def list_content_policy_revisions(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[ContentPolicy, ContentPolicyRevisionPage]:
+        """
+        Lists every revision of the project content policy, newest first, including revision 0.
+
+        Parameters
+        ----------
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[ContentPolicy, ContentPolicyRevisionPage]
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            response = await client.project.list_content_policy_revisions()
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_content_policy_revisions(
+            page_size=page_size, cursor=cursor, request_options=request_options
+        )
+
+    async def get_content_policy_revision(
+        self, revision_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ContentPolicy:
+        """
+        Parameters
+        ----------
+        revision_uuid : str
+            Revision UUID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ContentPolicy
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.get_content_policy_revision(
+                revision_uuid="revision_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_observation_steering(
-            user_id=user_id, graph_id=graph_id, request_options=request_options
+        _response = await self._raw_client.get_content_policy_revision(revision_uuid, request_options=request_options)
+        return _response.data
+
+    async def get_instructions(self, *, request_options: typing.Optional[RequestOptions] = None) -> Instructions:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Instructions
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
         )
+
+
+        async def main() -> None:
+            await client.project.get_instructions()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_instructions(request_options=request_options)
+        return _response.data
+
+    async def set_instructions(
+        self,
+        *,
+        inherited: typing.Optional[bool] = OMIT,
+        instructions: typing.Optional[typing.Sequence[CustomInstruction]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Instructions:
+        """
+        Parameters
+        ----------
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
+
+        instructions : typing.Optional[typing.Sequence[CustomInstruction]]
+            The custom extraction instructions in effect at this scope, each with a
+            name and text.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Instructions
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.set_instructions()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.set_instructions(
+            inherited=inherited,
+            instructions=instructions,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get_observation_steering(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ObservationSteering:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ObservationSteering
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.get_observation_steering()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_observation_steering(request_options=request_options)
         return _response.data
 
     async def set_observation_steering(
         self,
         *,
-        user_id: typing.Optional[str] = None,
-        graph_id: typing.Optional[str] = None,
+        inherited: typing.Optional[bool] = OMIT,
         instruction: typing.Optional[str] = OMIT,
         types: typing.Optional[typing.Sequence[ObservationType]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> ObservationSteeringConfig:
+    ) -> ObservationSteering:
         """
-        Replaces project, user, or graph steering. An empty configuration clears the project default or removes the user/graph override. Changes affect later materializer runs only. This API is experimental and may change in future releases.
-
         Parameters
         ----------
-        user_id : typing.Optional[str]
-            User ID for user-specific steering
-
-        graph_id : typing.Optional[str]
-            Graph ID for graph-specific steering
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
 
         instruction : typing.Optional[str]
+            The natural-language instruction steering how observations are generated
+            at this scope.
 
         types : typing.Optional[typing.Sequence[ObservationType]]
+            The named observation types, each with a description, that generation
+            should steer toward at this scope.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        ObservationSteeringConfig
-            Updated
+        ObservationSteering
+            OK
 
         Examples
         --------
@@ -361,15 +1018,201 @@ class AsyncProjectClient:
 
 
         async def main() -> None:
-            await client.project.set_observation_steering(
-                user_id="user_id",
-                graph_id="graph_id",
-            )
+            await client.project.set_observation_steering()
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.set_observation_steering(
-            user_id=user_id, graph_id=graph_id, instruction=instruction, types=types, request_options=request_options
+            inherited=inherited,
+            instruction=instruction,
+            types=types,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get_ontology(self, *, request_options: typing.Optional[RequestOptions] = None) -> Ontology:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Ontology
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.get_ontology()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_ontology(request_options=request_options)
+        return _response.data
+
+    async def set_ontology(
+        self,
+        *,
+        edge_types: typing.Optional[typing.Sequence[EdgeType]] = OMIT,
+        entity_type_hierarchy: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        entity_types: typing.Optional[typing.Sequence[EntityType]] = OMIT,
+        inherited: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> Ontology:
+        """
+        Replaces the entity types and the edge types that the project uses.
+
+        Parameters
+        ----------
+        edge_types : typing.Optional[typing.Sequence[EdgeType]]
+            The edge types defined in the ontology in effect at this scope.
+
+        entity_type_hierarchy : typing.Optional[typing.Dict[str, typing.Any]]
+            The entity type hierarchy (spec ontology-1). Omitted when the ontology is flat.
+
+        entity_types : typing.Optional[typing.Sequence[EntityType]]
+            The entity types defined in the ontology in effect at this scope.
+
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Ontology
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.set_ontology()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.set_ontology(
+            edge_types=edge_types,
+            entity_type_hierarchy=entity_type_hierarchy,
+            entity_types=entity_types,
+            inherited=inherited,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def get_user_summary_instructions(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> UserSummaryInstructions:
+        """
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSummaryInstructions
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.get_user_summary_instructions()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_user_summary_instructions(request_options=request_options)
+        return _response.data
+
+    async def set_user_summary_instructions(
+        self,
+        *,
+        inherited: typing.Optional[bool] = OMIT,
+        instructions: typing.Optional[typing.Sequence[UserInstruction]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UserSummaryInstructions:
+        """
+        Parameters
+        ----------
+        inherited : typing.Optional[bool]
+            Whether this is the project's default value rather than an override set on
+            this graph.
+
+        instructions : typing.Optional[typing.Sequence[UserInstruction]]
+            The custom instructions used when generating a user's summary at this
+            scope, each with a name and text.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UserSummaryInstructions
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.project.set_user_summary_instructions()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.set_user_summary_instructions(
+            inherited=inherited,
+            instructions=instructions,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
         )
         return _response.data

@@ -160,7 +160,7 @@ preloader={
     f'{uuid1()}':{
             'cmds':['qp',"question pool","?p","?pool","qpool"],
             'exec':questionPoolLogger,
-            'desc':'create new questions from python scripts for use with "cashqna"'
+            'desc':'create new questions from python scripts for use with "cashqna" keywords: test/quiz/pop quiz/exam/template'
             	},
     f'{uuid1()}':{
             'cmds':['bt',"break time",],

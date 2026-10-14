@@ -29,11 +29,17 @@ def make_psf_model_image(shape, psf_model, n_sources, *, model_shape=None,
     psf_model : 2D `astropy.modeling.Model`
         The PSF model. The model must have parameters named ``x_0``,
         ``y_0``, and ``flux``, corresponding to the center (x, y)
-        position and flux, or it must have 'x_name', 'y_name', and
-        'flux_name' attributes that map to the x, y, and flux parameters
-        (i.e., a model output from `make_psf_model`). The model must be
-        two-dimensional such that it accepts 2 inputs (e.g., x and y)
-        and provides 1 output.
+        position and flux, or it must have 'x_name', 'y_name',
+        and 'flux_name' attributes that map to the x, y, and flux
+        parameters. The model must be two-dimensional such that it
+        accepts 2 inputs (e.g., x and y) and provides 1 output.
+
+        The model is evaluated at the center of each pixel. To simulate
+        the pixelated image of a source, the value of the model at a
+        position must be the flux in a pixel centered at that position,
+        as for the analytic models whose names end in ``PRF`` and for
+        an image-based model made from an ePSF (see
+        :ref:`psf-terminology`).
 
     n_sources : int
         The number of sources to generate. If ``min_separation`` is too
@@ -41,9 +47,10 @@ def make_psf_model_image(shape, psf_model, n_sources, *, model_shape=None,
         given ``shape`` and therefore the number of sources generated
         may be less than ``n_sources``.
 
-    model_shape : `None` or 2-tuple of int, optional
-        The shape around the center (x, y) position that will used to
-        evaluate the ``psf_model``. If `None`, then the shape will be
+    model_shape : `None`, int, or 2-tuple of int, optional
+        The shape around the center (x, y) position that will be used
+        to evaluate the ``psf_model``. If a single integer is provided,
+        a square shape is used. If `None`, then the shape will be
         determined from the ``psf_model`` bounding box (an error will be
         raised if the model does not have a bounding box).
 
@@ -69,24 +76,38 @@ def make_psf_model_image(shape, psf_model, n_sources, *, model_shape=None,
         progress bar requires that the `tqdm <https://tqdm.github.io/>`_
         optional dependency be installed.
 
-    **kwargs
+    **kwargs : dict
         Keyword arguments are accepted for additional model parameters.
         The values should be 2-tuples of the lower and upper bounds for
         the parameter range. The parameter values will be uniformly
-        distributed between the lower and upper bounds, inclusively. If
-        the parameter is not in the input ``psf_model`` parameter names,
-        it will be ignored.
+        sampled over the half-open interval defined by the lower and
+        upper bounds (i.e., the lower bound is inclusive and the upper
+        bound is exclusive). A ``flux`` keyword is mapped to the model's
+        flux parameter name (e.g., for models with a ``flux_name``
+        attribute). If the parameter is not in the input ``psf_model``
+        parameter names, it will be ignored. Keywords matching the
+        model's x and y position parameter names are also ignored
+        because the source positions are randomly generated.
 
     Returns
     -------
     data : 2D `~numpy.ndarray`
         The simulated image.
 
-    table : `~astropy.table.Table`
-        A table containing the (x, y, flux) parameters of the generated
-        sources. The column names will correspond to the names of the
-        input ``psf_model`` (x, y, flux) parameter names. The table will
-        also contain an ``'id'`` column with unique source IDs.
+    table : `~astropy.table.QTable`
+        A table containing the parameters of the generated sources.
+        It has an ``'id'`` column with unique source IDs, columns for
+        the x and y positions named after the ``psf_model`` position
+        parameters, and one column for each model parameter given in
+        ``**kwargs``, named after the model parameter. A parameter
+        that is not given, including the flux, has no column and takes
+        the value set in ``psf_model`` for every source.
+
+    Warns
+    -----
+    `~astropy.utils.exceptions.AstropyUserWarning`
+        If fewer than ``n_sources`` sources could be generated with
+        the given ``shape`` and ``min_separation``.
 
     Examples
     --------
@@ -101,7 +122,7 @@ def make_psf_model_image(shape, psf_model, n_sources, *, model_shape=None,
     >>> params['x_0'].info.format = '.4f'  # optional format
     >>> params['y_0'].info.format = '.4f'
     >>> params['flux'].info.format = '.4f'
-    >>> print(params)  # doctest: +FLOAT_CMP
+    >>> print(params)
      id   x_0      y_0      flux
     --- -------- -------- --------
       1 125.2010  72.3184 147.9522
@@ -130,22 +151,6 @@ def make_psf_model_image(shape, psf_model, n_sources, *, model_shape=None,
                                             seed=0)
         fig, ax = plt.subplots()
         ax.imshow(data, origin='lower')
-
-    .. plot::
-        :include-source:
-
-        import matplotlib.pyplot as plt
-        from photutils.psf import CircularGaussianPRF, make_psf_model_image
-
-        shape = (150, 200)
-        psf_model = CircularGaussianPRF(fwhm=3.5)
-        n_sources = 10
-        data, params = make_psf_model_image(shape, psf_model, n_sources,
-                                            flux=(100, 250),
-                                            min_separation=10,
-                                            seed=0, sigma=(1, 2))
-        fig, ax = plt.subplots()
-        ax.imshow(data, origin='lower')
     """
     main_params = _get_psf_model_main_params(psf_model)
 
@@ -164,11 +169,17 @@ def make_psf_model_image(shape, psf_model, n_sources, *, model_shape=None,
 
     other_params = {}
     if kwargs:
-        # include only kwargs that are not x, y, or flux (main params)
+        # Include only kwargs that are model parameters, but not the
+        # x and y position parameters
         for key, val in kwargs.items():
-            if key not in psf_model.param_names or key in main_params[0:2]:
+            param = key
+            if key == 'flux' and 'flux' not in psf_model.param_names:
+                # Map the flux kwarg to the model's flux parameter name
+                param = main_params[2]
+            if (param not in psf_model.param_names
+                    or param in main_params[0:2]):
                 continue  # skip the x, y parameters
-            other_params[key] = val
+            other_params[param] = val
 
     x_name, y_name = main_params[0:2]
     params = make_model_params(shape, n_sources, x_name=x_name, y_name=y_name,

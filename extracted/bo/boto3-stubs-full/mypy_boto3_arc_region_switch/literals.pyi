@@ -66,6 +66,7 @@ __all__ = (
     "RoutingControlStateChangeType",
     "ServiceName",
     "ServiceQuotaWarningStatusType",
+    "SsmSendCommandUngracefulBehaviorType",
     "StepStatusType",
     "UpdatePlanExecutionActionType",
     "UpdatePlanExecutionStepActionType",
@@ -108,6 +109,7 @@ ExecutionBlockTypeType = Literal[
     "RdsPromoteReadReplica",
     "RdsSwitchoverReadReplica",
     "Route53HealthCheck",
+    "SSMSendCommand",
 ]
 ExecutionEventTypeType = Literal[
     "executionBehaviorChangedToGraceful",
@@ -186,6 +188,7 @@ ServiceQuotaWarningStatusType = Literal[
     "maxRegionSwitchRequestsExceeded",
     "pending",
 ]
+SsmSendCommandUngracefulBehaviorType = Literal["skip"]
 StepStatusType = Literal[
     "canceled", "completed", "failed", "notStarted", "pendingApproval", "running", "skipped"
 ]

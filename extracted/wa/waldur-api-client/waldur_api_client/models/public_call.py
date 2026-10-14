@@ -8,10 +8,13 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.call_states import CallStates
+from ..models.evaluation_start_enum import EvaluationStartEnum
+from ..models.publish_results_enum import PublishResultsEnum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.call_document import CallDocument
+    from ..models.call_proposal_field_config import CallProposalFieldConfig
     from ..models.call_resource_template import CallResourceTemplate
     from ..models.nested_requested_offering import NestedRequestedOffering
     from ..models.nested_round import NestedRound
@@ -43,6 +46,8 @@ class PublicCall:
         resource_templates (Union[Unset, list['CallResourceTemplate']]):
         fixed_duration_in_days (Union[None, Unset, int]): Fixed duration in days that applies to all proposals in this
             call
+        max_prepaid_duration_months (Union[None, Unset, int]): The longest prepaid subscription, in whole months, that
+            fits inside fixed_duration_in_days measured from today; null when the call fixes no duration.
         backend_id (Union[Unset, str]):
         external_url (Union[None, Unset, str]):
         reviewer_identity_visible_to_submitters (Union[Unset, bool]): Whether proposal applicants can see reviewer
@@ -50,6 +55,9 @@ class PublicCall:
         reviews_visible_to_submitters (Union[Unset, bool]): Whether proposal applicants can see review comments and
             scores. If False, applicants only see final approval/rejection status.
         has_eligibility_restrictions (Union[Unset, bool]): Check if call has any eligibility restrictions configured.
+        proposal_field_config (Union[Unset, CallProposalFieldConfig]):
+        evaluation_start (Union[Unset, EvaluationStartEnum]):
+        publish_results (Union[Unset, PublishResultsEnum]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -70,11 +78,15 @@ class PublicCall:
     documents: Union[Unset, list["CallDocument"]] = UNSET
     resource_templates: Union[Unset, list["CallResourceTemplate"]] = UNSET
     fixed_duration_in_days: Union[None, Unset, int] = UNSET
+    max_prepaid_duration_months: Union[None, Unset, int] = UNSET
     backend_id: Union[Unset, str] = UNSET
     external_url: Union[None, Unset, str] = UNSET
     reviewer_identity_visible_to_submitters: Union[Unset, bool] = UNSET
     reviews_visible_to_submitters: Union[Unset, bool] = UNSET
     has_eligibility_restrictions: Union[Unset, bool] = UNSET
+    proposal_field_config: Union[Unset, "CallProposalFieldConfig"] = UNSET
+    evaluation_start: Union[Unset, EvaluationStartEnum] = UNSET
+    publish_results: Union[Unset, PublishResultsEnum] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -152,6 +164,12 @@ class PublicCall:
         else:
             fixed_duration_in_days = self.fixed_duration_in_days
 
+        max_prepaid_duration_months: Union[None, Unset, int]
+        if isinstance(self.max_prepaid_duration_months, Unset):
+            max_prepaid_duration_months = UNSET
+        else:
+            max_prepaid_duration_months = self.max_prepaid_duration_months
+
         backend_id = self.backend_id
 
         external_url: Union[None, Unset, str]
@@ -165,6 +183,18 @@ class PublicCall:
         reviews_visible_to_submitters = self.reviews_visible_to_submitters
 
         has_eligibility_restrictions = self.has_eligibility_restrictions
+
+        proposal_field_config: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.proposal_field_config, Unset):
+            proposal_field_config = self.proposal_field_config.to_dict()
+
+        evaluation_start: Union[Unset, str] = UNSET
+        if not isinstance(self.evaluation_start, Unset):
+            evaluation_start = self.evaluation_start.value
+
+        publish_results: Union[Unset, str] = UNSET
+        if not isinstance(self.publish_results, Unset):
+            publish_results = self.publish_results.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -205,6 +235,8 @@ class PublicCall:
             field_dict["resource_templates"] = resource_templates
         if fixed_duration_in_days is not UNSET:
             field_dict["fixed_duration_in_days"] = fixed_duration_in_days
+        if max_prepaid_duration_months is not UNSET:
+            field_dict["max_prepaid_duration_months"] = max_prepaid_duration_months
         if backend_id is not UNSET:
             field_dict["backend_id"] = backend_id
         if external_url is not UNSET:
@@ -215,12 +247,19 @@ class PublicCall:
             field_dict["reviews_visible_to_submitters"] = reviews_visible_to_submitters
         if has_eligibility_restrictions is not UNSET:
             field_dict["has_eligibility_restrictions"] = has_eligibility_restrictions
+        if proposal_field_config is not UNSET:
+            field_dict["proposal_field_config"] = proposal_field_config
+        if evaluation_start is not UNSET:
+            field_dict["evaluation_start"] = evaluation_start
+        if publish_results is not UNSET:
+            field_dict["publish_results"] = publish_results
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.call_document import CallDocument
+        from ..models.call_proposal_field_config import CallProposalFieldConfig
         from ..models.call_resource_template import CallResourceTemplate
         from ..models.nested_requested_offering import NestedRequestedOffering
         from ..models.nested_round import NestedRound
@@ -324,6 +363,15 @@ class PublicCall:
 
         fixed_duration_in_days = _parse_fixed_duration_in_days(d.pop("fixed_duration_in_days", UNSET))
 
+        def _parse_max_prepaid_duration_months(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        max_prepaid_duration_months = _parse_max_prepaid_duration_months(d.pop("max_prepaid_duration_months", UNSET))
+
         backend_id = d.pop("backend_id", UNSET)
 
         def _parse_external_url(data: object) -> Union[None, Unset, str]:
@@ -340,6 +388,27 @@ class PublicCall:
         reviews_visible_to_submitters = d.pop("reviews_visible_to_submitters", UNSET)
 
         has_eligibility_restrictions = d.pop("has_eligibility_restrictions", UNSET)
+
+        _proposal_field_config = d.pop("proposal_field_config", UNSET)
+        proposal_field_config: Union[Unset, CallProposalFieldConfig]
+        if isinstance(_proposal_field_config, Unset):
+            proposal_field_config = UNSET
+        else:
+            proposal_field_config = CallProposalFieldConfig.from_dict(_proposal_field_config)
+
+        _evaluation_start = d.pop("evaluation_start", UNSET)
+        evaluation_start: Union[Unset, EvaluationStartEnum]
+        if isinstance(_evaluation_start, Unset):
+            evaluation_start = UNSET
+        else:
+            evaluation_start = EvaluationStartEnum(_evaluation_start)
+
+        _publish_results = d.pop("publish_results", UNSET)
+        publish_results: Union[Unset, PublishResultsEnum]
+        if isinstance(_publish_results, Unset):
+            publish_results = UNSET
+        else:
+            publish_results = PublishResultsEnum(_publish_results)
 
         public_call = cls(
             url=url,
@@ -360,11 +429,15 @@ class PublicCall:
             documents=documents,
             resource_templates=resource_templates,
             fixed_duration_in_days=fixed_duration_in_days,
+            max_prepaid_duration_months=max_prepaid_duration_months,
             backend_id=backend_id,
             external_url=external_url,
             reviewer_identity_visible_to_submitters=reviewer_identity_visible_to_submitters,
             reviews_visible_to_submitters=reviews_visible_to_submitters,
             has_eligibility_restrictions=has_eligibility_restrictions,
+            proposal_field_config=proposal_field_config,
+            evaluation_start=evaluation_start,
+            publish_results=publish_results,
         )
 
         public_call.additional_properties = d

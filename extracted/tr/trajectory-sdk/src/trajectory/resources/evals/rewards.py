@@ -10,8 +10,9 @@ import httpx2
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, not_given
-from trajectory.types.eval_trajectory_rewards_response import EvalTrajectoryRewardsResponse
+from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._utils import maybe_transform
+from trajectory.types.eval_trajectory_rewards_page import EvalTrajectoryRewardsPage
 
 
 class Rewards(APIResource):
@@ -23,12 +24,15 @@ class Rewards(APIResource):
     self,
     run_id: str,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> EvalTrajectoryRewardsResponse:
-    """Get Eval Trajectory Rewards Route
+  ) -> EvalTrajectoryRewardsPage:
+    """Per-trajectory rewards recorded for an evaluation run, in ascending task-ID order with
+    trajectories without a task first, then ascending trajectory-ID order.
 
     Args:
       extra_headers: Send extra headers
@@ -46,8 +50,14 @@ class Rewards(APIResource):
         "/api/v1/eval/{run_id}/trajectory-rewards",
         run_id=run_id,
       ),
-      cast_to=EvalTrajectoryRewardsResponse,
+      cast_to=EvalTrajectoryRewardsPage,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

@@ -6,25 +6,34 @@ from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError as core_api_error_ApiError
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.http_response import AsyncHttpResponse, HttpResponse
-from ..core.jsonable_encoder import jsonable_encoder
+from ..core.idempotency import generate_idempotency_key
+from ..core.jsonable_encoder import encode_path_param
+from ..core.pagination import AsyncPager, SyncPager
+from ..core.parse_error import ParsingError
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
+from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
-from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
-from ..types.add_thread_messages_response import AddThreadMessagesResponse
+from ..errors.unauthorized_error import UnauthorizedError
+from ..types.add_message import AddMessage
+from ..types.add_messages_result import AddMessagesResult
 from ..types.api_error import ApiError as types_api_error_ApiError
-from ..types.episode_response import EpisodeResponse
+from ..types.episode import Episode
+from ..types.episode_page import EpisodePage
 from ..types.message import Message
-from ..types.message_list_response import MessageListResponse
-from ..types.role_type import RoleType
-from ..types.success_response import SuccessResponse
+from ..types.message_page import MessagePage
 from ..types.thread import Thread
 from ..types.thread_context_response import ThreadContextResponse
-from ..types.thread_list_response import ThreadListResponse
+from ..types.thread_delete_result import ThreadDeleteResult
+from ..types.thread_page import ThreadPage
 from ..types.thread_summary import ThreadSummary
+from .types.thread_list_messages_request_order import ThreadListMessagesRequestOrder
+from .types.thread_list_request_order import ThreadListRequestOrder
+from .types.thread_list_request_order_by import ThreadListRequestOrderBy
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -34,74 +43,99 @@ class RawThreadClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def list_all(
+    def list(
         self,
         *,
-        page_number: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
-        order_by: typing.Optional[str] = None,
-        asc: typing.Optional[bool] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[ThreadListRequestOrderBy] = None,
+        order: typing.Optional[ThreadListRequestOrder] = None,
+        user_uuid: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ThreadListResponse]:
+    ) -> SyncPager[Thread, ThreadPage]:
         """
-        Returns all threads.
-
         Parameters
         ----------
-        page_number : typing.Optional[int]
-            Page number for pagination, starting from 1
-
         page_size : typing.Optional[int]
-            Number of threads to retrieve per page.
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        order_by : typing.Optional[str]
-            Field to order the results by: created_at, updated_at, user_id, thread_id.
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
-        asc : typing.Optional[bool]
-            Order direction: true for ascending, false for descending.
+        order_by : typing.Optional[ThreadListRequestOrderBy]
+            Sort field
+
+        order : typing.Optional[ThreadListRequestOrder]
+            asc or desc
+
+        user_uuid : typing.Optional[str]
+            Filter by user UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[ThreadListResponse]
-            List of threads
+        SyncPager[Thread, ThreadPage]
+            OK
         """
         _response = self._client_wrapper.httpx_client.request(
             "threads",
             method="GET",
             params={
-                "page_number": page_number,
                 "page_size": page_size,
+                "cursor": cursor,
                 "order_by": order_by,
-                "asc": asc,
+                "order": order,
+                "user_uuid": user_uuid,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ThreadListResponse,
+                _parsed_response = typing.cast(
+                    ThreadPage,
                     parse_obj_as(
-                        type_=ThreadListResponse,  # type: ignore
+                        type_=ThreadPage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+                _get_next = lambda: self.list(
+                    page_size=page_size,
+                    cursor=_parsed_next,
+                    order_by=order_by,
+                    order=order,
+                    user_uuid=user_uuid,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -116,23 +150,28 @@ class RawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     def create(
-        self, *, thread_id: str, user_id: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        user_uuid: str,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Thread]:
         """
-        Start a new thread.
-
         Parameters
         ----------
-        thread_id : str
-            The unique identifier of the thread.
+        user_uuid : str
+            The UUID of the user this thread belongs to.
 
-        user_id : str
-            The unique identifier of the user associated with the thread
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -140,17 +179,17 @@ class RawThreadClient:
         Returns
         -------
         HttpResponse[Thread]
-            The thread object.
+            Created
         """
         _response = self._client_wrapper.httpx_client.request(
             "threads",
             method="POST",
             json={
-                "thread_id": thread_id,
-                "user_id": user_id,
+                "user_uuid": user_uuid,
             },
             headers={
                 "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -169,15 +208,15 @@ class RawThreadClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -187,49 +226,6 @@ class RawThreadClient:
                         ),
                     ),
                 )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise core_api_error_ApiError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
-            )
-        raise core_api_error_ApiError(
-            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
-        )
-
-    def delete(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[SuccessResponse]:
-        """
-        Deletes a thread.
-
-        Parameters
-        ----------
-        thread_id : str
-            The ID of the thread for which memory should be deleted.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[SuccessResponse]
-            OK
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SuccessResponse,
-                    parse_obj_as(
-                        type_=SuccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -241,8 +237,8 @@ class RawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -257,27 +253,305 @@ class RawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    def get_user_context(
+    def lookup(
         self,
-        thread_id: str,
         *,
-        template_id: typing.Optional[str] = None,
+        graph_id: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[Thread]:
+        """
+        Parameters
+        ----------
+        graph_id : typing.Optional[str]
+            The developer-assigned graph ID to resolve to a UUID. Mutually exclusive
+            with user_id and thread_id.
+
+        thread_id : typing.Optional[str]
+            The developer-assigned thread ID to resolve to a UUID. Mutually exclusive
+            with user_id and graph_id.
+
+        user_id : typing.Optional[str]
+            The developer-assigned user ID to resolve to a UUID. Mutually exclusive
+            with thread_id and graph_id.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Thread]
+            OK
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "threads/lookup",
+            method="POST",
+            json={
+                "graph_id": graph_id,
+                "thread_id": thread_id,
+                "user_id": user_id,
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": generate_idempotency_key(),
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Thread,
+                    parse_obj_as(
+                        type_=Thread,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    def get(self, thread_uuid: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Thread]:
+        """
+        Parameters
+        ----------
+        thread_uuid : str
+            Thread UUID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[Thread]
+            OK
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"threads/{encode_path_param(thread_uuid)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Thread,
+                    parse_obj_as(
+                        type_=Thread,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    def delete(
+        self,
+        thread_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ThreadDeleteResult]:
+        """
+        Parameters
+        ----------
+        thread_uuid : str
+            Thread UUID
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ThreadDeleteResult]
+            Accepted
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"threads/{encode_path_param(thread_uuid)}",
+            method="DELETE",
+            headers={
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ThreadDeleteResult,
+                    parse_obj_as(
+                        type_=ThreadDeleteResult,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    def get_context(
+        self,
+        thread_uuid: str,
+        *,
+        template_uuid: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ThreadContextResponse]:
         """
-        Returns most relevant context from the user graph (including memory from any/all past threads) based on the content of the past few messages of the given thread.
-
         Parameters
         ----------
-        thread_id : str
-            The ID of the current thread (for which context is being retrieved).
+        thread_uuid : str
+            Thread UUID
 
-        template_id : typing.Optional[str]
-            Optional template ID to use for custom context rendering.
+        template_uuid : typing.Optional[str]
+            Context template UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -288,10 +562,10 @@ class RawThreadClient:
             OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/context",
+            f"threads/{encode_path_param(thread_uuid)}/context",
             method="GET",
             params={
-                "template_id": template_id,
+                "template_uuid": template_uuid,
             },
             request_options=request_options,
         )
@@ -305,6 +579,28 @@ class RawThreadClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -316,8 +612,8 @@ class RawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -332,44 +628,92 @@ class RawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    def get_episodes(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[EpisodeResponse]:
+    def list_episodes(
+        self,
+        thread_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[Episode, EpisodePage]:
         """
-        Returns graph episodes associated with a thread. Parallel to get_episodes_for_document for documents.
-
         Parameters
         ----------
-        thread_id : str
-            The ID of the thread
+        thread_uuid : str
+            Thread UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[EpisodeResponse]
-            Episodes
+        SyncPager[Episode, EpisodePage]
+            OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/episodes",
+            f"threads/{encode_path_param(thread_uuid)}/episodes",
             method="GET",
+            params={
+                "page_size": page_size,
+                "cursor": cursor,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    EpisodeResponse,
+                _parsed_response = typing.cast(
+                    EpisodePage,
                     parse_obj_as(
-                        type_=EpisodeResponse,  # type: ignore
+                        type_=EpisodePage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+                _get_next = lambda: self.list_episodes(
+                    thread_uuid,
+                    page_size=page_size,
+                    cursor=_parsed_next,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -392,8 +736,8 @@ class RawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -408,64 +752,104 @@ class RawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    def get(
+    def list_messages(
         self,
-        thread_id: str,
+        thread_uuid: str,
         *,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[int] = None,
-        lastn: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[typing.Literal["created_at"]] = None,
+        order: typing.Optional[ThreadListMessagesRequestOrder] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[MessageListResponse]:
+    ) -> SyncPager[Message, MessagePage]:
         """
-        Returns messages for a thread.
-
         Parameters
         ----------
-        thread_id : str
-            Thread ID
+        thread_uuid : str
+            Thread UUID
 
-        limit : typing.Optional[int]
-            Limit the number of results returned
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        cursor : typing.Optional[int]
-            Cursor for pagination
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
-        lastn : typing.Optional[int]
-            Number of most recent messages to return (overrides limit and cursor)
+        order_by : typing.Optional[typing.Literal["created_at"]]
+            Sort field
+
+        order : typing.Optional[ThreadListMessagesRequestOrder]
+            Sort direction: asc or desc
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[MessageListResponse]
+        SyncPager[Message, MessagePage]
             OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/messages",
+            f"threads/{encode_path_param(thread_uuid)}/messages",
             method="GET",
             params={
-                "limit": limit,
+                "page_size": page_size,
                 "cursor": cursor,
-                "lastn": lastn,
+                "order_by": order_by,
+                "order": order,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    MessageListResponse,
+                _parsed_response = typing.cast(
+                    MessagePage,
                     parse_obj_as(
-                        type_=MessageListResponse,  # type: ignore
+                        type_=MessagePage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+                _get_next = lambda: self.list_messages(
+                    thread_uuid,
+                    page_size=page_size,
+                    cursor=_parsed_next,
+                    order_by=order_by,
+                    order=order,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -477,21 +861,14 @@ class RawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        types_api_error_ApiError,
-                        parse_obj_as(
-                            type_=types_api_error_ApiError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
@@ -499,54 +876,60 @@ class RawThreadClient:
 
     def add_messages(
         self,
-        thread_id: str,
+        thread_uuid: str,
         *,
-        messages: typing.Sequence[Message],
-        ignore_roles: typing.Optional[typing.Sequence[RoleType]] = OMIT,
+        messages: typing.Sequence[AddMessage],
+        ignore_roles: typing.Optional[typing.Sequence[str]] = OMIT,
         return_context: typing.Optional[bool] = OMIT,
         strict_ontology: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[AddThreadMessagesResponse]:
+    ) -> HttpResponse[AddMessagesResult]:
         """
-        Add messages to a thread.
-
         Parameters
         ----------
-        thread_id : str
-            The ID of the thread to which messages should be added.
+        thread_uuid : str
+            Thread UUID
 
-        messages : typing.Sequence[Message]
-            A list of message objects, where each message contains a role and content.
+        messages : typing.Sequence[AddMessage]
+            The messages to add to the thread.
 
-        ignore_roles : typing.Optional[typing.Sequence[RoleType]]
-            Optional list of role types to ignore when adding messages to graph memory.
-            The message itself will still be added, retained and used as context for messages
-            that are added to a user's graph.
+        ignore_roles : typing.Optional[typing.Sequence[str]]
+            Message roles to skip during graph extraction; the messages are still
+            stored.
 
         return_context : typing.Optional[bool]
-            Optionally return context block relevant to the most recent messages.
+            When true, returns the context block for the thread's most recent
+            messages.
 
         strict_ontology : typing.Optional[bool]
-            When true, prevents extraction of generic Entity nodes that do not match the configured ontology.
+            When true, prevents extraction of generic entity nodes that do not match
+            the configured ontology.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[AddThreadMessagesResponse]
-            An object, optionally containing user context retrieved for the last thread message
+        HttpResponse[AddMessagesResult]
+            Accepted
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/messages",
+            f"threads/{encode_path_param(thread_uuid)}/messages",
             method="POST",
             json={
                 "ignore_roles": ignore_roles,
                 "messages": convert_and_respect_annotation_metadata(
-                    object_=messages, annotation=typing.Sequence[Message], direction="write"
+                    object_=messages, annotation=typing.Sequence[AddMessage], direction="write"
                 ),
                 "return_context": return_context,
                 "strict_ontology": strict_ontology,
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -554,15 +937,48 @@ class RawThreadClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    AddThreadMessagesResponse,
+                    AddMessagesResult,
                     parse_obj_as(
-                        type_=AddThreadMessagesResponse,  # type: ignore
+                        type_=AddMessagesResult,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -577,106 +993,22 @@ class RawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
-        raise core_api_error_ApiError(
-            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
-        )
-
-    def add_messages_batch(
-        self,
-        thread_id: str,
-        *,
-        messages: typing.Sequence[Message],
-        ignore_roles: typing.Optional[typing.Sequence[RoleType]] = OMIT,
-        return_context: typing.Optional[bool] = OMIT,
-        strict_ontology: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[AddThreadMessagesResponse]:
-        """
-        Deprecated. Use the [Batch API](/adding-batch-data) (`client.batch.*` with `type: "thread_message"`) instead.
-
-        Adds messages to a thread in batch mode, processing messages concurrently.
-
-        Parameters
-        ----------
-        thread_id : str
-            The ID of the thread to which messages should be added.
-
-        messages : typing.Sequence[Message]
-            A list of message objects, where each message contains a role and content.
-
-        ignore_roles : typing.Optional[typing.Sequence[RoleType]]
-            Optional list of role types to ignore when adding messages to graph memory.
-            The message itself will still be added, retained and used as context for messages
-            that are added to a user's graph.
-
-        return_context : typing.Optional[bool]
-            Optionally return context block relevant to the most recent messages.
-
-        strict_ontology : typing.Optional[bool]
-            When true, prevents extraction of generic Entity nodes that do not match the configured ontology.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[AddThreadMessagesResponse]
-            An object, optionally containing user context retrieved for the last thread message
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/messages-batch",
-            method="POST",
-            json={
-                "ignore_roles": ignore_roles,
-                "messages": convert_and_respect_annotation_metadata(
-                    object_=messages, annotation=typing.Sequence[Message], direction="write"
-                ),
-                "return_context": return_context,
-                "strict_ontology": strict_ontology,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    AddThreadMessagesResponse,
-                    parse_obj_as(
-                        type_=AddThreadMessagesResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        types_api_error_ApiError,
-                        parse_obj_as(
-                            type_=types_api_error_ApiError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise core_api_error_ApiError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     def get_summary(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self, thread_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ThreadSummary]:
         """
-        Returns the incremental summary generated from messages in the thread. Returns 404 if no summary exists for the thread.
-
         Parameters
         ----------
-        thread_id : str
-            The thread ID.
+        thread_uuid : str
+            Thread UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -687,7 +1019,7 @@ class RawThreadClient:
             OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/summary",
+            f"threads/{encode_path_param(thread_uuid)}/summary",
             method="GET",
             request_options=request_options,
         )
@@ -701,6 +1033,28 @@ class RawThreadClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -723,21 +1077,14 @@ class RawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        types_api_error_ApiError,
-                        parse_obj_as(
-                            type_=types_api_error_ApiError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
@@ -748,74 +1095,102 @@ class AsyncRawThreadClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def list_all(
+    async def list(
         self,
         *,
-        page_number: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
-        order_by: typing.Optional[str] = None,
-        asc: typing.Optional[bool] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[ThreadListRequestOrderBy] = None,
+        order: typing.Optional[ThreadListRequestOrder] = None,
+        user_uuid: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ThreadListResponse]:
+    ) -> AsyncPager[Thread, ThreadPage]:
         """
-        Returns all threads.
-
         Parameters
         ----------
-        page_number : typing.Optional[int]
-            Page number for pagination, starting from 1
-
         page_size : typing.Optional[int]
-            Number of threads to retrieve per page.
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        order_by : typing.Optional[str]
-            Field to order the results by: created_at, updated_at, user_id, thread_id.
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
-        asc : typing.Optional[bool]
-            Order direction: true for ascending, false for descending.
+        order_by : typing.Optional[ThreadListRequestOrderBy]
+            Sort field
+
+        order : typing.Optional[ThreadListRequestOrder]
+            asc or desc
+
+        user_uuid : typing.Optional[str]
+            Filter by user UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[ThreadListResponse]
-            List of threads
+        AsyncPager[Thread, ThreadPage]
+            OK
         """
         _response = await self._client_wrapper.httpx_client.request(
             "threads",
             method="GET",
             params={
-                "page_number": page_number,
                 "page_size": page_size,
+                "cursor": cursor,
                 "order_by": order_by,
-                "asc": asc,
+                "order": order,
+                "user_uuid": user_uuid,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ThreadListResponse,
+                _parsed_response = typing.cast(
+                    ThreadPage,
                     parse_obj_as(
-                        type_=ThreadListResponse,  # type: ignore
+                        type_=ThreadPage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+
+                async def _get_next():
+                    return await self.list(
+                        page_size=page_size,
+                        cursor=_parsed_next,
+                        order_by=order_by,
+                        order=order,
+                        user_uuid=user_uuid,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -830,23 +1205,28 @@ class AsyncRawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     async def create(
-        self, *, thread_id: str, user_id: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        user_uuid: str,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Thread]:
         """
-        Start a new thread.
-
         Parameters
         ----------
-        thread_id : str
-            The unique identifier of the thread.
+        user_uuid : str
+            The UUID of the user this thread belongs to.
 
-        user_id : str
-            The unique identifier of the user associated with the thread
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -854,17 +1234,17 @@ class AsyncRawThreadClient:
         Returns
         -------
         AsyncHttpResponse[Thread]
-            The thread object.
+            Created
         """
         _response = await self._client_wrapper.httpx_client.request(
             "threads",
             method="POST",
             json={
-                "thread_id": thread_id,
-                "user_id": user_id,
+                "user_uuid": user_uuid,
             },
             headers={
                 "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -883,15 +1263,15 @@ class AsyncRawThreadClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -901,49 +1281,6 @@ class AsyncRawThreadClient:
                         ),
                     ),
                 )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise core_api_error_ApiError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
-            )
-        raise core_api_error_ApiError(
-            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
-        )
-
-    async def delete(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[SuccessResponse]:
-        """
-        Deletes a thread.
-
-        Parameters
-        ----------
-        thread_id : str
-            The ID of the thread for which memory should be deleted.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[SuccessResponse]
-            OK
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    SuccessResponse,
-                    parse_obj_as(
-                        type_=SuccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -955,8 +1292,8 @@ class AsyncRawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -971,27 +1308,307 @@ class AsyncRawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    async def get_user_context(
+    async def lookup(
         self,
-        thread_id: str,
         *,
-        template_id: typing.Optional[str] = None,
+        graph_id: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        user_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[Thread]:
+        """
+        Parameters
+        ----------
+        graph_id : typing.Optional[str]
+            The developer-assigned graph ID to resolve to a UUID. Mutually exclusive
+            with user_id and thread_id.
+
+        thread_id : typing.Optional[str]
+            The developer-assigned thread ID to resolve to a UUID. Mutually exclusive
+            with user_id and graph_id.
+
+        user_id : typing.Optional[str]
+            The developer-assigned user ID to resolve to a UUID. Mutually exclusive
+            with thread_id and graph_id.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Thread]
+            OK
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "threads/lookup",
+            method="POST",
+            json={
+                "graph_id": graph_id,
+                "thread_id": thread_id,
+                "user_id": user_id,
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": generate_idempotency_key(),
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Thread,
+                    parse_obj_as(
+                        type_=Thread,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    async def get(
+        self, thread_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Thread]:
+        """
+        Parameters
+        ----------
+        thread_uuid : str
+            Thread UUID
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[Thread]
+            OK
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"threads/{encode_path_param(thread_uuid)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    Thread,
+                    parse_obj_as(
+                        type_=Thread,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    async def delete(
+        self,
+        thread_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ThreadDeleteResult]:
+        """
+        Parameters
+        ----------
+        thread_uuid : str
+            Thread UUID
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ThreadDeleteResult]
+            Accepted
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"threads/{encode_path_param(thread_uuid)}",
+            method="DELETE",
+            headers={
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ThreadDeleteResult,
+                    parse_obj_as(
+                        type_=ThreadDeleteResult,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise core_api_error_ApiError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise core_api_error_ApiError(
+            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
+        )
+
+    async def get_context(
+        self,
+        thread_uuid: str,
+        *,
+        template_uuid: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ThreadContextResponse]:
         """
-        Returns most relevant context from the user graph (including memory from any/all past threads) based on the content of the past few messages of the given thread.
-
         Parameters
         ----------
-        thread_id : str
-            The ID of the current thread (for which context is being retrieved).
+        thread_uuid : str
+            Thread UUID
 
-        template_id : typing.Optional[str]
-            Optional template ID to use for custom context rendering.
+        template_uuid : typing.Optional[str]
+            Context template UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1002,10 +1619,10 @@ class AsyncRawThreadClient:
             OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/context",
+            f"threads/{encode_path_param(thread_uuid)}/context",
             method="GET",
             params={
-                "template_id": template_id,
+                "template_uuid": template_uuid,
             },
             request_options=request_options,
         )
@@ -1019,6 +1636,28 @@ class AsyncRawThreadClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -1030,8 +1669,8 @@ class AsyncRawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -1046,44 +1685,95 @@ class AsyncRawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    async def get_episodes(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[EpisodeResponse]:
+    async def list_episodes(
+        self,
+        thread_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[Episode, EpisodePage]:
         """
-        Returns graph episodes associated with a thread. Parallel to get_episodes_for_document for documents.
-
         Parameters
         ----------
-        thread_id : str
-            The ID of the thread
+        thread_uuid : str
+            Thread UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[EpisodeResponse]
-            Episodes
+        AsyncPager[Episode, EpisodePage]
+            OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/episodes",
+            f"threads/{encode_path_param(thread_uuid)}/episodes",
             method="GET",
+            params={
+                "page_size": page_size,
+                "cursor": cursor,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    EpisodeResponse,
+                _parsed_response = typing.cast(
+                    EpisodePage,
                     parse_obj_as(
-                        type_=EpisodeResponse,  # type: ignore
+                        type_=EpisodePage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+
+                async def _get_next():
+                    return await self.list_episodes(
+                        thread_uuid,
+                        page_size=page_size,
+                        cursor=_parsed_next,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -1106,8 +1796,8 @@ class AsyncRawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -1122,64 +1812,107 @@ class AsyncRawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    async def get(
+    async def list_messages(
         self,
-        thread_id: str,
+        thread_uuid: str,
         *,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[int] = None,
-        lastn: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[typing.Literal["created_at"]] = None,
+        order: typing.Optional[ThreadListMessagesRequestOrder] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[MessageListResponse]:
+    ) -> AsyncPager[Message, MessagePage]:
         """
-        Returns messages for a thread.
-
         Parameters
         ----------
-        thread_id : str
-            Thread ID
+        thread_uuid : str
+            Thread UUID
 
-        limit : typing.Optional[int]
-            Limit the number of results returned
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        cursor : typing.Optional[int]
-            Cursor for pagination
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
-        lastn : typing.Optional[int]
-            Number of most recent messages to return (overrides limit and cursor)
+        order_by : typing.Optional[typing.Literal["created_at"]]
+            Sort field
+
+        order : typing.Optional[ThreadListMessagesRequestOrder]
+            Sort direction: asc or desc
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[MessageListResponse]
+        AsyncPager[Message, MessagePage]
             OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/messages",
+            f"threads/{encode_path_param(thread_uuid)}/messages",
             method="GET",
             params={
-                "limit": limit,
+                "page_size": page_size,
                 "cursor": cursor,
-                "lastn": lastn,
+                "order_by": order_by,
+                "order": order,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    MessageListResponse,
+                _parsed_response = typing.cast(
+                    MessagePage,
                     parse_obj_as(
-                        type_=MessageListResponse,  # type: ignore
+                        type_=MessagePage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+
+                async def _get_next():
+                    return await self.list_messages(
+                        thread_uuid,
+                        page_size=page_size,
+                        cursor=_parsed_next,
+                        order_by=order_by,
+                        order=order,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 404:
                 raise NotFoundError(
                     headers=dict(_response.headers),
@@ -1191,21 +1924,14 @@ class AsyncRawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        types_api_error_ApiError,
-                        parse_obj_as(
-                            type_=types_api_error_ApiError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
@@ -1213,54 +1939,60 @@ class AsyncRawThreadClient:
 
     async def add_messages(
         self,
-        thread_id: str,
+        thread_uuid: str,
         *,
-        messages: typing.Sequence[Message],
-        ignore_roles: typing.Optional[typing.Sequence[RoleType]] = OMIT,
+        messages: typing.Sequence[AddMessage],
+        ignore_roles: typing.Optional[typing.Sequence[str]] = OMIT,
         return_context: typing.Optional[bool] = OMIT,
         strict_ontology: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[AddThreadMessagesResponse]:
+    ) -> AsyncHttpResponse[AddMessagesResult]:
         """
-        Add messages to a thread.
-
         Parameters
         ----------
-        thread_id : str
-            The ID of the thread to which messages should be added.
+        thread_uuid : str
+            Thread UUID
 
-        messages : typing.Sequence[Message]
-            A list of message objects, where each message contains a role and content.
+        messages : typing.Sequence[AddMessage]
+            The messages to add to the thread.
 
-        ignore_roles : typing.Optional[typing.Sequence[RoleType]]
-            Optional list of role types to ignore when adding messages to graph memory.
-            The message itself will still be added, retained and used as context for messages
-            that are added to a user's graph.
+        ignore_roles : typing.Optional[typing.Sequence[str]]
+            Message roles to skip during graph extraction; the messages are still
+            stored.
 
         return_context : typing.Optional[bool]
-            Optionally return context block relevant to the most recent messages.
+            When true, returns the context block for the thread's most recent
+            messages.
 
         strict_ontology : typing.Optional[bool]
-            When true, prevents extraction of generic Entity nodes that do not match the configured ontology.
+            When true, prevents extraction of generic entity nodes that do not match
+            the configured ontology.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[AddThreadMessagesResponse]
-            An object, optionally containing user context retrieved for the last thread message
+        AsyncHttpResponse[AddMessagesResult]
+            Accepted
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/messages",
+            f"threads/{encode_path_param(thread_uuid)}/messages",
             method="POST",
             json={
                 "ignore_roles": ignore_roles,
                 "messages": convert_and_respect_annotation_metadata(
-                    object_=messages, annotation=typing.Sequence[Message], direction="write"
+                    object_=messages, annotation=typing.Sequence[AddMessage], direction="write"
                 ),
                 "return_context": return_context,
                 "strict_ontology": strict_ontology,
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -1268,15 +2000,48 @@ class AsyncRawThreadClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    AddThreadMessagesResponse,
+                    AddMessagesResult,
                     parse_obj_as(
-                        type_=AddThreadMessagesResponse,  # type: ignore
+                        type_=AddMessagesResult,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -1291,106 +2056,22 @@ class AsyncRawThreadClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
-        raise core_api_error_ApiError(
-            status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
-        )
-
-    async def add_messages_batch(
-        self,
-        thread_id: str,
-        *,
-        messages: typing.Sequence[Message],
-        ignore_roles: typing.Optional[typing.Sequence[RoleType]] = OMIT,
-        return_context: typing.Optional[bool] = OMIT,
-        strict_ontology: typing.Optional[bool] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[AddThreadMessagesResponse]:
-        """
-        Deprecated. Use the [Batch API](/adding-batch-data) (`client.batch.*` with `type: "thread_message"`) instead.
-
-        Adds messages to a thread in batch mode, processing messages concurrently.
-
-        Parameters
-        ----------
-        thread_id : str
-            The ID of the thread to which messages should be added.
-
-        messages : typing.Sequence[Message]
-            A list of message objects, where each message contains a role and content.
-
-        ignore_roles : typing.Optional[typing.Sequence[RoleType]]
-            Optional list of role types to ignore when adding messages to graph memory.
-            The message itself will still be added, retained and used as context for messages
-            that are added to a user's graph.
-
-        return_context : typing.Optional[bool]
-            Optionally return context block relevant to the most recent messages.
-
-        strict_ontology : typing.Optional[bool]
-            When true, prevents extraction of generic Entity nodes that do not match the configured ontology.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[AddThreadMessagesResponse]
-            An object, optionally containing user context retrieved for the last thread message
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/messages-batch",
-            method="POST",
-            json={
-                "ignore_roles": ignore_roles,
-                "messages": convert_and_respect_annotation_metadata(
-                    object_=messages, annotation=typing.Sequence[Message], direction="write"
-                ),
-                "return_context": return_context,
-                "strict_ontology": strict_ontology,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    AddThreadMessagesResponse,
-                    parse_obj_as(
-                        type_=AddThreadMessagesResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        types_api_error_ApiError,
-                        parse_obj_as(
-                            type_=types_api_error_ApiError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise core_api_error_ApiError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     async def get_summary(
-        self, thread_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self, thread_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ThreadSummary]:
         """
-        Returns the incremental summary generated from messages in the thread. Returns 404 if no summary exists for the thread.
-
         Parameters
         ----------
-        thread_id : str
-            The thread ID.
+        thread_uuid : str
+            Thread UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1401,7 +2082,7 @@ class AsyncRawThreadClient:
             OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"threads/{jsonable_encoder(thread_id)}/summary",
+            f"threads/{encode_path_param(thread_uuid)}/summary",
             method="GET",
             request_options=request_options,
         )
@@ -1415,6 +2096,28 @@ class AsyncRawThreadClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 403:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
@@ -1437,21 +2140,14 @@ class AsyncRawThreadClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        types_api_error_ApiError,
-                        parse_obj_as(
-                            type_=types_api_error_ApiError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json

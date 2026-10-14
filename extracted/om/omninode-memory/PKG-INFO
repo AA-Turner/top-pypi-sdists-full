@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: omninode-memory
-Version: 0.18.4
+Version: 0.18.5
 Summary: OmniNode memory primitives — models, protocols, and storage adapters for Qdrant, Memgraph, and PostgreSQL backends.
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnimemory
 Project-URL: Repository, https://github.com/OmniNode-ai/omnimemory

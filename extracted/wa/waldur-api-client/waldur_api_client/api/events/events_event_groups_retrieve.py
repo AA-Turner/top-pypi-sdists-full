@@ -48,6 +48,9 @@ def sync_detailed(
     """Returns a list of groups with event types.
     Group is used in exclude_features query param.
 
+    Narrowed to the groups this deployment can emit. Groups left out stay
+    deliverable and writable -- see waldur_core.logging.availability.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -72,6 +75,9 @@ def sync(
     """Returns a list of groups with event types.
     Group is used in exclude_features query param.
 
+    Narrowed to the groups this deployment can emit. Groups left out stay
+    deliverable and writable -- see waldur_core.logging.availability.
+
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
@@ -91,6 +97,9 @@ async def asyncio_detailed(
 ) -> Response[EventsEventGroupsRetrieveResponse200]:
     """Returns a list of groups with event types.
     Group is used in exclude_features query param.
+
+    Narrowed to the groups this deployment can emit. Groups left out stay
+    deliverable and writable -- see waldur_core.logging.availability.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -113,6 +122,9 @@ async def asyncio(
 ) -> EventsEventGroupsRetrieveResponse200:
     """Returns a list of groups with event types.
     Group is used in exclude_features query param.
+
+    Narrowed to the groups this deployment can emit. Groups left out stay
+    deliverable and writable -- see waldur_core.logging.availability.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

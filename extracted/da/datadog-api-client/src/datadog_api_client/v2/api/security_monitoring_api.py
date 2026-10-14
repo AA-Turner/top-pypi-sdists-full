@@ -47,6 +47,7 @@ from datadog_api_client.v2.model.default_inbox_rule_response import DefaultInbox
 from datadog_api_client.v2.model.due_date_rules_response import DueDateRulesResponse
 from datadog_api_client.v2.model.due_date_rule_response import DueDateRuleResponse
 from datadog_api_client.v2.model.due_date_rule_create_request import DueDateRuleCreateRequest
+from datadog_api_client.v2.model.due_date_rule_reorder_response import DueDateRuleReorderResponse
 from datadog_api_client.v2.model.due_date_rule_reorder_request import DueDateRuleReorderRequest
 from datadog_api_client.v2.model.due_date_rule_update_request import DueDateRuleUpdateRequest
 from datadog_api_client.v2.model.inbox_rules_response import InboxRulesResponse
@@ -58,6 +59,7 @@ from datadog_api_client.v2.model.inbox_rule_update_request import InboxRuleUpdat
 from datadog_api_client.v2.model.mute_rules_response import MuteRulesResponse
 from datadog_api_client.v2.model.mute_rule_response import MuteRuleResponse
 from datadog_api_client.v2.model.mute_rule_create_request import MuteRuleCreateRequest
+from datadog_api_client.v2.model.mute_rule_reorder_response import MuteRuleReorderResponse
 from datadog_api_client.v2.model.mute_rule_reorder_request import MuteRuleReorderRequest
 from datadog_api_client.v2.model.mute_rule_update_request import MuteRuleUpdateRequest
 from datadog_api_client.v2.model.severity_modifier_rules_response import SeverityModifierRulesResponse
@@ -69,6 +71,7 @@ from datadog_api_client.v2.model.severity_modifier_rule_update_request import Se
 from datadog_api_client.v2.model.ticket_creation_rules_response import TicketCreationRulesResponse
 from datadog_api_client.v2.model.ticket_creation_rule_response import TicketCreationRuleResponse
 from datadog_api_client.v2.model.ticket_creation_rule_create_request import TicketCreationRuleCreateRequest
+from datadog_api_client.v2.model.ticket_creation_rule_reorder_response import TicketCreationRuleReorderResponse
 from datadog_api_client.v2.model.ticket_creation_rule_reorder_request import TicketCreationRuleReorderRequest
 from datadog_api_client.v2.model.ticket_creation_rule_update_request import TicketCreationRuleUpdateRequest
 from datadog_api_client.v2.model.detach_case_request import DetachCaseRequest
@@ -85,6 +88,8 @@ from datadog_api_client.v2.model.mute_findings_request import MuteFindingsReques
 from datadog_api_client.v2.model.security_findings_search_request import SecurityFindingsSearchRequest
 from datadog_api_client.v2.model.attach_service_now_ticket_request import AttachServiceNowTicketRequest
 from datadog_api_client.v2.model.create_service_now_ticket_request_array import CreateServiceNowTicketRequestArray
+from datadog_api_client.v2.model.severity_override_response import SeverityOverrideResponse
+from datadog_api_client.v2.model.severity_override_request import SeverityOverrideRequest
 from datadog_api_client.v2.model.list_assets_sbo_ms_response import ListAssetsSBOMsResponse
 from datadog_api_client.v2.model.asset_type import AssetType
 from datadog_api_client.v2.model.sbom_component_license_type import SBOMComponentLicenseType
@@ -196,6 +201,9 @@ from datadog_api_client.v2.model.security_monitoring_dataset_version_history_res
     SecurityMonitoringDatasetVersionHistoryResponse,
 )
 from datadog_api_client.v2.model.entity_context_response import EntityContextResponse
+from datadog_api_client.v2.model.entity_context_entity_type import EntityContextEntityType
+from datadog_api_client.v2.model.recently_updated_entities_response import RecentlyUpdatedEntitiesResponse
+from datadog_api_client.v2.model.entity_context_revisions_mode import EntityContextRevisionsMode
 from datadog_api_client.v2.model.single_entity_context_response import SingleEntityContextResponse
 from datadog_api_client.v2.model.matching_signals_response import MatchingSignalsResponse
 from datadog_api_client.v2.model.security_monitoring_list_rules_response import SecurityMonitoringListRulesResponse
@@ -1889,6 +1897,11 @@ class SecurityMonitoringApi:
                     "attribute": "query",
                     "location": "query",
                 },
+                "entity_type": {
+                    "openapi_types": (EntityContextEntityType,),
+                    "attribute": "entity_type",
+                    "location": "query",
+                },
                 "_from": {
                     "openapi_types": (str,),
                     "attribute": "from",
@@ -1912,6 +1925,57 @@ class SecurityMonitoringApi:
                 "page_token": {
                     "openapi_types": (str,),
                     "attribute": "page_token",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_entity_context_recently_updated_endpoint = _Endpoint(
+            settings={
+                "response_type": (RecentlyUpdatedEntitiesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/entity_context/recently_updated",
+                "operation_id": "get_entity_context_recently_updated",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "query": {
+                    "openapi_types": (str,),
+                    "attribute": "query",
+                    "location": "query",
+                },
+                "entity_type": {
+                    "openapi_types": (EntityContextEntityType,),
+                    "attribute": "entity_type",
+                    "location": "query",
+                },
+                "_from": {
+                    "openapi_types": (str,),
+                    "attribute": "from",
+                    "location": "query",
+                },
+                "to": {
+                    "openapi_types": (str,),
+                    "attribute": "to",
+                    "location": "query",
+                },
+                "limit": {
+                    "validation": {
+                        "inclusive_maximum": 100,
+                        "inclusive_minimum": 1,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "limit",
+                    "location": "query",
+                },
+                "revisions": {
+                    "openapi_types": (EntityContextRevisionsMode,),
+                    "attribute": "revisions",
                     "location": "query",
                 },
             },
@@ -2738,6 +2802,11 @@ class SecurityMonitoringApi:
                     "openapi_types": (str,),
                     "attribute": "id",
                     "location": "path",
+                },
+                "entity_type": {
+                    "openapi_types": (EntityContextEntityType,),
+                    "attribute": "entity_type",
+                    "location": "query",
                 },
                 "_from": {
                     "openapi_types": (str,),
@@ -4333,7 +4402,7 @@ class SecurityMonitoringApi:
 
         self._reorder_security_findings_automation_due_date_rules_endpoint = _Endpoint(
             settings={
-                "response_type": (DueDateRuleReorderRequest,),
+                "response_type": (DueDateRuleReorderResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security/findings/automation/due_date_rules/reorder",
                 "operation_id": "reorder_security_findings_automation_due_date_rules",
@@ -4373,7 +4442,7 @@ class SecurityMonitoringApi:
 
         self._reorder_security_findings_automation_mute_rules_endpoint = _Endpoint(
             settings={
-                "response_type": (MuteRuleReorderRequest,),
+                "response_type": (MuteRuleReorderResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security/findings/automation/mute_rules/reorder",
                 "operation_id": "reorder_security_findings_automation_mute_rules",
@@ -4413,7 +4482,7 @@ class SecurityMonitoringApi:
 
         self._reorder_security_findings_automation_ticket_creation_rules_endpoint = _Endpoint(
             settings={
-                "response_type": (TicketCreationRuleReorderRequest,),
+                "response_type": (TicketCreationRuleReorderResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security/findings/automation/ticket_creation_rules/reorder",
                 "operation_id": "reorder_security_findings_automation_ticket_creation_rules",
@@ -4649,6 +4718,26 @@ class SecurityMonitoringApi:
                 "body": {
                     "required": True,
                     "openapi_types": (AssigneeRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._update_findings_severity_endpoint = _Endpoint(
+            settings={
+                "response_type": (SeverityOverrideResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/severity",
+                "operation_id": "update_findings_severity",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SeverityOverrideRequest,),
                     "location": "body",
                 },
             },
@@ -6382,6 +6471,7 @@ class SecurityMonitoringApi:
         self,
         *,
         query: Union[str, UnsetType] = unset,
+        entity_type: Union[EntityContextEntityType, UnsetType] = unset,
         _from: Union[str, UnsetType] = unset,
         to: Union[str, UnsetType] = unset,
         as_of: Union[str, UnsetType] = unset,
@@ -6397,6 +6487,9 @@ class SecurityMonitoringApi:
 
         :param query: A free-text query (for example, an email address or principal ID) used to filter the entities returned.
         :type query: str, optional
+        :param entity_type: The type of entity to retrieve. Only ``siem_entity_identity`` is currently supported.
+            Defaults to ``siem_entity_identity``.
+        :type entity_type: EntityContextEntityType, optional
         :param _from: The start of the time range to query, as an RFC3339 timestamp or a relative time (for example, ``now-7d`` ).
             Defaults to ``now-7d``. Ignored when ``as_of`` is set.
         :type _from: str, optional
@@ -6417,6 +6510,9 @@ class SecurityMonitoringApi:
         if query is not unset:
             kwargs["query"] = query
 
+        if entity_type is not unset:
+            kwargs["entity_type"] = entity_type
+
         if _from is not unset:
             kwargs["_from"] = _from
 
@@ -6433,6 +6529,61 @@ class SecurityMonitoringApi:
             kwargs["page_token"] = page_token
 
         return self._get_entity_context_endpoint.call_with_http_info(**kwargs)
+
+    def get_entity_context_recently_updated(
+        self,
+        *,
+        query: Union[str, UnsetType] = unset,
+        entity_type: Union[EntityContextEntityType, UnsetType] = unset,
+        _from: Union[str, UnsetType] = unset,
+        to: Union[str, UnsetType] = unset,
+        limit: Union[int, UnsetType] = unset,
+        revisions: Union[EntityContextRevisionsMode, UnsetType] = unset,
+    ) -> RecentlyUpdatedEntitiesResponse:
+        """Get recently updated entity context.
+
+        Get the entities with the most recent updates in the Cloud SIEM entity context store. Entities are ranked
+        by the time of their most recent revision in the requested time range, and the top ``limit`` entities are
+        returned in that order. This endpoint is not paginated.
+
+        :param query: A free-text query (for example, an email address or principal ID) used to filter the entities returned.
+        :type query: str, optional
+        :param entity_type: The type of entity to retrieve. Only ``siem_entity_identity`` is currently supported.
+            Defaults to ``siem_entity_identity``.
+        :type entity_type: EntityContextEntityType, optional
+        :param _from: The start of the time range to query, as an RFC3339 timestamp or a relative time (for example, ``now-7d`` ).
+            Defaults to ``now-7d``.
+        :type _from: str, optional
+        :param to: The end of the time range to query, as an RFC3339 timestamp or a relative time (for example, ``now`` ).
+            Defaults to ``now``. Entities are ranked by their most recent revision within ``[from, to]``.
+        :type to: str, optional
+        :param limit: The number of entities to return. Must be between 1 and 100.
+        :type limit: int, optional
+        :param revisions: Which revisions to return for each entity: ``latest`` returns only the latest revision of each entity as of ``to`` ,
+            and ``all`` returns every revision in the requested time range.
+        :type revisions: EntityContextRevisionsMode, optional
+        :rtype: RecentlyUpdatedEntitiesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if query is not unset:
+            kwargs["query"] = query
+
+        if entity_type is not unset:
+            kwargs["entity_type"] = entity_type
+
+        if _from is not unset:
+            kwargs["_from"] = _from
+
+        if to is not unset:
+            kwargs["to"] = to
+
+        if limit is not unset:
+            kwargs["limit"] = limit
+
+        if revisions is not unset:
+            kwargs["revisions"] = revisions
+
+        return self._get_entity_context_recently_updated_endpoint.call_with_http_info(**kwargs)
 
     def get_entra_id_azure_app_registrations(
         self,
@@ -7089,6 +7240,7 @@ class SecurityMonitoringApi:
         self,
         id: str,
         *,
+        entity_type: Union[EntityContextEntityType, UnsetType] = unset,
         _from: Union[str, UnsetType] = unset,
         to: Union[str, UnsetType] = unset,
         as_of: Union[str, UnsetType] = unset,
@@ -7102,6 +7254,9 @@ class SecurityMonitoringApi:
 
         :param id: The unique identifier of the entity to retrieve.
         :type id: str
+        :param entity_type: The type of entity to retrieve. Only ``siem_entity_identity`` is currently supported.
+            Defaults to ``siem_entity_identity``.
+        :type entity_type: EntityContextEntityType, optional
         :param _from: The start of the time range to query, as an RFC3339 timestamp or a relative time (for example, ``now-7d`` ).
             Defaults to ``now-7d``. Ignored when ``as_of`` is set.
         :type _from: str, optional
@@ -7116,6 +7271,9 @@ class SecurityMonitoringApi:
         """
         kwargs: Dict[str, Any] = {}
         kwargs["id"] = id
+
+        if entity_type is not unset:
+            kwargs["entity_type"] = entity_type
 
         if _from is not unset:
             kwargs["_from"] = _from
@@ -9097,13 +9255,13 @@ class SecurityMonitoringApi:
     def reorder_security_findings_automation_due_date_rules(
         self,
         body: DueDateRuleReorderRequest,
-    ) -> DueDateRuleReorderRequest:
+    ) -> DueDateRuleReorderResponse:
         """Reorder due date rules.
 
         Reorder the list of due date rules for the current organization.
 
         :type body: DueDateRuleReorderRequest
-        :rtype: DueDateRuleReorderRequest
+        :rtype: DueDateRuleReorderResponse
         """
         kwargs: Dict[str, Any] = {}
         kwargs["body"] = body
@@ -9129,13 +9287,13 @@ class SecurityMonitoringApi:
     def reorder_security_findings_automation_mute_rules(
         self,
         body: MuteRuleReorderRequest,
-    ) -> MuteRuleReorderRequest:
+    ) -> MuteRuleReorderResponse:
         """Reorder mute rules.
 
         Reorder the list of mute rules for the current organization.
 
         :type body: MuteRuleReorderRequest
-        :rtype: MuteRuleReorderRequest
+        :rtype: MuteRuleReorderResponse
         """
         kwargs: Dict[str, Any] = {}
         kwargs["body"] = body
@@ -9161,13 +9319,13 @@ class SecurityMonitoringApi:
     def reorder_security_findings_automation_ticket_creation_rules(
         self,
         body: TicketCreationRuleReorderRequest,
-    ) -> TicketCreationRuleReorderRequest:
+    ) -> TicketCreationRuleReorderResponse:
         """Reorder ticket creation rules.
 
         Reorder the list of ticket creation rules for the current organization.
 
         :type body: TicketCreationRuleReorderRequest
-        :rtype: TicketCreationRuleReorderRequest
+        :rtype: TicketCreationRuleReorderResponse
         """
         kwargs: Dict[str, Any] = {}
         kwargs["body"] = body
@@ -9429,6 +9587,36 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._update_findings_assignee_endpoint.call_with_http_info(**kwargs)
+
+    def update_findings_severity(
+        self,
+        body: SeverityOverrideRequest,
+    ) -> SeverityOverrideResponse:
+        """Override the severity of security findings.
+
+        Set or clear the manual severity override of security findings.
+
+        You can update up to 100 security findings per request.
+        Use the ``set`` action with a ``value`` to apply a manual severity override.
+        ``value`` is required for ``set`` and must be omitted for ``clear``.
+        The ``info`` value sets the lowest severity the finding type allows.
+        Use the ``clear`` action to remove a manual severity override.
+        ``clear`` does not remove a severity set by an automation rule.
+        The optional ``description`` is accepted with both actions and has a limit of 280 characters.
+
+        Auto-closed findings are excluded.
+        Findings whose severity was set by an automation rule are skipped and listed in the response ``meta.warnings``.
+        If every finding is skipped this way, the request fails with a ``400`` error.
+        Findings that cannot be found are skipped without a warning.
+        The request fails with a ``404`` error only if none of the findings can be found.
+
+        :type body: SeverityOverrideRequest
+        :rtype: SeverityOverrideResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._update_findings_severity_endpoint.call_with_http_info(**kwargs)
 
     def update_resource_evaluation_filters(
         self,

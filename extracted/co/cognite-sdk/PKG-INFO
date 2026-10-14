@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite-sdk
-Version: 8.20.0
+Version: 8.21.0
 Summary: Cognite Python SDK
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -22,7 +22,6 @@ Provides-Extra: sympy
 Provides-Extra: yaml
 Requires-Dist: PyYAML (>=6,<7) ; extra == "all"
 Requires-Dist: PyYAML (>=6,<7) ; extra == "yaml"
-Requires-Dist: authlib (>=1,<2)
 Requires-Dist: geopandas (>=0.14) ; extra == "all"
 Requires-Dist: geopandas (>=0.14) ; extra == "geo"
 Requires-Dist: httpx2 (>=2,<3)

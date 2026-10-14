@@ -349,6 +349,8 @@ __all__ = (
     "ContactEvaluationAttributeValueTypeDef",
     "ContactEvaluationTypeDef",
     "ContactFilterTypeDef",
+    "ContactFlowAliasInfoTypeDef",
+    "ContactFlowAliasSummaryTypeDef",
     "ContactFlowAttributeAndConditionTypeDef",
     "ContactFlowAttributeFilterTypeDef",
     "ContactFlowModuleAliasInfoTypeDef",
@@ -390,6 +392,8 @@ __all__ = (
     "CreateCaseActionDefinitionOutputTypeDef",
     "CreateCaseActionDefinitionTypeDef",
     "CreateCaseActionDefinitionUnionTypeDef",
+    "CreateContactFlowAliasRequestTypeDef",
+    "CreateContactFlowAliasResponseTypeDef",
     "CreateContactFlowModuleAliasRequestTypeDef",
     "CreateContactFlowModuleAliasResponseTypeDef",
     "CreateContactFlowModuleRequestTypeDef",
@@ -500,6 +504,7 @@ __all__ = (
     "DeleteAttachedFileRequestTypeDef",
     "DeleteContactDataRequestTypeDef",
     "DeleteContactEvaluationRequestTypeDef",
+    "DeleteContactFlowAliasRequestTypeDef",
     "DeleteContactFlowModuleAliasRequestTypeDef",
     "DeleteContactFlowModuleRequestTypeDef",
     "DeleteContactFlowModuleVersionRequestTypeDef",
@@ -547,6 +552,8 @@ __all__ = (
     "DescribeAuthenticationProfileResponseTypeDef",
     "DescribeContactEvaluationRequestTypeDef",
     "DescribeContactEvaluationResponseTypeDef",
+    "DescribeContactFlowAliasRequestTypeDef",
+    "DescribeContactFlowAliasResponseTypeDef",
     "DescribeContactFlowModuleAliasRequestTypeDef",
     "DescribeContactFlowModuleAliasResponseTypeDef",
     "DescribeContactFlowModuleRequestTypeDef",
@@ -910,6 +917,9 @@ __all__ = (
     "ListContactEvaluationsRequestPaginateTypeDef",
     "ListContactEvaluationsRequestTypeDef",
     "ListContactEvaluationsResponseTypeDef",
+    "ListContactFlowAliasesRequestPaginateTypeDef",
+    "ListContactFlowAliasesRequestTypeDef",
+    "ListContactFlowAliasesResponseTypeDef",
     "ListContactFlowModuleAliasesRequestPaginateTypeDef",
     "ListContactFlowModuleAliasesRequestTypeDef",
     "ListContactFlowModuleAliasesResponseTypeDef",
@@ -1528,6 +1538,7 @@ __all__ = (
     "UpdateContactAttributesRequestTypeDef",
     "UpdateContactEvaluationRequestTypeDef",
     "UpdateContactEvaluationResponseTypeDef",
+    "UpdateContactFlowAliasRequestTypeDef",
     "UpdateContactFlowContentRequestTypeDef",
     "UpdateContactFlowMetadataRequestTypeDef",
     "UpdateContactFlowModuleAliasRequestTypeDef",
@@ -2226,6 +2237,25 @@ class ContactEvaluationTypeDef(TypedDict):
 class ContactFilterTypeDef(TypedDict):
     ContactStates: NotRequired[Sequence[ContactStateType]]
 
+class ContactFlowAliasInfoTypeDef(TypedDict):
+    ContactFlowId: NotRequired[str]
+    ContactFlowArn: NotRequired[str]
+    AliasId: NotRequired[str]
+    Version: NotRequired[int]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    LastModifiedRegion: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+
+class ContactFlowAliasSummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    AliasId: NotRequired[str]
+    Version: NotRequired[int]
+    AliasName: NotRequired[str]
+    AliasDescription: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
+
 class ContactFlowTypeConditionTypeDef(TypedDict):
     ContactFlowType: NotRequired[ContactFlowTypeType]
 
@@ -2293,6 +2323,8 @@ class ContactFlowVersionSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
     VersionDescription: NotRequired[str]
     Version: NotRequired[int]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
 
 class ContactMetricInfoTypeDef(TypedDict):
     Name: ContactMetricNameType
@@ -2389,6 +2421,13 @@ class CreateAttachedFileRequestTypeDef(TypedDict):
     AssociatedResourceArn: str
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+
+class CreateContactFlowAliasRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactFlowId: str
+    ContactFlowVersion: int
+    AliasName: str
+    Description: NotRequired[str]
 
 class CreateContactFlowModuleAliasRequestTypeDef(TypedDict):
     InstanceId: str
@@ -2680,6 +2719,11 @@ class DeleteContactEvaluationRequestTypeDef(TypedDict):
     InstanceId: str
     EvaluationId: str
 
+class DeleteContactFlowAliasRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactFlowId: str
+    AliasId: str
+
 class DeleteContactFlowModuleAliasRequestTypeDef(TypedDict):
     InstanceId: str
     ContactFlowModuleId: str
@@ -2853,6 +2897,11 @@ class DescribeAuthenticationProfileRequestTypeDef(TypedDict):
 class DescribeContactEvaluationRequestTypeDef(TypedDict):
     InstanceId: str
     EvaluationId: str
+
+class DescribeContactFlowAliasRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactFlowId: str
+    AliasId: str
 
 class DescribeContactFlowModuleAliasRequestTypeDef(TypedDict):
     InstanceId: str
@@ -3593,6 +3642,12 @@ class ListContactEvaluationsRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
     NextToken: NotRequired[str]
+
+class ListContactFlowAliasesRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactFlowId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListContactFlowModuleAliasesRequestTypeDef(TypedDict):
     InstanceId: str
@@ -4662,6 +4717,14 @@ class UpdateContactAttributesRequestTypeDef(TypedDict):
     InstanceId: str
     Attributes: Mapping[str, str]
 
+class UpdateContactFlowAliasRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactFlowId: str
+    AliasId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    ContactFlowVersion: NotRequired[int]
+
 class UpdateContactFlowContentRequestTypeDef(TypedDict):
     InstanceId: str
     ContactFlowId: str
@@ -4932,6 +4995,11 @@ class CreateAuthCodeResponseTypeDef(TypedDict):
     SessionId: str
     EntityType: Literal["CUSTOMER_PROFILE"]
     EntityId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateContactFlowAliasResponseTypeDef(TypedDict):
+    ContactFlowArn: str
+    Id: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateContactFlowModuleAliasResponseTypeDef(TypedDict):
@@ -6009,6 +6077,15 @@ class UserDataFiltersTypeDef(TypedDict):
     Agents: NotRequired[Sequence[str]]
     UserHierarchyGroups: NotRequired[Sequence[str]]
 
+class DescribeContactFlowAliasResponseTypeDef(TypedDict):
+    ContactFlowAlias: ContactFlowAliasInfoTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListContactFlowAliasesResponseTypeDef(TypedDict):
+    ContactFlowAliasSummaryList: list[ContactFlowAliasSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ContactFlowAttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
     ContactFlowTypeCondition: NotRequired[ContactFlowTypeConditionTypeDef]
@@ -6627,6 +6704,11 @@ class ListChildHoursOfOperationsRequestPaginateTypeDef(TypedDict):
 class ListContactEvaluationsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListContactFlowAliasesRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    ContactFlowId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListContactFlowModuleAliasesRequestPaginateTypeDef(TypedDict):

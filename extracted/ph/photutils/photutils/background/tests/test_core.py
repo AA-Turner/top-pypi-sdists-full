@@ -153,6 +153,8 @@ class TestBackgroundEstimators:
         bkg = bkg_class(sigma_clip=None)
         bkg_val1 = bkg.calc_background(test_data, axis=None)
         bkg_val2 = bkg.calc_background(test_data, axis=(0, 1))
+        assert np.ndim(bkg_val1) == 0
+        assert np.ndim(bkg_val2) == 0
         assert_allclose(bkg_val1, bkg_val2)
 
     @pytest.mark.parametrize('bkg_class', BACKGROUND_CLASSES)
@@ -331,6 +333,24 @@ class TestSpecificEstimators:
         bkg = SExtractorBackground(sigma_clip=None)
         assert_allclose(bkg.calc_background(data), np.median(data))
 
+    def test_sextractor_scalar_result_with_axis(self):
+        """
+        Test that SExtractorBackground returns a scalar when the
+        reduction consumes all axes, consistent with the other
+        estimator classes.
+        """
+        rng = np.random.default_rng(0)
+        bkg = SExtractorBackground(sigma_clip=None)
+
+        data = rng.normal(10.0, 1.0, (10, 10))
+        result = bkg.calc_background(data, axis=(0, 1))
+        assert np.ndim(result) == 0
+
+        data1d = rng.normal(10.0, 1.0, 100)
+        result = bkg.calc_background(data1d, axis=0)
+        assert np.ndim(result) == 0
+        assert_allclose(result, bkg.calc_background(data1d, axis=None))
+
     @pytest.mark.parametrize(('median_factor', 'mean_factor'), [
         (3.0, 2.0),  # default
         (2.5, 1.5),  # custom
@@ -402,6 +422,30 @@ class TestSpecificEstimators:
         assert result2.shape == ()
         assert result1 == result2
 
+    @pytest.mark.parametrize('cls', [BiweightLocationBackground,
+                                     BiweightScaleBackgroundRMS])
+    @pytest.mark.parametrize('m_value', [40.0, 40, np.float64(40.0),
+                                         np.array(40.0)])
+    @pytest.mark.parametrize('axis', [None, 0, 1, -1, (0, 2), (0, 1, 2)])
+    def test_biweight_scalar_location(self, cls, m_value, axis):
+        """
+        Test that a scalar ``M`` works for any ``axis`` and gives the
+        same result as an ``M`` array with the shape of the result.
+        """
+        rng = np.random.default_rng(0)
+        data = rng.normal(40.0, 3.0, (4, 5, 25))
+        shape = () if axis is None else tuple(np.delete(data.shape, axis))
+
+        result = cls(M=m_value, sigma_clip=None)(data, axis=axis)
+        expected = cls(M=np.full(shape, 40.0), sigma_clip=None)(data,
+                                                                axis=axis)
+        assert np.shape(result) == shape
+        assert_allclose(result, expected)
+
+        # M changes the result
+        default = cls(sigma_clip=None)(data, axis=axis)
+        assert np.any(result != default)
+
 
 class TestBackgroundRMSEstimators:
     """
@@ -439,7 +483,7 @@ class TestBackgroundRMSEstimators:
         mask[0, 0:10] = True
         data = np.ma.MaskedArray(test_data, mask=mask)
         rms = bkgrms.calc_background_rms(data)
-        assert not np.ma.isMaskedArray(bkgrms)
+        assert not np.ma.isMaskedArray(rms)
         assert_allclose(rms, std_value, atol=0.004)
         assert_allclose(bkgrms(data), bkgrms.calc_background_rms(data))
 
@@ -643,3 +687,68 @@ class TestInputNotMutated:
         bkgrms.calc_background_rms(data_ma)
         assert_equal(data_ma.data, data_values_orig)
         assert_equal(data_ma.mask, mask_orig)
+
+
+class TestFastFlatClip:
+    """
+    Tests for routing axis=None sigma clipping through astropy's fast
+    C implementation.
+    """
+
+    @classmethod
+    def setup_class(cls):
+        rng = np.random.default_rng(0)
+        data = rng.normal(10.0, 2.0, (301, 199))
+        data[10:20, 10:20] = 200.0  # outliers to clip
+        cls.data = data
+
+    @pytest.mark.parametrize('est_class',
+                             BACKGROUND_CLASSES + BACKGROUND_RMS_CLASSES)
+    @pytest.mark.parametrize('sigma_clip', [
+        SigmaClip(sigma=2.5, maxiters=10),
+        SigmaClip(sigma_lower=2.0, sigma_upper=4.0, maxiters=None),
+        SigmaClip(sigma=3.0, maxiters=5, cenfunc='mean'),
+        SigmaClip(sigma=3.0, maxiters=5, stdfunc='mad_std')])
+    def test_matches_slow_path(self, est_class, sigma_clip, monkeypatch):
+        """
+        Test that the rerouted fast clipping gives the same results as
+        the previous axis=None code path for all estimator classes.
+        """
+        estimator = est_class(sigma_clip=sigma_clip)
+        result_fast = estimator(self.data)
+
+        monkeypatch.setattr('photutils.background.core._use_fast_flat_clip',
+                            lambda _sigma_clip: False)
+        result_slow = estimator(self.data)
+        assert_allclose(result_fast, result_slow, rtol=1e-12)
+
+    def test_all_clipped_consistent_with_axis(self):
+        """
+        Test that when sigma clipping rejects all values, the
+        axis=None result is consistent with the axis-based result.
+
+        The value itself depends on the astropy version. Older
+        versions of astropy's C implementation kept all values in
+        this degenerate case (giving 50.0), while newer versions mask
+        all values (giving NaN). Both code paths must agree either way.
+        """
+        data = np.array([0.0, 100.0])
+        sigma_clip = SigmaClip(sigma=0.1, maxiters=10)
+        bkg = MeanBackground(sigma_clip=sigma_clip)
+        # Older astropy versions emit a numpy RuntimeWarning for the NaN
+        # bound comparisons in this degenerate case.
+        with np.errstate(invalid='ignore'):
+            value = bkg.calc_background(data)
+            value_axis = bkg.calc_background(data[np.newaxis, :], axis=1)
+        assert_allclose(value, value_axis[0])
+
+    def test_unsupported_sigma_clip_uses_slow_path(self):
+        """
+        Test that a sigma_clip with a callable cenfunc (unsupported by
+        the fast C path) still works via the previous code path.
+        """
+        sigma_clip = SigmaClip(sigma=2.5, maxiters=10,
+                               cenfunc=np.nanmedian)
+        bkg1 = MeanBackground(sigma_clip=sigma_clip)
+        bkg2 = MeanBackground(sigma_clip=SigmaClip(sigma=2.5, maxiters=10))
+        assert_allclose(bkg1(self.data), bkg2(self.data), rtol=1e-12)

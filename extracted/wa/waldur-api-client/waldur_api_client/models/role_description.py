@@ -28,6 +28,7 @@ class RoleDescription:
         description_nb (Union[None, Unset, str]):
         description_ar (Union[None, Unset, str]):
         description_cs (Union[None, Unset, str]):
+        description_hr (Union[None, Unset, str]):
         description_km (Union[None, Unset, str]):
     """
 
@@ -46,6 +47,7 @@ class RoleDescription:
     description_nb: Union[None, Unset, str] = UNSET
     description_ar: Union[None, Unset, str] = UNSET
     description_cs: Union[None, Unset, str] = UNSET
+    description_hr: Union[None, Unset, str] = UNSET
     description_km: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -136,6 +138,12 @@ class RoleDescription:
         else:
             description_cs = self.description_cs
 
+        description_hr: Union[None, Unset, str]
+        if isinstance(self.description_hr, Unset):
+            description_hr = UNSET
+        else:
+            description_hr = self.description_hr
+
         description_km: Union[None, Unset, str]
         if isinstance(self.description_km, Unset):
             description_km = UNSET
@@ -175,6 +183,8 @@ class RoleDescription:
             field_dict["description_ar"] = description_ar
         if description_cs is not UNSET:
             field_dict["description_cs"] = description_cs
+        if description_hr is not UNSET:
+            field_dict["description_hr"] = description_hr
         if description_km is not UNSET:
             field_dict["description_km"] = description_km
 
@@ -311,6 +321,15 @@ class RoleDescription:
 
         description_cs = _parse_description_cs(d.pop("description_cs", UNSET))
 
+        def _parse_description_hr(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_hr = _parse_description_hr(d.pop("description_hr", UNSET))
+
         def _parse_description_km(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -336,6 +355,7 @@ class RoleDescription:
             description_nb=description_nb,
             description_ar=description_ar,
             description_cs=description_cs,
+            description_hr=description_hr,
             description_km=description_km,
         )
 

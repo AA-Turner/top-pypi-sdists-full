@@ -4,6 +4,7 @@
 
 use std::{borrow::Cow, cell::Cell, fmt::Debug, marker::PhantomData};
 
+use derive_where::derive_where;
 use icu_properties::{CodePointMapData, CodePointMapDataBorrowed, props::GeneralCategory};
 use itertools::Itertools;
 use nom::{
@@ -22,9 +23,9 @@ use url::{SyntaxViolation, Url};
 
 use crate::{
 	Input,
-	context::{Context, TerminalOutput},
+	context::Context,
 	error::ParseError,
-	node::SpannedNodes,
+	node::{Node, ParsedNode, Sequence},
 	rule::RuleSet,
 	span::{Span, TraceOk, TraceParse},
 	unparse::Unparse,
@@ -176,16 +177,23 @@ pub const SCHEMALESS_DOMAINS: [SchemalessDomain; 4] = [
 /// A plain link with no special significance.
 ///
 /// See [`Link`] for other variants.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Link<'data, S: Span> {
+#[derive_where(Debug, Clone, PartialEq, Eq; N)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(bound(
+		serialize = "N: serde::Serialize",
+		deserialize = "N: serde::Deserialize<'de>"
+	))
+)]
+pub struct Link<S: Span, N> {
 	/// The text of the link. Never contains emoji or link elements.
-	pub text: Option<SpannedNodes<'data, S>>,
+	pub text: Option<Sequence<S, N>>,
 	pub url: Url, // TODO: serialize this as struct
 	pub title: Option<String>,
 }
 
-impl<S: Span> Unparse for Link<'_, S> {
+impl<S: Span> Unparse for Link<S, Node<'_, S>> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
 			Self {
@@ -226,9 +234,14 @@ where
 	.parse_complete(data)
 }
 
-/// Whether a character is punctuation that a link can contain but not end with.
+/// Whether a character is punctuation that a link can contain but not end with. That includes
+/// modifier delimiters, so `**https://discord.com**` is a bold link, while `foo_bar` and
+/// `Endemic_(epidemiology)` stay inside one.
 fn is_trailing_punctuation(ch: char) -> bool {
-	matches!(ch, '.' | ',' | ':' | ';' | '"' | '\'' | ']')
+	matches!(
+		ch,
+		'.' | ',' | ':' | ';' | '"' | '\'' | ']' | '*' | '_' | '~' | '|'
+	)
 }
 
 /// Whether a character terminates a link.
@@ -356,9 +369,7 @@ where
 				}),
 				char(')'),
 			)),
-			self.context
-				.guard_terminal_sequence(move || non_terminal)
-				.map(TerminalOutput::inner),
+			self.context.guard_terminal_sequence(move || non_terminal),
 		))))
 		.trace_parse()
 		.process::<OM>(input)
@@ -558,7 +569,7 @@ fn is_suspicious_whitespace(ch: char) -> bool {
 #[must_use]
 pub fn link<'ctx, 'data, S, E>(
 	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Link<'data, S>, Error = E> + 'ctx
+) -> impl Parser<Input<'data>, Output = Link<S, ParsedNode<'data, S>>, Error = E> + 'ctx
 where
 	S: Span,
 	E: ParseError<'data> + 'ctx,

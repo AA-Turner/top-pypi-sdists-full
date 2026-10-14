@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.organization_group import OrganizationGroup
+    from ..models.provider_account_options import ProviderAccountOptions
 
 
 T = TypeVar("T", bound="GoogleCredentials")
@@ -38,6 +39,7 @@ class GoogleCredentials:
         offering_count (Union[Unset, int]):
         allowed_domains (Union[Unset, list[str]]): List of allowed domains for offering endpoints. Only staff can modify
             this field.
+        account_options (Union[Unset, ProviderAccountOptions]):
         calendar_token (Union[Unset, str]):
         calendar_refresh_token (Union[Unset, str]):
         google_auth_url (Union[Unset, str]):
@@ -60,6 +62,7 @@ class GoogleCredentials:
     organization_groups: Union[Unset, list["OrganizationGroup"]] = UNSET
     offering_count: Union[Unset, int] = UNSET
     allowed_domains: Union[Unset, list[str]] = UNSET
+    account_options: Union[Unset, "ProviderAccountOptions"] = UNSET
     calendar_token: Union[Unset, str] = UNSET
     calendar_refresh_token: Union[Unset, str] = UNSET
     google_auth_url: Union[Unset, str] = UNSET
@@ -117,6 +120,10 @@ class GoogleCredentials:
         if not isinstance(self.allowed_domains, Unset):
             allowed_domains = self.allowed_domains
 
+        account_options: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.account_options, Unset):
+            account_options = self.account_options.to_dict()
+
         calendar_token = self.calendar_token
 
         calendar_refresh_token = self.calendar_refresh_token
@@ -160,6 +167,8 @@ class GoogleCredentials:
             field_dict["offering_count"] = offering_count
         if allowed_domains is not UNSET:
             field_dict["allowed_domains"] = allowed_domains
+        if account_options is not UNSET:
+            field_dict["account_options"] = account_options
         if calendar_token is not UNSET:
             field_dict["calendar_token"] = calendar_token
         if calendar_refresh_token is not UNSET:
@@ -172,6 +181,7 @@ class GoogleCredentials:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.organization_group import OrganizationGroup
+        from ..models.provider_account_options import ProviderAccountOptions
 
         d = dict(src_dict)
         url = d.pop("url", UNSET)
@@ -235,6 +245,13 @@ class GoogleCredentials:
 
         allowed_domains = cast(list[str], d.pop("allowed_domains", UNSET))
 
+        _account_options = d.pop("account_options", UNSET)
+        account_options: Union[Unset, ProviderAccountOptions]
+        if isinstance(_account_options, Unset):
+            account_options = UNSET
+        else:
+            account_options = ProviderAccountOptions.from_dict(_account_options)
+
         calendar_token = d.pop("calendar_token", UNSET)
 
         calendar_refresh_token = d.pop("calendar_refresh_token", UNSET)
@@ -259,6 +276,7 @@ class GoogleCredentials:
             organization_groups=organization_groups,
             offering_count=offering_count,
             allowed_domains=allowed_domains,
+            account_options=account_options,
             calendar_token=calendar_token,
             calendar_refresh_token=calendar_refresh_token,
             google_auth_url=google_auth_url,

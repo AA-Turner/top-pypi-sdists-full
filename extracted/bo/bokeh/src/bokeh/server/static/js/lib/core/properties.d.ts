@@ -239,6 +239,7 @@ export declare class ColorSpec extends DataSpec<types.Color | null> {
     v_materialize(colors: Arrayable<types.Color | null> | NDArray): ColorArray;
     protected _from_css_array(colors: Arrayable<types.Color | null>): ColorArray;
     vector(values: ColorArray): ColorUniformVector;
+    private _get_cached_color;
 }
 export declare class NDArraySpec extends DataSpec<NDArrayType<number>> {
 }

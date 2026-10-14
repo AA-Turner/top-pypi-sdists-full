@@ -91,8 +91,9 @@ class BoundingBox:
         * pixel 2: from 1.5 to 2.5
 
         In addition, because `BoundingBox` upper limits are exclusive
-        (by definition), 1 is added to the upper pixel edges. See
-        examples below.
+        (by definition), the upper limits are one larger than the index
+        of the last pixel that the rectangle touches. See examples
+        below.
 
         Parameters
         ----------
@@ -124,19 +125,37 @@ class BoundingBox:
         return cls(ixmin, ixmax, iymin, iymax)
 
     def __eq__(self, other):
+        # NotImplemented lets Python fall back to the reflected
+        # comparison and then to identity, so that comparing to a
+        # non-BoundingBox returns False instead of raising. This keeps
+        # ``!=``, ``in``, and ``list.remove`` usable.
         if not isinstance(other, BoundingBox):
-            msg = 'Can compare BoundingBox only to another BoundingBox.'
-            raise TypeError(msg)
+            return NotImplemented
 
         return ((self.ixmin == other.ixmin)
                 and (self.ixmax == other.ixmax)
                 and (self.iymin == other.iymin)
                 and (self.iymax == other.iymax))
 
+    def __hash__(self):
+        # Return a hash value for the BoundingBox using its four
+        # defining indices.
+        return hash((self.ixmin, self.ixmax, self.iymin, self.iymax))
+
     def __or__(self, other):
+        # NotImplemented (instead of the TypeError raised by ``union``)
+        # lets Python try the reflected operation and raise its standard
+        # unsupported-operand TypeError.
+        if not isinstance(other, BoundingBox):
+            return NotImplemented
         return self.union(other)
 
     def __and__(self, other):
+        # NotImplemented (instead of the TypeError raised by
+        # ``intersection``) lets Python try the reflected operation and
+        # raise its standard unsupported-operand TypeError.
+        if not isinstance(other, BoundingBox):
+            return NotImplemented
         return self.intersection(other)
 
     def __repr__(self):
@@ -210,9 +229,10 @@ class BoundingBox:
     @property
     def extent(self):
         """
-        The extent of the mask, defined as the ``(xmin, xmax, ymin,
-        ymax)`` bounding box from the bottom-left corner of the lower-
-        left pixel to the upper-right corner of the upper-right pixel.
+        The extent of the bounding box, defined as the ``(xmin, xmax,
+        ymin, ymax)`` edges from the bottom-left corner of the
+        lower-left pixel to the upper-right corner of the upper-right
+        pixel.
 
         The upper edges here are the actual pixel positions of the
         edges, i.e., they are not "exclusive" indices used for python
@@ -308,8 +328,8 @@ class BoundingBox:
 
     def union(self, other):
         """
-        Return a `BoundingBox` representing the union of this
-        `BoundingBox` with another `BoundingBox`.
+        Return the smallest `BoundingBox` that contains both this
+        `BoundingBox` and another `BoundingBox`.
 
         Parameters
         ----------
@@ -319,8 +339,8 @@ class BoundingBox:
         Returns
         -------
         result : `BoundingBox`
-            A `BoundingBox` representing the union of the input
-            `BoundingBox` with this one.
+            The smallest `BoundingBox` that contains both the input
+            `BoundingBox` and this one.
         """
         if not isinstance(other, BoundingBox):
             msg = 'BoundingBox can be joined only with another BoundingBox.'
@@ -345,9 +365,10 @@ class BoundingBox:
 
         Returns
         -------
-        result : `BoundingBox`
+        result : `BoundingBox` or `None`
             A `BoundingBox` representing the intersection of the input
-            `BoundingBox` with this one.
+            `BoundingBox` with this one. `None` is returned if the two
+            bounding boxes do not overlap.
         """
         if not isinstance(other, BoundingBox):
             msg = ('BoundingBox can be intersected only with another '
@@ -358,7 +379,7 @@ class BoundingBox:
         ixmax = min(self.ixmax, other.ixmax)
         iymin = max(self.iymin, other.iymin)
         iymax = min(self.iymax, other.iymax)
-        if ixmax < ixmin or iymax < iymin:
+        if ixmax <= ixmin or iymax <= iymin:
             return None
 
         return BoundingBox(ixmin=ixmin, ixmax=ixmax, iymin=iymin, iymax=iymax)

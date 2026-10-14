@@ -6,7 +6,6 @@
 
     #include <wx/aui/aui.h>
     #include <wx/build.h>
-    #include <wx/catch_cppunit.h>
     #include <wx/chkconf.h>
     #include <wx/dvrenderers.h>
     #include <wx/features.h>
@@ -335,6 +334,7 @@
 #include <wx/statusbr.h>
 #include <wx/stc/minimap.h>
 #include <wx/stc/stc.h>
+#include <wx/stdformat.h>
 #include <wx/stdpaths.h>
 #include <wx/stdstream.h>
 #include <wx/stockitem.h>

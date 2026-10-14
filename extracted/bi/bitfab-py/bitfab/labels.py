@@ -14,9 +14,10 @@ from bitfab.traces import (
 )
 
 LabelConfidence = Literal["VeryLow", "Low", "Medium", "High", "VeryHigh"]
-LabelAction = Literal["set", "archived", "no-active-label", "skipped"]
+LabelAction = Literal["set", "archived", "no-active-label", "skipped", "abstained"]
 LabelStatus = Literal["labeled", "skipped", "unlabeled"]
 LabelSource = Literal["human", "agent"]
+Verdict = Literal["pass", "fail", "abstained"]
 
 
 class _EvidenceUnset:
@@ -39,6 +40,7 @@ class LabelUpdate(TypedDict):
     confidence: NotRequired[LabelConfidence]
     evidence: NotRequired[Justification | None]
     skip: NotRequired[bool]
+    abstain: NotRequired[bool]
     archive: NotRequired[bool]
 
 
@@ -69,6 +71,7 @@ class AssertionVerdict(TypedDict):
     assertion: str | None
     labelStatus: LabelStatus
     label: bool | None
+    verdict: Verdict | None
     annotation: str | None
     evidence: Justification | None
     confidence: LabelConfidence | None
@@ -85,6 +88,7 @@ class TraceLabels(TypedDict):
     approved: bool
     passed: int
     failed: int
+    abstained: int
     assertions: list[AssertionVerdict]
 
 
@@ -156,6 +160,32 @@ class LabelsClient:
             [update],
             experiment_id=resolve_experiment_id(
                 experiment_id, test_run_id, where="labels.skip"
+            ),
+        )[0]
+
+    def abstain(
+        self,
+        trace_id: str | None = None,
+        original_trace_id: str | None = None,
+        attempt: int | None = None,
+        test_run_id: str | None = None,
+        assertion_id: str | None = None,
+        experiment_id: str | None = None,
+        annotation: str | None = None,
+    ) -> LabelOutcome:
+        """Record that the evidence does not show the part of the run this assertion checks, so there was nothing to judge.
+
+        Counted as a fail in every pass rate, but stored and read back as an abstention, apart from a fail.
+        ``annotation`` says what the evidence would have had to show. ``test_run_id`` is a deprecated alias for ``experiment_id``.
+        """
+        update: LabelUpdate = {"abstain": True}
+        _apply_target(update, trace_id, original_trace_id, attempt, assertion_id)
+        if annotation is not None:
+            update["annotation"] = annotation
+        return self.save_all(
+            [update],
+            experiment_id=resolve_experiment_id(
+                experiment_id, test_run_id, where="labels.abstain"
             ),
         )[0]
 
@@ -238,8 +268,8 @@ def _require_assertion_ids(labels: list[LabelUpdate]) -> None:
         raise ValueError(
             f"Agent verdicts must name an assertion: {', '.join(map(str, unscoped))}. "
             "Pass the assertion_id of the assertion each verdict scores to "
-            "labels.save, save_all, and skip. Only archive may omit it, to clear an "
-            "old whole-trace verdict."
+            "labels.save, save_all, skip, and abstain. Only archive may omit it, to "
+            "clear an old whole-trace verdict."
         )
 
 

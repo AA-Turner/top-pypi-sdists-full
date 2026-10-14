@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -1722,3 +1723,82 @@ def test_the_menu_reads_capy_state_once_not_every_frame(home, monkeypatch):
     caps = {"capy": capabilities.Capabilities(agent_source="capy")}
     setup.describe_state(caps, installed=["capy"], cloud={"capy": ("capture on", False)})
     assert calls == [], "a precomputed status is used as given"
+
+
+def test_the_add_plugin_link_is_the_one_capy_opened_prefilled():
+    """Richard's Mac, Capy 0.4.6 (2026-10-13): this exact encoded link opened
+    Add from GitHub with the URL filled in; the raw URL opened nothing."""
+    assert capy_cli.ADD_PLUGIN_LINK == (
+        "capy://app/settings/mcp?github="
+        "https%3A%2F%2Fgithub.com%2Fprbe-ai%2Fresearch-os-agent%2Ftree%2Fmain%2Fcapy"
+    )
+
+
+#: The real check: conftest pins it False so no test can open the real app.
+_REAL_CAN_OPEN = capy_cli.can_open_add_plugin
+
+
+@pytest.fixture
+def capy_app_here(monkeypatch):
+    """Capy on this Mac, the hosted Probe, a local screen, and `open`
+    recorded, not run."""
+    from probe.cli import cloud_agents
+
+    for name in ("PROBE_MCP_URL", "PROBE_BASE_URL", "SSH_CONNECTION", "SSH_TTY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(capy_cli, "can_open_add_plugin", _REAL_CAN_OPEN)
+    monkeypatch.setattr(cloud_agents, "found_here", lambda source: source == capy_cli.SOURCE)
+    monkeypatch.setattr(capy_cli.sys, "platform", "darwin")
+    opened: list[list[str]] = []
+
+    def run(argv, **_kwargs):
+        opened.append(argv)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(capy_cli.subprocess, "run", run)
+    return opened
+
+
+def test_opening_capy_runs_open_with_the_prefilled_link(home, capy_app_here):
+    assert capy_cli.can_open_add_plugin() is True
+    assert capy_cli.open_add_plugin() is True
+    assert capy_app_here == [["open", capy_cli.ADD_PLUGIN_LINK]]
+
+
+@pytest.mark.parametrize("case", ["no app", "self-hosted", "linux", "windows", "over ssh"])
+def test_capy_is_not_offered_where_the_link_cannot_work(home, capy_app_here, monkeypatch, case):
+    """Windows is left out until its deep links are checked: an Electron app
+    gets them on the command line there, not as the Mac's open-url event."""
+    from probe.cli import cloud_agents
+
+    if case == "no app":
+        monkeypatch.setattr(cloud_agents, "found_here", lambda source: False)
+    elif case == "self-hosted":
+        monkeypatch.setenv("PROBE_BASE_URL", "https://probe.example.com")
+    elif case in ("linux", "windows"):
+        monkeypatch.setattr(capy_cli.sys, "platform", "linux" if case == "linux" else "win32")
+    else:
+        monkeypatch.setenv("SSH_CONNECTION", "10.0.0.2 51000 10.0.0.1 22")
+    assert capy_cli.can_open_add_plugin() is False
+
+
+def test_a_failed_open_says_so(home, capy_app_here, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        capy_cli.subprocess, "run", lambda argv, **_: calls.append(argv) or SimpleNamespace(returncode=1)
+    )
+    assert capy_cli.open_add_plugin() is False and calls == [["open", capy_cli.ADD_PLUGIN_LINK]]
+
+
+def test_the_last_page_offers_capy_and_never_opens_it_unasked(home, capy_app_here):
+    import importlib
+
+    cli_main = importlib.import_module("probe.cli.main")
+    lines, opens = cli_main._cloud_agent_finish(
+        [capy_cli.SOURCE, "claude_code"], tracking=True, base_url=None
+    )
+    assert capy_app_here == [], "building the page opens nothing"
+    assert "Only me" in "\n".join(lines) and capy_cli.PLUGIN_URL in "\n".join(lines)
+    assert [name for name, _ in opens] == [capy_cli.label()]
+    assert cli_main._cloud_agent_finish([capy_cli.SOURCE], tracking=False, base_url=None) == ([], [])
+    assert capy_app_here == []

@@ -481,7 +481,7 @@ bool MyFrame::ProcessEvent(wxEvent& event)
     {
         return wxFrame::ProcessEvent(event);
     }
-    catch ( const wxChar *msg )
+    catch ( const char *msg )
     {
         wxLogMessage("Caught a string \"%s\" in MyFrame", msg);
 
@@ -643,15 +643,15 @@ MyDialog::MyDialog(wxFrame *parent)
     wxSizer *sizerTop = new wxBoxSizer(wxVERTICAL);
 
     sizerTop->Add(new wxButton(this, Except_ThrowInt, "Throw &int"),
-                  0, wxEXPAND | wxALL, 5);
+                  wxSizerFlags().Expand().Border());
     sizerTop->Add(new wxButton(this, Except_ThrowObject, "Throw &object"),
-                  0, wxEXPAND | wxALL, 5);
+                  wxSizerFlags().Expand().Border());
     sizerTop->Add(new wxButton(this, Except_ThrowUnhandled, "Throw &unhandled"),
-                  0, wxEXPAND | wxALL, 5);
+                  wxSizerFlags().Expand().Border());
     sizerTop->Add(new wxButton(this, Except_Crash, "&Crash"),
-                  0, wxEXPAND | wxALL, 5);
+                  wxSizerFlags().Expand().Border());
     sizerTop->Add(new wxButton(this, wxID_CANCEL, "&Cancel"),
-                  0, wxEXPAND | wxALL, 5);
+                  wxSizerFlags().Expand().Border());
 
     SetSizerAndFit(sizerTop);
 }

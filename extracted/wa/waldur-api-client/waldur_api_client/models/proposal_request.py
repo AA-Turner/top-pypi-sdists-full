@@ -20,9 +20,6 @@ class ProposalRequest:
         round_uuid (UUID):
         description (Union[Unset, str]):
         project_summary (Union[Unset, str]):
-        project_is_confidential (Union[Unset, bool]):
-        project_has_civilian_purpose (Union[Unset, bool]):
-        duration_in_days (Union[None, Unset, int]): Duration in days after provisioning of resources.
         oecd_fos_2007_code (Union[BlankEnum, None, OecdFos2007CodeEnum, Unset]):
         science_sub_domain (Union[None, UUID, Unset]):
     """
@@ -31,9 +28,6 @@ class ProposalRequest:
     round_uuid: UUID
     description: Union[Unset, str] = UNSET
     project_summary: Union[Unset, str] = UNSET
-    project_is_confidential: Union[Unset, bool] = UNSET
-    project_has_civilian_purpose: Union[Unset, bool] = UNSET
-    duration_in_days: Union[None, Unset, int] = UNSET
     oecd_fos_2007_code: Union[BlankEnum, None, OecdFos2007CodeEnum, Unset] = UNSET
     science_sub_domain: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -46,16 +40,6 @@ class ProposalRequest:
         description = self.description
 
         project_summary = self.project_summary
-
-        project_is_confidential = self.project_is_confidential
-
-        project_has_civilian_purpose = self.project_has_civilian_purpose
-
-        duration_in_days: Union[None, Unset, int]
-        if isinstance(self.duration_in_days, Unset):
-            duration_in_days = UNSET
-        else:
-            duration_in_days = self.duration_in_days
 
         oecd_fos_2007_code: Union[None, Unset, str]
         if isinstance(self.oecd_fos_2007_code, Unset):
@@ -87,12 +71,6 @@ class ProposalRequest:
             field_dict["description"] = description
         if project_summary is not UNSET:
             field_dict["project_summary"] = project_summary
-        if project_is_confidential is not UNSET:
-            field_dict["project_is_confidential"] = project_is_confidential
-        if project_has_civilian_purpose is not UNSET:
-            field_dict["project_has_civilian_purpose"] = project_has_civilian_purpose
-        if duration_in_days is not UNSET:
-            field_dict["duration_in_days"] = duration_in_days
         if oecd_fos_2007_code is not UNSET:
             field_dict["oecd_fos_2007_code"] = oecd_fos_2007_code
         if science_sub_domain is not UNSET:
@@ -110,19 +88,6 @@ class ProposalRequest:
         description = d.pop("description", UNSET)
 
         project_summary = d.pop("project_summary", UNSET)
-
-        project_is_confidential = d.pop("project_is_confidential", UNSET)
-
-        project_has_civilian_purpose = d.pop("project_has_civilian_purpose", UNSET)
-
-        def _parse_duration_in_days(data: object) -> Union[None, Unset, int]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, int], data)
-
-        duration_in_days = _parse_duration_in_days(d.pop("duration_in_days", UNSET))
 
         def _parse_oecd_fos_2007_code(data: object) -> Union[BlankEnum, None, OecdFos2007CodeEnum, Unset]:
             if data is None:
@@ -171,9 +136,6 @@ class ProposalRequest:
             round_uuid=round_uuid,
             description=description,
             project_summary=project_summary,
-            project_is_confidential=project_is_confidential,
-            project_has_civilian_purpose=project_has_civilian_purpose,
-            duration_in_days=duration_in_days,
             oecd_fos_2007_code=oecd_fos_2007_code,
             science_sub_domain=science_sub_domain,
         )

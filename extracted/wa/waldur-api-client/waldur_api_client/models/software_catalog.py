@@ -28,6 +28,7 @@ class SoftwareCatalog:
         name (str): Catalog name (e.g., EESSI, Spack)
         version (str): Catalog version (e.g., 2023.06, 0.21.0)
         catalog_type_display (str):
+        supports_cpu_target_restrictions (bool):
         last_update_attempt (Union[None, datetime.datetime]):
         last_successful_update (Union[None, datetime.datetime]):
         package_count (int):
@@ -49,6 +50,7 @@ class SoftwareCatalog:
     name: str
     version: str
     catalog_type_display: str
+    supports_cpu_target_restrictions: bool
     last_update_attempt: Union[None, datetime.datetime]
     last_successful_update: Union[None, datetime.datetime]
     package_count: int
@@ -76,6 +78,8 @@ class SoftwareCatalog:
         version = self.version
 
         catalog_type_display = self.catalog_type_display
+
+        supports_cpu_target_restrictions = self.supports_cpu_target_restrictions
 
         last_update_attempt: Union[None, str]
         if isinstance(self.last_update_attempt, datetime.datetime):
@@ -122,6 +126,7 @@ class SoftwareCatalog:
                 "name": name,
                 "version": version,
                 "catalog_type_display": catalog_type_display,
+                "supports_cpu_target_restrictions": supports_cpu_target_restrictions,
                 "last_update_attempt": last_update_attempt,
                 "last_successful_update": last_successful_update,
                 "package_count": package_count,
@@ -162,6 +167,8 @@ class SoftwareCatalog:
         version = d.pop("version")
 
         catalog_type_display = d.pop("catalog_type_display")
+
+        supports_cpu_target_restrictions = d.pop("supports_cpu_target_restrictions")
 
         def _parse_last_update_attempt(data: object) -> Union[None, datetime.datetime]:
             if data is None:
@@ -229,6 +236,7 @@ class SoftwareCatalog:
             name=name,
             version=version,
             catalog_type_display=catalog_type_display,
+            supports_cpu_target_restrictions=supports_cpu_target_restrictions,
             last_update_attempt=last_update_attempt,
             last_successful_update=last_successful_update,
             package_count=package_count,

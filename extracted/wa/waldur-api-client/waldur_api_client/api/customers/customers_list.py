@@ -188,7 +188,11 @@ def sync_detailed(
 ) -> Response[list["Customer"]]:
     """List customers
 
-     Retrieve a list of customers. The list is filtered based on the user's permissions.
+     Retrieve a list of customers. The list is filtered based on the user's permissions. A user whose
+    only link to an organization is a role on its service provider sees it with a restricted field set:
+    url, uuid, name, native_name, display_name, abbreviation, slug, image, country, country_name,
+    is_service_provider, service_provider and service_provider_uuid. All other fields are omitted for
+    that row.
 
     Args:
         abbreviation (Union[Unset, str]):
@@ -294,7 +298,11 @@ def sync(
 ) -> list["Customer"]:
     """List customers
 
-     Retrieve a list of customers. The list is filtered based on the user's permissions.
+     Retrieve a list of customers. The list is filtered based on the user's permissions. A user whose
+    only link to an organization is a role on its service provider sees it with a restricted field set:
+    url, uuid, name, native_name, display_name, abbreviation, slug, image, country, country_name,
+    is_service_provider, service_provider and service_provider_uuid. All other fields are omitted for
+    that row.
 
     Args:
         abbreviation (Union[Unset, str]):
@@ -395,7 +403,11 @@ async def asyncio_detailed(
 ) -> Response[list["Customer"]]:
     """List customers
 
-     Retrieve a list of customers. The list is filtered based on the user's permissions.
+     Retrieve a list of customers. The list is filtered based on the user's permissions. A user whose
+    only link to an organization is a role on its service provider sees it with a restricted field set:
+    url, uuid, name, native_name, display_name, abbreviation, slug, image, country, country_name,
+    is_service_provider, service_provider and service_provider_uuid. All other fields are omitted for
+    that row.
 
     Args:
         abbreviation (Union[Unset, str]):
@@ -499,7 +511,11 @@ async def asyncio(
 ) -> list["Customer"]:
     """List customers
 
-     Retrieve a list of customers. The list is filtered based on the user's permissions.
+     Retrieve a list of customers. The list is filtered based on the user's permissions. A user whose
+    only link to an organization is a role on its service provider sees it with a restricted field set:
+    url, uuid, name, native_name, display_name, abbreviation, slug, image, country, country_name,
+    is_service_provider, service_provider and service_provider_uuid. All other fields are omitted for
+    that row.
 
     Args:
         abbreviation (Union[Unset, str]):

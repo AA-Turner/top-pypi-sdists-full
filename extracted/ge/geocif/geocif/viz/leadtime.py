@@ -28,6 +28,8 @@ Usage:
 """
 
 import argparse
+
+from geocif.utils import display_model_name
 import sqlite3
 import sys
 from pathlib import Path
@@ -246,7 +248,7 @@ def plot_metric(tab, metric, ylabel, higher_better, title, out_stem, units="Mg/h
         for m in ml:
             sub = tab[tab["Model"] == m].sort_values("asof")
             ax.plot(sub["asof"], sub[metric], marker=MARKERS[m], ms=5, lw=1.7,
-                    color=COLORS[m], label=m, zorder=3)
+                    color=COLORS[m], label=display_model_name(m), zorder=3)
 
         # Crossing months are deliberately NOT marked here. An earlier version
         # drew a coloured tick on each baseline at the crossing, but the glyph

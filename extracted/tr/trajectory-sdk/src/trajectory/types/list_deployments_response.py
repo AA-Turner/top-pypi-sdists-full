@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.deployments.deployment import Deployment
 
 
-class ListDeploymentsResponse(BaseModel):
+class ListDeploymentsResponse(SyncPage[Deployment]):
   items: list[Deployment]
   """Deployments on this page, newest first."""
 

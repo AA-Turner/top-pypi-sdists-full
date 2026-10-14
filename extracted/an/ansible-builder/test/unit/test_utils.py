@@ -7,6 +7,18 @@ import pytest
 from ansible_builder.utils import configure_logger, write_file, copy_directory, copy_file, run_command
 
 
+def assert_file(path: pathlib.Path, expected_text: str):
+    assert path.exists()
+    assert not path.is_symlink()
+    assert path.read_text() == expected_text
+
+
+def assert_symlink(path: pathlib.Path, target_path: pathlib.Path):
+    assert path.exists()
+    assert path.is_symlink()
+    assert os.readlink(path) == str(target_path)
+
+
 def test_write_file(tmp_path):
     path = tmp_path / 'bar' / 'foo.txt'
     text = [
@@ -53,11 +65,11 @@ def test_copy_file_with_destination_directory(dest_file, source_file):
     # Change source file to trigger copy_file
     source_file.write_text('foo\nbar\nzoo')
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(ValueError) as err:
         copy_file(source_file, '/tmp')
     assert "can not be a directory" in str(err.value.args[0])
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(ValueError) as err:
         copy_file('/tmp', dest_file)
     assert "can not be a directory" in str(err.value.args[0])
 
@@ -119,7 +131,7 @@ def test_copy_directory_notadir(tmp_path):
     """
     notadir = tmp_path / 'xyz'
     notadir.touch()
-    with pytest.raises(Exception, match="Expected a directory at *"):
+    with pytest.raises(ValueError, match="Expected a directory at *"):
         copy_directory(notadir, 'abc')
 
 
@@ -145,3 +157,165 @@ def test_copy_directory(tmp_path):
     dcmp = filecmp.dircmp(str(src), str(dst))
     assert not dcmp.left_only
     assert not dcmp.right_only
+
+
+def test_regular_to_missing(tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("abc")
+    dest = tmp_path / "dest.txt"
+
+    # First copy
+    copied = copy_file(str(source), str(dest))
+    assert copied is True
+    assert_file(dest, "abc")
+
+    # Second copy - no changes
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_file(dest, "abc")
+
+
+def test_symlink_to_missing(tmp_path):
+    target = tmp_path / "target.txt"
+    target.write_text("abc")
+    source = tmp_path / "source_symlink"
+    os.symlink(target, source)
+
+    dest = tmp_path / "dest"
+
+    # Before Copy
+    assert_symlink(source, target)
+    assert not dest.exists()
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is True
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+
+def test_symlink_to_same_symlink(tmp_path):
+    target = tmp_path / "target.txt"
+    target.write_text("abc")
+    source = tmp_path / "source_symlink"
+    dest = tmp_path / "dest_symlink"
+    os.symlink(target, source)
+    os.symlink(target, dest)
+
+    # Before Copy
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+
+def test_symlink_to_different_symlink(tmp_path):
+    target1 = tmp_path / "target1.txt"
+    target2 = tmp_path / "target2.txt"
+    target1.write_text("abc")
+    target2.write_text("def")
+
+    source = tmp_path / "source_symlink"
+    dest = tmp_path / "dest_symlink"
+    os.symlink(target1, source)
+    os.symlink(target2, dest)
+
+    # Before Copy
+    assert_symlink(source, target1)
+    assert_symlink(dest, target2)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is True
+    assert_symlink(source, target1)
+    assert_symlink(dest, target1)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_symlink(source, target1)
+    assert_symlink(dest, target1)
+
+
+def test_symlink_overwrites_regular_file(tmp_path):
+    target = tmp_path / "target.txt"
+    target.write_text("abc")
+    source = tmp_path / "source_symlink"
+    os.symlink(target, source)
+
+    dest = tmp_path / "dest.txt"
+    dest.write_text("def")  # existing regular file
+
+    # Before Copy
+    assert_symlink(source, target)
+    assert_file(dest, "def")
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is True
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_symlink(source, target)
+    assert_symlink(dest, target)
+
+
+def test_regular_file_overwrites_symlink(tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("abc")
+
+    old_target = tmp_path / "old_target.txt"
+    old_target.write_text("def")
+    dest = tmp_path / "dest_symlink"
+    os.symlink(old_target, dest)
+
+    # Before Copy
+    assert_symlink(dest, old_target)
+    assert_file(source, "abc")
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is True
+    assert_file(source, "abc")
+    assert_file(dest, "abc")
+
+    # Clear filecmp's cache to ensure the next comparison re-checks file contents
+    filecmp.clear_cache()
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert_file(source, "abc")
+    assert_file(dest, "abc")
+
+
+def test_symlink_broken_target(tmp_path):
+    # Broken symlink: still copy as symlink
+    target = tmp_path / "missing_target.txt"  # doesn't exist
+    source = tmp_path / "broken_symlink"
+    os.symlink(target, source)
+
+    dest = tmp_path / "dest"
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is True
+    assert not source.exists()
+    assert not dest.exists()  # Symlink points to a file that does not exist
+    assert dest.is_symlink()
+    assert os.readlink(dest) == str(target)
+
+    copied = copy_file(str(source), str(dest))
+    assert copied is False
+    assert not source.exists()
+    assert not dest.exists()
+    assert dest.is_symlink()
+    assert os.readlink(dest) == str(target)

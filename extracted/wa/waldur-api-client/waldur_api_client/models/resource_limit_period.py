@@ -15,14 +15,14 @@ class ResourceLimitPeriod:
     Attributes:
         start (Union[Unset, str]): Start date of the resource limit period
         end (Union[Unset, str]): End date of the resource limit period
-        quantity (Union[Unset, int]): Quantity of resources consumed during this period
+        quantity (Union[Unset, float]): Quantity of resources consumed during this period
         billing_periods (Union[Unset, int]): Number of billing periods
         total (Union[Unset, str]): Total amount for this period
     """
 
     start: Union[Unset, str] = UNSET
     end: Union[Unset, str] = UNSET
-    quantity: Union[Unset, int] = UNSET
+    quantity: Union[Unset, float] = UNSET
     billing_periods: Union[Unset, int] = UNSET
     total: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)

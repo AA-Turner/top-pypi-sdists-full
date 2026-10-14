@@ -23,6 +23,8 @@ capture, the SDK and the daemon share, R4), so `session(op=search)` and
     files      the folder check's last-seen snapshot (size, mtime, text copy)
     rounds     one row per model response (T10): model, input / cached / output
                tokens, the tools it called, its estimated dollars
+    run_alerts the server's run alerts this session's mailbox was handed (its
+               ids, and the message that carried each), so each goes out once
     conversations
                conversation mode (T15): the saved message history of the one
                live conversation, resumed on respawn while its fingerprint
@@ -48,7 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
 
-from probe.daemon.events import READER_SOURCE, Event, Kind
+from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Event, Kind
 from probe.tap_core import secrets
 
 FORMAT_VERSION = 1
@@ -210,6 +212,52 @@ CREATE TABLE IF NOT EXISTS read_turns (
     output_tokens INTEGER NOT NULL DEFAULT 0,
     usd REAL
 );
+-- The run-alert poller's record (`run_alerts.py`): an alert id here is in the
+-- mailbox already. Added in format 1: a store from an earlier build gains it on
+-- open, and an earlier CLI never reads it.
+CREATE TABLE IF NOT EXISTS run_alerts (
+    id INTEGER PRIMARY KEY,
+    message_id TEXT NOT NULL,
+    seen_at REAL NOT NULL
+);
+-- The main agent's requests to the writer (`probe ask --writer`): waiting until
+-- the run that saw one ends (answered) or it will not run (failed, its event
+-- retired). `event_seq`: its event in `events`.
+CREATE TABLE IF NOT EXISTS write_requests (
+    id TEXT PRIMARY KEY,
+    text TEXT NOT NULL,
+    asked_at REAL NOT NULL,
+    wait INTEGER NOT NULL DEFAULT 0,
+    taken_at REAL NOT NULL,
+    state TEXT NOT NULL DEFAULT 'waiting',
+    ended_at REAL,
+    reason TEXT,
+    event_seq INTEGER,
+    bite INTEGER,
+    first_bite INTEGER,
+    conversation INTEGER
+);
+-- The bites that worked on each request: the ones that showed its event, and a
+-- conversation's later bites while its history holds it. A reply or a failure
+-- lists their writes, never an unrelated run's.
+CREATE TABLE IF NOT EXISTS write_request_bites (
+    request_id TEXT NOT NULL,
+    bite INTEGER NOT NULL,
+    PRIMARY KEY (request_id, bite)
+);
+-- What the writer sends the main agent (replies, failures, receipts), published
+-- by id after the transaction that saved it: NOT `read_messages`, whose ids the
+-- worker reads back as the reader's.
+CREATE TABLE IF NOT EXISTS writer_messages (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    ask TEXT,
+    text TEXT NOT NULL DEFAULT '',
+    reason TEXT,
+    bite INTEGER,
+    made_at REAL NOT NULL,
+    published INTEGER NOT NULL DEFAULT 0
+);
 """
 #: Ended conversations keep their message history this many deep (the rest only
 #: their row): enough to look at what went wrong, never a growing file.
@@ -313,6 +361,8 @@ CARRY_ON = "carry_on"
 #: A bite's outcome when its run finished, and when it paused (`Worker._paused`).
 BITE_DONE = "done"
 BITE_PAUSED = "paused"
+#: A run that stopped unfinished, its events covered as skipped (`Worker._cut_short`).
+BITE_SKIPPED = "cut short: skipped"
 def _epoch(ts: str | None) -> float | None:
     """An event's ISO stamp (`2026-09-29T05:44:59.989Z`) as epoch seconds, or None."""
     if not ts:
@@ -722,7 +772,7 @@ class Store:
         (`events_sizes_source`), and they only make the writer's window start later."""
         rows = self.db.execute(
             "SELECT turn, min(seq) AS s, sum(CASE "
-            f"WHEN source = '{READER_SOURCE}' THEN min(chars, 20000) + 40 "
+            f"WHEN source IN ('{READER_SOURCE}', '{REQUEST_SOURCE}') THEN min(chars, 20000) + 40 "
             "WHEN kind = 'tool_output' THEN 90 "
             "WHEN kind = 'agent_reasoning' THEN min(chars, 2000) + 40 "
             "WHEN kind IN ('meta', 'subagent') THEN min(chars, 300) + 40 "
@@ -871,8 +921,15 @@ class Store:
         self.db.execute("INSERT INTO lookups (bite, at, tool, query, result) VALUES (?, ?, ?, ?, ?)",
                         (bite, self.clock(), tool, scrub(query)[:4000], scrub(result)[:4000]))
 
-    def search_logbook(self, query: str, limit: int = 20) -> list[sqlite3.Row]:
+    def search_logbook(self, query: str, limit: int = 20, *, writes_only: bool = False) -> list[sqlite3.Row]:
+        """The logbook's lines matching `query`, newest first. `writes_only` (the
+        reader): the commands only -- the writer's lookups hold what it read,
+        files the reader may not open, and a write's output is matched by none."""
         like = f"%{query}%"
+        if writes_only:
+            return list(self.db.execute(
+                "SELECT 'write' AS what, id, at, argv AS body, status, reason FROM writes WHERE argv LIKE ? "
+                "AND status != 'read' ORDER BY at DESC LIMIT ?", (like, limit)))
         return list(self.db.execute(
             "SELECT 'write' AS what, id, at, argv AS body, status, reason FROM writes WHERE argv LIKE ? OR output LIKE ? "
             "UNION ALL SELECT 'lookup', id, at, tool || ': ' || query, '', result FROM lookups "
@@ -1044,6 +1101,23 @@ class Store:
     def mark_read_message_published(self, message_id: str) -> None:
         self.db.execute("UPDATE read_messages SET published = 1 WHERE id = ?", (message_id,))
 
+    # -- run alerts --
+    def delivered_run_alerts(self, ids: list[int]) -> set[int]:
+        """Which of these server alert ids the mailbox was already handed."""
+        out: set[int] = set()
+        for start in range(0, len(ids), 500):
+            chunk = [int(i) for i in ids[start:start + 500]]
+            marks = ", ".join("?" for _ in chunk)
+            out.update(int(row["id"]) for row in self.db.execute(
+                f"SELECT id FROM run_alerts WHERE id IN ({marks})", chunk))
+        return out
+
+    def add_run_alerts(self, ids: list[int], message_id: str) -> None:
+        """Record that these alerts went to the mailbox in message `message_id`."""
+        now = self.clock()
+        self.db.executemany("INSERT OR IGNORE INTO run_alerts (id, message_id, seen_at) VALUES (?, ?, ?)",
+                            [(int(i), message_id, now) for i in ids])
+
     def open_read_turn(self, trigger: str, ask: str | None, first_seq: int | None, last_seq: int | None) -> int:
         cur = self.db.execute("INSERT INTO read_turns (started, trigger, ask, first_seq, last_seq) "
                               "VALUES (?, ?, ?, ?, ?)", (self.clock(), trigger, ask, first_seq, last_seq))
@@ -1073,6 +1147,107 @@ class Store:
         return {"turns": int(row["n"] or 0), "outcomes": outcomes, "input_tokens": int(row["i"] or 0),
                 "cached_tokens": int(row["c"] or 0), "output_tokens": int(row["o"] or 0),
                 "usd": float(row["usd"] or 0.0), "messages": messages}
+
+    # -- the main agent's requests to the writer, and what the writer sends back --
+    def add_write_request(self, request_id: str, text: str, asked_at: float, wait: bool, event_seq: int | None,
+                          *, state: str = "waiting", reason: str | None = None) -> bool:
+        """Store a request the mailbox handed over. False: already stored."""
+        cur = self.db.execute(
+            "INSERT OR IGNORE INTO write_requests (id, text, asked_at, wait, taken_at, state, ended_at, reason, "
+            "event_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (request_id, text, asked_at, int(wait), self.clock(), state,
+             self.clock() if state != "waiting" else None, reason, event_seq))
+        return cur.rowcount > 0
+
+    def has_write_request(self, request_id: str) -> bool:
+        return self.db.execute("SELECT 1 FROM write_requests WHERE id = ?", (request_id,)).fetchone() is not None
+
+    def waiting_write_requests(self) -> list[sqlite3.Row]:
+        """Waiting requests, oldest first, with where their event stands (`event_bite`)."""
+        return list(self.db.execute(
+            "SELECT r.*, e.bite AS event_bite FROM write_requests r LEFT JOIN events e ON e.seq = r.event_seq "
+            "WHERE r.state = 'waiting' ORDER BY r.asked_at, r.id"))
+
+    def end_write_request(self, request_id: str, state: str, *, reason: str | None = None,
+                          bite: int | None = None) -> bool:
+        """Inside a transaction: close a waiting request. A failed one's event is
+        retired (no bite covers it now, and none ever will: it never runs later)."""
+        row = self.db.execute("SELECT event_seq FROM write_requests WHERE id = ? AND state = 'waiting'",
+                              (request_id,)).fetchone()
+        if row is None:
+            return False
+        self.db.execute("UPDATE write_requests SET state = ?, ended_at = ?, reason = ?, bite = ? WHERE id = ?",
+                        (state, self.clock(), reason, bite, request_id))
+        if state == "failed" and row["event_seq"] is not None:
+            # Wherever it stood, a paused run's bite included: requeueing that run
+            # (`requeue_paused`) must not hand it to a fresh one.
+            self.db.execute("UPDATE events SET bite = ? WHERE seq = ?", (UNRECORDED_BITE, int(row["event_seq"])))
+        return True
+
+    def mark_requests_seen(self, bite_id: int, first_seq: int | None, last_seq: int | None,
+                           conversation: int | None) -> None:
+        """Bite `bite_id` starts: the waiting requests it shows (events
+        `first_seq`..`last_seq`) were seen by it (`first_bite` keeps the first
+        such bite) and belong to `conversation` (None: bites mode); it works on
+        them, and on those `conversation`'s history already holds (a run of it
+        covered their event), so their writes are listed with them."""
+        if first_seq:
+            self.db.execute("UPDATE write_requests SET first_bite = coalesce(first_bite, ?), conversation = ? "
+                            "WHERE state = 'waiting' AND event_seq BETWEEN ? AND ?",
+                            (bite_id, conversation, first_seq, last_seq))
+        self.db.execute(
+            "INSERT OR IGNORE INTO write_request_bites (request_id, bite) SELECT r.id, ? FROM write_requests r "
+            "LEFT JOIN events e ON e.seq = r.event_seq WHERE r.state = 'waiting' AND r.first_bite IS NOT NULL "
+            "AND (r.event_seq BETWEEN ? AND ? OR (r.conversation IS NOT NULL AND r.conversation = ? AND e.bite >= 1))",
+            (bite_id, first_seq or 0, last_seq or -1, conversation if conversation is not None else -1))
+
+    def bites_of_requests(self, first_bite: int, last_bite: int) -> set[int]:
+        """The bites in `first_bite`..`last_bite` that worked on any request: their
+        writes are told by that request's reply or failure, never by a receipt."""
+        return {int(r["bite"]) for r in self.db.execute(
+            "SELECT DISTINCT bite FROM write_request_bites WHERE bite BETWEEN ? AND ?", (first_bite, last_bite))}
+
+    def request_bites(self, request_id: str) -> set[int]:
+        return {int(r["bite"]) for r in self.db.execute(
+            "SELECT bite FROM write_request_bites WHERE request_id = ?", (request_id,))}
+
+    def writes_of_bites(self, bites: set[int] | list[int]) -> list[sqlite3.Row]:
+        """The writes bites `bites` made, oldest first."""
+        ids = sorted({int(b) for b in bites})
+        if not ids:
+            return []
+        marks = ", ".join("?" * len(ids))
+        return list(self.db.execute(f"SELECT * FROM writes WHERE bite IN ({marks}) ORDER BY id", ids))
+
+    def has_pending_request(self) -> bool:
+        """Does a request wait in the queue (anywhere in it)? One row."""
+        return self.db.execute("SELECT 1 FROM events WHERE bite IS NULL AND source = ? LIMIT 1",
+                               (REQUEST_SOURCE,)).fetchone() is not None
+
+    def run_start(self, bite_id: int) -> int:
+        """The first bite of the run that ends at `bite_id` (a paused run spans
+        several): the one after the newest earlier bite that ended a run --
+        finished, or skipped with requests failed (their failure told its writes,
+        so the next receipt does not tell them again; a skipped run with no
+        request is told by the next run's receipt)."""
+        row = self.db.execute(
+            "SELECT max(id) AS b FROM bites WHERE id < ? AND (outcome = ? OR (outcome = ? AND EXISTS "
+            "(SELECT 1 FROM writer_messages m WHERE m.bite = bites.id AND m.kind = 'failed')))",
+            (bite_id, BITE_DONE, BITE_SKIPPED)).fetchone()
+        return int(row["b"] or 0) + 1
+
+    def add_writer_message(self, *, message_id: str, kind: str, text: str = "", ask: str | None = None,
+                           reason: str | None = None, bite: int | None = None) -> None:
+        self.db.execute("INSERT OR IGNORE INTO writer_messages (id, kind, ask, text, reason, bite, made_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (message_id, kind, ask, scrub(text), scrub(reason) if reason else reason, bite,
+                         self.clock()))
+
+    def unpublished_writer_messages(self) -> list[sqlite3.Row]:
+        return list(self.db.execute("SELECT * FROM writer_messages WHERE published = 0 ORDER BY made_at, id"))
+
+    def mark_writer_message_published(self, message_id: str) -> None:
+        self.db.execute("UPDATE writer_messages SET published = 1 WHERE id = ?", (message_id,))
 
     # -- folder check --
     def file_row(self, path: str) -> sqlite3.Row | None:

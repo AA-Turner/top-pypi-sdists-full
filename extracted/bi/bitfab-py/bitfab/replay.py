@@ -848,6 +848,7 @@ def replay(
         _CODE_CHANGE_UNSET
     ),
     experiment_group_id: str | None = None,
+    experiment_group_name: str | None = None,
     dataset_id: str | None = None,
     dataset_ids: list[str] | None = None,
     grader_ids: list[str] | None = None,
@@ -939,8 +940,13 @@ def replay(
             argument to capture automatically, or pass ``None`` to suppress
             file capture for this replay.
         experiment_group_id: Optional UUID that groups multiple replay runs
-            into a single experiment batch. The experiments page can stream
+            into a single experiment batch. The run joins that group, and an ID
+            no group has yet creates it. The experiments page can stream
             results live by filtering on this ID.
+        experiment_group_name: Optional name for the experiment group, 1 to
+            120 characters. Applied when this replay creates the group or the
+            group has no name yet. A group that already has a name keeps it.
+            Requires ``experiment_group_id``.
         dataset_id: Optional UUID of the dataset this replay runs against.
             Mutually exclusive with ``dataset_ids``. Alone it replays the
             dataset's full membership, and with ``trace_ids`` it replays only
@@ -1083,6 +1089,11 @@ def replay(
             )
     if force and resume is None:
         raise ValueError("force only applies to resume: pass resume=<experiment ID>.")
+    if experiment_group_name is not None and experiment_group_id is None:
+        raise ValueError(
+            "experiment_group_name names an experiment group, so it needs "
+            "experiment_group_id: pass the group's ID with it."
+        )
     if resume is not None and not resume.strip():
         raise ValueError("resume needs the experiment ID of the replay to continue.")
     if resume is not None:
@@ -1205,6 +1216,7 @@ def replay(
             code_change_description=resolved_code_change_description,
             code_change_files=request_code_change_files,
             experiment_group_id=experiment_group_id,
+            experiment_group_name=experiment_group_name,
             include_db_branch_lease=include_db_branch_lease,
             include_original_metadata=adapt_inputs is not None,
             dataset_ids=resolved_dataset_ids,

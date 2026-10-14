@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spsdk-pyocd
-Version: 0.3.10
+Version: 0.3.12
 Summary: PyOCD SW Debugger. A debugger probe plugin for SPSDK.
 Author: NXP
 Maintainer-email: NXP <spsdk@nxp.com>

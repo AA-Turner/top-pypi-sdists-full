@@ -3,26 +3,31 @@
 Tests for the photometry module.
 """
 
-import tempfile
+import gc
+import sys
+import warnings
+from itertools import pairwise
+from types import MappingProxyType
 
 import astropy.units as u
 import numpy as np
 import pytest
 from astropy.modeling.fitting import (LevMarLSQFitter, LMLSQFitter,
                                       SimplexLSQFitter, TRFLSQFitter)
-from astropy.modeling.models import Gaussian1D, Gaussian2D
+from astropy.modeling.models import Const2D, Gaussian1D, Gaussian2D
 from astropy.nddata import NDData, StdDevUncertainty
 from astropy.table import QTable, Table
-from astropy.utils.exceptions import (AstropyDeprecationWarning,
-                                      AstropyUserWarning)
+from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose, assert_equal
 
 from photutils.background import LocalBackground, MMMBackground
 from photutils.datasets import make_model_image, make_noise_image
 from photutils.detection import DAOStarFinder
-from photutils.psf import (CircularGaussianPRF, PSFPhotometry, SourceGrouper,
-                           make_psf_model, make_psf_model_image)
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.psf import (CircularGaussianPRF, ImagePSF, PSFPhotometry,
+                           SourceGrouper, make_psf_model, make_psf_model_image)
+from photutils.psf.flags import decode_psf_flags
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 
 @pytest.fixture(name='test_data')
@@ -143,15 +148,15 @@ def test_invalid_inputs():
     with pytest.raises(ValueError, match=match):
         _ = psfphot(data, init_params=tbl)
 
-    # test no finder or init_params
+    # Test no finder or init_params
     match = 'finder must be defined if init_params is not input'
     psfphot = PSFPhotometry(model, (3, 3), aperture_radius=5)
     data = np.ones((11, 11))
     with pytest.raises(ValueError, match=match):
         _ = psfphot(data)
 
-    # data has unmasked non-finite value
-    match = 'Input data contains unmasked non-finite values'
+    # data has unmasked nonfinite value
+    match = 'Input data contains unmasked nonfinite values'
     psfphot2 = PSFPhotometry(model, (3, 3), aperture_radius=3)
     init_params = Table()
     init_params['x_init'] = [1, 2]
@@ -161,8 +166,8 @@ def test_invalid_inputs():
     with pytest.warns(AstropyUserWarning, match=match):
         _ = psfphot2(data, init_params=init_params)
 
-    # mask is input, but data has unmasked non-finite value
-    match = 'Input data contains unmasked non-finite values'
+    # mask is input, but data has unmasked nonfinite value
+    match = 'Input data contains unmasked nonfinite values'
     data = np.ones((11, 11))
     data[5, 5] = np.nan
     mask = np.zeros(data.shape, dtype=bool)
@@ -195,6 +200,15 @@ def test_invalid_inputs():
         _ = psfphot(data, init_params=tbl)
 
 
+def test_validate_type_tuple():
+    """
+    Test the type validation error message for a tuple of types.
+    """
+    match = 'value must be a int or float instance'
+    with pytest.raises(TypeError, match=match):
+        PSFPhotometry._validate_type('a', 'value', (int, float))
+
+
 def test_psf_photometry(test_data):
     data, error, sources = test_data
 
@@ -213,18 +227,18 @@ def test_psf_photometry(test_data):
     assert isinstance(resid_data, np.ndarray)
     assert resid_data.shape == data.shape
     assert phot.colnames[:4] == ['id', 'group_id', 'group_size', 'local_bkg']
-    # test that error columns are ordered correctly
+    # Test that error columns are ordered correctly
     assert phot['x_err'].max() > 0.0062
     assert phot['y_err'].max() > 0.0065
     assert phot['flux_err'].max() > 2.5
 
     assert isinstance(psfphot.fit_info, list)
 
-    # test that repeated calls reset the results
+    # Test that repeated calls reset the results
     phot = psfphot(data, error=error)
     assert len(psfphot.fit_info) == len(phot)
 
-    # test units
+    # Test units
     unit = u.Jy
     finderu = DAOStarFinder(6.0 * unit, 2.0)
     psfphotu = PSFPhotometry(psf_model, fit_shape, finder=finderu,
@@ -241,8 +255,25 @@ def test_psf_photometry(test_data):
         assert not isinstance(photu[col], u.Quantity)
 
     match = 'The fit_params function is deprecated'
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         assert isinstance(psfphot.fit_params, Table)
+
+
+def test_psf_photometry_progress_bar(test_data):
+    """
+    Test that photometry runs with a progress bar enabled.
+    """
+    data, error, sources = test_data
+
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    fit_shape = (5, 5)
+    finder = DAOStarFinder(6.0, 2.0)
+    psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
+                            aperture_radius=4, progress_bar=True)
+    phot = psfphot(data, error=error)
+
+    assert isinstance(phot, QTable)
+    assert len(phot) == len(sources)
 
 
 @pytest.mark.parametrize('fit_fwhm', [False, True])
@@ -284,7 +315,7 @@ def test_psf_photometry_nddata(test_data):
     fit_shape = (5, 5)
     finder = DAOStarFinder(6.0, 2.0)
 
-    # test NDData input
+    # Test NDData input
     uncertainty = StdDevUncertainty(error)
     nddata = NDData(data, uncertainty=uncertainty)
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
@@ -299,7 +330,7 @@ def test_psf_photometry_nddata(test_data):
     assert resid_data2.data.shape == data.shape
     assert_allclose(resid_data1, resid_data2.data)
 
-    # test NDData input with units
+    # Test NDData input with units
     unit = u.Jy
     finderu = DAOStarFinder(6.0 * unit, 2.0)
     psfphotu = PSFPhotometry(psf_model, fit_shape, finder=finderu,
@@ -324,7 +355,7 @@ def test_psf_photometry_finite_weights(test_data):
     finder = DAOStarFinder(6.0, 2.0)
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4)
-    match = 'Error array contains non-positive or non-finite values'
+    match = 'Error array contains nonpositive or nonfinite values'
     with pytest.raises(ValueError, match=match):
         _ = psfphot(data, error=error)
 
@@ -368,11 +399,11 @@ def test_model_residual_image(test_data):
 
 def test_model_residual_image_nonfinite_localbkg(test_data):
     """
-    Test that make_model_image and make_residual_image handle non-finite
+    Test that make_model_image and make_residual_image handle nonfinite
     local background values correctly.
 
-    When include_local_bkg=True and the local_bkg is non-finite (NaN or
-    inf), the non-finite value should be treated as 0 and not included
+    When include_local_bkg=True and the local_bkg is nonfinite (NaN or
+    inf), the nonfinite value should be treated as 0 and not included
     in the model or residual images.
     """
     data, error, _ = test_data
@@ -381,7 +412,7 @@ def test_model_residual_image_nonfinite_localbkg(test_data):
     fit_shape = (5, 5)
     finder = DAOStarFinder(10.0, 2.0)
 
-    # Find sources and manually set some local_bkg values to non-finite
+    # Find sources and manually set some local_bkg values to nonfinite
     sources = finder(data)
     sources['local_bkg'] = np.zeros(len(sources))
     sources['local_bkg'][0] = np.nan
@@ -389,7 +420,7 @@ def test_model_residual_image_nonfinite_localbkg(test_data):
     if len(sources) > 2:
         sources['local_bkg'][2] = -np.inf
 
-    # Perform PSF photometry with non-finite local_bkg
+    # Perform PSF photometry with nonfinite local_bkg
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4)
     phot = psfphot(data, error=error, init_params=sources)
@@ -405,9 +436,9 @@ def test_model_residual_image_nonfinite_localbkg(test_data):
     assert np.all(np.isfinite(model_with_bkg))
     assert np.all(np.isfinite(model_without_bkg))
 
-    # For sources with non-finite local_bkg, the model with and without
-    # local_bkg should be identical (since non-finite is treated as 0)
-    # Check this by comparing the models at source positions
+    # For sources with nonfinite local_bkg, the model with and without
+    # local_bkg should be identical (since nonfinite is treated as 0).
+    # Check this by comparing the models at source positions.
     for i in range(min(3, len(phot))):
         if not np.isfinite(phot['local_bkg'][i]):
             x_fit = int(phot['x_fit'][i])
@@ -419,7 +450,7 @@ def test_model_residual_image_nonfinite_localbkg(test_data):
 
 def test_residual_image_localbkg_invalid_sources(test_data):
     """
-    Test that make_residual_image handles sources with non-finite
+    Test that make_residual_image handles sources with nonfinite
     local_bkg values and sources outside the image (invalid sources)
     correctly.
     """
@@ -431,7 +462,7 @@ def test_residual_image_localbkg_invalid_sources(test_data):
 
     sources = finder(data)
 
-    # Add non-finite local_bkg values to init_params
+    # Add nonfinite local_bkg values to init_params
     sources['local_bkg'] = np.zeros(len(sources))
     sources['local_bkg'][0] = np.nan
     sources['local_bkg'][1] = np.inf
@@ -440,7 +471,8 @@ def test_residual_image_localbkg_invalid_sources(test_data):
     sources['x_centroid'][-3] = 1000
     sources['y_centroid'][-3] = 1000
 
-    # Perform PSF photometry with init_params containing non-finite local_bkg
+    # Perform PSF photometry with init_params containing nonfinite
+    # local_bkg
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4)
     psfphot(data, error=error, init_params=sources)
@@ -454,16 +486,23 @@ def test_residual_image_localbkg_invalid_sources(test_data):
 @pytest.mark.parametrize('fit_stddev', [False, True])
 def test_psf_photometry_compound_psfmodel(test_data, fit_stddev):
     """
-    Test compound models output from ``make_psf_model``.
+    Test a compound model whose x, y, and flux parameters are defined
+    by the ``x_name``, ``y_name``, and ``flux_name`` attributes.
     """
     data, error, sources = test_data
     x_stddev = y_stddev = 1.2
-    psf_func = Gaussian2D(amplitude=1, x_mean=0, y_mean=0, x_stddev=x_stddev,
-                          y_stddev=y_stddev)
-    psf_model = make_psf_model(psf_func, x_name='x_mean', y_name='y_mean')
-    if fit_stddev:
-        psf_model.x_stddev_2.fixed = False
-        psf_model.y_stddev_2.fixed = False
+    amplitude = 1.0 / (2.0 * np.pi * x_stddev * y_stddev)
+    psf_model = Gaussian2D(amplitude=amplitude, x_mean=0, y_mean=0,
+                           x_stddev=x_stddev,
+                           y_stddev=y_stddev) * Const2D(1.0)
+    psf_model.x_name = 'x_mean_0'
+    psf_model.y_name = 'y_mean_0'
+    psf_model.flux_name = 'amplitude_1'
+    psf_model.amplitude_0.fixed = True
+    psf_model.theta_0.fixed = True
+    if not fit_stddev:
+        psf_model.x_stddev_0.fixed = True
+        psf_model.y_stddev_0.fixed = True
 
     fit_shape = (5, 5)
     finder = DAOStarFinder(5.0, 3.0)
@@ -475,13 +514,13 @@ def test_psf_photometry_compound_psfmodel(test_data, fit_stddev):
     assert len(phot) == len(sources)
 
     if fit_stddev:
-        cols = ('x_stddev_2', 'y_stddev_2')
+        cols = ('x_stddev_0', 'y_stddev_0')
         suffixes = ('_init', '_fit', '_err')
         colnames = [col + suffix for suffix in suffixes for col in cols]
         for colname in colnames:
             assert colname in phot.colnames
 
-    # test model and residual images
+    # Test model and residual images
     psf_shape = (9, 9)
     model1 = psfphot.make_model_image(data.shape, psf_shape=psf_shape,
                                       include_local_bkg=False)
@@ -498,20 +537,20 @@ def test_psf_photometry_compound_psfmodel(test_data, fit_stddev):
     assert_equal(data - model1, resid1)
     assert_equal(data - model2, resid2)
 
-    # test with init_params
+    # Test with init_params
     init_params = psfphot.results_to_init_params()
     phot = psfphot(data, error=error, init_params=init_params)
     assert isinstance(phot, QTable)
     assert len(phot) == len(sources)
 
     if fit_stddev:
-        cols = ('x_stddev_2', 'y_stddev_2')
+        cols = ('x_stddev_0', 'y_stddev_0')
         suffixes = ('_init', '_fit', '_err')
         colnames = [col + suffix for suffix in suffixes for col in cols]
         for colname in colnames:
             assert colname in phot.colnames
 
-    # test results when fit does not converge (fitter_maxiters=3)
+    # Test results when fit does not converge (fitter_maxiters=3)
     match = r'One or more fit\(s\) may not have converged.'
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4, fitter_maxiters=3)
@@ -529,17 +568,17 @@ def test_psf_photometry_mask(test_data):
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4)
 
-    # test np.ma.nomask
+    # Test np.ma.nomask
     phot = psfphot(data, error=error, mask=None)
     photm = psfphot(data, error=error, mask=np.ma.nomask)
     assert np.all(phot == photm)
 
-    # masked near source at ~(63, 49)
+    # Masked near source at ~(63, 49)
     data_orig = data.copy()
     data = data.copy()
     data[55, 60:70] = np.nan
 
-    match = 'Input data contains unmasked non-finite values'
+    match = 'Input data contains unmasked nonfinite values'
     with pytest.warns(AstropyUserWarning, match=match):
         phot1 = psfphot(data, error=error, mask=None)
     assert len(phot1) == len(sources)
@@ -548,21 +587,21 @@ def test_psf_photometry_mask(test_data):
     phot2 = psfphot(data, error=error, mask=mask)
     assert np.all(phot1 == phot2)
 
-    # unmasked NaN with mask not None
-    match = 'Input data contains unmasked non-finite values'
+    # Unmasked NaN with mask not None
+    match = 'Input data contains unmasked nonfinite values'
     mask = ~np.isfinite(data)
     mask[55, 65] = False
     with pytest.warns(AstropyUserWarning, match=match):
         phot = psfphot(data, error=error, mask=mask)
     assert len(phot) == len(sources)
 
-    # mask all True; finder returns no sources
+    # With mask all True, the finder should return no sources
     match = 'No sources were found'
     mask = np.ones(data.shape, dtype=bool)
     with pytest.warns(NoDetectionsWarning, match=match):
         psfphot(data, mask=mask)
 
-    # completely masked source should return NaNs and not raise
+    # Completely masked source should return NaNs and not raise
     init_params = QTable()
     init_params['x'] = [63]
     init_params['y'] = [49]
@@ -576,10 +615,10 @@ def test_psf_photometry_mask(test_data):
         assert np.isnan(phot_masked[col][0])
     assert phot_masked['n_pixels_fit'][0] == 0
     assert phot_masked['group_size'][0] == 1
-    # new flag 128 for fully masked
+    # New flag 128 for fully masked
     assert (phot_masked['flags'][0] & 128) == 128
 
-    # masked central pixel
+    # Masked central pixel
     init_params = QTable()
     init_params['x'] = [63]
     init_params['y'] = [49]
@@ -589,7 +628,7 @@ def test_psf_photometry_mask(test_data):
     assert len(phot) == 1
     assert np.isnan(phot['cfit'][0])
 
-    # this should not raise a warning because the non-finite pixel was
+    # This should not raise a warning because the nonfinite pixel was
     # explicitly masked
     psfphot = PSFPhotometry(psf_model, (3, 3), aperture_radius=3)
     data = np.ones((11, 11))
@@ -657,7 +696,7 @@ def test_psf_photometry_init_params(test_data):
     colnames = ('x_fit', 'y_fit', 'flux_fit', 'x_err', 'y_err', 'flux_err',
                 'qfit', 'cfit', 'reduced_chi2')
 
-    # no-overlap source should return NaNs and not raise; also test
+    # No-overlap source should return NaNs and not raise. Also test
     # too-few-pixels
     init_params = QTable()
     init_params['x'] = [-63]
@@ -669,10 +708,10 @@ def test_psf_photometry_init_params(test_data):
         assert np.isnan(phot_no_overlap[col][0])
     assert phot_no_overlap['n_pixels_fit'][0] == 0
     assert phot_no_overlap['group_size'][0] == 1
-    # new flag 64 for no overlap
+    # New flag 64 for no overlap
     assert (phot_no_overlap['flags'][0] & 64) == 64
 
-    # too-few pixels (unmasking only 2 pixels < 3 free params) should
+    # Too-few pixels (unmasking only 2 pixels < 3 free params) should
     # give NaNs
     init_params = QTable()
     init_params['x'] = [63]
@@ -686,10 +725,10 @@ def test_psf_photometry_init_params(test_data):
         assert np.isnan(phot_few[col][0])
     assert phot_few['n_pixels_fit'][0] == 2
     assert phot_few['group_size'][0] == 1
-    # new flag 256 for too few pixels
+    # New flag 256 for too few pixels
     assert (phot_few['flags'][0] & 256) == 256
 
-    # check that the first matching column name is used
+    # Check that the first matching column name is used
     init_params = QTable()
     x = 63
     y = 49
@@ -741,7 +780,7 @@ def test_psf_photometry_init_params_units(test_data):
         assert isinstance(resid, u.Quantity)
         assert resid.unit == unit
 
-    # test invalid units
+    # Test invalid units
     colnames = ('flux', 'local_bkg')
     for col in colnames:
         init_params2 = init_params.copy()
@@ -799,6 +838,185 @@ def test_psf_photometry_init_params_columns(test_data):
         assert_allclose(phot['flux_fit'], phots[0]['flux_fit'])
 
 
+def test_grouped_fit_two_image_psfs():
+    """
+    Regression test that grouped fits with two different same-class
+    PSF models do not reuse a stale cached flat-model class.
+    """
+    def make_image_psf(sigma2):
+        yy, xx = np.mgrid[:21, :21]
+        psf_data = np.exp(-((xx - 10.0)**2 + (yy - 10.0)**2)
+                          / (2 * sigma2))
+        return ImagePSF(psf_data / psf_data.sum())
+
+    def make_scene(psf):
+        yy, xx = np.mgrid[:60, :60]
+        data = np.zeros((60, 60))
+        for (xpos, ypos), flux in zip(((20.0, 20.0), (24.0, 22.0)),
+                                      (500.0, 300.0), strict=True):
+            data += psf.evaluate(xx, yy, flux, xpos, ypos)
+        return data
+
+    init = Table({'x': [20.0, 24.0], 'y': [20.0, 22.0],
+                  'flux': [450.0, 280.0], 'group_id': [1, 1]})
+    # Disable garbage collection so that a stale cached flat-model
+    # class cannot be silently evicted between the fits
+    gc.disable()
+    try:
+        for sigma2 in (1.0, 16.0):
+            psf = make_image_psf(sigma2)
+            phot = PSFPhotometry(psf, (11, 11))
+            result = phot(make_scene(psf), init_params=init.copy())
+            assert_allclose(result['flux_fit'], [500.0, 300.0],
+                            rtol=1e-3)
+    finally:
+        gc.enable()
+
+
+def test_image_psf_spline_built_once(spline_builds):
+    """
+    Test that PSF photometry builds the spline of an ImagePSF model
+    once, instead of once for every source.
+    """
+
+    yy, xx = np.mgrid[:21, :21]
+    psf_data = np.exp(-((xx - 10.0)**2 + (yy - 10.0)**2) / 8.0)
+    psf_data /= psf_data.sum()
+
+    # Four isolated sources and one group of two sources
+    xpos = np.array([20.0, 60.0, 20.0, 60.0, 40.0, 44.0])
+    ypos = np.array([20.0, 20.0, 60.0, 60.0, 40.0, 42.0])
+    fluxes = np.array([500.0, 300.0, 400.0, 600.0, 450.0, 350.0])
+    yy, xx = np.mgrid[:81, :81]
+    data = np.zeros((81, 81))
+    scene_psf = ImagePSF(psf_data)
+    for xval, yval, flux in zip(xpos, ypos, fluxes, strict=True):
+        data += scene_psf.evaluate(xx, yy, flux, xval, yval)
+    init = Table({'x': xpos + 0.2, 'y': ypos - 0.1, 'flux': 0.9 * fluxes,
+                  'group_id': [1, 2, 3, 4, 5, 5]})
+
+    psf_model = ImagePSF(psf_data)
+    spline_builds.count = 0
+    phot = PSFPhotometry(psf_model, (11, 11))
+    result = phot(data, init_params=init)
+    assert spline_builds.count == 1
+    assert_allclose(result['flux_fit'], fluxes, rtol=1e-3)
+
+
+def test_compound_image_psf_spline_not_rebuilt(spline_builds):
+    """
+    Test that PSF photometry with a compound model that contains an
+    ImagePSF does not build the ImagePSF spline for every source. The
+    copies of a compound model are deep copies.
+    """
+
+    yy, xx = np.mgrid[:21, :21]
+    psf_data = np.exp(-((xx - 10.0)**2 + (yy - 10.0)**2) / 8.0)
+    psf_data /= psf_data.sum()
+    xpos = np.array([20.0, 60.0, 20.0, 60.0, 40.0])
+    ypos = np.array([20.0, 20.0, 60.0, 60.0, 40.0])
+    fluxes = np.array([500.0, 300.0, 400.0, 600.0, 450.0])
+    yy, xx = np.mgrid[:81, :81]
+    data = np.zeros((81, 81))
+    scene_psf = ImagePSF(psf_data)
+    for xval, yval, flux in zip(xpos, ypos, fluxes, strict=True):
+        data += scene_psf.evaluate(xx, yy, flux, xval, yval)
+    init = Table({'x': xpos + 0.2, 'y': ypos - 0.1, 'flux': 0.9 * fluxes})
+
+    psf_model = ImagePSF(psf_data) + Const2D(0.0)
+    psf_model.x_name = 'x_0_0'
+    psf_model.y_name = 'y_0_0'
+    psf_model.flux_name = 'flux_0'
+    psf_model.amplitude_1.fixed = True
+    psf_model(20.0, 20.0)
+    spline_builds.count = 0
+    phot = PSFPhotometry(psf_model, (11, 11))
+    result = phot(data, init_params=init)
+    assert spline_builds.count == 0
+    assert_allclose(result['flux_fit'], fluxes, rtol=1e-3)
+
+
+def test_parameter_near_bound_flag_grouped():
+    """
+    Regression test that the PARAMETER_NEAR_BOUND flag (bit 32) is set
+    for grouped sources, matching single-source behavior.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image(
+        (50, 50), model, 2, model_shape=(9, 9), flux=(500, 500),
+        min_separation=15, seed=0)
+    # Offset the initial positions so the fit runs into the bound
+    init = Table({'x': params['x_0'] + 2.0, 'y': params['y_0'],
+                  'flux': [500.0, 500.0],
+                  'group_id': [1, 1]})
+    psfphot = PSFPhotometry(model, (5, 5), xy_bounds=0.5)
+    phot = psfphot(data, init_params=init)
+    assert np.all(phot['flags'] & 32)
+
+
+@pytest.mark.parametrize('flux_init', [[500.0, 700.0, 600.0],
+                                       [1000.0, 1000.0, 1000.0]])
+def test_grouped_fit_fixed_positions(flux_init):
+    """
+    Regression test that fixed parameters keep their values for grouped
+    sources, and that the fluxes are fit when the initial fluxes do or
+    do not match the true values.
+    """
+    model = CircularGaussianPRF(fwhm=3)
+    model.x_0.fixed = True
+    model.y_0.fixed = True
+    sources = Table({'x_0': [20.0, 26.0, 60.0], 'y_0': [20.0, 22.0, 60.0],
+                     'flux': [500.0, 700.0, 600.0]})
+    data = make_model_image((80, 80), model, sources, model_shape=(21, 21))
+    init = Table({'x': sources['x_0'], 'y': sources['y_0'],
+                  'flux': flux_init})
+    psfphot = PSFPhotometry(model, (7, 7), grouper=SourceGrouper(10))
+    phot = psfphot(data, init_params=init)
+    assert_equal(phot['group_size'], [2, 2, 1])
+    assert_allclose(phot['x_fit'], sources['x_0'])
+    assert_allclose(phot['y_fit'], sources['y_0'])
+    assert_allclose(phot['flux_init'], flux_init)
+    assert_allclose(phot['flux_fit'], sources['flux'], rtol=1e-4)
+    assert_equal(phot['flags'], 0)
+
+
+@pytest.mark.parametrize('sign', [1, -1])
+def test_exact_fit_metrics_not_negative_zero(sign):
+    """
+    Test that an exact fit gives ``qfit`` and ``cfit`` values of zero
+    without a negative sign, for both positive and negative fit fluxes.
+    """
+    model = CircularGaussianPRF(fwhm=3)
+    model.x_0.fixed = True
+    model.y_0.fixed = True
+    sources = Table({'x_0': [20.0, 60.0], 'y_0': [20.0, 60.0],
+                     'flux': [sign * 300.0, sign * 1600.0]})
+    data = make_model_image((80, 80), model, sources, model_shape=(21, 21))
+    init = Table({'x': sources['x_0'], 'y': sources['y_0'],
+                  'flux': sources['flux']})
+    phot = PSFPhotometry(model, (7, 7))(data, init_params=init)
+    for colname in ('qfit', 'cfit'):
+        assert_equal(phot[colname], 0.0)
+        assert not np.any(np.signbit(phot[colname]))
+
+
+def test_int_data_with_local_bkg():
+    """
+    Regression test that integer-dtype data works with a float
+    local_bkg column.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image(
+        (50, 50), model, 3, model_shape=(9, 9), flux=(500, 700),
+        min_separation=10, seed=0)
+    data = (data * 100).astype(int)
+    init = Table({'x': params['x_0'], 'y': params['y_0'],
+                  'local_bkg': [10.5, 10.5, 10.5]})
+    psfphot = PSFPhotometry(model, (5, 5), aperture_radius=4)
+    phot = psfphot(data, init_params=init)
+    assert len(phot) == 3
+
+
 def test_grouper(test_data):
     data, error, sources = test_data
 
@@ -833,18 +1051,44 @@ def test_grouper_init_params(test_data):
     init_params['y'] = phot0['y_init']
     init_params['flux'] = phot0['flux_init']
     phot1 = psfphot(data, error=error, init_params=init_params)
-    nsources = len(phot1)
+    n_sources = len(phot1)
     assert isinstance(phot1, QTable)
-    assert_equal(phot1['group_id'], np.ones(nsources, dtype=int))
-    assert_equal(phot1['group_size'], np.ones(nsources, dtype=int) * nsources)
+    assert_equal(phot1['group_id'], np.ones(n_sources, dtype=int))
+    assert_equal(phot1['group_size'],
+                 np.ones(n_sources, dtype=int) * n_sources)
 
-    # test with grouper=None
+    # Test with grouper=None
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             grouper=None, aperture_radius=4)
     phot2 = psfphot(data, error=error, init_params=init_params)
     assert isinstance(phot2, QTable)
-    assert_equal(phot1['group_id'], np.ones(nsources, dtype=int))
-    assert_equal(phot1['group_size'], np.ones(nsources, dtype=int) * nsources)
+    assert_equal(phot2['group_id'], np.ones(n_sources, dtype=int))
+    assert_equal(phot2['group_size'],
+                 np.ones(n_sources, dtype=int) * n_sources)
+
+
+def test_grouper_not_mutated_by_group_id():
+    """
+    Regression test that a call with init_params['group_id'] does
+    not disable the grouper for subsequent calls.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, true_params = make_psf_model_image(
+        (80, 80), model, 10, model_shape=(9, 9), flux=(500, 700),
+        min_separation=3, seed=0)
+    init = Table({'x': true_params['x_0'], 'y': true_params['y_0']})
+    grouper = SourceGrouper(min_separation=10)
+    psfphot = PSFPhotometry(model, (5, 5), grouper=grouper,
+                            aperture_radius=4)
+    phot1 = psfphot(data, init_params=init)
+
+    init2 = init.copy()
+    init2['group_id'] = np.ones(len(init2), dtype=int)
+    psfphot(data, init_params=init2)
+    assert psfphot.grouper is grouper
+
+    phot3 = psfphot(data, init_params=init)
+    assert_equal(phot1['group_id'], phot3['group_id'])
 
 
 def test_large_group_warning():
@@ -882,14 +1126,35 @@ def test_local_bkg(test_data):
     assert np.count_nonzero(phot['local_bkg']) == len(sources)
 
 
+def test_local_bkg_init_flux():
+    """
+    Test that the aperture-based initial flux has the local background
+    subtracted over the whole aperture area.
+    """
+    model = CircularGaussianPRF(fwhm=3)
+    sources = Table({'x_0': [30.0, 2.0], 'y_0': [30.0, 30.0],
+                     'flux': [1000.0, 1000.0]})
+    data = make_model_image((61, 61), model, sources, model_shape=(31, 31))
+    data += 5.0
+    init = Table({'x': sources['x_0'], 'y': sources['y_0'],
+                  'local_bkg': [5.0, 5.0]})
+    psfphot = PSFPhotometry(model, (7, 7), aperture_radius=5)
+    phot = psfphot(data, init_params=init)
+
+    # The aperture of the second source is cut off by the image edge
+    assert_allclose(phot['flux_init'][0], 1000.0, rtol=1e-3)
+    assert 950 < phot['flux_init'][1] < 1000
+    assert_allclose(phot['flux_fit'], 1000.0)
+
+
 def test_local_bkg_nonfinite(test_data):
     """
-    Test that non-finite local background values are handled correctly.
+    Test that nonfinite local background values are handled correctly.
 
     When local_bkg is NaN or inf, the code should:
     1. Report the actual local_bkg value in the output table
     2. Not subtract it from the data before fitting
-    3. Set a flag indicating non-finite local background
+    3. Set a flag indicating nonfinite local background
     """
     data, error, _ = test_data
 
@@ -900,23 +1165,23 @@ def test_local_bkg_nonfinite(test_data):
     # Find sources using the finder
     sources = finder(data)
 
-    # Add non-finite local_bkg values to init_params
+    # Add nonfinite local_bkg values to init_params
     sources['local_bkg'] = np.zeros(len(sources))
     sources['local_bkg'][0] = np.nan
     sources['local_bkg'][1] = np.inf
     sources['local_bkg'][2] = -np.inf
 
-    # Perform PSF photometry with init_params containing non-finite local_bkg
+    # Perform PSF photometry with init_params containing nonfinite local_bkg
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=4)
     phot = psfphot(data, error=error, init_params=sources)
 
-    # Check that non-finite local_bkg values are preserved in output
+    # Check that nonfinite local_bkg values are preserved in output
     assert np.isnan(phot['local_bkg'][0])
     assert np.isinf(phot['local_bkg'][1])
     assert np.isinf(phot['local_bkg'][2])
 
-    # Check that flags are set correctly (bit 2048 for non-finite local_bkg)
+    # Check that flags are set correctly (bit 2048 for nonfinite local_bkg)
     assert phot['flags'][0] & 2048
     assert phot['flags'][1] & 2048
     assert phot['flags'][2] & 2048
@@ -928,14 +1193,14 @@ def test_local_bkg_nonfinite(test_data):
 
 def test_local_bkg_nonfinite_measured(test_data):
     """
-    Test that non-finite local background values measured from the image
+    Test that nonfinite local background values measured from the image
     are handled correctly.
 
     When the LocalBackground estimator returns NaN (e.g., due to a fully
     masked region), the code should:
     1. Report the NaN local_bkg value in the output table
     2. Not subtract it from the data before fitting
-    3. Set a flag (bit 2048) indicating non-finite local background
+    3. Set a flag (bit 2048) indicating nonfinite local background
     """
     data, error, _ = test_data
 
@@ -963,7 +1228,11 @@ def test_local_bkg_nonfinite_measured(test_data):
     assert np.all(phot['flux_err'] > 0)
 
 
-def test_fixed_params(test_data):
+@pytest.mark.parametrize('grouper', [None, SourceGrouper(20)])
+def test_all_params_fixed(test_data, grouper):
+    """
+    Test that a PSF model with no free parameters raises a clear error.
+    """
     data, error, _ = test_data
 
     psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
@@ -973,9 +1242,9 @@ def test_fixed_params(test_data):
     fit_shape = (5, 5)
     finder = DAOStarFinder(6.0, 2.0)
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
-                            aperture_radius=4)
+                            grouper=grouper, aperture_radius=4)
 
-    match = r'`bounds` must contain 2 elements'
+    match = 'psf_model has no free parameters to fit'
     with pytest.raises(ValueError, match=match):
         psfphot(data, error=error)
 
@@ -1009,7 +1278,7 @@ def test_fit_warning(test_data):
     fit_shape = (5, 5)
     fitter = LMLSQFitter()  # uses "status" instead of "ierr"
     finder = DAOStarFinder(6.0, 2.0)
-    # set fitter_maxiters = 1 so that the fit error status is set
+    # Set fitter_maxiters = 1 so that the fit error status is set
     psfphot = PSFPhotometry(psf_model, fit_shape, fitter=fitter,
                             fitter_maxiters=1, finder=finder,
                             aperture_radius=4)
@@ -1018,8 +1287,8 @@ def test_fit_warning(test_data):
     with pytest.warns(AstropyUserWarning, match=match):
         phot = psfphot(data)
 
-    # check that flag=8 is set for these sources
-    assert_equal(phot['flags'][0] & 8, np.ones(len(phot)) * 8)
+    # Check that flag=8 is set for these sources
+    assert np.all(phot['flags'] & 8)
 
 
 def test_fitter_no_maxiters_no_metrics(test_data):
@@ -1034,7 +1303,7 @@ def test_fitter_no_maxiters_no_metrics(test_data):
     fit_shape = (5, 5)
     fitter = SimplexLSQFitter()  # does not produce residual array
     finder = DAOStarFinder(6.0, 2.0)
-    match = "'maxiters' will be ignored because it is not accepted by"
+    match = "'fitter_maxiters' will be ignored because the fitter's"
     with pytest.warns(AstropyUserWarning, match=match):
         psfphot = PSFPhotometry(psf_model, fit_shape, fitter=fitter,
                                 finder=finder, aperture_radius=4)
@@ -1074,10 +1343,12 @@ def test_xy_bounds(test_data):
     assert phot['x_fit'] < 64.0
     assert_allclose(phot['y_fit'], 50.0)  # at lower bound
 
+    # Start closer to the source in y because the fit converges slowly
+    # from y=51 while x_0 is held at its bound.
     xy_bounds = (1, None)
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=None,
-                            aperture_radius=4, xy_bounds=xy_bounds,
-                            fitter_maxiters=500)
+                            aperture_radius=4, xy_bounds=xy_bounds)
+    init_params['y'] = [50]
     phot = psfphot(data, error=error, init_params=init_params)
     assert_allclose(phot['x_fit'], 64.0)  # at lower bound
     assert phot['y_fit'] < 50.0
@@ -1092,7 +1363,7 @@ def test_xy_bounds(test_data):
     assert phot['y_fit'] < 48.7
     assert phot['flags'] == 0
 
-    # test invalid inputs
+    # Test invalid inputs
     match = 'xy_bounds must have 1 or 2 elements'
     with pytest.raises(ValueError, match=match):
         PSFPhotometry(psf_model, fit_shape, xy_bounds=(1, 2, 3))
@@ -1105,6 +1376,9 @@ def test_xy_bounds(test_data):
     match = 'xy_bounds must be finite'
     with pytest.raises(ValueError, match=match):
         PSFPhotometry(psf_model, fit_shape, xy_bounds=(np.nan, 2))
+    match = 'xy_bounds must be numeric'
+    with pytest.raises(ValueError, match=match):
+        PSFPhotometry(psf_model, fit_shape, xy_bounds='a')
 
 
 def test_grouper_with_xy_bounds(test_data):
@@ -1131,12 +1405,12 @@ def test_grouper_with_xy_bounds(test_data):
 
     phot = psfphot(data, error=error, init_params=init_params)
 
-    # verify sources were grouped
+    # Verify sources were grouped
     assert len(phot) == len(init_params)
     assert len(np.unique(phot['group_id'])) < len(phot)
 
-    # Verify that xy_bounds were applied during fitting
-    # The fitted positions should be constrained
+    # Verify that xy_bounds were applied during fitting.
+    # The fitted positions should be constrained.
     for i, row in enumerate(phot):
         x_init = init_params['x_init'][i]
         y_init = init_params['y_init'][i]
@@ -1221,9 +1495,8 @@ def test_out_of_bounds_centroids():
 
     phot = psfphot(data, init_params=sources)
 
-    # at least one of the best-fit centroids should be
-    # out of the bounds of the dataset, producing a
-    # masked value in the `cfit` column:
+    # At least one of the best-fit centroids should be out of the bounds
+    # of the dataset, producing a masked value in the `cfit` column.
     assert np.any(np.isnan(phot['cfit']))
 
 
@@ -1233,11 +1506,15 @@ def test_make_psf_model():
     amplitude = 1.0 / (2 * np.pi * sigma**2)
     xcen = ycen = 0.0
     psf0 = Gaussian2D(amplitude, xcen, ycen, sigma, sigma)
-    psf1 = make_psf_model(psf0, x_name='x_mean', y_name='y_mean',
-                          normalize=normalize)
-    psf2 = make_psf_model(psf0, normalize=normalize)
-    psf3 = make_psf_model(psf0, x_name='x_mean', normalize=normalize)
-    psf4 = make_psf_model(psf0, y_name='y_mean', normalize=normalize)
+    with pytest.warns(PhotutilsDeprecationWarning):
+        psf1 = make_psf_model(psf0, x_name='x_mean', y_name='y_mean',
+                              normalize=normalize)
+    with pytest.warns(PhotutilsDeprecationWarning):
+        psf2 = make_psf_model(psf0, normalize=normalize)
+    with pytest.warns(PhotutilsDeprecationWarning):
+        psf3 = make_psf_model(psf0, x_name='x_mean', normalize=normalize)
+    with pytest.warns(PhotutilsDeprecationWarning):
+        psf4 = make_psf_model(psf0, y_name='y_mean', normalize=normalize)
 
     yy, xx = np.mgrid[0:101, 0:101]
     psf = psf1.copy()
@@ -1307,7 +1584,7 @@ def test_finder_column_names(x_col, y_col):
     psfphot = PSFPhotometry(psf_model, fit_shape, finder=finder,
                             aperture_radius=10)
 
-    # invalid column names should raise an error
+    # Invalid column names should raise an error
     if x_col == 'x_invalid' or y_col == 'y_invalid':
         match = 'must contain columns for x and y coordinates'
         with pytest.raises(ValueError, match=match):
@@ -1366,8 +1643,31 @@ def test_flag2_boundaries():
     psfphot = PSFPhotometry(psf_model, fit_shape)
     phot = psfphot(data, init_params=init_params)
     assert len(phot) == 8
-    assert_equal(phot['flags'][[2, 3, 6, 7]], [3, 3, 3, 3])
+    # Sources fit outside the image are also outside the fit region,
+    # which is trimmed to the image
+    assert_equal(phot['flags'][[2, 3, 6, 7]], [4099, 4099, 4099, 4099])
     assert_equal(phot['flags'][[0, 1, 4, 5]], [1, 1, 1, 1])
+
+
+def test_flag64_edge_no_overlap():
+    """
+    Test flag=64 for a source whose fit region ends exactly at the lower
+    edge of the image.
+
+    Regression test for the array-valued ``fit_shape`` being compared to
+    a tuple in ``overlap_slices``.
+    """
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    data = np.zeros((21, 21))
+    init_params = QTable()
+    init_params['x_0'] = [-3.0, 10.0]
+    init_params['y_0'] = [10.0, -3.0]
+    init_params['flux'] = [500.0, 500.0]
+    psfphot = PSFPhotometry(psf_model, (5, 5))
+    phot = psfphot(data, init_params=init_params)
+    assert len(phot) == 2
+    assert np.all((phot['flags'] & 64) == 64)
+    assert np.all(phot['n_pixels_fit'] == 0)
 
 
 def test_flag64_no_overlap():
@@ -1378,7 +1678,7 @@ def test_flag64_no_overlap():
     psf_model = CircularGaussianPRF(fwhm=3.0)
     data = np.zeros(shape)
     init_params = QTable()
-    # place source completely outside (beyond + side)
+    # Place source completely outside (beyond + side)
     init_params['x_0'] = [100.0]
     init_params['y_0'] = [100.0]
     init_params['flux'] = [500.0]
@@ -1431,7 +1731,7 @@ def test_flag256_too_few_pixels():
     phot = psfphot(data, init_params=init_params, mask=mask)
     assert len(phot) == 1
     assert phot['n_pixels_fit'][0] == 1
-    # Ensure 256 bit set (too few pixels); not fully masked (no 128).
+    # Ensure 256 bit set (too few pixels) and not fully masked (no 128).
     assert (phot['flags'][0] & 256) == 256
 
 
@@ -1448,7 +1748,7 @@ def test_flag16_missing_covariance():
     init_params['flux'] = [500.0, 500.0]
     init_params['group_id'] = [1, 1]
 
-    # mock fitter that does not return a covariance matrix
+    # Mock fitter that does not return a covariance matrix
     def mock_fitter(model, *args, **kwargs):  # noqa: ARG001
         mock_fitter.fit_info = {'status': 1}
         return model
@@ -1456,7 +1756,7 @@ def test_flag16_missing_covariance():
     mock_fitter.fit_info = {}
     fit_shape = (5, 5)
 
-    match = r"'maxiters' will be ignored because it is not accepted"
+    match = "'fitter_maxiters' will be ignored because the fitter's"
     with pytest.warns(AstropyUserWarning, match=match):
         psfphot = PSFPhotometry(psf_model, fit_shape, fitter=mock_fitter)
 
@@ -1467,6 +1767,36 @@ def test_flag16_missing_covariance():
         assert col in phot.colnames
         assert np.all(np.isnan(phot[col]))
     assert (phot['flags'][0] & 16) == 16
+
+
+@pytest.mark.filterwarnings('ignore:One or more fit.* may not have '
+                            'converged:astropy.utils.exceptions.'
+                            'AstropyUserWarning')
+@pytest.mark.parametrize('fitter', [TRFLSQFitter, LevMarLSQFitter])
+def test_flag16_degenerate_covariance(fitter):
+    """
+    Test that nonfinite parameter errors from a degenerate fit are
+    always flagged as missing covariance (flag=16).
+
+    Two grouped sources at the same position have degenerate fluxes,
+    so the fit covariance matrix is singular. The fitters either
+    return a covariance matrix with finite (but large) errors or none
+    at all. Whether the fit also emits a convergence warning depends
+    on the platform, so that warning is ignored.
+    """
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    sources = QTable({'x_0': [12.0], 'y_0': [12.0], 'flux': [1000.0]})
+    data = make_model_image((25, 25), psf_model, sources)
+    data += make_noise_image(data.shape, mean=0.0, stddev=1.0, seed=0)
+    init_params = QTable({'x_0': [12.0, 12.0], 'y_0': [12.0, 12.0],
+                          'flux': [500.0, 500.0], 'group_id': [1, 1]})
+
+    psfphot = PSFPhotometry(psf_model, (7, 7), fitter=fitter())
+    phot = psfphot(data, init_params=init_params)
+
+    errs = np.array([phot[col] for col in ('x_err', 'y_err', 'flux_err')])
+    non_finite = ~np.all(np.isfinite(errs), axis=0)
+    assert_equal(non_finite, (phot['flags'] & 16) > 0)
 
 
 def test_flag32_parameter_at_bounds():
@@ -1491,16 +1821,16 @@ def test_flag32_parameter_at_bounds():
 
 def test_flag512_non_finite_position():
     """
-    Test flag=512 for non-finite fitted position.
+    Test flag=512 for nonfinite fitted position.
 
-    When a source has non-finite initial position or when the fit fails
-    to converge properly, the fitted x or y position can be non-finite.
+    When a source has nonfinite initial position or when the fit fails
+    to converge properly, the fitted x or y position can be nonfinite.
     """
     shape = (25, 25)
     psf_model = CircularGaussianPRF(fwhm=3.0)
     data = np.zeros(shape)
 
-    # Create init_params with non-finite initial position
+    # Create init_params with nonfinite initial position
     init_params = QTable()
     init_params['x_init'] = [12.0, np.nan, 12.0]
     init_params['y_init'] = [12.0, 12.0, np.inf]
@@ -1517,27 +1847,27 @@ def test_flag512_non_finite_position():
     assert np.isfinite(phot['y_fit'][0])
     assert (phot['flags'][0] & 512) == 0
 
-    # Second source should have non-finite x_fit (flag 512 set)
+    # Second source should have nonfinite x_fit (flag 512 set)
     assert not np.isfinite(phot['x_fit'][1])
     assert (phot['flags'][1] & 512) == 512
 
-    # Third source should have non-finite y_fit (flag 512 set)
+    # Third source should have nonfinite y_fit (flag 512 set)
     assert not np.isfinite(phot['y_fit'][2])
     assert (phot['flags'][2] & 512) == 512
 
 
 def test_flag1024_non_finite_flux():
     """
-    Test flag=1024 for non-finite flux in init_params.
+    Test flag=1024 for nonfinite flux in init_params.
 
-    When a source has non-finite initial flux (NaN or inf), the code
+    When a source has nonfinite initial flux (NaN or inf), the code
     should handle it gracefully and set flag 1024.
     """
     shape = (25, 25)
     psf_model = CircularGaussianPRF(fwhm=3.0)
     data = np.zeros(shape)
 
-    # Create init_params with non-finite initial flux
+    # Create init_params with nonfinite initial flux
     init_params = QTable()
     init_params['x_init'] = [12.0, 12.0, 12.0]
     init_params['y_init'] = [12.0, 12.0, 12.0]
@@ -1553,13 +1883,108 @@ def test_flag1024_non_finite_flux():
     assert np.isfinite(phot['flux_fit'][0])
     assert (phot['flags'][0] & 1024) == 0
 
-    # Second source should have non-finite flux_fit (flag 1024 set)
+    # Second source should have nonfinite flux_fit (flag 1024 set)
     assert not np.isfinite(phot['flux_fit'][1])
     assert (phot['flags'][1] & 1024) == 1024
 
-    # Third source should have non-finite flux_fit (flag 1024 set)
+    # Third source should have nonfinite flux_fit (flag 1024 set)
     assert not np.isfinite(phot['flux_fit'][2])
     assert (phot['flags'][2] & 1024) == 1024
+
+
+@pytest.mark.parametrize(('x_init', 'y_init', 'dx', 'dy', 'expected'), [
+    # The 5x5 fit region spans pixel edges 9.5 to 14.5
+    (12.0, 12.0, 2.4, 0.0, False),
+    (12.0, 12.0, 2.5, -2.5, False),
+    (12.0, 12.0, 2.6, 0.0, True),
+    (12.0, 12.0, -2.6, 0.0, True),
+    (12.0, 12.0, 0.0, 2.6, True),
+    (12.0, 12.0, 0.0, -2.6, True),
+    (12.3, 11.6, 2.1, 0.0, False),  # region spans x edges 9.5 to 14.5
+    (12.6, 11.6, -2.2, 0.0, True),  # region spans x edges 10.5 to 15.5
+    # The fit region is trimmed to the image, spanning x edges -0.5
+    # to 3.5
+    (1.0, 12.0, 2.6, 0.0, True),
+    (1.0, 12.0, -1.4, 0.0, False),
+])
+def test_flag4096_position_outside_fit_region(x_init, y_init, dx, dy,
+                                              expected):
+    """
+    Test flag=4096 for a fitted position outside the fitted data
+    region.
+
+    A mock fitter shifts the fitted position by a known offset from the
+    initial position.
+    """
+    shape = (25, 25)
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    data = np.zeros(shape)
+    init_params = QTable()
+    init_params['x_0'] = [x_init]
+    init_params['y_0'] = [y_init]
+    init_params['flux'] = [500.0]
+
+    def mock_fitter(model, *args, **kwargs):  # noqa: ARG001
+        model = model.copy()
+        model.x_0 += dx
+        model.y_0 += dy
+        return model
+
+    mock_fitter.fit_info = {'status': 1}
+    match = "'fitter_maxiters' will be ignored because the fitter's"
+    with pytest.warns(AstropyUserWarning, match=match):
+        psfphot = PSFPhotometry(psf_model, (5, 5), fitter=mock_fitter)
+    phot = psfphot(data, init_params=init_params)
+
+    assert_allclose(phot['x_fit'][0], x_init + dx)
+    assert_allclose(phot['y_fit'][0], y_init + dy)
+    assert bool(phot['flags'][0] & 4096) is expected
+    # The trimmed region case lies inside the image
+    if x_init == 1.0:
+        assert (phot['flags'][0] & 2) == 0
+
+
+def test_flag4096_position_outside_fit_region_fit():
+    """
+    Test flag=4096 when a fit converges on a bright neighbor outside
+    the fitted data region.
+    """
+    shape = (25, 41)
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    sources = QTable()
+    sources['x_0'] = [20.0]
+    sources['y_0'] = [12.0]
+    sources['flux'] = [1.0e5]
+    data = make_model_image(shape, psf_model, sources)
+
+    # The fit region spans x edges 13.5 to 18.5
+    init_params = QTable()
+    init_params['x_0'] = [16.0]
+    init_params['y_0'] = [12.0]
+    init_params['flux'] = [1.0e4]
+    psfphot = PSFPhotometry(psf_model, (5, 5))
+    phot = psfphot(data, init_params=init_params)
+
+    assert_allclose(phot['x_fit'][0], 20.0)
+    assert phot['flags'][0] == 4096
+
+
+def test_flag4096_non_finite_position():
+    """
+    Test that flag=4096 is not set for a nonfinite fitted position.
+    """
+    psf_model = CircularGaussianPRF(fwhm=3.0)
+    data = np.zeros((25, 25))
+    init_params = QTable()
+    init_params['x_0'] = [12.0, 40.0]
+    init_params['y_0'] = [12.0, 12.0]
+    init_params['flux'] = [500.0, 500.0]
+    psfphot = PSFPhotometry(psf_model, (5, 5))
+    phot = psfphot(data, init_params=init_params)
+
+    assert np.isnan(phot['x_fit'][1])
+    assert (phot['flags'][1] & 64) == 64
+    assert not np.any(phot['flags'] & 4096)
 
 
 def test_psf_photometry_methods(test_data):
@@ -1572,7 +1997,7 @@ def test_psf_photometry_methods(test_data):
                             aperture_radius=4)
 
     match = 'The fit_params function is deprecated'
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         assert psfphot.fit_params is None
 
     match = 'No results available. Please run the PSFPhotometry'
@@ -1593,7 +2018,7 @@ def test_psf_photometry_methods(test_data):
     assert isinstance(psfphot.fit_info, list)
 
     match = 'The fit_params function is deprecated'
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         assert isinstance(psfphot.fit_params, Table)
 
 
@@ -1606,12 +2031,12 @@ def test_invalid_sources(test_data, units):
         error = error << unit
     init_params = sources.copy()
 
-    # one item in group is invalid
+    # One item in group is invalid
     init_params['x_0'][0] = 1000
     init_params['y_0'][0] = 1000
     init_params['x_0'][5] = 1000
 
-    # entire group is invalid
+    # Entire group is invalid
     init_params['x_0'][-2] = 1000
     init_params['x_0'][-1] = 1000
 
@@ -1653,7 +2078,181 @@ def test_invalid_sources(test_data, units):
     assert_equal(model_params['id'], np.arange(1, 7))
 
 
-def test_psf_photometry_table_serialization(test_data):
+def test_results_to_params_exclude_n_pixels():
+    """
+    Regression test that the n_pixels_fit column does not leak into
+    the init/model parameter tables.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image(
+        (60, 60), model, 5, model_shape=(9, 9), flux=(500, 700),
+        min_separation=10, seed=0)
+    init = Table({'x': params['x_0'], 'y': params['y_0']})
+    psfphot = PSFPhotometry(model, (5, 5), aperture_radius=4)
+    psfphot(data, init_params=init)
+    init_tbl = psfphot.results_to_init_params()
+    assert 'n_pixels_init' not in init_tbl.colnames
+    model_tbl = psfphot.results_to_model_params()
+    assert 'n_pixels' not in model_tbl.colnames
+    assert set(model_tbl.colnames) == {'id', 'x_0', 'y_0', 'flux'}
+
+
+def test_duplicate_init_params_ids():
+    """
+    Regression test that duplicate init_params ids are rejected
+    instead of producing a cartesian product of mispaired rows.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data = np.zeros((30, 30))
+    init = Table({'id': [1, 1], 'x': [12.0, 13.0],
+                  'y': [12.0, 13.0], 'flux': [1.0, 1.0]})
+    psfphot = PSFPhotometry(model, (5, 5))
+    match = 'id column must contain unique values'
+    with pytest.raises(ValueError, match=match):
+        psfphot(data, init_params=init)
+
+
+def test_finder_results_reset(test_data):
+    """
+    Regression test that finder_results from a finder-based call does
+    not persist into a subsequent call that uses init_params.
+    """
+    data, error, _ = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    finder = DAOStarFinder(6.0, 2.0)
+    psfphot = PSFPhotometry(psf_model, (5, 5), finder=finder,
+                            aperture_radius=4)
+    phot = psfphot(data, error=error)
+    assert psfphot.finder_results is not None
+
+    init = Table({'x': phot['x_fit'], 'y': phot['y_fit']})
+    psfphot(data, error=error, init_params=init)
+    assert psfphot.finder_results is None
+
+
+def test_empty_init_params():
+    """
+    Test that a zero-row init_params table raises an error.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data = np.ones((11, 11))
+    init = Table({'x': [1.0], 'y': [1.0]})[:0]
+    psfphot = PSFPhotometry(model, (3, 3), aperture_radius=3)
+    match = 'init_params must contain at least one row'
+    with pytest.raises(ValueError, match=match):
+        psfphot(data, init_params=init)
+
+
+def test_reduced_chi2_zero_dof():
+    """
+    Regression test that reduced_chi2 is NaN (with no warning) when
+    the number of fit pixels equals the number of fit parameters.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image(
+        (50, 50), model, 1, model_shape=(9, 9), flux=(500, 700),
+        min_separation=10, seed=0)
+    error = np.ones(data.shape)
+    xcen = int(params['x_0'][0])
+    ycen = int(params['y_0'][0])
+
+    # Unmask exactly 3 pixels, matching the number of fit parameters
+    mask = np.ones(data.shape, dtype=bool)
+    mask[ycen, xcen] = False
+    mask[ycen, xcen + 1] = False
+    mask[ycen + 1, xcen] = False
+
+    init = Table({'x': params['x_0'], 'y': params['y_0'],
+                  'flux': [600.0]})
+    psfphot = PSFPhotometry(model, (3, 3))
+    phot = psfphot(data, error=error, mask=mask, init_params=init)
+    assert np.isnan(phot['reduced_chi2'][0])
+
+
+def test_group_warning_threshold_validation():
+    """
+    Test that invalid group_warning_threshold values raise an error.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    match = 'group_warning_threshold must be a positive integer'
+    for value in (None, -1, 2.5):
+        with pytest.raises(ValueError, match=match):
+            PSFPhotometry(model, (5, 5), group_warning_threshold=value)
+
+
+def test_row_index_not_leaked_on_failure():
+    """
+    Regression test that a failed call does not leak the private
+    _row_index column into the stored init_params table.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image(
+        (50, 50), model, 3, model_shape=(9, 9), flux=(500, 700),
+        min_separation=10, seed=0)
+    error = np.full(data.shape, -1.0)
+    init = Table({'x': params['x_0'], 'y': params['y_0'],
+                  'flux': [500.0, 500.0, 500.0]})
+    psfphot = PSFPhotometry(model, (5, 5))
+    match = 'Error array contains nonpositive'
+    with pytest.raises(ValueError, match=match):
+        psfphot(data, error=error, init_params=init)
+    assert '_row_index' not in psfphot.init_params.colnames
+
+
+def test_group_id_from_float_id_message():
+    """
+    Test that the group_id dtype error names the id column when
+    group_id was derived from it.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data = np.ones((11, 11))
+    init = Table({'id': [1.0, 2.0], 'x': [3.0, 7.0], 'y': [3.0, 7.0],
+                  'flux': [1.0, 1.0]})
+    psfphot = PSFPhotometry(model, (3, 3))
+    match = (r'group_id \(or the id column it was derived from\) '
+             'must be an integer array')
+    with pytest.raises(TypeError, match=match):
+        psfphot(data, init_params=init)
+
+
+def test_aperture_radius_0d_array():
+    """
+    Test that a 0-d array aperture_radius is accepted.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    psfphot = PSFPhotometry(model, (5, 5),
+                            aperture_radius=np.array(3.0))
+    assert psfphot.aperture_radius == 3.0
+
+
+def test_deprecated_shims(test_data):
+    """
+    Test the deprecated keyword and positional-argument shims.
+    """
+    data, error, _ = test_data
+    model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    finder = DAOStarFinder(6.0, 2.0)
+
+    match = "'localbkg_estimator' was deprecated in version 3.0"
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        psfphot = PSFPhotometry(model, (5, 5), finder=finder,
+                                aperture_radius=4,
+                                localbkg_estimator=None)
+    psfphot(data, error=error)
+
+    match = "'include_localbkg' was deprecated in version 3.0"
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        psfphot.make_model_image((25, 25), include_localbkg=False)
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        psfphot.make_residual_image(data, include_localbkg=False)
+
+    match = ("Passing 'return_bit_values' positionally to "
+             "'decode_flags' is deprecated")
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        psfphot.decode_flags(True)  # noqa: FBT003
+
+
+def test_psf_photometry_table_serialization(test_data, tmp_path):
     """
     Test that photometry results table can be written to file.
     """
@@ -1707,24 +2306,24 @@ def test_psf_photometry_table_serialization(test_data):
     assert 'TRFLSQFitter' in meta['fitter']
 
     # Test file writing - this should not raise any errors
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ecsv',
-                                     delete=False) as tmp:
-        # Write table to ECSV format
-        results.write(tmp.name, format='ascii.ecsv', overwrite=True)
+    filename = tmp_path / 'psf_results.ecsv'
 
-        # Read it back to verify it's readable
-        read_table = Table.read(tmp.name, format='ascii.ecsv')
+    # Write table to ECSV format
+    results.write(filename, format='ascii.ecsv', overwrite=True)
 
-        # Basic checks that the table was written and read correctly
-        assert len(read_table) == len(results)
-        assert set(read_table.colnames) == set(results.colnames)
+    # Read it back to verify it's readable
+    read_table = Table.read(filename, format='ascii.ecsv')
 
-        # Check that metadata was preserved
-        read_meta = read_table.meta
-        assert 'psf_model' in read_meta
-        assert 'finder' in read_meta
-        assert isinstance(read_meta['psf_model'], str)
-        assert isinstance(read_meta['finder'], str)
+    # Basic checks that the table was written and read correctly
+    assert len(read_table) == len(results)
+    assert set(read_table.colnames) == set(results.colnames)
+
+    # Check that metadata was preserved
+    read_meta = read_table.meta
+    assert 'psf_model' in read_meta
+    assert 'finder' in read_meta
+    assert isinstance(read_meta['psf_model'], str)
+    assert isinstance(read_meta['finder'], str)
 
 
 def test_psf_photometry_invalid_coordinates():
@@ -1788,7 +2387,7 @@ def test_should_skip_source_coverage():
     assert should_skip is True
     assert reason == 'no_overlap'
 
-    # Test non-finite coordinates - NaN (this will bypass bounds check)
+    # Test nonfinite coordinates - NaN (this will bypass bounds check)
     row_data = {
         psfphot._param_mapper.init_colnames['x']: np.nan,
         psfphot._param_mapper.init_colnames['y']: 25.0,
@@ -1799,7 +2398,7 @@ def test_should_skip_source_coverage():
     assert should_skip is True
     assert reason == 'invalid_position'
 
-    # Test non-finite coordinates - NaN in y coordinate
+    # Test nonfinite coordinates - NaN in y coordinate
     row_data = {
         psfphot._param_mapper.init_colnames['x']: 25.0,
         psfphot._param_mapper.init_colnames['y']: np.nan,
@@ -1810,7 +2409,7 @@ def test_should_skip_source_coverage():
     assert should_skip is True
     assert reason == 'invalid_position'
 
-    # Test non-finite flux
+    # Test nonfinite flux
     row_data = {
         psfphot._param_mapper.init_colnames['x']: 25.0,
         psfphot._param_mapper.init_colnames['y']: 25.0,
@@ -1846,9 +2445,9 @@ def test_get_source_cutout_data_no_overlap():
 
     y_offsets, x_offsets = psfphot._data_processor.get_fit_offsets()
 
-    # Create a source that will definitely cause NoOverlapError
+    # Create a source that will definitely cause NoOverlapError.
     # Place it far outside the data bounds (-100, -100) to trigger
-    # the exception in overlap_slices and test lines 1183-1192
+    # the exception in overlap_slices.
     init_params = QTable()
     init_params['x_init'] = [-100.0]
     init_params['y_init'] = [-100.0]
@@ -1869,16 +2468,16 @@ def test_get_source_cutout_data_no_overlap():
     assert result['xx'] is None
     assert result['yy'] is None
     assert result['cutout'] is None
-    assert result['npix'] == 0
+    assert result['n_pixels'] == 0
     assert np.isnan(result['cen_index'])
 
 
 def test_flags_with_invalid_and_nonfinite_sources():
     """
-    Test flag computation with invalid and non-finite sources.
+    Test flag computation with invalid and nonfinite sources.
 
     This test creates scenarios with invalid sources and sources that
-    end up with non-finite fitted positions, triggering the continue
+    end up with nonfinite fitted positions, triggering the continue
     statements in the flag computation.
     """
     shape = (30, 30)
@@ -1962,8 +2561,11 @@ def _compare_lists_with_arrays(list1, list2):
                 return False
             for key in item1:
                 if isinstance(item1[key], np.ndarray):
-                    if not np.array_equal(item1[key], item2[key],
-                                          equal_nan=True):
+                    # Array values (e.g., param_cov) can differ by
+                    # float rounding when the within-group source
+                    # order differs, so compare with a tolerance
+                    if not np.allclose(item1[key], item2[key],
+                                       equal_nan=True):
                         return False
                 elif item1[key] != item2[key]:
                     return False
@@ -1981,17 +2583,17 @@ def test_init_params_id_order(test_data, reorder, with_groups,
     data, error, sources = test_data
     init_params = sources.copy()
 
-    nsrc = len(sources)
+    n_sources = len(sources)
     rng = np.random.default_rng(seed=0)
-    init_params['id'] = np.arange(1, nsrc + 1)
+    init_params['id'] = np.arange(1, n_sources + 1)
     if with_groups:
-        # same groupings, but different group ids
+        # Same groupings, but different group ids
         if nonconsec_groups:
             group_ids = [11, 20, 11, 20, 20, 39, 20, 39, 44, 44]
         else:
             group_ids = [1, 2, 1, 2, 2, 3, 2, 3, 4, 4]
         init_params['group_id'] = group_ids
-    init_params['local_bkg'] = rng.normal(size=nsrc)
+    init_params['local_bkg'] = rng.normal(size=n_sources)
     init_params['x_0'][0] = 1000
     init_params['y_0'][0] = 1000
     init_params['x_0'][5] = 1000
@@ -2003,17 +2605,17 @@ def test_init_params_id_order(test_data, reorder, with_groups,
     psfphot1 = PSFPhotometry(psf_model, fit_shape)
     phot1 = psfphot1(data, error=error, init_params=init_params)
 
-    # reorder init_params
+    # Reorder init_params
     init_params2 = init_params.copy()
     if nonconsec_ids:
-        # non-consecutive random ids
-        # monotonically increasing so final results order should be same
-        steps = rng.integers(1, 51, size=nsrc - 1)
+        # Nonconsecutive random ids, monotonically increasing so final
+        # results order should be same
+        steps = rng.integers(1, 51, size=n_sources - 1)
         init_params2['id'] = np.concatenate(([1], 1 + np.cumsum(steps)))
     if reorder == 'reversed':
         init_params2 = init_params2[::-1]
     elif reorder == 'permutate':
-        init_params2 = init_params2[rng.permutation(nsrc)]
+        init_params2 = init_params2[rng.permutation(n_sources)]
 
     psfphot2 = PSFPhotometry(psf_model, fit_shape)
     phot2 = psfphot2(data, error=error, init_params=init_params2)
@@ -2022,14 +2624,14 @@ def test_init_params_id_order(test_data, reorder, with_groups,
         assert_equal(phot1['id'], phot2['id'])
 
     if with_groups:
-        # without group_id, group_id gets set to id
+        # Without group_id, group_id gets set to id
         assert_equal(phot1['group_id'], phot2['group_id'])
 
     assert np.all([np.allclose(phot1[col], phot2[col], equal_nan=True)
                    for col in phot1.colnames if col not in ('id', 'group_id')])
 
     # Compare fit_info with special handling for numpy arrays
-    _compare_lists_with_arrays(psfphot1.fit_info, psfphot2.fit_info)
+    assert _compare_lists_with_arrays(psfphot1.fit_info, psfphot2.fit_info)
 
 
 def test_reduced_chi2_metric():
@@ -2097,11 +2699,13 @@ def test_qfit_cfit_with_different_errors(test_data):
     assert np.all(phot_large_error['qfit'] >= 0)
 
     assert_allclose(phot['qfit'], phot_no_error['qfit'])
-    assert_allclose(phot['cfit'], phot_no_error['cfit'])
+    assert_allclose(phot['cfit'], phot_no_error['cfit'], rtol=1e-6)
     assert_allclose(phot_small_error['qfit'], phot_no_error['qfit'])
-    assert_allclose(phot_small_error['cfit'], phot_no_error['cfit'])
+    assert_allclose(phot_small_error['cfit'], phot_no_error['cfit'],
+                    rtol=1e-6)
     assert_allclose(phot_large_error['qfit'], phot_no_error['qfit'])
-    assert_allclose(phot_large_error['cfit'], phot_no_error['cfit'])
+    assert_allclose(phot_large_error['cfit'], phot_no_error['cfit'],
+                    rtol=1e-6)
 
 
 def test_decode_flags():
@@ -2114,9 +2718,9 @@ def test_decode_flags():
 
     # Source 1: normal source (no flags expected)
     m1 = CircularGaussianPRF(flux=100, x_0=10, y_0=10, fwhm=2)
-    # Source 2: negative flux (will have negative_flux flag)
+    # Source 2: negative flux (will have non_positive_flux flag)
     m2 = CircularGaussianPRF(flux=-50, x_0=5, y_0=5, fwhm=2)
-    # Source 3: outside bounds (will have outside_bounds flag)
+    # Source 3: outside the image (will have position_outside_image flag)
     m3 = CircularGaussianPRF(flux=100, x_0=25, y_0=25, fwhm=2)
 
     data = m1(xx, yy) + m2(xx, yy) + m3(xx, yy)
@@ -2140,30 +2744,488 @@ def test_decode_flags():
     # Test decode_flags method
     decoded_flags = psfphot.decode_flags()
 
-    # Check that we get a list of lists
-    assert isinstance(decoded_flags, list)
+    # Check that we get a dictionary keyed by source id
+    assert isinstance(decoded_flags, dict)
     assert len(decoded_flags) == len(results)
+    assert list(decoded_flags) == list(results['id'])
+    assert all(type(key) is int for key in decoded_flags)
 
-    # Each element should be a list of strings
-    for decoded in decoded_flags:
+    # Each value should be a list of strings
+    for decoded in decoded_flags.values():
         assert isinstance(decoded, list)
         for flag_name in decoded:
             assert isinstance(flag_name, str)
 
     # Check that the first source has no flags or minimal flags
     # (depending on fitting success)
-    assert isinstance(decoded_flags[0], list)
+    assert isinstance(decoded_flags[1], list)
 
-    # Check that the second source has the negative_flux flag
-    assert 'negative_flux' in decoded_flags[1]
+    # Check that the second source has the non_positive_flux flag
+    assert 'non_positive_flux' in decoded_flags[2]
 
-    # Check that the third source has flags (it's outside the image bounds)
-    # It should have 'no_overlap' since it's completely outside
-    assert len(decoded_flags[2]) > 0
-    assert 'no_overlap' in decoded_flags[2]
+    # Check that the third source has flags (it's outside the image
+    # bounds). It should have 'no_overlap' since it's completely
+    # outside.
+    assert len(decoded_flags[3]) > 0
+    assert 'no_overlap' in decoded_flags[3]
 
     # Verify that decode_flags gives the same result as calling
     # decode_psf_flags directly
-    from photutils.psf.flags import decode_psf_flags
     direct_decoded = decode_psf_flags(results['flags'])
-    assert decoded_flags == direct_decoded
+    assert list(decoded_flags.values()) == direct_decoded
+
+    # Custom, nonsequential ids key the decoded dictionary
+    init_params['id'] = [7, 3, 11]
+    results2 = psfphot(data, init_params=init_params)
+    decoded2 = psfphot.decode_flags()
+    assert list(decoded2) == list(results2['id'])
+    assert 'non_positive_flux' in decoded2[3]
+
+
+def test_int_mask_matches_bool_mask():
+    """
+    Regression test that an integer 0/1 mask array behaves identically
+    to the equivalent boolean mask.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image((35, 35), model, 1,
+                                        model_shape=(9, 9),
+                                        flux=(500, 500),
+                                        min_separation=10, seed=0)
+    init = Table({'x': params['x_0'], 'y': params['y_0']})
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[int(params['y_0'][0]), int(params['x_0'][0])] = True
+
+    psfphot = PSFPhotometry(model, (5, 5), aperture_radius=4)
+    phot_bool = psfphot(data, init_params=init, mask=mask)
+    phot_int = psfphot(data, init_params=init, mask=mask.astype(int))
+    assert_equal(phot_int['n_pixels_fit'], phot_bool['n_pixels_fit'])
+    assert_equal(phot_int['flags'], phot_bool['flags'])
+    assert_allclose(phot_int['flux_fit'], phot_bool['flux_fit'])
+
+
+@pytest.mark.parametrize('maxiters', [-5, 0, 3.7, 'abc', True])
+def test_invalid_fitter_maxiters(maxiters):
+    model = CircularGaussianPRF(fwhm=2.7)
+    match = 'fitter_maxiters must be a strictly-positive integer'
+    with pytest.raises(ValueError, match=match):
+        PSFPhotometry(model, (5, 5), fitter_maxiters=maxiters)
+
+
+def _init_params_with_groups_and_invalid_sources(sources):
+    """
+    Initial parameters from the true sources, with two sources fitted
+    as a group and three invalid sources (a NaN position, a position
+    far outside the image, and a nonfinite flux).
+    """
+    init_params = QTable()
+    init_params['x_init'] = [*sources['x_0'], np.nan, 500.0, 40.0]
+    init_params['y_init'] = [*sources['y_0'], 40.0, 500.0, 40.0]
+    init_params['flux_init'] = [*sources['flux'], 500.0, 500.0, np.nan]
+    group_id = np.arange(1, len(init_params) + 1)
+    group_id[1] = group_id[0]
+    init_params['group_id'] = group_id
+    return init_params
+
+
+def _assert_fit_info_equal(info_a, info_b):
+    assert len(info_a) == len(info_b)
+    for fa, fb in zip(info_a, info_b, strict=True):
+        assert fa.keys() == fb.keys()
+        for key in fa:
+            if key == 'param_cov':
+                assert_equal(fa[key], fb[key])
+            else:
+                assert fa[key] == fb[key]
+
+
+def _image_psf_model():
+    yy, xx = np.mgrid[-12:13, -12:13]
+    psf_data = CircularGaussianPRF(flux=1, fwhm=2.7)(xx, yy)
+    return ImagePSF(psf_data)
+
+
+@pytest.mark.usefixtures('gil_disabled')
+@pytest.mark.parametrize('make_model', [
+    lambda: CircularGaussianPRF(flux=1, fwhm=2.7), _image_psf_model])
+def test_n_threads_identical(test_data, make_model):
+    """
+    Test that fitting in multiple threads gives identical results to
+    the single-threaded fit, including grouped and invalid sources.
+    """
+    data, error, sources = test_data
+    init_params = _init_params_with_groups_and_invalid_sources(sources)
+    phots = []
+    infos = []
+    for n_threads in (1, 3):
+        psfphot = PSFPhotometry(make_model(), (5, 5), aperture_radius=4,
+                                n_threads=n_threads)
+        phots.append(psfphot(data, error=error, init_params=init_params))
+        infos.append(psfphot.fit_info)
+        assert psfphot.n_threads == n_threads
+        assert f'n_threads={n_threads}' in repr(psfphot)
+    phot1, phot2 = phots
+    assert phot1.colnames == phot2.colnames
+    for name in phot1.colnames:
+        assert_equal(np.asarray(phot1[name]), np.asarray(phot2[name]),
+                     err_msg=name)
+    assert phot2['group_size'][0] == 2
+    assert np.all(phot2['flags'][-3:] > 0)
+    assert np.all(np.isfinite(phot2['x_fit'][:-3]))
+    _assert_fit_info_equal(infos[0], infos[1])
+
+
+@pytest.mark.usefixtures('gil_disabled')
+def test_n_threads_inputs_unchanged(test_data):
+    """
+    Test that the threads fit copies of the PSF model and the fitter,
+    leaving the input objects untouched.
+    """
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    fitter = TRFLSQFitter()
+    init_params = _init_params_with_groups_and_invalid_sources(sources)
+    fit_info = fitter.fit_info
+    psfphot = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                            fitter=fitter, n_threads=2)
+    psfphot(data, error=error, init_params=init_params)
+    assert psfphot.fitter is fitter
+    assert fitter.fit_info is fit_info
+    assert psfphot.psf_model.flux == 1
+
+
+@pytest.mark.usefixtures('gil_disabled')
+def test_n_threads_progress_bar(test_data):
+    """
+    Test the threaded path with a progress bar and more threads than
+    groups.
+    """
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    init_params = QTable()
+    init_params['x_init'] = sources['x_0'][:2]
+    init_params['y_init'] = sources['y_0'][:2]
+    psfphot1 = PSFPhotometry(psf_model, (5, 5), aperture_radius=4)
+    psfphot2 = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                             n_threads=8, progress_bar=True)
+    phot1 = psfphot1(data, error=error, init_params=init_params)
+    phot2 = psfphot2(data, error=error, init_params=init_params)
+    for name in ('x_fit', 'y_fit', 'flux_fit', 'flags', 'qfit'):
+        assert_equal(np.asarray(phot1[name]), np.asarray(phot2[name]))
+
+
+@pytest.mark.usefixtures('gil_disabled')
+def test_n_threads_fit_error(test_data):
+    """
+    Test that an error raised while fitting in a thread is raised by
+    the call.
+    """
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    init_params = _init_params_with_groups_and_invalid_sources(sources)
+    error = error.copy()
+    error[int(sources['y_0'][3]), int(sources['x_0'][3])] = 0.0
+    psfphot = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                            n_threads=2)
+    match = 'Error array contains nonpositive or nonfinite values'
+    with pytest.raises(ValueError, match=match):
+        psfphot(data, error=error, init_params=init_params)
+
+
+def test_n_threads_gil_fallback(test_data, monkeypatch):
+    """
+    Test that n_threads > 1 warns and fits in a single thread when the
+    GIL is enabled.
+    """
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    init_params = _init_params_with_groups_and_invalid_sources(sources)
+    psfphot1 = PSFPhotometry(psf_model, (5, 5), aperture_radius=4)
+    phot1 = psfphot1(data, error=error, init_params=init_params)
+
+    fitter = TRFLSQFitter()
+    psfphot2 = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                             fitter=fitter, n_threads=4)
+    monkeypatch.setattr('photutils.psf.photometry._gil_enabled',
+                        lambda: True)
+    match = 'the sources are fitted in a single thread'
+    with pytest.warns(AstropyUserWarning, match=match):
+        phot2 = psfphot2(data, error=error, init_params=init_params)
+    assert psfphot2.n_threads == 4
+    for name in phot1.colnames:
+        assert_equal(np.asarray(phot1[name]), np.asarray(phot2[name]),
+                     err_msg=name)
+
+    # The single-threaded fit calls the input fitter
+    assert fitter.fit_info is not None
+
+
+def test_n_threads_gil_fallback_single_group(test_data, monkeypatch):
+    """
+    Test that the fallback warning is not issued when there is only
+    one group to fit.
+    """
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    init_params = QTable()
+    init_params['x_init'] = sources['x_0'][:1]
+    init_params['y_init'] = sources['y_0'][:1]
+    monkeypatch.setattr('photutils.psf.photometry._gil_enabled',
+                        lambda: True)
+    psfphot = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                            n_threads=4)
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        phot = psfphot(data, error=error, init_params=init_params)
+    assert np.isfinite(phot['x_fit'][0])
+
+
+def test_n_threads_build_detection(test_data):
+    """
+    Test that the fallback warning is issued only on a Python build
+    with the GIL enabled.
+    """
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    init_params = QTable()
+    init_params['x_init'] = sources['x_0'][:4]
+    init_params['y_init'] = sources['y_0'][:4]
+    psfphot = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                            n_threads=2)
+    gil_enabled = getattr(sys, '_is_gil_enabled', lambda: True)()
+    with warnings.catch_warnings(record=True) as records:
+        warnings.simplefilter('always')
+        phot = psfphot(data, error=error, init_params=init_params)
+    messages = [str(record.message) for record in records]
+    fell_back = any('fitted in a single thread' in msg for msg in messages)
+    assert fell_back == gil_enabled
+    assert np.all(np.isfinite(phot['x_fit']))
+
+
+def test_fitter_non_dict_fit_info(test_data):
+    """
+    Test that a fitter whose fit_info is not a dictionary gives NaN
+    residual-based fit metrics.
+    """
+    class MappingFitInfoFitter(TRFLSQFitter):
+        def __call__(self, model, x, y, z, *, weights=None, maxiter=100,
+                     inplace=False):
+            fit_model = super().__call__(model, x, y, z, weights=weights,
+                                         maxiter=maxiter, inplace=inplace)
+            self.fit_info = MappingProxyType(dict(self.fit_info))
+            return fit_model
+
+    data, error, sources = test_data
+    psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+    init_params = QTable()
+    init_params['x_init'] = sources['x_0'][:3]
+    init_params['y_init'] = sources['y_0'][:3]
+    psfphot = PSFPhotometry(psf_model, (5, 5), aperture_radius=4,
+                            fitter=MappingFitInfoFitter())
+    phot = psfphot(data, error=error, init_params=init_params)
+    assert np.all(np.isfinite(phot['x_fit']))
+    assert np.all(np.isfinite(phot['flux_err']))
+    for name in ('qfit', 'cfit', 'reduced_chi2'):
+        assert np.all(np.isnan(phot[name]))
+
+
+@pytest.mark.parametrize('n_threads', [-1, 0, 2.5, 'abc', True])
+def test_invalid_n_threads(n_threads):
+    model = CircularGaussianPRF(fwhm=2.7)
+    match = 'n_threads must be a positive integer'
+    with pytest.raises(ValueError, match=match):
+        PSFPhotometry(model, (5, 5), n_threads=n_threads)
+
+
+def test_chunk_groups():
+    """
+    Test that the group chunks hold complete groups with roughly equal
+    numbers of sources and cover every source once.
+    """
+    init_params = QTable()
+    init_params['_row_index'] = np.arange(20)
+    init_params['group_id'] = np.repeat(np.arange(1, 8), [1, 4, 2, 6, 1, 5, 1])
+    grouped = init_params.group_by('group_id')
+    for n_chunks in (1, 3, 7, 20):
+        chunks = PSFPhotometry._chunk_groups(grouped, n_chunks)
+        assert len(chunks) <= min(n_chunks, 7)
+        rows = np.concatenate([np.asarray(chunk['_row_index'])
+                               for chunk in chunks])
+        assert_equal(np.sort(rows), np.arange(20))
+        chunk_ids = [set(chunk['group_id']) for chunk in chunks]
+        for ids_a, ids_b in pairwise(chunk_ids):
+            assert not ids_a & ids_b
+
+
+def test_valid_fitter_maxiters():
+    model = CircularGaussianPRF(fwhm=2.7)
+    psfphot = PSFPhotometry(model, (5, 5), fitter_maxiters=np.int64(50))
+    assert psfphot.fitter_maxiters == 50
+
+
+def test_nddata_with_explicit_mask_or_error():
+    """
+    Regression test that explicit mask/error keywords are rejected
+    (not silently ignored) when data is an NDData instance.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data = np.ones((25, 25))
+    init = Table({'x': [12.0], 'y': [12.0], 'flux': [1.0]})
+    psfphot = PSFPhotometry(model, (5, 5))
+    match = 'must be None when data is an NDData instance'
+    with pytest.raises(ValueError, match=match):
+        psfphot(NDData(data), error=np.ones(data.shape),
+                init_params=init)
+    with pytest.raises(ValueError, match=match):
+        psfphot(NDData(data), mask=np.zeros(data.shape, dtype=bool),
+                init_params=init)
+
+
+def test_aperture_radius_bool():
+    model = CircularGaussianPRF(fwhm=2.7)
+    match = 'aperture_radius must be a strictly-positive scalar'
+    with pytest.raises(ValueError, match=match):
+        PSFPhotometry(model, (5, 5), aperture_radius=True)
+
+
+def test_finder_empty_table():
+    """
+    Regression test that a finder returning a zero-row table is
+    treated like no sources found instead of raising an aperture
+    error.
+    """
+    def finder(data, *, mask=None):  # noqa: ARG001
+        return Table({'x': np.array([]), 'y': np.array([])})
+
+    model = CircularGaussianPRF(fwhm=2.7)
+    psfphot = PSFPhotometry(model, (5, 5), finder=finder,
+                            aperture_radius=4)
+    phot = psfphot(np.ones((25, 25)))
+    assert phot is None
+
+
+def test_parameter_near_bound_flag_model_bounds():
+    """
+    Regression test that the parameter_near_bound flag (bit 32) is set
+    when the fit is pinned at a bound set on the PSF model itself,
+    without the xy_bounds keyword.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image((35, 35), model, 1,
+                                        model_shape=(9, 9),
+                                        flux=(500, 500),
+                                        min_separation=10, seed=0)
+    xpos = params['x_0'][0]
+    fit_model = CircularGaussianPRF(fwhm=2.7)
+    fit_model.x_0.bounds = (xpos - 0.6, xpos - 0.3)
+    init = Table({'x': [xpos - 0.5], 'y': params['y_0'],
+                  'flux': [500.0]})
+    psfphot = PSFPhotometry(fit_model, (5, 5))
+    phot = psfphot(data, init_params=init)
+    assert_allclose(phot['x_fit'][0], xpos - 0.3, atol=0.02)
+    assert phot['flags'][0] & 32
+
+
+def test_parameter_near_bound_flag_flux_bounds_units():
+    """
+    Regression test that the parameter_near_bound flag (bit 32) is
+    evaluated for a flux parameter with bounds when the data has units
+    (the fitted flux is then a Quantity).
+    """
+    unit = u.Jy
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image((35, 35), model, 1,
+                                        model_shape=(9, 9),
+                                        flux=(500, 500),
+                                        min_separation=10, seed=0)
+    data <<= unit
+    init = Table({'x': params['x_0'], 'y': params['y_0'],
+                  'flux': [650.0 * unit]})
+
+    # Bounds that pin the fitted flux at the lower bound
+    fit_model = CircularGaussianPRF(fwhm=2.7)
+    fit_model.flux.bounds = (600.0, 700.0)
+    psfphot = PSFPhotometry(fit_model, (5, 5))
+    phot = psfphot(data, init_params=init)
+    assert phot['flux_fit'].unit == unit
+    assert_allclose(phot['flux_fit'][0].value, 600.0, atol=0.02)
+    assert phot['flags'][0] & 32
+
+    # Bounds that do not constrain the fit
+    fit_model = CircularGaussianPRF(fwhm=2.7)
+    fit_model.flux.bounds = (0.0, 1000.0)
+    psfphot = PSFPhotometry(fit_model, (5, 5))
+    phot = psfphot(data, init_params=init)
+    assert_allclose(phot['flux_fit'][0].value, 500.0, rtol=0.01)
+    assert not phot['flags'][0] & 32
+
+
+def test_error_weights_message_has_source_context():
+    """
+    Regression test that the invalid-error-value message names the
+    fit region location.
+    """
+    model = CircularGaussianPRF(fwhm=2.7)
+    data, params = make_psf_model_image((35, 35), model, 1,
+                                        model_shape=(9, 9),
+                                        flux=(500, 500),
+                                        min_separation=10, seed=0)
+    init = Table({'x': params['x_0'], 'y': params['y_0'],
+                  'flux': [500.0]})
+    error = np.ones(data.shape)
+    error[int(params['y_0'][0]), int(params['x_0'][0])] = 0.0
+    psfphot = PSFPhotometry(model, (5, 5))
+    match = 'centered near'
+    with pytest.raises(ValueError, match=match):
+        psfphot(data, error=error, init_params=init)
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('grouped', [False, True])
+def test_read_only_inputs(dtype, grouped):
+    """
+    Regression test that read-only (nonwritable) input arrays are
+    accepted, are not modified, and give results identical to writable
+    arrays.
+    """
+    yy, xx = np.mgrid[-12:13, -12:13]
+    psf_data = CircularGaussianPRF(fwhm=5.4)(xx, yy)
+    psf_model = ImagePSF(psf_data, oversampling=2)
+
+    params = Table({'x_0': [20.3, 25.1, 50.7], 'y_0': [20.6, 23.2, 40.2],
+                    'flux': [500.0, 300.0, 800.0]})
+    shape = (61, 71)
+    data = make_model_image(shape, psf_model, params, model_shape=(11, 11))
+    data += make_noise_image(shape, mean=0, stddev=0.5, seed=0)
+    data = data.astype(dtype)
+    error = np.full(shape, 0.5, dtype=dtype)
+    mask = np.zeros(shape, dtype=bool)
+    mask[40, 52] = True
+    x_init = np.array(params['x_0']) + 0.2
+    y_init = np.array(params['y_0']) - 0.1
+    arrays = (psf_data, data, error, mask, x_init, y_init)
+    originals = [arr.copy() for arr in arrays]
+
+    def compute():
+        model = ImagePSF(psf_data, oversampling=2)
+        grouper = SourceGrouper(10) if grouped else None
+        psfphot = PSFPhotometry(model, (7, 7), grouper=grouper,
+                                aperture_radius=4,
+                                local_bkg_estimator=LocalBackground(6, 10))
+        init_params = Table({'x': x_init, 'y': y_init})
+        phot = psfphot(data, error=error, mask=mask,
+                       init_params=init_params)
+        result = [np.asarray(phot[name]) for name in phot.colnames]
+        result.append(psfphot.make_model_image(shape))
+        result.append(psfphot.make_residual_image(data))
+        return result
+
+    expected = compute()
+    for arr in arrays:
+        arr.setflags(write=False)
+    result = compute()
+
+    for res, exp in zip(result, expected, strict=True):
+        assert_equal(res, exp)
+    for arr, original in zip(arrays, originals, strict=True):
+        assert_equal(arr, original)

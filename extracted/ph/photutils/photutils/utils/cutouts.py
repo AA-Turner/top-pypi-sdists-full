@@ -3,11 +3,14 @@
 Tools for generating 2D image cutouts.
 """
 
+from functools import cached_property
+
 import numpy as np
-from astropy.nddata import extract_array, overlap_slices
-from astropy.utils import lazyproperty
+from astropy.nddata import extract_array
 
 from photutils.utils._deprecation import deprecated_positional_kwargs
+from photutils.utils._overlap import overlap_slices
+from photutils.utils._round import round_half_away
 
 __all__ = ['CutoutImage']
 
@@ -19,14 +22,16 @@ class CutoutImage:
     The returned object will contain a 2D cutout array. If
     ``copy=False`` (default), the cutout array is a view into the
     original ``data`` array, otherwise the cutout array will contain a
-    copy of the original data.
+    copy of the original data. The exception is a ``mode='partial'``
+    cutout that extends beyond the ``data`` array, which is always a
+    new array.
 
     Parameters
     ----------
     data : `~numpy.ndarray`
         The 2D data array from which to extract the cutout array.
 
-    position : tuple of 2 ints
+    position : 2-tuple of int or float
         The ``(y, x)`` position of the center of the cutout array with
         respect to the ``data`` array.
 
@@ -41,7 +46,7 @@ class CutoutImage:
         sufficient. For the ``'strict'`` mode, the cutout array
         has to be fully contained within the ``data`` array,
         otherwise an `~astropy.nddata.utils.PartialOverlapError`
-        is raised. In all modes, non-overlapping arrays will raise
+        is raised. In all modes, nonoverlapping arrays will raise
         a `~astropy.nddata.utils.NoOverlapError`. In ``'partial'``
         mode, positions in the cutout array that do not overlap with
         the ``data`` array will be filled with ``fill_value``. In
@@ -58,7 +63,18 @@ class CutoutImage:
     copy : bool, optional
         If `False` (default), then the cutout data will be a view into
         the original ``data`` array. If `True`, then the cutout data
-        will hold a copy of the original ``data`` array.
+        will hold a copy of the original ``data`` array. A
+        ``mode='partial'`` cutout that extends beyond the ``data`` array
+        is always a new array.
+
+    Attributes
+    ----------
+    data : 2D `~numpy.ndarray`
+        The cutout array.
+
+    shape : tuple of 2 ints
+        The shape of the cutout array. In ``'trim'`` mode it can be
+        smaller than the requested ``shape``.
 
     Notes
     -----
@@ -72,13 +88,13 @@ class CutoutImage:
     >>> from photutils.utils import CutoutImage
     >>> data = np.arange(20.0).reshape(5, 4)
     >>> cutout = CutoutImage(data, (2, 2), (3, 3))
-    >>> print(cutout.data)  # doctest: +FLOAT_CMP
+    >>> print(cutout.data)
     [[ 5.  6.  7.]
      [ 9. 10. 11.]
      [13. 14. 15.]]
 
     >>> cutout2 = CutoutImage(data, (0, 0), (3, 3), mode='partial')
-    >>> print(cutout2.data)  # doctest: +FLOAT_CMP
+    >>> print(cutout2.data)
     [[nan nan nan]
      [nan  0.  1.]
      [nan  4.  5.]]
@@ -149,32 +165,32 @@ class CutoutImage:
         return (f'{self.__class__.__name__}(position={self.position}, '
                 f'shape={self.shape})')
 
-    @lazyproperty
+    @cached_property
     def slices_original(self):
         """
         A tuple of slice objects in axis order for the minimal bounding
         box of the cutout with respect to the original array.
 
         For ``mode='partial'``, the slices are for the valid
-        (non-filled) cutout values.
+        (nonfilled) cutout values.
         """
         return self._overlap_slices[0]
 
-    @lazyproperty
+    @cached_property
     def slices_cutout(self):
         """
         A tuple of slice objects in axis order for the minimal bounding
         box of the cutout with respect to the cutout array.
 
         For ``mode='partial'``, the slices are for the valid
-        (non-filled) cutout values.
+        (nonfilled) cutout values.
         """
         return self._overlap_slices[1]
 
     def _calc_bbox(self, slices):
         """
-        Calculate the `~photutils.aperture.BoundingBox` of the
-        rectangular bounding box from the input slices.
+        Calculate the `~photutils.aperture.BoundingBox` for the input
+        slices.
 
         Parameters
         ----------
@@ -187,25 +203,25 @@ class CutoutImage:
         return BoundingBox(ixmin=slices[1].start, ixmax=slices[1].stop,
                            iymin=slices[0].start, iymax=slices[0].stop)
 
-    @lazyproperty
+    @cached_property
     def bbox_original(self):
         """
         The `~photutils.aperture.BoundingBox` of the minimal rectangular
         region of the cutout array with respect to the original array.
 
         For ``mode='partial'``, the bounding box indices are for the
-        valid (non-filled) cutout values.
+        valid (nonfilled) cutout values.
         """
         return self._calc_bbox(self.slices_original)
 
-    @lazyproperty
+    @cached_property
     def bbox_cutout(self):
         """
         The `~photutils.aperture.BoundingBox` of the minimal rectangular
         region of the cutout array with respect to the cutout array.
 
         For ``mode='partial'``, the bounding box indices are for the
-        valid (non-filled) cutout values.
+        valid (nonfilled) cutout values.
         """
         return self._calc_bbox(self.slices_cutout)
 
@@ -233,15 +249,16 @@ class CutoutImage:
 
         return np.array((xorigin, yorigin))
 
-    @lazyproperty
+    @cached_property
     def xyorigin(self):
         """
         A `~numpy.ndarray` containing the ``(x, y)`` integer index of
         the origin pixel of the cutout with respect to the original
         array.
 
-        The origin index will be negative for cutouts with partial
-        overlaps.
+        For ``mode='partial'``, the origin index will be negative
+        along an axis where the cutout extends beyond the lower edge of
+        the original array.
         """
         return self._calc_xyorigin(self.slices_original)
 
@@ -250,8 +267,9 @@ def _make_cutouts(data, xpos, ypos, cutout_shape, *, fill_value=0.0):
     """
     Make 2D cutouts from a data array at the given positions.
 
-    Positions are rounded to the nearest integer pixel. Pixels that fall
-    outside the image boundary are filled with ``fill_value``.
+    Positions are rounded to the nearest integer pixel, with ties
+    rounding half away from zero. Pixels that fall outside the image
+    boundary are filled with ``fill_value``.
 
     Parameters
     ----------
@@ -313,8 +331,8 @@ def _make_cutouts(data, xpos, ypos, cutout_shape, *, fill_value=0.0):
     ky, kx = cutout_shape
     hy, hx = ky // 2, kx // 2
 
-    yc = np.round(ypos).astype(int)
-    xc = np.round(xpos).astype(int)
+    yc = round_half_away(ypos)
+    xc = round_half_away(xpos)
 
     # Build index grids: shape (n_sources, ky, kx)
     dy = np.arange(ky) - hy

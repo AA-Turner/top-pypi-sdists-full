@@ -34,7 +34,7 @@ class DueDateRuleDataCreate(ModelNormal):
 
     def __init__(self_, attributes: DueDateRuleAttributesCreate, type: DueDateRuleType, **kwargs):
         """
-        The data object for a due date rule create or update request.
+        The data object for a due date rule create request.
 
         :param attributes: Attributes for creating or updating a due date rule.
         :type attributes: DueDateRuleAttributesCreate

@@ -6,10 +6,6 @@ from typing import Literal, TypedDict
 
 
 class RunOptionsParam(TypedDict, total=False):
-  retries: int | None
-  """
-  Fresh attempts after failure; defaults to 0. Set 3 to retry three times.
-  """
   intelligent_density_training: bool | None
   """
   Enable intelligent density training.
@@ -60,7 +56,7 @@ class RunOptionsParam(TypedDict, total=False):
   """
   num_steps: int | None
   """
-  Total optimizer step target, including steps restored from a checkpoint.
+  Number of optimizer steps to run.
   """
   train_batch_size: int | None
   """

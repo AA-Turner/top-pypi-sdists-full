@@ -173,6 +173,40 @@ class TestChallenge:
         with pytest.raises(ParseError, match="invalid CRLF"):
             challenge.to_www_authenticate("api.example.com")
 
+    @pytest.mark.parametrize(
+        ("escaped", "expected"),
+        [
+            (r"em dash \u2014 and coffee \u2615", "em dash — and coffee ☕"),
+            (r"grinning \ud83d\ude00 face", "grinning 😀 face"),
+            ("café naïve", "café naïve"),
+            (r"lone \ud83d here", "lone \ufffd here"),
+            (r"lone \ude00 here", "lone \ufffd here"),
+            (r"not an escape \\u2014", r"not an escape \u2014"),
+            (r"short \u12 tail", "short u12 tail"),
+        ],
+    )
+    def test_parse_unicode_quoted_strings(self, escaped: str, expected: str) -> None:
+        header = (
+            f'Payment id="test", realm="api.example.com", method="tempo", '
+            f'intent="charge", request="e30", description="{escaped}"'
+        )
+
+        assert Challenge.from_www_authenticate(header).description == expected
+
+    def test_format_unicode_quoted_strings_as_utf16_escapes(self) -> None:
+        challenge = Challenge(
+            id="test",
+            method="tempo",
+            intent="charge",
+            request={},
+            description="Payment — coffee ☕ 😀",
+        )
+
+        header = challenge.to_www_authenticate("api.example.com")
+
+        assert 'description="Payment \\u2014 coffee \\u2615 \\ud83d\\ude00"' in header
+        assert Challenge.from_www_authenticate(header).description == challenge.description
+
     def test_www_authenticate_roundtrip_preserves_credential_header(self) -> None:
         challenge = Challenge.create(
             secret_key="test-secret",
@@ -423,6 +457,35 @@ class TestReceipt:
         roundtripped = Receipt.from_payment_receipt(parsed.to_payment_receipt())
         assert roundtripped.subscription_id == "sub_123"
 
+    def test_roundtrip_preserves_method_specific_fields(self) -> None:
+        payload = {
+            "status": "success",
+            "method": "tempo",
+            "timestamp": "2024-01-20T12:00:00Z",
+            "reference": "0xabc123def456",
+            "challengeId": "challenge-123",
+            "originTxHash": "0xdeadbeef",
+            "destinationNetwork": "eip155:1",
+        }
+        header = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+
+        parsed = Receipt.from_payment_receipt(header)
+
+        assert parsed.extensions == {
+            "challengeId": "challenge-123",
+            "originTxHash": "0xdeadbeef",
+            "destinationNetwork": "eip155:1",
+        }
+        roundtripped = Receipt.from_payment_receipt(parsed.to_payment_receipt())
+        assert roundtripped.extensions == parsed.extensions
+
+        encoded_payload = json.loads(
+            base64.urlsafe_b64decode(parsed.to_payment_receipt() + "==").decode()
+        )
+        assert encoded_payload["challengeId"] == "challenge-123"
+        assert encoded_payload["originTxHash"] == "0xdeadbeef"
+        assert encoded_payload["destinationNetwork"] == "eip155:1"
+
     def test_parse_invalid_timestamp(self) -> None:
         payload = {
             "status": "success",
@@ -446,3 +509,35 @@ class TestReceipt:
 
         with pytest.raises(ParseError, match="Invalid payment method id"):
             Receipt.from_payment_receipt(b64)
+
+
+@pytest.mark.parametrize("surrogate", ["\ud800", "\udfff"])
+@pytest.mark.parametrize("field", ["id", "realm", "intent", "expires", "digest", "opaque"])
+def test_rejects_surrogates_in_credential_echo(field: str, surrogate: str) -> None:
+    body = {
+        "challenge": {
+            "id": "id",
+            "realm": "test",
+            "method": "tempo",
+            "intent": "charge",
+            "request": {},
+        },
+        "payload": {},
+    }
+    body["challenge"][field] = surrogate
+    with pytest.raises(ParseError, match="Invalid base64 or JSON encoding"):
+        Credential.from_authorization("Payment " + _b64_json(body))
+
+
+@pytest.mark.parametrize("payload", [{"key": "\ud800"}, {"\udfff": "value"}, ["\ud800"]])
+def test_rejects_nested_surrogates(payload: object) -> None:
+    from mpp._parsing import _b64_decode
+
+    with pytest.raises(ParseError):
+        _b64_decode(_b64_json({"payload": payload}))
+
+
+def test_accepts_valid_supplementary_unicode() -> None:
+    from mpp._parsing import _b64_decode
+
+    assert _b64_decode(_b64_json({"text": "\U0001f600"})) == {"text": "\U0001f600"}

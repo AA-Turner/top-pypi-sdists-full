@@ -150,6 +150,52 @@ def test_what_the_agent_reads_for_each_kind():
         '[Probe] Answer to your ask a3 ("q?"): nothing in the team\'s records.')
     assert _msg(kind=mailbox.Kind.FAILED, ask="a3", question="q?", reason="the reader is down").rendered() == (
         '[Probe] Your ask a3 ("q?") failed: the reader is down. No answer is coming for it.')
+    assert _msg(kind=mailbox.Kind.ALERT, text="r1 crashed.\nr2 is still running.").rendered() == (
+        "[Probe] Run alert\nr1 crashed.\nr2 is still running.")
+
+
+def test_a_run_alert_waits_half_a_day_is_claimed_once_and_neither_replaces_nor_is_replaced():
+    now = time.time()
+    unasked = mailbox.publish(_msg(text="older unasked", made_at=now))
+    alert = _msg(kind=mailbox.Kind.ALERT, id=mailbox.alert_message_id([4, 5]), text="r4 crashed.\nr5 crashed.",
+                 made_at=now + 1, keep=True, alerts=[4, 5])
+    path = mailbox.publish(alert)
+    assert alert.expires_at == alert.made_at + mailbox.ALERT_TTL_S
+    assert [p for p, _ in mailbox.waiting(SID, now=now + 2)] == [unasked, path], "it replaced nothing"
+    newer = mailbox.publish(_msg(text="newer unasked", made_at=now + 2))
+    assert [p for p, _ in mailbox.waiting(SID, now=now + 3)] == [path, newer], "and nothing replaced it"
+    ((_, back),) = [(p, m) for p, m in mailbox.waiting(SID, now=now + 3) if m.kind == mailbox.Kind.ALERT]
+    assert (back.alerts, back.keep, back.ask) == ([4, 5], True, None)
+    assert mailbox.alert_paths(SID) == {alert.id: path}
+
+    assert mailbox.claim(SID, path, by="Stop") is not None
+    assert mailbox.claim(SID, path, by="PostToolUse") is None, "one owner"
+    mailbox.publish(alert)  # a poller run again after a crash: already delivered, not sent twice
+    assert [m.kind for _, m in mailbox.waiting(SID, now=now + 3)] == [mailbox.Kind.MESSAGE]
+    claimed = mailbox.alert_paths(SID)[alert.id]
+    assert claimed.parent == mailbox.claimed_dir(SID) and mailbox.read_message(claimed).alerts == [4, 5]
+    assert alert.id in mailbox.claimed_ids(SID)
+    assert mailbox.open_asks(SID) == [], "an alert ends no ask"
+
+
+def test_an_unclaimed_alert_expires_after_half_a_day():
+    now = time.time()
+    path = mailbox.publish(_msg(kind=mailbox.Kind.ALERT, text="r1 crashed.", made_at=now, keep=True, alerts=[1]))
+    assert mailbox.waiting(SID, now=now + mailbox.ALERT_TTL_S - 1) != []
+    assert mailbox.waiting(SID, now=now + mailbox.ALERT_TTL_S + 1) == []
+    assert mailbox.sweep(SID, now=now + mailbox.ALERT_TTL_S + 1) == 1 and not path.exists()
+
+
+@pytest.mark.parametrize("value", [None, "1,2", [1, "2"], [True], {"ids": [1]}])
+def test_alert_ids_the_file_cannot_vouch_for_are_none(value):
+    data = {"id": "r1", "session": SID, "kind": "alert", "text": "x", "alerts": value}
+    assert mailbox.Message.from_dict(data).alerts is None
+
+
+def test_a_hook_context_that_is_only_an_alert_is_cut_like_any_delivery():
+    alert = _msg(kind=mailbox.Kind.ALERT, text="r1 crashed at step 9 after 3s: ValueError.").rendered()
+    assert mailbox.before_deliveries(alert) == ""
+    assert mailbox.before_deliveries("other context\n\n" + alert) == "other context"
 
 
 # ---------------------------------------------------------------------------
@@ -434,3 +480,155 @@ def test_a_killed_waits_heartbeat_is_swept(tmp_path, monkeypatch):
     os.utime(beat, (old, old))
     mailbox.sweep("s-1")
     assert not beat.exists()
+
+
+# ---------------------------------------------------------------------------
+# Requests to the writer (`probe ask --writer`, writer channel 10-13).
+# ---------------------------------------------------------------------------
+
+
+def test_a_request_is_filed_apart_from_the_asks_and_read_back_in_order():
+    """Never in asks/: a worker from before requests takes every ask there and
+    would hand a request to the reader, which cannot write."""
+    first = mailbox.write_request(SID, "group the arms into one experiment", now=100.0)
+    second = mailbox.write_request(SID, "move the score runs too", now=200.0)
+    assert first.id.startswith("w") and first.id != second.id
+    assert mailbox.pending_asks(SID) == []
+    assert [r.id for r in mailbox.pending_requests(SID)] == [first.id, second.id]
+    mailbox.take_request(SID, first.id)
+    assert [r.id for r in mailbox.pending_requests(SID)] == [second.id]
+    assert (mailbox.requests_dir(SID) / ".taken" / f"{first.id}.json").exists()
+
+
+def test_a_request_stays_open_until_its_end_is_delivered():
+    req = mailbox.write_request(SID, "file the runs")
+    mailbox.take_request(SID, req.id)
+    assert mailbox.open_asks(SID) == [req.id], "the Stop wake waits for the writer's reply"
+    reply = mailbox.Message(id=mailbox.new_message_id(), session=SID, kind=mailbox.Kind.ANSWER, ask=req.id,
+                            text="done", origin=mailbox.ORIGIN_WRITER)
+    mailbox.claim(SID, mailbox.publish(reply), by="PostToolUse")
+    assert mailbox.open_asks(SID) == []
+
+
+def test_what_the_agent_reads_from_the_writer():
+    """Richard's approved labels (2026-10-13)."""
+    reply = _msg(mailbox.Kind.ANSWER, ask="w1", text="Grouped them.\nRecorded: created experiment e1",
+                 origin=mailbox.ORIGIN_WRITER)
+    assert reply.rendered() == "[Probe] The writer's reply:\nGrouped them.\nRecorded: created experiment e1"
+    receipt = _msg(text="created experiment e1 · moved 3 runs to e1 (a, b, c)", origin=mailbox.ORIGIN_WRITER)
+    assert receipt.rendered() == "[Probe] The writer recorded: created experiment e1 · moved 3 runs to e1 (a, b, c)"
+    failed = _msg(mailbox.Kind.FAILED, ask="w1", reason="Probe is off for this session", origin=mailbox.ORIGIN_WRITER)
+    assert failed.rendered() == "[Probe] The writer did not run your request: Probe is off for this session"
+    for msg in (reply, receipt, failed):
+        assert mailbox.before_deliveries("hook said\n\n" + msg.rendered()) == "hook said", "never re-read"
+
+
+def test_writer_receipts_and_reader_messages_never_replace_each_other():
+    """A newer reader message replaces the reader's own waiting one, never a
+    writer receipt (each receipt is a record of its own); a receipt replaces nothing."""
+    now = time.time()
+    reader_old = _msg(text="older team context", made_at=now + 1)
+    receipt = _msg(text="created experiment e1", origin=mailbox.ORIGIN_WRITER, made_at=now + 2)
+    mailbox.publish(reader_old)
+    mailbox.publish(receipt)
+    receipt2 = _msg(text="moved run r1 to e1", origin=mailbox.ORIGIN_WRITER, made_at=now + 3)
+    mailbox.publish(receipt2)
+    reader_new = _msg(text="newer team context", made_at=now + 4)
+    mailbox.publish(reader_new)
+    assert sorted(m.text for _p, m in mailbox.waiting(SID)) == sorted(
+        ["created experiment e1", "moved run r1 to e1", "newer team context"])
+    assert receipt.expires_at - receipt.made_at == mailbox.ANSWER_TTL_S, "a receipt never goes stale in 30 min"
+    assert mailbox.withdraw_unasked(SID, made_before=now + 10) == 1, "only the reader's own"
+    assert sorted(m.text for _p, m in mailbox.waiting(SID)) == ["created experiment e1", "moved run r1 to e1"]
+
+
+def test_the_worker_marker_names_a_live_worker(monkeypatch):
+    assert not mailbox.accepts_requests(SID), "no marker: a worker from before requests"
+    mailbox.mark_worker_accepts(SID)
+    assert mailbox.accepts_requests(SID)
+    mailbox.clear_worker_accepts(SID, pid=os.getpid() + 1)
+    assert mailbox.accepts_requests(SID), "another worker's clear leaves this one's marker"
+    mailbox.mark_worker_accepts(SID, pid=2 ** 22 + 12345)  # no such process
+    assert not mailbox.accepts_requests(SID), "a marker left by a worker that died"
+    mailbox.mark_worker_accepts(SID)
+    mailbox.clear_worker_accepts(SID)
+    assert not mailbox.worker_marker_path(SID).exists()
+
+
+def test_the_sweep_keeps_a_live_worker_s_requests_however_quiet(monkeypatch):
+    other = "99999999-2222-3333-4444-555555555555"
+    mailbox.write_request(other, "group the arms")
+    mailbox.mark_worker_accepts(other)
+    old = time.time() - mailbox.KEEP_CLAIMED_S - 60
+    for path in [mailbox.requests_dir(other), *mailbox.requests_dir(other).rglob("*")]:
+        os.utime(path, (old, old))
+    mailbox.sweep_stale_sessions(SID)
+    assert mailbox.pending_requests(other), "its worker is alive"
+    mailbox.mark_worker_accepts(other, pid=2 ** 22 + 12345)  # no such process
+    for path in [mailbox.requests_dir(other), *mailbox.requests_dir(other).rglob("*")]:
+        os.utime(path, (old, old))
+    mailbox.sweep_stale_sessions(SID)
+    assert not mailbox.requests_dir(other).exists()
+
+
+def test_ask_writer_files_a_request_when_the_worker_takes_them(daemon_session):
+    handle = _hold_lock()
+    mailbox.mark_worker_accepts(SID)
+    try:
+        res = _ask("--writer", "  group the six SFT arms   into an experiment ")
+    finally:
+        handle.close()
+    req = mailbox.pending_requests(SID)[0]
+    assert res.exit_code == 0 and res.output.strip() == daemon_cli.ASK_ASKED.format(id=req.id)
+    assert req.text == "group the six SFT arms into an experiment" and mailbox.pending_asks(SID) == []
+
+
+def test_ask_writer_with_no_worker_is_filed_for_the_next_one(daemon_session):
+    res = _ask("--writer", "--wait", "file the runs")
+    req = mailbox.pending_requests(SID)[0]
+    assert res.output.strip() == daemon_cli.ASK_NO_WORKER.format(id=req.id) and req.wait is False
+
+
+def test_ask_writer_is_refused_when_nothing_would_take_it(daemon_session, monkeypatch):
+    handle = _hold_lock()
+    try:
+        res = _ask("--writer", "file the runs")  # a worker runs, but writes no marker: from before requests
+        assert res.exit_code == 1 and daemon_cli.ASK_WRITER_OLD_DAEMON in res.output
+        mailbox.mark_worker_accepts(SID)
+        res = _ask("--writer", "x" * (mailbox.REQUEST_MAX_CHARS + 1))
+        assert res.exit_code == 1 and "at most 4,000 characters" in res.output
+    finally:
+        handle.close()
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
+    res = _ask("--writer", "file the runs")
+    assert res.exit_code == 1 and daemon_cli.ASK_WRITER_READ_ONLY in res.output
+    session_marker.set_session_state(SID, session_marker.STATE_OFF)
+    assert daemon_cli.ASK_SESSION_OFF in _ask("--writer", "file the runs").output
+    assert mailbox.pending_requests(SID) == []
+
+
+def test_ask_writer_wait_prints_the_writers_reply(daemon_session):
+    handle = _hold_lock()
+    mailbox.mark_worker_accepts(SID)
+
+    def reply():
+        for _ in range(100):
+            reqs = mailbox.pending_requests(SID)
+            if reqs:
+                break
+            time.sleep(0.05)
+        assert mailbox.held(SID, reqs[0].id), "the waiting command holds its reply"
+        mailbox.publish(mailbox.Message(id=mailbox.new_message_id(), session=SID, kind=mailbox.Kind.ANSWER,
+                                        ask=reqs[0].id, text="Grouped.\nRecorded: created experiment e1",
+                                        origin=mailbox.ORIGIN_WRITER))
+
+    thread = threading.Thread(target=reply)
+    thread.start()
+    try:
+        res = _ask("--writer", "--wait", "group the arms")
+        thread.join(10)
+    finally:
+        handle.close()
+    assert res.exit_code == 0 and "Recorded: created experiment e1" in res.output
+    assert mailbox.waiting(SID) == []

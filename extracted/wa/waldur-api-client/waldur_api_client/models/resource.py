@@ -17,6 +17,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.backend_metadata import BackendMetadata
     from ..models.nested_endpoint import NestedEndpoint
+    from ..models.offering_account_settings import OfferingAccountSettings
     from ..models.offering_component import OfferingComponent
     from ..models.order_details import OrderDetails
     from ..models.report_section import ReportSection
@@ -76,6 +77,7 @@ class Resource:
         project_uuid (Union[Unset, UUID]):
         project_name (Union[Unset, str]):
         project_description (Union[Unset, str]):
+        project_start_date (Union[None, Unset, datetime.date]):
         project_end_date (Union[None, Unset, datetime.date]): The date is inclusive. Once reached, all project resource
             will be scheduled for termination.
         project_effective_end_date (Union[None, Unset, datetime.date]): Effective project end date including grace
@@ -97,10 +99,9 @@ class Resource:
         parent_uuid (Union[Unset, UUID]):
         parent_name (Union[Unset, str]):
         backend_metadata (Union[Unset, BackendMetadata]):
-        is_usage_based (Union[Unset, bool]): Returns True if the resource has usage-based components that track variable
-            consumption.
-        is_limit_based (Union[Unset, bool]): Returns True if the resource has limit-based components with user-
-            adjustable quotas.
+        is_usage_based (Union[Unset, bool]): Returns True if the resource bills any component by usage under its plan.
+        is_limit_based (Union[Unset, bool]): Returns True if the resource bills any component on user-adjustable limits
+            under its plan.
         name (Union[Unset, str]):
         slug (Union[Unset, str]): URL-friendly identifier. Only editable by staff users.
         current_usages (Union[Unset, ResourceCurrentUsages]): Dictionary mapping component types to their latest
@@ -140,6 +141,7 @@ class Resource:
         offering_components (Union[Unset, list['OfferingComponent']]):
         has_api_keys (Union[Unset, bool]): Whether the resource owns any API keys, so the portal can offer key
             management without knowing which backend serves the resource.
+        offering_account_settings (Union[Unset, OfferingAccountSettings]):
     """
 
     offering: Union[Unset, str] = UNSET
@@ -181,6 +183,7 @@ class Resource:
     project_uuid: Union[Unset, UUID] = UNSET
     project_name: Union[Unset, str] = UNSET
     project_description: Union[Unset, str] = UNSET
+    project_start_date: Union[None, Unset, datetime.date] = UNSET
     project_end_date: Union[None, Unset, datetime.date] = UNSET
     project_effective_end_date: Union[None, Unset, datetime.date] = UNSET
     resource_effective_end_date: Union[None, Unset, datetime.date] = UNSET
@@ -228,6 +231,7 @@ class Resource:
     offering_state: Union[Unset, OfferingState] = UNSET
     offering_components: Union[Unset, list["OfferingComponent"]] = UNSET
     has_api_keys: Union[Unset, bool] = UNSET
+    offering_account_settings: Union[Unset, "OfferingAccountSettings"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -364,6 +368,14 @@ class Resource:
         project_name = self.project_name
 
         project_description = self.project_description
+
+        project_start_date: Union[None, Unset, str]
+        if isinstance(self.project_start_date, Unset):
+            project_start_date = UNSET
+        elif isinstance(self.project_start_date, datetime.date):
+            project_start_date = self.project_start_date.isoformat()
+        else:
+            project_start_date = self.project_start_date
 
         project_end_date: Union[None, Unset, str]
         if isinstance(self.project_end_date, Unset):
@@ -566,6 +578,10 @@ class Resource:
 
         has_api_keys = self.has_api_keys
 
+        offering_account_settings: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.offering_account_settings, Unset):
+            offering_account_settings = self.offering_account_settings.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -647,6 +663,8 @@ class Resource:
             field_dict["project_name"] = project_name
         if project_description is not UNSET:
             field_dict["project_description"] = project_description
+        if project_start_date is not UNSET:
+            field_dict["project_start_date"] = project_start_date
         if project_end_date is not UNSET:
             field_dict["project_end_date"] = project_end_date
         if project_effective_end_date is not UNSET:
@@ -741,6 +759,8 @@ class Resource:
             field_dict["offering_components"] = offering_components
         if has_api_keys is not UNSET:
             field_dict["has_api_keys"] = has_api_keys
+        if offering_account_settings is not UNSET:
+            field_dict["offering_account_settings"] = offering_account_settings
 
         return field_dict
 
@@ -748,6 +768,7 @@ class Resource:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.backend_metadata import BackendMetadata
         from ..models.nested_endpoint import NestedEndpoint
+        from ..models.offering_account_settings import OfferingAccountSettings
         from ..models.offering_component import OfferingComponent
         from ..models.order_details import OrderDetails
         from ..models.report_section import ReportSection
@@ -958,6 +979,23 @@ class Resource:
         project_name = d.pop("project_name", UNSET)
 
         project_description = d.pop("project_description", UNSET)
+
+        def _parse_project_start_date(data: object) -> Union[None, Unset, datetime.date]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_start_date_type_0 = isoparse(data).date()
+
+                return project_start_date_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.date], data)
+
+        project_start_date = _parse_project_start_date(d.pop("project_start_date", UNSET))
 
         def _parse_project_end_date(data: object) -> Union[None, Unset, datetime.date]:
             if data is None:
@@ -1288,6 +1326,13 @@ class Resource:
 
         has_api_keys = d.pop("has_api_keys", UNSET)
 
+        _offering_account_settings = d.pop("offering_account_settings", UNSET)
+        offering_account_settings: Union[Unset, OfferingAccountSettings]
+        if isinstance(_offering_account_settings, Unset):
+            offering_account_settings = UNSET
+        else:
+            offering_account_settings = OfferingAccountSettings.from_dict(_offering_account_settings)
+
         resource = cls(
             offering=offering,
             offering_name=offering_name,
@@ -1328,6 +1373,7 @@ class Resource:
             project_uuid=project_uuid,
             project_name=project_name,
             project_description=project_description,
+            project_start_date=project_start_date,
             project_end_date=project_end_date,
             project_effective_end_date=project_effective_end_date,
             resource_effective_end_date=resource_effective_end_date,
@@ -1375,6 +1421,7 @@ class Resource:
             offering_state=offering_state,
             offering_components=offering_components,
             has_api_keys=has_api_keys,
+            offering_account_settings=offering_account_settings,
         )
 
         resource.additional_properties = d

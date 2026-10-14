@@ -12,6 +12,7 @@ class ENABLEDREPORTINGSCREENSEnum(str, Enum):
     ORDERS = "orders"
     ORGANIZATION_SUMMARY = "organization-summary"
     PRICELIST = "pricelist"
+    PROJECTS_BY_AFFILIATED_ORGANIZATION = "projects-by-affiliated-organization"
     PROJECT_CLASSIFICATION = "project-classification"
     PROJECT_DETAIL = "project-detail"
     PROVIDER_CUSTOMERS = "provider-customers"

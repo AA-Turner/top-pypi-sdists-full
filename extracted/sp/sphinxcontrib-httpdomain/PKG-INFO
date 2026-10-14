@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-httpdomain
-Version: 2.1.0
+Version: 2.2.0
 Summary: Sphinx extension that provides domains for documenting HTTP and WebSocket APIs.
 Keywords: Sphinx,extension,documentation,contrib,HTTP,WebSocket,API,domain
 Author: Hong Minhee, Ash Berlin-Taylor
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
 Requires-Dist: sphinx>=8.1.3

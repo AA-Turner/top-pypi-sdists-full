@@ -91,8 +91,9 @@ def sync_detailed(
 ) -> Response[list["EligibleProject"]]:
     """List projects the caller can create a Matrix room for
 
-     Returns projects where the caller is customer owner (staff sees all) and no MatrixRoom row exists
-    yet. Existing archived rooms still block creation, so projects with any room are excluded.
+     Returns projects where the caller holds MATRIX_ROOM.CREATE on the project or its organization (staff
+    and support see all) and no MatrixRoom row exists yet. Existing archived rooms still block creation,
+    so projects with any room are excluded.
 
     Args:
         customer_uuid (Union[Unset, str]):
@@ -138,8 +139,9 @@ def sync(
 ) -> list["EligibleProject"]:
     """List projects the caller can create a Matrix room for
 
-     Returns projects where the caller is customer owner (staff sees all) and no MatrixRoom row exists
-    yet. Existing archived rooms still block creation, so projects with any room are excluded.
+     Returns projects where the caller holds MATRIX_ROOM.CREATE on the project or its organization (staff
+    and support see all) and no MatrixRoom row exists yet. Existing archived rooms still block creation,
+    so projects with any room are excluded.
 
     Args:
         customer_uuid (Union[Unset, str]):
@@ -180,8 +182,9 @@ async def asyncio_detailed(
 ) -> Response[list["EligibleProject"]]:
     """List projects the caller can create a Matrix room for
 
-     Returns projects where the caller is customer owner (staff sees all) and no MatrixRoom row exists
-    yet. Existing archived rooms still block creation, so projects with any room are excluded.
+     Returns projects where the caller holds MATRIX_ROOM.CREATE on the project or its organization (staff
+    and support see all) and no MatrixRoom row exists yet. Existing archived rooms still block creation,
+    so projects with any room are excluded.
 
     Args:
         customer_uuid (Union[Unset, str]):
@@ -225,8 +228,9 @@ async def asyncio(
 ) -> list["EligibleProject"]:
     """List projects the caller can create a Matrix room for
 
-     Returns projects where the caller is customer owner (staff sees all) and no MatrixRoom row exists
-    yet. Existing archived rooms still block creation, so projects with any room are excluded.
+     Returns projects where the caller holds MATRIX_ROOM.CREATE on the project or its organization (staff
+    and support see all) and no MatrixRoom row exists yet. Existing archived rooms still block creation,
+    so projects with any room are excluded.
 
     Args:
         customer_uuid (Union[Unset, str]):

@@ -1,0 +1,234 @@
+from http import HTTPStatus
+from io import BytesIO
+from typing import Any, Union
+from uuid import UUID
+
+import httpx
+
+from ... import errors
+from ...client import AuthenticatedClient, Client
+from ...models.proposal_states import ProposalStates
+from ...types import UNSET, File, Response, Unset
+
+
+def _get_kwargs(
+    uuid: UUID,
+    *,
+    created_by_uuid: Union[Unset, UUID] = UNSET,
+    proposal_name: Union[Unset, str] = UNSET,
+    proposal_state: Union[Unset, list[ProposalStates]] = UNSET,
+    round_uuid: Union[Unset, UUID] = UNSET,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+
+    json_created_by_uuid: Union[Unset, str] = UNSET
+    if not isinstance(created_by_uuid, Unset):
+        json_created_by_uuid = str(created_by_uuid)
+    params["created_by_uuid"] = json_created_by_uuid
+
+    params["proposal_name"] = proposal_name
+
+    json_proposal_state: Union[Unset, list[str]] = UNSET
+    if not isinstance(proposal_state, Unset):
+        json_proposal_state = []
+        for proposal_state_item_data in proposal_state:
+            proposal_state_item = proposal_state_item_data.value
+            json_proposal_state.append(proposal_state_item)
+
+    params["proposal_state"] = json_proposal_state
+
+    json_round_uuid: Union[Unset, str] = UNSET
+    if not isinstance(round_uuid, Unset):
+        json_round_uuid = str(round_uuid)
+    params["round_uuid"] = json_round_uuid
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
+    _kwargs: dict[str, Any] = {
+        "method": "get",
+        "url": f"/api/proposal-protected-calls/{uuid}/export-proposals/",
+        "params": params,
+    }
+
+    return _kwargs
+
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> File:
+    if response.status_code == 404:
+        raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
+    if response.status_code == 200:
+        response_200 = File(payload=BytesIO(response.text))
+
+        return response_200
+    raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
+
+
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[File]:
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(client=client, response=response),
+    )
+
+
+def sync_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    created_by_uuid: Union[Unset, UUID] = UNSET,
+    proposal_name: Union[Unset, str] = UNSET,
+    proposal_state: Union[Unset, list[ProposalStates]] = UNSET,
+    round_uuid: Union[Unset, UUID] = UNSET,
+) -> Response[File]:
+    """Download the call's proposals as CSV, one row per proposal, with one column per requested offering
+    component. The column set is derived from the call, so it is the same for every row and between
+    exports of the same call.
+
+    Args:
+        uuid (UUID):
+        created_by_uuid (Union[Unset, UUID]):
+        proposal_name (Union[Unset, str]):
+        proposal_state (Union[Unset, list[ProposalStates]]):
+        round_uuid (Union[Unset, UUID]):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[File]
+    """
+
+    kwargs = _get_kwargs(
+        uuid=uuid,
+        created_by_uuid=created_by_uuid,
+        proposal_name=proposal_name,
+        proposal_state=proposal_state,
+        round_uuid=round_uuid,
+    )
+
+    response = client.get_httpx_client().request(
+        **kwargs,
+    )
+
+    return _build_response(client=client, response=response)
+
+
+def sync(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    created_by_uuid: Union[Unset, UUID] = UNSET,
+    proposal_name: Union[Unset, str] = UNSET,
+    proposal_state: Union[Unset, list[ProposalStates]] = UNSET,
+    round_uuid: Union[Unset, UUID] = UNSET,
+) -> File:
+    """Download the call's proposals as CSV, one row per proposal, with one column per requested offering
+    component. The column set is derived from the call, so it is the same for every row and between
+    exports of the same call.
+
+    Args:
+        uuid (UUID):
+        created_by_uuid (Union[Unset, UUID]):
+        proposal_name (Union[Unset, str]):
+        proposal_state (Union[Unset, list[ProposalStates]]):
+        round_uuid (Union[Unset, UUID]):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        File
+    """
+
+    return sync_detailed(
+        uuid=uuid,
+        client=client,
+        created_by_uuid=created_by_uuid,
+        proposal_name=proposal_name,
+        proposal_state=proposal_state,
+        round_uuid=round_uuid,
+    ).parsed
+
+
+async def asyncio_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    created_by_uuid: Union[Unset, UUID] = UNSET,
+    proposal_name: Union[Unset, str] = UNSET,
+    proposal_state: Union[Unset, list[ProposalStates]] = UNSET,
+    round_uuid: Union[Unset, UUID] = UNSET,
+) -> Response[File]:
+    """Download the call's proposals as CSV, one row per proposal, with one column per requested offering
+    component. The column set is derived from the call, so it is the same for every row and between
+    exports of the same call.
+
+    Args:
+        uuid (UUID):
+        created_by_uuid (Union[Unset, UUID]):
+        proposal_name (Union[Unset, str]):
+        proposal_state (Union[Unset, list[ProposalStates]]):
+        round_uuid (Union[Unset, UUID]):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[File]
+    """
+
+    kwargs = _get_kwargs(
+        uuid=uuid,
+        created_by_uuid=created_by_uuid,
+        proposal_name=proposal_name,
+        proposal_state=proposal_state,
+        round_uuid=round_uuid,
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+
+    return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    created_by_uuid: Union[Unset, UUID] = UNSET,
+    proposal_name: Union[Unset, str] = UNSET,
+    proposal_state: Union[Unset, list[ProposalStates]] = UNSET,
+    round_uuid: Union[Unset, UUID] = UNSET,
+) -> File:
+    """Download the call's proposals as CSV, one row per proposal, with one column per requested offering
+    component. The column set is derived from the call, so it is the same for every row and between
+    exports of the same call.
+
+    Args:
+        uuid (UUID):
+        created_by_uuid (Union[Unset, UUID]):
+        proposal_name (Union[Unset, str]):
+        proposal_state (Union[Unset, list[ProposalStates]]):
+        round_uuid (Union[Unset, UUID]):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        File
+    """
+
+    return (
+        await asyncio_detailed(
+            uuid=uuid,
+            client=client,
+            created_by_uuid=created_by_uuid,
+            proposal_name=proposal_name,
+            proposal_state=proposal_state,
+            round_uuid=round_uuid,
+        )
+    ).parsed

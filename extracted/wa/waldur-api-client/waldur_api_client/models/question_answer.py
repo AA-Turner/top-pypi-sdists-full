@@ -6,7 +6,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
-    from ..models.question_answer_project_answers_item import QuestionAnswerProjectAnswersItem
+    from ..models.project_answer_detail import ProjectAnswerDetail
     from ..models.question_answer_question_options_item import QuestionAnswerQuestionOptionsItem
 
 
@@ -26,7 +26,7 @@ class QuestionAnswer:
         max_value (Union[None, str]):
         total_projects (int): Get total projects count.
         answered_projects_count (int): Get count of projects that answered this question.
-        project_answers (list['QuestionAnswerProjectAnswersItem']): Get all project answers for this question.
+        project_answers (list['ProjectAnswerDetail']):
         question_options (list['QuestionAnswerQuestionOptionsItem']): Get question options for select-type questions.
     """
 
@@ -39,7 +39,7 @@ class QuestionAnswer:
     max_value: Union[None, str]
     total_projects: int
     answered_projects_count: int
-    project_answers: list["QuestionAnswerProjectAnswersItem"]
+    project_answers: list["ProjectAnswerDetail"]
     question_options: list["QuestionAnswerQuestionOptionsItem"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -96,7 +96,7 @@ class QuestionAnswer:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.question_answer_project_answers_item import QuestionAnswerProjectAnswersItem
+        from ..models.project_answer_detail import ProjectAnswerDetail
         from ..models.question_answer_question_options_item import QuestionAnswerQuestionOptionsItem
 
         d = dict(src_dict)
@@ -131,7 +131,7 @@ class QuestionAnswer:
         project_answers = []
         _project_answers = d.pop("project_answers")
         for project_answers_item_data in _project_answers:
-            project_answers_item = QuestionAnswerProjectAnswersItem.from_dict(project_answers_item_data)
+            project_answers_item = ProjectAnswerDetail.from_dict(project_answers_item_data)
 
             project_answers.append(project_answers_item)
 

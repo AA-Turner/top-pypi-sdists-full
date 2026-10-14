@@ -669,7 +669,11 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # work in track-work's own words (Richard 2026-10-12).
     # 42 / f25c841552b9: DAEMON_POINTER_BODY gained the `### PAPERS:` section
     # (`probe paper find`, Richard 2026-10-12); the digest covers both bodies from here.
-    assert (agent_rules.POINTER_VERSION, digest) == (42, "f25c841552b9"), (
+    # 43 / ab8e84b72b87: both bodies gained the `### FEEDBACK:` section
+    # (`probe feedback send`, Richard 2026-10-13).
+    # 44 / cca6cded8753: DAEMON_POINTER_BODY gained the `probe ask --writer` line
+    # (the writer channel, Richard 2026-10-13).
+    assert (agent_rules.POINTER_VERSION, digest) == (44, "cca6cded8753"), (
         "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

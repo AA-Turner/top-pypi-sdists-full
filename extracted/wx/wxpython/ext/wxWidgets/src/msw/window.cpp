@@ -76,9 +76,11 @@
 
 #include "wx/msw/private.h"
 #include "wx/msw/private/darkmode.h"
+#include "wx/msw/private/imm.h"
 #include "wx/msw/private/keyboard.h"
 #include "wx/msw/private/metrics.h"
 #include "wx/msw/private/paint.h"
+#include "wx/msw/private/power.h"
 #include "wx/msw/private/winstyle.h"
 #include "wx/msw/dcclient.h"
 #include "wx/msw/seh.h"
@@ -108,7 +110,6 @@
 
 #include <string.h>
 
-#include <imm.h>
 #include <shellapi.h>
 #include <mmsystem.h>
 
@@ -207,6 +208,31 @@ bool gs_insideCaptureChanged = false;
 // their destruction.
 bool gs_gotEndSession = false;
 
+// Characters outside of the BMP are sent to us in 2 WM_CHAR messages
+// containing the high and low surrogates of their UTF-16 representation.
+inline bool IsHighSurrogate(WXWPARAM wParam)
+{
+    return wParam >= 0xd800 && wParam < 0xdc00;
+}
+
+inline bool IsLowSurrogate(WXWPARAM wParam)
+{
+    return wParam >= 0xdc00 && wParam < 0xe000;
+}
+
+inline wxUniChar MakeFromSurrogates(WXWPARAM high, WXWPARAM low)
+{
+    return wxUniChar(0x10000 + ((high - 0xd800) << 10) + (low - 0xdc00));
+}
+
+// High surrogate from the last WM_CHAR message if we're waiting for the low
+// surrogate following it or 0 otherwise.
+WXWPARAM gs_pendingHighSurrogate = 0;
+
+// Set to true while resending WM_CHAR with the high surrogate to let the
+// default window procedure process it, see wxWindowMSW::HandleChar().
+bool gs_resendingHighSurrogate = false;
+
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
@@ -299,19 +325,11 @@ static bool wxIsTouchEventMSW()
     return (::GetMessageExtraInfo() & SIGNATURE_MASK) == MI_WP_SIGNATURE;
 }
 
-// ---------------------------------------------------------------------------
-// event tables
-// ---------------------------------------------------------------------------
-
 // in wxUniv/MSW this class is abstract because it doesn't have DoPopupMenu()
 // method
 #ifdef __WXUNIVERSAL__
     wxIMPLEMENT_ABSTRACT_CLASS(wxWindowMSW, wxWindowBase);
 #endif // __WXUNIVERSAL__
-
-wxBEGIN_EVENT_TABLE(wxWindowMSW, wxWindowBase)
-    EVT_SYS_COLOUR_CHANGED(wxWindowMSW::OnSysColourChanged)
-wxEND_EVENT_TABLE()
 
 // ===========================================================================
 // implementation
@@ -1230,6 +1248,96 @@ wxWindowMSW::AdjustForLayoutDirection(wxCoord x,
     return x;
 }
 
+// ----------------------------------------------------------------------------
+// input method support
+// ----------------------------------------------------------------------------
+
+/* static */
+const wxIMMFunctions& wxIMMFunctions::Get()
+{
+    static const wxIMMFunctions s_imm;
+    return s_imm;
+}
+
+wxIMMFunctions::wxIMMFunctions()
+{
+    wxLoadedDLL dllImm32("imm32.dll");
+    if ( !dllImm32.IsLoaded() )
+        return;
+
+#define wxINIT_IMM_FUNC(name) \
+    name = (Imm ## name ## _t)dllImm32.RawGetSymbol("Imm" #name); \
+    if ( !name ) \
+        return
+
+    wxINIT_IMM_FUNC(AssociateContextEx);
+    wxINIT_IMM_FUNC(GetContext);
+    wxINIT_IMM_FUNC(GetOpenStatus);
+    wxINIT_IMM_FUNC(ReleaseContext);
+    wxINIT_IMM_FUNC(SetCompositionFontW);
+    wxINIT_IMM_FUNC(SetCompositionWindow);
+    wxINIT_IMM_FUNC(SetCandidateWindow);
+
+#undef wxINIT_IMM_FUNC
+
+    m_ok = true;
+}
+
+namespace
+{
+
+// Position the IME windows at the location returned by the window
+// GetInputMethodCursorRect(), if it returns anything.
+void wxPositionIMEWindows(const wxWindowMSW* win)
+{
+    const wxRect rect = win->GetInputMethodCursorRect();
+    if ( rect.IsEmpty() )
+        return;
+
+    wxIMCContext hIMC(GetHwndOf(win));
+    if ( !hIMC )
+        return;
+
+    const wxIMMFunctions& imm = wxIMMFunctions::Get();
+
+    // Show the composition string at the start of the rectangle...
+    COMPOSITIONFORM cf = {};
+    cf.dwStyle = CFS_POINT;
+    cf.ptCurrentPos.x = rect.x;
+    cf.ptCurrentPos.y = rect.y;
+    imm.SetCompositionWindow(hIMC, &cf);
+
+    // ... and the candidates list below it, without covering it.
+    CANDIDATEFORM cand = {};
+    cand.dwIndex = 0;
+    cand.dwStyle = CFS_EXCLUDE;
+    cand.ptCurrentPos.x = rect.x;
+    cand.ptCurrentPos.y = rect.y + rect.height;
+    cand.rcArea.left = rect.x;
+    cand.rcArea.top = rect.y;
+    cand.rcArea.right = rect.x + rect.width;
+    cand.rcArea.bottom = rect.y + rect.height;
+    imm.SetCandidateWindow(hIMC, &cand);
+}
+
+} // anonymous namespace
+
+void wxWindowMSW::DoEnableInputMethod(bool enable)
+{
+    // If the window hasn't been created yet, this will be done in
+    // SubclassWin() when it is.
+    if ( !m_hWnd )
+        return;
+
+    const wxIMMFunctions& imm = wxIMMFunctions::Get();
+    if ( !imm.IsOk() )
+        return;
+
+    // Passing null IMC handle disables IME with the default flags and is
+    // completely ignored with IACE_DEFAULT which restores the default IME.
+    imm.AssociateContextEx(GetHwnd(), nullptr, enable ? IACE_DEFAULT : 0);
+}
+
 // ---------------------------------------------------------------------------
 // subclassing
 // ---------------------------------------------------------------------------
@@ -1266,6 +1374,10 @@ void wxWindowMSW::SubclassWin(WXHWND hWnd)
         // simply check m_oldWndProc
         m_oldWndProc = nullptr;
     }
+
+    // Input method may have been disabled before the window was created.
+    if ( !IsInputMethodEnabled() )
+        DoEnableInputMethod(false);
 
     // we're officially created now, send the event
     wxWindowCreateEvent event((wxWindow *)this);
@@ -2528,8 +2640,7 @@ WXLRESULT wxWindowMSW::MSWDefWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM l
     // pressed into account.
     if ( nMsg == WM_CHAR )
     {
-        wxKeyEvent event(CreateCharEvent(wxEVT_AFTER_CHAR, wParam, lParam));
-        HandleWindowEvent(event);
+        SendAfterCharEvent(wParam, lParam);
     }
 
     return rc;
@@ -2751,6 +2862,40 @@ bool wxWindowMSW::MSWTranslateMessage(WXMSG* pMsg)
 bool wxWindowMSW::MSWShouldPreProcessMessage(WXMSG* WXUNUSED(msg))
 {
     // We don't have any reason to not preprocess messages at this level.
+    return true;
+}
+
+bool wxWindowMSW::MSWShouldUseAcceleratorForKey(const WXMSG* pMsg)
+{
+#if wxUSE_ACCEL
+    const MSG* const msg = reinterpret_cast<const MSG*>(pMsg);
+
+    // Only the key presses can be used as accelerators.
+    if ( msg->message != WM_KEYDOWN && msg->message != WM_SYSKEYDOWN )
+        return true;
+
+    const auto event(CreateKeyEvent(wxEVT_KEY_DOWN, msg->wParam, msg->lParam));
+
+    // Check if this key is used by some of accelerators we define.
+    wxAcceleratorEntry entry;
+    if ( !FindAcceleratorForKey(event, entry, nullptr /* don't need owner */) )
+    {
+        // It isn't, let it be translated/processed normally.
+        return true;
+    }
+
+    // Ask the application if it wants to process this key normally.
+    if ( !ShouldUseAcceleratorForKey(event,
+                                     entry.GetCommand(),
+                                     entry.GetMenuItem()) )
+    {
+        // The application wants to handle it, so skip the default processing.
+        return false;
+    }
+#else // !wxUSE_ACCEL
+    wxUnusedVar(pMsg);
+#endif // wxUSE_ACCEL/!wxUSE_ACCEL
+
     return true;
 }
 
@@ -3387,7 +3532,11 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
                 // The key was handled in the EVT_KEY_DOWN and handling
                 // a key in an EVT_KEY_DOWN handler is meant, by
                 // design, to prevent EVT_CHARs from happening
-                m_lastKeydownProcessed = false;
+                //
+                // Note that if this is a high surrogate, we need to also
+                // ignore the low surrogate which will follow it.
+                if ( !IsHighSurrogate(wParam) )
+                    m_lastKeydownProcessed = false;
                 processed = true;
             }
             else
@@ -3401,6 +3550,8 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
             // entry window instead of e.g. closing the dialog for which the
             // IME is used (and losing all the changes in the IME window).
             gs_modalEntryWindowCount++;
+
+            wxPositionIMEWindows(this);
             break;
 
         case WM_IME_ENDCOMPOSITION:
@@ -3556,7 +3707,16 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
             // Check for the special case of the message which notifies about
             // the colours change.
             if ( wxIsSystemColourChange(lParam) )
-                processed = HandleSysColorChange();
+            {
+                // When switching between light and dark modes, Windows normally
+                // sends two WM_SETTINGCHANGE messages with "ImmersiveColorSet",
+                // one before and one after. Sometimes the second message does not
+                // appear. To guarantee we process at least one system colour
+                // change event after the switch, defer processing this message
+                // until after the switch.
+                ::PostMessage(m_hWnd, WM_SYSCOLORCHANGE, 0, 0);
+                processed = true;
+            }
             else
                 processed = HandleSettingChange(wParam, lParam);
             break;
@@ -3653,13 +3813,22 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
 
                 // WM_HELP doesn't use lParam under CE
                 HELPINFO* info = (HELPINFO*) lParam;
+
+                // WM_HELP is sent both when F1 is pressed and when the "?"
+                // title bar button is used, so check the key state to find out
+                // which one it was.
+                const wxHelpEvent::Origin origin = wxGetKeyState(WXK_F1)
+                                            ? wxHelpEvent::Origin_Keyboard
+                                            : wxHelpEvent::Origin_HelpButton;
+
                 if ( info->iContextType == HELPINFO_WINDOW )
                 {
                     wxHelpEvent helpEvent
                                 (
                                     wxEVT_HELP,
                                     GetId(),
-                                    wxPoint(info->MousePos.x, info->MousePos.y)
+                                    wxPoint(info->MousePos.x, info->MousePos.y),
+                                    origin
                                 );
 
                     helpEvent.SetEventObject(this);
@@ -3667,7 +3836,8 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
                 }
                 else if ( info->iContextType == HELPINFO_MENUITEM )
                 {
-                    wxHelpEvent helpEvent(wxEVT_HELP, info->iCtrlId);
+                    wxHelpEvent helpEvent(wxEVT_HELP, info->iCtrlId,
+                                          wxDefaultPosition, origin);
                     helpEvent.SetEventObject(this);
                     HandleWindowEvent(helpEvent);
 
@@ -3782,8 +3952,8 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
             }
             break;
 
-#if wxUSE_POPUPWIN
         case WM_NCACTIVATE:
+#if wxUSE_POPUPWIN
             // When we're losing activation to our own popup window, we want to
             // retain the "active" appearance of the title bar, as dropping
             // down a combobox popup shouldn't deactivate the window containing
@@ -3798,8 +3968,24 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
                 rc.result = MSWDefWindowProc(message, TRUE, lParam);
                 processed = true;
             }
-            break;
 #endif
+
+#ifndef __WXUNIVERSAL__
+            // If top level window, paint the scroll bar corner. We need this
+            // because a change in activation does not always result in
+            // a WM_NCPAINT message.
+            if ( IsTopLevel() && wxMSWDarkMode::IsActive()  )
+            {
+                const long style = ::GetWindowLong(m_hWnd, GWL_STYLE);
+                if ( (style & WS_HSCROLL) && (style & WS_VSCROLL) )
+                {
+                    rc.result = MSWDefWindowProc(message, wParam, lParam);
+                    processed = true;
+                    wxMSWImpl::PaintScrollBarCorner(this);
+                }
+            }
+#endif
+            break;
 
         // If we want the default themed border then we need to draw it ourselves
         case WM_NCCALCSIZE:
@@ -3835,7 +4021,9 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
             {
                 // Determine whether we should draw a border.
                 bool drawBorder = false;
-                switch ( DoTranslateBorder(GetBorder()) )
+                wxBorder rawBorder = GetBorder();
+                wxBorder border = DoTranslateBorder(rawBorder);
+                switch ( border )
                 {
                     case wxBORDER_THEME:
                         drawBorder = true;
@@ -3843,10 +4031,18 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
 
                     case wxBORDER_STATIC:
                     case wxBORDER_RAISED:
-                    case wxBORDER_SUNKEN:
                         // In dark mode, explicitly draw these border styles because
                         // the default drawing uses light mode colours.
                         drawBorder = wxMSWDarkMode::IsActive();
+                        break;
+
+                    case wxBORDER_SUNKEN:
+                        // In dark mode, explicitly draw the border unless the window
+                        // draws a good border itself. When the window draws a good
+                        // border, DoTranslateBorder() translates wxBORDER_THEME to
+                        // wxBORDER_SUNKEN.
+                        drawBorder = wxMSWDarkMode::IsActive() &&
+                            MSWShouldDrawDarkThemeBorder();
                         break;
 
                     case wxBORDER_NONE:
@@ -3870,47 +4066,49 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
                     processed = true;
 
                     wxWindowDC dc((wxWindow *)this);
-                    wxMSWDCImpl *impl = (wxMSWDCImpl*) dc.GetImpl();
-                    RECT rcBorder;
-                    wxCopyRectToRECT(GetSize(), rcBorder);
 
                     // Exclude the client area and any scroll bars.
-                    RECT rcClient = rcBorder;
+                    RECT rcClient;
+                    wxCopyRectToRECT(GetSize(), rcClient);
                     InflateRect(&rcClient, -thickness, -thickness);
-                    ::ExcludeClipRect(GetHdcOf(*impl), rcClient.left, rcClient.top,
+                    HDC hdc = dc.GetHDC();
+                    ::ExcludeClipRect(hdc, rcClient.left, rcClient.top,
                                       rcClient.right, rcClient.bottom);
 
-                    // Draw the theme border and background.
-                    if ( wxMSWDarkMode::IsActive() )
-                    {
-                        // There does not seem to be a theme class that draws a good
-                        // border on all supported versions of Windows. Manually draw a
-                        // 1-pixel thick border. Use the observed colour of the simple
-                        // border, WS_BORDER.
-                        AutoHBRUSH brushBorder(0x646464);
-                        ::FrameRect(GetHdcOf(*impl), &rcBorder, brushBorder);
-                        // Draw the background with consecutively smaller 1-pixel thick
-                        // rectangles.
-                        AutoHBRUSH brushBg(GetBackgroundColour().GetPixel());
-                        for (int count = 1; count < thickness; count++)
-                        {
-                            ::InflateRect(&rcBorder, -1, -1);
-                            ::FrameRect(GetHdcOf(*impl), &rcBorder, brushBg);
-                        }
-                    }
+                    // Draw the border.
+                    if ( rawBorder == wxBORDER_THEME )
+                        MSWDrawThemeBorder(hdc);
                     else
                     {
-                        // The EDIT class gives a good general purpose border in light mode.
-                        wxUxThemeHandle hTheme(this, L"EDIT");
-                        // Make sure the background is in a proper state
-                        if (::IsThemeBackgroundPartiallyTransparent(hTheme, EP_EDITTEXT, ETS_NORMAL))
-                        {
-                            ::DrawThemeParentBackground(GetHwnd(), GetHdcOf(*impl), &rcBorder);
-                        }
-                        // Draw the border
-                        hTheme.DrawBackground(GetHdcOf(*impl), rcBorder, EP_EDITTEXT, ETS_NORMAL);
+                        // In dark mode, draw a simple border for all the 3D border styles.
+                        wxASSERT(wxMSWDarkMode::IsActive());
+                        wxWindowMSW::MSWDrawThemeBorder(hdc);
                     }
                 }
+
+                // In dark mode the corner between the two scrollbars is not
+                // drawn in the correct colour by Windows, so we need to paint
+                // it ourselves.
+                //
+                // Don't do it in wxUniv which doesn't support wxMSW dark mode.
+#ifndef __WXUNIVERSAL__
+                if ( wxMSWDarkMode::IsActive() )
+                {
+                    const long style = ::GetWindowLong(GetHwnd(), GWL_STYLE);
+
+                    if ( (style & WS_HSCROLL) && (style & WS_VSCROLL) )
+                    {
+                        // MSWDefWindowProc() may have been already called above.
+                        if ( !processed )
+                        {
+                            rc.result = MSWDefWindowProc(message, wParam, lParam);
+                            processed = true;
+                        }
+
+                        wxMSWImpl::PaintScrollBarCorner(this);
+                    }
+                }
+#endif // !__WXUNIVERSAL__
             }
             break;
 
@@ -3930,6 +4128,43 @@ wxWindowMSW::MSWHandleMessage(WXLRESULT *result,
     *result = rc.result;
 
     return true;
+}
+
+// Draw a simple generic border.
+void wxWindowMSW::MSWDrawThemeBorder(WXHDC hdc)
+{
+    RECT rcBorder;
+    wxCopyRectToRECT(GetSize(), rcBorder);
+
+    if ( wxMSWDarkMode::IsActive() )
+    {
+        // There does not seem to be a theme class that draws a good
+        // border on all supported versions of Windows. Manually draw a
+        // 1-pixel thick border.
+        AutoHBRUSH brushBorder(wxMSWDarkMode::GetBorderPen().GetColour().GetPixel());
+        ::FrameRect(hdc, &rcBorder, brushBorder);
+        // Draw the background with consecutively smaller 1-pixel thick
+        // rectangles.
+        AutoHBRUSH brushBg(GetBackgroundColour().GetPixel());
+        const auto thickness = MSWGetBorderThickness();
+        for (int count = 1; count < thickness; count++)
+        {
+            ::InflateRect(&rcBorder, -1, -1);
+            ::FrameRect(hdc, &rcBorder, brushBg);
+        }
+    }
+    else
+    {
+        // The EDIT class gives a good general purpose border in light mode.
+        wxUxThemeHandle hTheme(this, L"EDIT");
+        // Make sure the background is in a proper state
+        if (::IsThemeBackgroundPartiallyTransparent(hTheme, EP_EDITTEXT, ETS_NORMAL))
+        {
+            ::DrawThemeParentBackground(m_hWnd, hdc, &rcBorder);
+        }
+        // Draw the border
+        hTheme.DrawBackground(hdc, rcBorder, EP_EDITTEXT, ETS_NORMAL);
+    }
 }
 
 WXLRESULT wxWindowMSW::MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam)
@@ -4087,7 +4322,7 @@ bool wxWindowMSW::MSWCreate(const wxChar *wclass,
     }
 
     if ( wxMSWDarkMode::IsActive() )
-        MSWSetDarkOrLightMode(SetMode::Initial);
+        MSWSetDarkOrLightMode();
 
     SubclassWin(m_hWnd);
 
@@ -4129,21 +4364,26 @@ void wxWindowMSW::MSWGetDarkModeSupport(MSWDarkModeSupport& support) const
     support.themeName = L"Explorer";
 }
 
-void wxWindowMSW::MSWSetDarkOrLightMode(SetMode WXUNUSED(setmode))
+void wxWindowMSW::MSWSetDarkOrLightMode()
 {
+    const wchar_t* themeName = nullptr;
+    const wchar_t* themeId = nullptr;
+
     MSWDarkModeSupport support;
+    MSWGetDarkModeSupport(support);
     if ( wxMSWDarkMode::IsActive() )
     {
-        MSWGetDarkModeSupport(support);
+        themeName = support.themeName;
+        themeId = support.themeId;
     }
-    else
+    else if ( support.isLightModeThemed )
     {
-        // This is the theme name for light mode.
-        support.themeName = L"Explorer";
+        themeName = L"Explorer";
     }
+    //else: Disable themes.
 
     // This updates scroll bars, if there are any.
-    wxMSWDarkMode::AllowForWindow(m_hWnd, support.themeName, support.themeId);
+    wxMSWDarkMode::AllowForWindow(m_hWnd, themeName, themeId);
 
     // If the window class has a background brush, update it.
     // This is the value in WNDCLASS::hbrBackground.
@@ -4157,6 +4397,13 @@ void wxWindowMSW::MSWSetDarkOrLightMode(SetMode WXUNUSED(setmode))
         HBRUSH hbr = GetHbrushOf(*brush);
         ::SetClassLongPtr(m_hWnd, GCLP_HBRBACKGROUND, LONG_PTR(hbr));
     }
+
+#if wxUSE_TOOLTIPS
+    if ( m_tooltip )
+    {
+        wxToolTip::SetDarkOrLightMode();
+    }
+#endif
 }
 
 // ===========================================================================
@@ -4292,6 +4539,15 @@ bool wxWindowMSW::HandleQueryEndSession(long logOff, bool *mayEnd)
 {
     if ( gs_queryEndSession == QueryEndSession::Unknown )
     {
+        if ( (logOff & ENDSESSION_LOGOFF) == 0 &&
+             wxMSWPowerResourceIsSystemBlockActive() )
+        {
+            wxMSWUpdateShutdownBlockReason();
+            gs_queryEndSession = QueryEndSession::Veto;
+            *mayEnd = false;
+            return true;
+        }
+
         // Make sure we won't generate another wxEVT_QUERY_END_SESSION.
         gs_queryEndSession = QueryEndSession::Allow;
 
@@ -4820,7 +5076,6 @@ wxWindowMSW::MSWOnDrawItem(int WXUNUSED_UNLESS_ODRAWN(id),
     {
         return item->MSWOnDraw(itemStruct);
     }
-
 #endif // wxUSE_CONTROLS
 
     return false;
@@ -5081,10 +5336,7 @@ bool wxWindowMSW::HandleSysColorChange()
     // that information.
     wxMSWDarkMode::NotifySysColorChange();
 
-    wxSysColourChangedEvent event;
-    event.SetEventObject(this);
-
-    (void)HandleWindowEvent(event);
+    SendSysColourChangedEvents();
 
     if ( IsTopLevel() )
         Refresh();
@@ -5262,8 +5514,7 @@ bool wxWindowMSW::HandleQueryNewPalette()
     return HandleWindowEvent(event) && event.GetPaletteRealized();
 }
 
-// Responds to colour changes: passes event on to children.
-void wxWindowMSW::OnSysColourChanged(wxSysColourChangedEvent& WXUNUSED(event))
+void wxWindowMSW::SendSysColourChangedEvents()
 {
     // the top level window also reset the standard colour map as it might have
     // changed (there is no need to do it for the non top level windows as we
@@ -5278,8 +5529,12 @@ void wxWindowMSW::OnSysColourChanged(wxSysColourChangedEvent& WXUNUSED(event))
     {
         // Update the parent before the children because they often inherit
         // parent colors.
-        MSWSetDarkOrLightMode(SetMode::Change);
+        MSWSetDarkOrLightMode();
     }
+
+    wxSysColourChangedEvent event;
+    event.SetEventObject(this);
+    ProcessWindowEvent(event);
 
     wxWindowList::compatibility_iterator node = GetChildren().GetFirst();
     while ( node )
@@ -5297,6 +5552,8 @@ void wxWindowMSW::OnSysColourChanged(wxSysColourChangedEvent& WXUNUSED(event))
 
         node = node->GetNext();
     }
+
+    // Base class functionality is duplicated here, so don't chain up
 }
 
 extern wxCOLORMAP *wxGetStdColourMap()
@@ -6546,6 +6803,7 @@ wxWindowMSW::CreateKeyEvent(wxEventType evType,
                                         lParam
                                         , &event.m_uniChar
                                      );
+    event.SetUnicodeChar(event.m_uniChar);
 
     return event;
 }
@@ -6558,30 +6816,44 @@ wxWindowMSW::CreateCharEvent(wxEventType evType,
     wxKeyEvent event(evType);
     InitAnyKeyEvent(event, wParam, lParam);
 
-    // TODO: wParam uses UTF-16 so this is incorrect for characters outside of
-    //       the BMP, we should use WM_UNICHAR to handle them.
-    event.m_uniChar = wParam;
+    // This must be checked in the caller.
+    wxASSERT( !IsHighSurrogate(wParam) );
+
+    // Construct the full Unicode character by recombining the surrogate pair
+    // if necessary.
+    const wxUniChar unichar = IsLowSurrogate(wParam)
+        ? MakeFromSurrogates(gs_pendingHighSurrogate, wParam)
+        : static_cast<wxUniChar>(wParam);
+
+    event.SetUnicodeChar(unichar);
+
+    // Characters outside of the BMP can't be represented by wxChar, so leave
+    // m_uniChar and m_keyCode as WXK_NONE for them.
+    if ( !unichar.IsBMP() )
+        return event;
+
+    event.m_uniChar = unichar;
 
     // Set non-Unicode key code too for compatibility if possible.
-    if ( wParam < 0x80 )
+    if ( unichar.IsAscii() )
     {
         // It's an ASCII character, no need to translate it.
-        event.m_keyCode = wParam;
+        event.m_keyCode = unichar.GetValue();
     }
     else
     {
         // Check if this key can be represented (as a single character) in the
         // current locale.
-        const wchar_t wc = wParam;
+        const wchar_t wc = unichar;
         char ch;
         if ( wxConvLibc.FromWChar(&ch, 1, &wc, 1) != wxCONV_FAILED )
         {
             // For compatibility continue to provide the key code in this field
-            // even though using GetUnicodeKey() is recommended now.
+            // even though using GetUnicodeChar() is recommended now.
             event.m_keyCode = static_cast<unsigned char>(ch);
         }
         //else: Key can't be represented in the current locale, leave m_keyCode
-        //      as WXK_NONE and use GetUnicodeKey() to access the character.
+        //      as WXK_NONE and use GetUnicodeChar() to access the character.
     }
 
     // the alphanumeric keys produced by pressing AltGr+something on European
@@ -6600,12 +6872,70 @@ wxWindowMSW::CreateCharEvent(wxEventType evType,
     return event;
 }
 
+void wxWindowMSW::SendAfterCharEvent(WXWPARAM wParam, WXLPARAM lParam)
+{
+    // Don't do this for surrogate pairs, otherwise we'd need to handle
+    // recomposing them here too.
+    if ( IsHighSurrogate(wParam) || IsLowSurrogate(wParam) )
+        return;
+
+    wxKeyEvent event(CreateCharEvent(wxEVT_AFTER_CHAR, wParam, lParam));
+    HandleWindowEvent(event);
+}
+
 // isASCII is true only when we're called from WM_CHAR handler and not from
 // WM_KEYDOWN one
 bool wxWindowMSW::HandleChar(WXWPARAM wParam, WXLPARAM lParam)
 {
+    // We're called for the high surrogate we had previously swallowed, just
+    // let the default window procedure handle it now.
+    if ( gs_resendingHighSurrogate )
+        return false;
+
+    // Characters outside of the BMP are sent in 2 WM_CHAR messages, but we
+    // want to generate a single wxEVT_CHAR for them, so just remember the
+    // high surrogate and wait for the low one to arrive.
+    if ( IsHighSurrogate(wParam) )
+    {
+        gs_pendingHighSurrogate = wParam;
+
+        // Always pretend to have handled this message because we don't know
+        // yet if the eventual wxEVT_CHAR event will be handled or not.
+        return true;
+    }
+
+    if ( IsLowSurrogate(wParam) && !gs_pendingHighSurrogate )
+    {
+        // We got a low surrogate without a high one, this is invalid, but
+        // just ignore it and let the default window procedure handle it.
+        return false;
+    }
+
     wxKeyEvent event(CreateCharEvent(wxEVT_CHAR, wParam, lParam));
-    return HandleWindowEvent(event);
+
+    const WXWPARAM previousHighSurrogate = gs_pendingHighSurrogate;
+    gs_pendingHighSurrogate = 0;
+
+    if ( HandleWindowEvent(event) )
+        return true;
+
+    if ( previousHighSurrogate && IsLowSurrogate(wParam) )
+    {
+        // Let the default window procedure process the high surrogate before
+        // the low one, which it will get when we return false.
+        //
+        // Send it to the window which received the original message, which may
+        // be a child of this one for the composite controls.
+        HWND hwnd = ::GetFocus();
+        if ( hwnd != GetHwnd() && !::IsChild(GetHwnd(), hwnd) )
+            hwnd = GetHwnd();
+
+        gs_resendingHighSurrogate = true;
+        ::SendMessage(hwnd, WM_CHAR, previousHighSurrogate, lParam);
+        gs_resendingHighSurrogate = false;
+    }
+
+    return false;
 }
 
 bool wxWindowMSW::HandleKeyDown(WXWPARAM wParam, WXLPARAM lParam)
@@ -7385,64 +7715,40 @@ extern wxWindow *wxGetWindowFromHWND(WXHWND hWnd)
 namespace
 {
 
-// We use dynamic loading to avoid having to link with imm32.lib
-// (another positive side effect is that imm32.dll is loaded only if the
-// program actually handles wxEVT_CHAR_HOOK events without skipping them, as
-// it's the only case when we need to use these IME functions).
-typedef HIMC (WINAPI *ImmGetContext_t)(HWND);
-typedef BOOL (WINAPI *ImmGetOpenStatus_t)(HIMC);
-typedef BOOL (WINAPI *ImmReleaseContext_t)(HWND, HIMC);
-
-ImmGetContext_t gs_pfnImmGetContext = nullptr;
-ImmGetOpenStatus_t gs_pfnImmGetOpenStatus = nullptr;
-ImmReleaseContext_t gs_pfnImmReleaseContext = nullptr;
-
 bool wxIsIMEOpen(const wxWindow* win)
 {
     if ( !win )
         return false;
 
-    if ( !gs_pfnImmGetContext )
-    {
-        wxLoadedDLL dllImm32("imm32.dll");
-        if ( !dllImm32.IsLoaded() )
-            return false;
-
-        wxDL_INIT_FUNC(gs_pfn, ImmGetContext, dllImm32);
-        wxDL_INIT_FUNC(gs_pfn, ImmGetOpenStatus, dllImm32);
-        wxDL_INIT_FUNC(gs_pfn, ImmReleaseContext, dllImm32);
-    }
-
-    const HWND hwnd = GetHwndOf(win);
-
-    const HIMC hIMC = gs_pfnImmGetContext(hwnd);
+    wxIMCContext hIMC(GetHwndOf(win));
     if ( !hIMC )
         return false;
 
-    const BOOL isOpen = gs_pfnImmGetOpenStatus(hIMC);
-    gs_pfnImmReleaseContext(hwnd, hIMC);
-
-    return isOpen;
+    return wxIMMFunctions::Get().GetOpenStatus(hIMC) != 0;
 }
 
 } // anonymous namespace
 
-// Windows keyboard hook. Allows interception of e.g. F1, ESCAPE
-// in active frames and dialogs, regardless of where the focus is.
+// Windows keyboard hook. Allows interception of keys in active frames and
+// dialogs, regardless of where the focus is.
 static HHOOK wxTheKeyboardHook = 0;
+
+static bool
+wxSendCharHookEvent(WXWPARAM wParam,
+                    WXLPARAM lParam,
+                    const wxWindow** win = nullptr);
 
 LRESULT APIENTRY
 wxKeyboardHook(int nCode, WXWPARAM wParam, WXLPARAM lParam)
 {
+    // We specifically exclude Esc here to avoid handling it too early, see
+    // wxMSWHandleEscapeKey() below for details.
     DWORD hiWord = HIWORD(lParam);
-    if ( nCode != HC_NOREMOVE && ((hiWord & KF_UP) == 0) )
+    if ( nCode != HC_NOREMOVE && ((hiWord & KF_UP) == 0) && wParam != VK_ESCAPE )
     {
-        wchar_t uc = 0;
-        int id = wxMSWKeyboard::VKToWX(wParam, lParam, &uc);
-
-        // Don't intercept keyboard entry (notably Escape) if a modal window
-        // (not managed by wx, e.g. IME one) is currently opened as more often
-        // than not it needs all the keys for itself.
+        // Don't intercept keyboard entry if a modal window (not managed by wx,
+        // e.g. IME one) is currently opened as more often than not it needs
+        // all the keys for itself.
         //
         // Also don't catch it if a window currently captures the mouse as
         // Escape is normally used to release the mouse capture and if you
@@ -7451,55 +7757,112 @@ wxKeyboardHook(int nCode, WXWPARAM wParam, WXLPARAM lParam)
         // certain to have focus while it has the capture.
         if ( !gs_modalEntryWindowCount && !::GetCapture() )
         {
-            if ( id != WXK_NONE
-                    || static_cast<int>(uc) != WXK_NONE
-                    )
+            const wxWindow* win = nullptr;
+            if ( wxSendCharHookEvent(wParam, lParam, &win) )
             {
-                wxWindow const* win = wxWindow::DoFindFocus();
-                if ( !win )
+                // When IME is active, we must let it have the event as
+                // otherwise it could just hang, see #22473.
+                if ( !wxIsIMEOpen(win) )
                 {
-                    // Even if the focus got lost somehow, still send the event
-                    // to the top level parent to allow a wxDialog to always
-                    // close on Escape.
-                    win = wxGetActiveWindow();
+                    // Stop processing of this event.
+                    return 1;
                 }
 
-                wxKeyEvent event(wxEVT_CHAR_HOOK);
-                MSWInitAnyKeyEvent(event, wParam, lParam, win);
-
-                event.m_keyCode = id;
-                event.m_uniChar = uc;
-
-                wxEvtHandler * const handler = win ? win->GetEventHandler()
-                                                   : wxTheApp;
-
-                // Do not let exceptions propagate out of the hook, it's a
-                // module boundary.
-                if ( handler && handler->SafelyProcessEvent(event) )
-                {
-                    if ( !event.IsNextEventAllowed() )
-                    {
-                        // When IME is active, we must let it have the event as
-                        // otherwise it could just hang, see #22473.
-                        if ( !wxIsIMEOpen(win) )
-                        {
-                            // Stop processing of this event.
-                            return 1;
-                        }
-
-                        // Because we don't stop processing of the event at
-                        // Windows level, we are going to get WM_KEYDOWN for
-                        // this key, but we need to ignore it as it's not
-                        // supposed to be generated if wxEVT_CHAR_HOOK handled
-                        // the event.
-                        wxVKBlockedByKeyboardHook = wParam;
-                    }
-                }
+                // Because we don't stop processing of the event at
+                // Windows level, we are going to get WM_KEYDOWN for
+                // this key, but we need to ignore it as it's not
+                // supposed to be generated if wxEVT_CHAR_HOOK handled
+                // the event.
+                wxVKBlockedByKeyboardHook = wParam;
             }
         }
     }
 
     return (int)CallNextHookEx(wxTheKeyboardHook, nCode, wParam, lParam);
+}
+
+// Send wxEVT_CHAR_HOOK for the given key to the focused window and return true
+// if it was handled and no further events should be generated for this key.
+//
+// The window the event was sent to, which may be null, is returned in the
+// output parameter.
+static bool
+wxSendCharHookEvent(WXWPARAM wParam, WXLPARAM lParam, const wxWindow** out)
+{
+    wchar_t uc = 0;
+    int id = wxMSWKeyboard::VKToWX(wParam, lParam, &uc);
+
+    if ( id == WXK_NONE && static_cast<int>(uc) == WXK_NONE )
+        return false;
+
+    const wxWindow* win = wxWindow::DoFindFocus();
+    if ( !win )
+    {
+        // Even if the focus got lost somehow, still send the event
+        // to the top level parent to allow a wxDialog to always
+        // close on Escape.
+        win = wxGetActiveWindow();
+    }
+
+    wxKeyEvent event(wxEVT_CHAR_HOOK);
+    MSWInitAnyKeyEvent(event, wParam, lParam, win);
+
+    event.m_keyCode = id;
+    event.m_uniChar = uc;
+    event.SetUnicodeChar(uc);
+
+    wxEvtHandler * const handler = win ? win->GetEventHandler()
+                                       : wxTheApp;
+
+    // Do not let exceptions propagate out of the hook, it's a
+    // module boundary.
+    if ( handler && handler->SafelyProcessEvent(event) )
+    {
+        if ( !event.IsNextEventAllowed() )
+        {
+            if ( out )
+                *out = win;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// This function is called by wxGUIEventLoop::PreProcessMessage() to generate
+// wxEVT_CHAR_HOOK for Escape. Unlike for the other keys, we can't do it from
+// wxKeyboardHook() above because it is called too early, before the IME or the
+// focused control get a chance to handle this key, and they often need it,
+// e.g. to cancel the IME composition or to close the auto-completion popup.
+//
+// Returns true if the message was handled and must not be processed further.
+bool wxMSWHandleEscapeKey(WXMSG* msg)
+{
+    if ( msg->message != WM_KEYDOWN || msg->wParam != VK_ESCAPE )
+        return false;
+
+    // See the comments in wxKeyboardHook() explaining these checks.
+    if ( gs_modalEntryWindowCount || ::GetCapture() )
+        return false;
+
+    if ( const HWND hwndFocus = ::GetFocus() )
+    {
+        // Multiline EDIT controls or wxWindow with wxWANTS_CHARS style, always
+        // ask for all keys, but this shouldn't prevent Escape from closing the
+        // dialog containing them, so only take these flags into account if
+        // they're returned specifically for this message, as it's done by the
+        // windows which need Escape only temporarily, e.g. the edit control
+        // using auto-completion while its drop down is shown.
+        const LRESULT codeAny = ::SendMessage(hwndFocus, WM_GETDLGCODE, 0, 0);
+        const LRESULT codeEsc = ::SendMessage(hwndFocus, WM_GETDLGCODE,
+                                              msg->wParam, (LPARAM)msg);
+
+        if ( (codeEsc & ~codeAny) & (DLGC_WANTALLKEYS | DLGC_WANTMESSAGE) )
+            return false;
+    }
+
+    return wxSendCharHookEvent(msg->wParam, msg->lParam);
 }
 
 void wxSetKeyboardHook(bool doIt)

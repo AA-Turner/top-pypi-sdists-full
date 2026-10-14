@@ -38,7 +38,7 @@ class SeverityModifierRuleDataCreate(ModelNormal):
 
     def __init__(self_, attributes: SeverityModifierRuleAttributesCreate, type: SeverityModifierRuleType, **kwargs):
         """
-        The data object for a severity modifier rule create or update request.
+        The data object for a severity modifier rule create request.
 
         :param attributes: Attributes for creating or updating a severity modifier rule.
         :type attributes: SeverityModifierRuleAttributesCreate

@@ -1,13 +1,15 @@
-"""HTTP client for the login console API - the only network surface of `plato vault`.
+"""HTTP client for the login console API - the FALLBACK surface of `plato vault`.
 
-The CLI is a THIN client over the console's ``/api/logins`` routes. Every safety
-gate lives inside those routes (the exit ban check, the 2FA widening, the
+`plato vault` talks to the Chronos login vault first (``chronos.py``). This
+client is the path it used before the vault moved into Chronos, kept for a
+Chronos that does not serve ``/api/login-vault`` yet and for ``--via console``.
+It is a THIN client over the console's ``/api/logins`` routes: every safety gate
+lives inside those routes (the exit ban check, the 2FA widening, the
 single-worker launch lock and its fail-closed in-flight check), so going over
-HTTP inherits all of them for free. Never talk to 1Password or Chronos-launch directly: a second
-process launching bakes sits outside the console's in-process guard.
+HTTP inherits all of them for free.
 
-The console has no auth boundary of its own (it is Tailscale-gated), so the only
-credential here is the base URL.
+The console is reachable only on a private network, and the only credential
+here is the base URL, so treat it as a secret.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ ENV_VAR = "PLATO_VAULT_URL"
 
 # Named in the "unset" error only as a hint. There is deliberately NO default:
 # guessing a host would silently talk to the wrong console.
-DEFAULT_CONSOLE_HINT = "http://jerry-dev-machine:8003"
+DEFAULT_CONSOLE_HINT = "http://<console-host>:8003"
 
 # The console's own browser_mode values (logins.py: POST bake browser_mode
 # Literal), keyed by the CLI's operator-facing names.
@@ -37,6 +39,10 @@ class VaultConsoleError(Exception):
     """Anything that stops a vault command. Exit code 1 unless specialised."""
 
     exit_code = 1
+
+
+# The same base, under the name the Chronos path uses too.
+VaultError = VaultConsoleError
 
 
 class ConsoleUnreachable(VaultConsoleError):
@@ -65,6 +71,18 @@ class NotFound(VaultConsoleError):
     """No such login/account."""
 
     exit_code = 4
+
+
+class CreateOutcomeUnknown(ConsoleUnreachable):
+    """The create POST was sent but no answer came back: the account may exist."""
+
+
+class PartialCreate(VaultConsoleError):
+    """The console committed its catalog row but a vault write (the 1Password item
+    or its login URL) failed. The pair exists now, so a re-run of `create` is a
+    409: finish it with `edit` instead."""
+
+    exit_code = 5
 
 
 def resolve_base_url(override: str | None = None) -> str:
@@ -158,9 +176,81 @@ class VaultConsoleClient:
                 "before retrying (a retry while one is in flight is refused with 409)"
             ) from e
 
+    def create_login(self, body: dict) -> dict:
+        """POST /api/logins - the console's create: its catalog row plus, for any
+        credential or a login URL, the 1Password item. ``body`` holds credential
+        values, so it is only ever sent, never logged or echoed."""
+        try:
+            return self._request("POST", "/api/logins", json=body)
+        except ConsoleUnreachable as e:
+            # A connect failure never reached the console. Anything later (a read
+            # timeout, a dropped connection) may have landed after the commit.
+            cause = e.__cause__
+            if isinstance(cause, httpx.HTTPError) and not isinstance(cause, (httpx.ConnectError, httpx.ConnectTimeout)):
+                raise CreateOutcomeUnknown(
+                    f"{e} - the account MAY have been created: run `plato vault show {body.get('login_key')} "
+                    f"--account {body.get('account')}` before retrying"
+                ) from e
+            raise
+
+    def update_bake_config(
+        self, login_key: str, account: str, *, browser_mode: str | None = None, login_url: str | None = None
+    ) -> dict:
+        """PUT .../bake-config - the vault browser mode and/or login URL. Only the
+        keys being changed: the route applies the body with exclude_unset."""
+        body: dict[str, str] = {}
+        if browser_mode is not None:
+            body["browser_mode"] = browser_mode
+        if login_url is not None:
+            body["target_url"] = login_url
+        return self._request("PUT", f"{_pair_path(login_key, account)}/bake-config", json=body)
+
+    def set_auto_refresh(self, login_key: str, account: str, enabled: bool) -> dict:
+        """PUT .../auto-refresh - the 1Password auto-refresh flag."""
+        return self._request("PUT", f"{_pair_path(login_key, account)}/auto-refresh", json={"auto_refresh": enabled})
+
+    def set_login_hint(self, login_key: str, account: str, hint: str) -> dict:
+        """PUT .../login-hint - the account's own sign-in note ("" clears it)."""
+        return self._request("PUT", f"{_pair_path(login_key, account)}/login-hint", json={"login_hint": hint})
+
+    def bind_proxy(self, login_key: str, account: str, exit_name: str) -> dict:
+        """PUT .../proxy - the account's exit NAME ("" unbinds: the account runs direct)."""
+        return self._request("PUT", f"{_pair_path(login_key, account)}/proxy", json={"exit": exit_name or None})
+
+    def update_credentials(self, login_key: str, account: str, fields: dict) -> dict:
+        """PUT .../credentials - username/password/totp/phone/security_qa and
+        login_url ("" clears a field). Holds secrets: sent, never echoed."""
+        return self._request("PUT", f"{_pair_path(login_key, account)}/credentials", json=fields)
+
+    def archive_login(self, login_key: str, account: str, reason: str) -> dict:
+        """POST .../archive - a dead account: nothing may use it until restored."""
+        return self._request("POST", f"{_pair_path(login_key, account)}/archive", json={"reason": reason})
+
+    def restore_login(self, login_key: str, account: str) -> dict:
+        """POST .../restore - clear the archive."""
+        return self._request("POST", f"{_pair_path(login_key, account)}/restore")
+
     def get_bake_live(self, login_key: str, account: str) -> dict:
         """GET /api/logins/{login_key}/{account}/bake-live - watch links for an in-flight bake."""
         return self._request("GET", f"/api/logins/{quote_segment(login_key)}/{quote_segment(account)}/bake-live")
+
+    def get_persona(self, login_key: str, account: str) -> dict:
+        """GET /api/logins/{login_key}/{account}/persona - the account's persona record (404: none)."""
+        return self._request("GET", f"/api/logins/{quote_segment(login_key)}/{quote_segment(account)}/persona")
+
+    def put_persona(self, login_key: str, account: str, body: dict) -> dict:
+        """PUT /api/logins/{login_key}/{account}/persona - merge ``body`` into the record, create it if absent."""
+        return self._request(
+            "PUT", f"/api/logins/{quote_segment(login_key)}/{quote_segment(account)}/persona", json=body
+        )
+
+    def delete_persona(self, login_key: str, account: str) -> dict:
+        """DELETE /api/logins/{login_key}/{account}/persona."""
+        return self._request("DELETE", f"/api/logins/{quote_segment(login_key)}/{quote_segment(account)}/persona")
+
+
+def _pair_path(login_key: str, account: str) -> str:
+    return f"/api/logins/{quote_segment(login_key)}/{quote_segment(account)}"
 
 
 def quote_segment(value: str) -> str:

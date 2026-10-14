@@ -67,6 +67,15 @@ class CPUCountTest(unittest.TestCase):
 
 
 class IOParamsTest(unittest.TestCase):
+    def test_tensor_filter_rejects_collective_loading(self):
+        with self.assertRaisesRegex(ValueError, "tensor_filter requires process_group=None"):
+            safe_open([], "pt", 0, process_group=object(), tensor_filter=["weight"])
+
+    def test_tensor_filter_requires_string_list(self):
+        for filters in ("weight", [1], lambda name: True):
+            with self.subTest(filters=filters), self.assertRaises(TypeError):
+                safe_open([], "pt", 0, tensor_filter=filters)
+
     def setUp(self):
         self.saved_env = {name: os.environ.pop(name, None) for name in IO_ENV_VARS}
 

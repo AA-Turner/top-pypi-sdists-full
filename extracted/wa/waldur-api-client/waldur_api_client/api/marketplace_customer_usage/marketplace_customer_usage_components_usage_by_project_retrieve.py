@@ -14,12 +14,15 @@ def _get_kwargs(
     uuid: UUID,
     *,
     component_type: Union[Unset, str] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
     offering_uuid: UUID,
     period_offset: Union[Unset, int] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
     params["component_type"] = component_type
+
+    params["include_terminated"] = include_terminated
 
     json_offering_uuid = str(offering_uuid)
     params["offering_uuid"] = json_offering_uuid
@@ -63,6 +66,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     component_type: Union[Unset, str] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
     offering_uuid: UUID,
     period_offset: Union[Unset, int] = UNSET,
 ) -> Response[OfferingUsageByProject]:
@@ -74,6 +78,7 @@ def sync_detailed(
     Args:
         uuid (UUID):
         component_type (Union[Unset, str]):
+        include_terminated (Union[Unset, bool]):
         offering_uuid (UUID):
         period_offset (Union[Unset, int]):
 
@@ -88,6 +93,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         uuid=uuid,
         component_type=component_type,
+        include_terminated=include_terminated,
         offering_uuid=offering_uuid,
         period_offset=period_offset,
     )
@@ -104,6 +110,7 @@ def sync(
     *,
     client: AuthenticatedClient,
     component_type: Union[Unset, str] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
     offering_uuid: UUID,
     period_offset: Union[Unset, int] = UNSET,
 ) -> OfferingUsageByProject:
@@ -115,6 +122,7 @@ def sync(
     Args:
         uuid (UUID):
         component_type (Union[Unset, str]):
+        include_terminated (Union[Unset, bool]):
         offering_uuid (UUID):
         period_offset (Union[Unset, int]):
 
@@ -130,6 +138,7 @@ def sync(
         uuid=uuid,
         client=client,
         component_type=component_type,
+        include_terminated=include_terminated,
         offering_uuid=offering_uuid,
         period_offset=period_offset,
     ).parsed
@@ -140,6 +149,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     component_type: Union[Unset, str] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
     offering_uuid: UUID,
     period_offset: Union[Unset, int] = UNSET,
 ) -> Response[OfferingUsageByProject]:
@@ -151,6 +161,7 @@ async def asyncio_detailed(
     Args:
         uuid (UUID):
         component_type (Union[Unset, str]):
+        include_terminated (Union[Unset, bool]):
         offering_uuid (UUID):
         period_offset (Union[Unset, int]):
 
@@ -165,6 +176,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         uuid=uuid,
         component_type=component_type,
+        include_terminated=include_terminated,
         offering_uuid=offering_uuid,
         period_offset=period_offset,
     )
@@ -179,6 +191,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     component_type: Union[Unset, str] = UNSET,
+    include_terminated: Union[Unset, bool] = UNSET,
     offering_uuid: UUID,
     period_offset: Union[Unset, int] = UNSET,
 ) -> OfferingUsageByProject:
@@ -190,6 +203,7 @@ async def asyncio(
     Args:
         uuid (UUID):
         component_type (Union[Unset, str]):
+        include_terminated (Union[Unset, bool]):
         offering_uuid (UUID):
         period_offset (Union[Unset, int]):
 
@@ -206,6 +220,7 @@ async def asyncio(
             uuid=uuid,
             client=client,
             component_type=component_type,
+            include_terminated=include_terminated,
             offering_uuid=offering_uuid,
             period_offset=period_offset,
         )

@@ -731,7 +731,9 @@ public:
     wxWebViewHandler(const wxString& scheme);
 
     /**
-        @return A pointer to the file represented by @c uri.
+        @return A pointer to the file represented by @c uri, or @NULL. The
+        caller takes ownership of the returned pointer and is responsible for
+        deleting it.
     */
     virtual wxFSFile* GetFile(const wxString &uri);
 
@@ -958,7 +960,7 @@ public:
     connections (this includes HTTP and unverified HTTPS). You have to include
     additional fields in your Info.plist to enable such connections.
     For further details see the documentation on NSAppTransportSecurity
-    <a target=_new href="https://developer.apple.com/documentation/bundleresources/information_property_list/nsapptransportsecurity">here</a>
+    <a target="_blank" href="https://developer.apple.com/documentation/bundleresources/information_property_list/nsapptransportsecurity">here</a>
 
     The predefined @c wxWebViewBackendWebKit constant contains the name of this
     backend.

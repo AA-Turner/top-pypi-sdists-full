@@ -85,6 +85,8 @@ class BitmapTests(wtc.WidgetTestCase):
     def test_BitmapMask(self):
         img = wx.Image(pngFile)
         img = img.ConvertToMono(0,0,0)
+        if img.HasAlpha():
+            img.ClearAlpha()
         bmp = wx.Bitmap(img, 1)
         m = wx.Mask()
         m = wx.Mask(bmp)
@@ -95,6 +97,8 @@ class BitmapTests(wtc.WidgetTestCase):
     def test_BitmapMaskWithPalette(self):
         img = wx.Image(pngFile)
         img = img.ConvertToMono(0,0,0)
+        if img.HasAlpha():
+            img.ClearAlpha()
         bmp = wx.Bitmap(img, 1)
         rgb = bytearray(range(256))
         pal = wx.Palette(rgb, rgb, rgb)
@@ -107,15 +111,6 @@ class BitmapTests(wtc.WidgetTestCase):
         wx.BitmapBufferFormat_RGBA
         wx.BitmapBufferFormat_RGB32
         wx.BitmapBufferFormat_ARGB32
-
-    @unittest.skipIf('wxMac' in wx.PlatformInfo, 'Changing exiting bitmap size not allowed on wxMac')
-    def test_bitmapSetSize(self):
-        b1 = wx.Bitmap(1,1)
-        b1.SetSize((20,30))
-        self.assertTrue(b1.GetSize() == (20,30))
-        self.assertTrue(b1.Size == (20,30))
-        b1.Size = (25,35)
-        self.assertTrue(b1.GetSize() == (25,35))
 
     def test_bitmapHandle(self):
         b1 = wx.Bitmap(1,1)

@@ -133,7 +133,7 @@ class ObjectStorageBucketPolicy(pulumi.CustomResource):
         raw_object_storage_bucket_policy = coreweave.ObjectStorageBucketPolicy("raw",
             bucket=raw.name,
             policy=pulumi.Output.json_dumps(bucket_policy))
-        ## Example using the coreweave_object_storage_bucket_policy_document data source
+        ## Example using the coreweave_object_storage_bucket_policy_document function
         doc_object_storage_bucket = coreweave.ObjectStorageBucket("doc",
             name="bucket-policy-doc-example",
             zone="US-EAST-04A")
@@ -214,7 +214,7 @@ class ObjectStorageBucketPolicy(pulumi.CustomResource):
         raw_object_storage_bucket_policy = coreweave.ObjectStorageBucketPolicy("raw",
             bucket=raw.name,
             policy=pulumi.Output.json_dumps(bucket_policy))
-        ## Example using the coreweave_object_storage_bucket_policy_document data source
+        ## Example using the coreweave_object_storage_bucket_policy_document function
         doc_object_storage_bucket = coreweave.ObjectStorageBucket("doc",
             name="bucket-policy-doc-example",
             zone="US-EAST-04A")

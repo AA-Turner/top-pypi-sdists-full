@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: data-designer-config
-Version: 0.9.4
+Version: 0.9.5
 Summary: Configuration layer for DataDesigner synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
@@ -15,7 +15,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: httpx<1,>=0.27.2
-Requires-Dist: idna<4,>=3.18
 Requires-Dist: jinja2<4,>=3.1.6
 Requires-Dist: numpy<3,>=1.23.5
 Requires-Dist: pandas<4,>=2.3.3
@@ -27,7 +26,6 @@ Requires-Dist: python-json-logger<4,>=3
 Requires-Dist: pyyaml<7,>=6.0.1
 Requires-Dist: requests<3,>=2.33
 Requires-Dist: rich<15,>=13.7.1
-Requires-Dist: urllib3<3,>=2.8.0
 Description-Content-Type: text/markdown
 
 # data-designer-config

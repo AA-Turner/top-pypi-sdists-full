@@ -10,8 +10,8 @@ validated canonical example, and then teach the platform's agents to emit it
 Kind lifecycle rules enforced here:
 - Slugs are normalized exactly like the contract publisher
   (lowercase, ``[^a-z0-9]+`` → ``_``), unique per organization.
-- New kinds are ``is_active=false`` (the dual-gate: activation is a frontend
-  decision once a component exists), ``authoring_owner='python'``
+- New kinds are ``is_active=true`` — every kind is born active; switching one
+  off is a deliberate act (Arman, 2026-10-13). ``authoring_owner='python'``
   (``data`` stays NULL — the emitted JSON Schema is the contract, and since
   2026-08-29 that is true everywhere: the frontend registry DERIVES a kind's
   field model from ``emitted_json_schema`` and reads ``data`` for nothing.
@@ -312,7 +312,7 @@ async def _create_single_kind(
         "emitted_json_schema": block_schema,
         "emitted_block_schema": block_schema,
         "emitted_fingerprint": fingerprint,
-        "is_active": False,
+        "is_active": True,
         # Org platform data, never one person's private row: locking every
         # agent-created kind to its creator left org admins and super admins
         # at viewer, refused every edit (2026-07-25 incident). Admin platform
@@ -887,7 +887,7 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 published_to_web=bool(getattr(kd, "published_to_web", False)),
                 shown_to=enum_str(getattr(kd, "shown_to", None)),
                 platform_kind=platform_kind,
-                is_active=False,
+                is_active=True,
                 canonical_example_id=str(example.id) if example else None,
                 canonical_example_status="passed",
                 input_component_id=str(input_component.id) if input_component else None,

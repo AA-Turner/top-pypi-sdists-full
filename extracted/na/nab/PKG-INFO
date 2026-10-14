@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab
-Version: 0.0.19
+Version: 0.0.20
 Summary: PubGrub-based dependency resolver for Python packages
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/en/stable/
@@ -19,17 +19,17 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: nab-index==0.0.19
-Requires-Dist: nab-markersets==0.0.19
-Requires-Dist: nab-project==0.0.19
-Requires-Dist: nab-provider==0.0.19
-Requires-Dist: nab-resolver==0.0.19
+Requires-Dist: nab-index==0.0.20
+Requires-Dist: nab-markersets==0.0.20
+Requires-Dist: nab-project==0.0.20
+Requires-Dist: nab-provider==0.0.20
+Requires-Dist: nab-resolver==0.0.20
 Requires-Dist: tomli>=2.2
 Requires-Dist: typing-extensions>=4.6
 Provides-Extra: httpx
-Requires-Dist: nab-index[httpx]==0.0.19; extra == 'httpx'
+Requires-Dist: nab-index[httpx]==0.0.20; extra == 'httpx'
 Provides-Extra: httpx2
-Requires-Dist: nab-index[httpx2]==0.0.19; extra == 'httpx2'
+Requires-Dist: nab-index[httpx2]==0.0.20; extra == 'httpx2'
 Description-Content-Type: text/markdown
 
 # nab

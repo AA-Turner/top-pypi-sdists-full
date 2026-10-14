@@ -7,10 +7,11 @@ from typing import Any
 
 import httpx2
 
-from trajectory._base_client import make_request_options, path_template
+from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, not_given
+from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._utils import maybe_transform
 from trajectory.types.delete_eval_run_response import DeleteEvalRunResponse
 from trajectory.types.eval_progress_response import EvalProgressResponse
 from trajectory.types.eval_rollout_statistics_response import EvalRolloutStatisticsResponse
@@ -26,12 +27,15 @@ class Runs(APIResource):
     self,
     bench_id: str,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> list[EvalRun]:
-    """List Eval Runs Route
+  ) -> SyncPage[EvalRun]:
+    """List evaluation runs by creation time and ID, newest first. Cursors do not hold a
+    snapshot.
 
     Args:
       extra_headers: Send extra headers
@@ -49,8 +53,14 @@ class Runs(APIResource):
         "/api/v1/eval/{bench_id}/runs",
         bench_id=bench_id,
       ),
-      cast_to=list[EvalRun],
+      cast_to=SyncPage[EvalRun],
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

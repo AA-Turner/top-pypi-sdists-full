@@ -4,6 +4,7 @@
 // Author:      Steven Lamerton
 // Created:     2010-06-25
 // Copyright:   (c) 2010 Steven Lamerton
+//              (c) 2026 wxWidgets development team
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "testprec.h"
@@ -18,6 +19,10 @@
 
 #include "wx/grid.h"
 #include "wx/headerctrl.h"
+#include "wx/textctrl.h"
+#if wxUSE_COMBOBOX && defined(__WXOSX_COCOA__)
+    #include "wx/combobox.h"
+#endif // wxUSE_COMBOBOX && __WXOSX_COCOA__
 #include "testableframe.h"
 #include "asserthelper.h"
 #include "wx/uiaction.h"
@@ -28,6 +33,10 @@
 
 #ifdef __WXQT__
     #include <QtGlobal> // QT_VERSION and QT_VERSION_CHECK
+
+    #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        #define wxHAS_QT5
+    #endif
 #endif
 
 #include "waitfor.h"
@@ -104,6 +113,47 @@ struct EditInfo
              wxGridDirection direction = wxGRID_COLUMN)
         : pos(pos), count(count), direction(direction) { }
 };
+
+#if wxUSE_COMBOBOX
+
+#if defined(__WXOSX_COCOA__)
+
+// Avoid opening or focusing the native wxOSX popup in this test helper: it
+// waits for real user interaction on CI, while the test sends wxEVT_TEXT_ENTER
+// directly and only needs the editor control created to verify that Enter
+// dismisses it.
+//
+class TestChoiceEditorNoPopup : public wxGridCellChoiceEditor
+{
+public:
+    explicit TestChoiceEditorNoPopup(const wxArrayString& choices)
+        : wxGridCellChoiceEditor(choices)
+    {
+    }
+
+    virtual void BeginEdit(int row, int col, wxGrid* grid) override
+    {
+        wxASSERT_MSG(m_control,
+                     wxT("The wxGridCellEditor must be created first!"));
+
+        m_value = grid->GetTable()->GetValue(row, col);
+        Reset();
+    }
+
+    wxNODISCARD virtual wxGridCellEditor *Clone() const override
+        { return new TestChoiceEditorNoPopup(*this); }
+};
+
+using TestChoiceEditor = TestChoiceEditorNoPopup;
+
+#else
+
+// Otherwise use regular grid cell choice editor
+using TestChoiceEditor = wxGridCellChoiceEditor;
+
+#endif // __WXOSX_COCOA__
+
+#endif // wxUSE_COMBOBOX
 
 // Derive a new class inheriting from wxGrid, also to get access to its
 // protected GetCellAttr(). This is not pretty, but we don't have any other way
@@ -253,28 +303,6 @@ WaitForEventAt(
 }
 
 } // anonymous namespace
-
-namespace Catch
-{
-
-template <> struct StringMaker<TestableGrid>
-{
-    static std::string convert(const TestableGrid& grid)
-    {
-        return ("Content before edit:\n" + grid.m_beforeGridAnnotated
-                + "\nContent after edit:\n" + grid.ToString()).ToStdString();
-    }
-};
-
-template <> struct StringMaker<Multicell>
-{
-    static std::string convert(const Multicell& multi)
-    {
-        return multi.ToString().ToStdString();
-    }
-};
-
-} // namespace Catch
 
 class GridTestCase
 {
@@ -477,9 +505,47 @@ TEST_CASE_METHOD(GridTestCase, "Grid::CellEdit", "[grid]")
 #endif
 }
 
+TEST_CASE_METHOD(GridTestCase, "Grid::CellEditResize", "[grid]")
+{
+    wxWindow *editorWindow = nullptr;
+
+    m_grid->Bind(wxEVT_GRID_EDITOR_CREATED,
+        [&editorWindow](wxGridEditorCreatedEvent& event)
+        {
+            editorWindow = event.GetWindow();
+            event.Skip();
+        });
+
+    m_grid->SetColSize(0, 100);
+    m_grid->SetColSize(1, 100);
+    m_grid->SetGridCursor(1, 1);
+    m_grid->EnableCellEditControl();
+
+    REQUIRE(editorWindow);
+    REQUIRE(editorWindow->IsShown());
+
+    wxWindow * const gridWindow = editorWindow->GetParent();
+    const int widthExtra = m_grid->GetSize().x -
+        gridWindow->GetClientSize().x;
+    const int editorWidth = editorWindow->GetSize().x;
+    const int targetGridWinWidth = editorWidth + 20;
+
+    REQUIRE(editorWindow->GetPosition().x > 20);
+
+    m_grid->SetSize(widthExtra + targetGridWinWidth, m_grid->GetSize().y);
+    wxYield();
+
+    const wxRect editorRect = editorWindow->GetRect();
+    CHECK(editorWindow->IsShown());
+    CHECK(editorRect.GetRight() < gridWindow->GetClientSize().x);
+}
+
 TEST_CASE_METHOD(GridTestCase, "Grid::CellClick", "[grid]")
 {
 #if wxUSE_UIACTIONSIMULATOR
+    if ( !EnableUITests() )
+        return;
+
     EventCounter lclick(m_grid, wxEVT_GRID_CELL_LEFT_CLICK);
     EventCounter ldclick(m_grid, wxEVT_GRID_CELL_LEFT_DCLICK);
     EventCounter rclick(m_grid, wxEVT_GRID_CELL_RIGHT_CLICK);
@@ -538,6 +604,9 @@ TEST_CASE_METHOD(GridTestCase, "Grid::CellClick", "[grid]")
 TEST_CASE_METHOD(GridTestCase, "Grid::ReorderedColumnsCellClick", "[grid]")
 {
 #if wxUSE_UIACTIONSIMULATOR
+    if ( !EnableUITests() )
+        return;
+
     EventCounter click(m_grid, wxEVT_GRID_CELL_LEFT_CLICK);
 
     wxUIActionSimulator sim;
@@ -569,6 +638,9 @@ TEST_CASE_METHOD(GridTestCase, "Grid::ReorderedColumnsCellClick", "[grid]")
 TEST_CASE_METHOD(GridTestCase, "Grid::CellSelect", "[grid]")
 {
 #if wxUSE_UIACTIONSIMULATOR
+    if ( !EnableUITests() )
+        return;
+
     EventCounter cell(m_grid, wxEVT_GRID_SELECT_CELL);
 
     wxUIActionSimulator sim;
@@ -752,11 +824,23 @@ TEST_CASE_METHOD(GridTestCase, "Grid::Size", "[grid]")
     wxYield();
 
     sim.MouseUp();
-    WaitFor("mouse release to be processed", [&]() {
-        return colsize.GetCount() != 0;
-    });
 
-    CHECK(colsize.GetCount() == 1);
+    int expectedCount = 1;
+    if ( !WaitFor("mouse release to be processed", [&]() {
+            return colsize.GetCount() != 0;
+        }) )
+    {
+#ifdef wxHAS_QT5
+        WARN("Ignoring known test failure under Qt5: column resize "
+             "event not received (column width is "
+             << m_grid->GetColSize(0) << ")");
+
+        // Make the test below "pass".
+        expectedCount = 0;
+#endif // wxHAS_QT5
+    }
+
+    CHECK(colsize.GetCount() == expectedCount);
 
     pt = m_grid->ClientToScreen(wxPoint(5, m_grid->GetColLabelSize() +
                                         m_grid->GetRowSize(0)));
@@ -767,9 +851,17 @@ TEST_CASE_METHOD(GridTestCase, "Grid::Size", "[grid]")
 
     sim.MouseDragDrop(pt.x, pt.y, pt.x, pt.y + 50);
 
-    WaitFor("mouse drag to be processed", [&]() {
-        return rowsize.GetCount() != 0;
-    });
+    if ( !WaitFor("mouse drag to be processed", [&]() {
+            return rowsize.GetCount() != 0;
+        }) )
+    {
+#ifdef wxHAS_QT5
+        WARN("Ignoring known test failure under Qt5: column resize "
+             "event not received (column width is "
+             << m_grid->GetColSize(0) << ")");
+        return;
+#endif // wxHAS_QT5
+    }
 
     CHECK(rowsize.GetCount() == 1);
 #endif
@@ -871,6 +963,33 @@ TEST_CASE_METHOD(GridTestCase, "Grid::Cursor", "[grid]")
 
     CHECK(m_grid->GetGridCursorCol() == 1);
     CHECK(m_grid->GetGridCursorRow() == 0);
+
+    m_grid->SetGridCursor(1, 0);
+    m_grid->HideRow(2);
+
+    CHECK(m_grid->MoveCursorDown(false));
+    CHECK(m_grid->GetGridCursorCol() == 0);
+    CHECK(m_grid->GetGridCursorRow() == 3);
+    CHECK(m_grid->IsRowShown(m_grid->GetGridCursorRow()));
+
+    CHECK(m_grid->MoveCursorUp(false));
+    CHECK(m_grid->GetGridCursorCol() == 0);
+    CHECK(m_grid->GetGridCursorRow() == 1);
+    CHECK(m_grid->IsRowShown(m_grid->GetGridCursorRow()));
+
+    m_grid->AppendCols(2);
+    m_grid->SetGridCursor(0, 0);
+    m_grid->HideCol(1);
+
+    CHECK(m_grid->MoveCursorRight(false));
+    CHECK(m_grid->GetGridCursorCol() == 2);
+    CHECK(m_grid->GetGridCursorRow() == 0);
+    CHECK(m_grid->IsColShown(m_grid->GetGridCursorCol()));
+
+    CHECK(m_grid->MoveCursorLeft(false));
+    CHECK(m_grid->GetGridCursorCol() == 0);
+    CHECK(m_grid->GetGridCursorRow() == 0);
+    CHECK(m_grid->IsColShown(m_grid->GetGridCursorCol()));
 }
 
 TEST_CASE_METHOD(GridTestCase, "Grid::KeyboardSelection", "[grid][selection]")
@@ -1080,6 +1199,24 @@ TEST_CASE_METHOD(GridTestCase, "Grid::ScrollWhenSelect", "[grid]")
     CHECK( m_grid->IsVisible(9, 1) );
 }
 
+TEST_CASE_METHOD(GridTestCase, "Grid::MakeCellVisibleWithVariableRowHeights", "[grid]")
+{
+    m_grid->AppendRows(30);
+    m_grid->SetSize(240, 120);
+
+    for ( int row = 0; row < 30; ++row )
+    {
+        if ( row % 3 == 0 )
+            m_grid->SetRowSize(row, 50);
+    }
+
+    m_grid->SetRowSize(0, 57);
+    m_grid->SetRowSize(29, 20);
+
+    m_grid->MakeCellVisible(30, 0);
+    CHECK( m_grid->IsVisible(30, 0) );
+}
+
 TEST_CASE_METHOD(GridTestCase, "Grid::MoveGridCursorUsingEndKey", "[grid]")
 {
 #if wxUSE_UIACTIONSIMULATOR
@@ -1146,7 +1283,10 @@ TEST_CASE_METHOD(GridTestCase, "Grid::SelectUsingEndKey", "[grid]")
     CHECK( bottomright.Item(0).GetCol() == 11 );
     CHECK( bottomright.Item(0).GetRow() == 9 );
 
-    CHECK( m_grid->IsVisible(8, 9) );
+    const wxGridCellCoords target = bottomright.Item(0);
+    CHECK( WaitFor("grid target cell to become visible", [this, target]() {
+        return m_grid->IsVisible(target, false);
+    }) );
 #endif
 }
 
@@ -1563,6 +1703,29 @@ TEST_CASE_METHOD(GridTestCase, "Grid::ReadOnly", "[grid]")
 #endif
 }
 
+TEST_CASE_METHOD(GridTestCase, "Grid::ChangeEditorWhileEditing", "[grid]")
+{
+    wxGridCellAttr* attr = new wxGridCellAttr();
+    attr->SetEditor(new wxGridCellBoolEditor);
+    attr->SetRenderer(new wxGridCellBoolRenderer);
+    m_grid->SetColAttr(0, attr);
+
+    m_grid->SetCellValue(0, 0, "1");
+    m_grid->SetGridCursor(0, 0);
+    m_grid->EnableCellEditControl();
+
+    REQUIRE(m_grid->IsCellEditControlShown());
+
+    attr = new wxGridCellAttr();
+    attr->SetEditor(new wxGridCellBoolEditor);
+    attr->SetRenderer(new wxGridCellBoolRenderer);
+    m_grid->SetColAttr(0, attr);
+
+    m_grid->DisableCellEditControl();
+
+    CHECK(!m_grid->IsCellEditControlShown());
+}
+
 TEST_CASE_METHOD(GridTestCase, "Grid::WindowAsEditorControl", "[grid]")
 {
 #if wxUSE_UIACTIONSIMULATOR
@@ -1625,6 +1788,35 @@ TEST_CASE_METHOD(GridTestCase, "Grid::WindowAsEditorControl", "[grid]")
     CHECK(created.GetCount() == 1);
 #endif
 }
+
+#if wxUSE_COMBOBOX
+TEST_CASE_METHOD(GridTestCase, "Grid::ChoiceEditorEnter", "[grid]")
+{
+    wxArrayString choices;
+    choices.push_back("one");
+    choices.push_back("two");
+
+    m_grid->SetCellValue(1, 1, choices[0]);
+    m_grid->SetCellEditor(1, 1, new TestChoiceEditor(choices));
+
+    wxGridCellEditorPtr editor(m_grid->GetCellEditor(1, 1));
+    REQUIRE( editor );
+
+    m_grid->SetGridCursor(1, 1);
+    m_grid->EnableCellEditControl();
+
+    wxWindow* const editorWindow = editor->GetWindow();
+    REQUIRE( editorWindow );
+
+    wxCommandEvent event(wxEVT_TEXT_ENTER, editorWindow->GetId());
+    event.SetEventObject(editorWindow);
+    editorWindow->ProcessWindowEvent(event);
+
+    CHECK( WaitFor("choice editor to close", [&]() {
+        return !m_grid->IsCellEditControlEnabled();
+    }) );
+}
+#endif // wxUSE_COMBOBOX
 
 TEST_CASE_METHOD(GridTestCase, "Grid::ResizeScrolledHeader", "[grid]")
 {
@@ -1752,16 +1944,14 @@ TEST_CASE_METHOD(GridTestCase, "Grid::ColumnMinWidth", "[grid]")
     sim.MouseUp();
     wxYield();
 
-#ifdef __WXQT__
-    #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
-        if (m_grid->GetColSize(0) != newminwidth)
-        {
-            WARN("Ignoring known test failure under Qt5: column width is "
-                 << m_grid->GetColSize(0) << " instead of expected "
-                 << newminwidth);
-            return;
-        }
-    #endif // QT < 6
+#ifdef wxHAS_QT5
+    if (m_grid->GetColSize(0) != newminwidth)
+    {
+        WARN("Ignoring known test failure under Qt5: column width is "
+             << m_grid->GetColSize(0) << " instead of expected "
+             << newminwidth);
+        return;
+    }
 #endif // __WXQT__
 
     CHECK(m_grid->GetColSize(0) == newminwidth);
@@ -1774,6 +1964,29 @@ void GridTestCase::CheckFirstColAutoSize(int expected)
 
     wxYield();
     CHECK(m_grid->GetColSize(0) == expected);
+}
+
+TEST_CASE_METHOD(GridTestCase, "Grid::AutoWrapStringRendererBestHeight",
+                 "[grid]")
+{
+    wxGridCellAutoWrapStringRenderer renderer;
+    wxGridCellAttrPtr attr(new wxGridCellAttr);
+
+    const int autoWrapMargin = 4;
+    const wxFont cellFont = m_grid->GetDefaultCellFont().Smaller();
+    attr->SetFont(cellFont);
+
+    m_grid->SetCellValue(0, 0, "one line");
+
+    wxClientDC dc(m_grid->GetGridWindow());
+    dc.SetFont(m_grid->GetDefaultCellFont().Larger());
+
+    const int height =
+        renderer.GetBestHeight(*m_grid, *attr, dc, 0, 0,
+                               m_grid->GetColSize(0));
+
+    dc.SetFont(cellFont);
+    CHECK( height == dc.GetCharHeight() + autoWrapMargin );
 }
 
 TEST_CASE_METHOD(GridTestCase, "Grid::AutoSizeColumn", "[grid]")
@@ -1882,6 +2095,36 @@ TEST_CASE_METHOD(GridTestCase, "Grid::AutoSizeColumn", "[grid]")
         wxYield();
         CHECK( m_grid->GetRowSize(0) == m_grid->GetDefaultRowSize() );
     }
+}
+
+TEST_CASE_METHOD(GridTestCase, "Grid::AutoSizeRow", "[grid]")
+{
+    // Hardcoded extra margin for the rows used in grid.cpp.
+    const int margin = m_grid->FromDIP(6);
+    const int autoWrapMargin = 4;
+
+    m_grid->SetRowLabelValue(0, wxString());
+
+    const wxFont cellFont = m_grid->GetDefaultCellFont();
+    m_grid->SetCellFont(0, 0, cellFont);
+
+    wxClientDC dc(m_grid->GetGridWindow());
+    dc.SetFont(cellFont);
+
+    const wxString text = "Spanned text should fit";
+    const int textWidth = dc.GetTextExtent(text).x;
+
+    m_grid->SetCellValue(0, 0, text);
+    m_grid->SetCellRenderer(0, 0, new wxGridCellAutoWrapStringRenderer);
+    m_grid->SetCellSize(0, 0, 1, 2);
+    m_grid->SetColSize(0, textWidth / 2);
+    m_grid->SetColSize(1, textWidth - textWidth / 2);
+
+    m_grid->AutoSizeRow(0);
+
+    wxYield();
+    CHECK( m_grid->GetRowSize(0) ==
+           dc.GetCharHeight() + autoWrapMargin + margin );
 }
 
 TEST_CASE_METHOD(GridTestCase, "Grid::DrawInvalidCell", "[grid][multicell]")
@@ -2132,7 +2375,13 @@ public:
 // test below.
 inline void UpdateGrid(wxGrid* grid)
 {
-#ifndef __WXQT__
+#if defined(__WXGTK__)
+    // Update() is a no-op under GTK3/Wayland, so wait for the actual
+    // paint event instead of relying on it being synchronous.
+    WaitForPaint waitForPaint(grid);
+    grid->Refresh();
+    waitForPaint.YieldUntilPainted();
+#elif !defined(__WXQT__)
     grid->Refresh();
     grid->Update();
 #else
@@ -2669,7 +2918,7 @@ TEST_CASE("GridBlockCoords::SymDifference", "[grid]")
 
 TEST_CASE("wxGrid::Events", "[grid][event]")
 {
-    const std::unique_ptr<wxGrid> grid(new wxGrid());
+    const auto grid = make_unique<wxGrid>();
 
     EventCounter selectEvents(grid.get(), wxEVT_GRID_SELECT_CELL);
 

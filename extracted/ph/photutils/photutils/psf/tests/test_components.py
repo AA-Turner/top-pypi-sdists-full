@@ -8,12 +8,13 @@ import numpy as np
 import pytest
 from astropy.modeling.fitting import LevMarLSQFitter, TRFLSQFitter
 from astropy.table import QTable, Table
-from numpy.testing import assert_equal
+from numpy.testing import assert_allclose, assert_equal
 
 from photutils.detection import DAOStarFinder
 from photutils.psf import CircularGaussianPRF
 from photutils.psf._components import (PSFDataProcessor, PSFFitter,
-                                       PSFResultsAssembler)
+                                       PSFResultsAssembler, _get_flat_model,
+                                       _ModelImageMaker)
 from photutils.psf.photometry import _PSFParameterMapper
 
 
@@ -92,7 +93,6 @@ class TestPSFDataProcessor:
         assert processor.data_unit is None
         assert processor.finder_results is None
         assert processor._cached_offsets is None
-        assert processor._cache_key is None
 
     def test_validate_array_valid_input(self, param_mapper):
         """
@@ -183,9 +183,24 @@ class TestPSFDataProcessor:
         processor.data_unit = u.count
 
         init_params = Table({'flux_init': [100.0, 200.0]})
-        match_str = 'input data has units.*does not have units'
+        match_str = 'must be a Quantity column'
         with pytest.raises(ValueError, match=match_str):
             processor.normalize_init_units(init_params, 'flux_init')
+
+    def test_normalize_init_units_column_with_unit(self, param_mapper):
+        """
+        Regression test that a plain Table column carrying a unit
+        attribute is converted to the data unit instead of raising an
+        error claiming the column has no units.
+        """
+        processor = PSFDataProcessor(param_mapper, (7, 7))
+        processor.data_unit = u.Jy
+
+        init_params = Table({'flux_init': [1000.0, 2000.0]})
+        init_params['flux_init'].unit = u.mJy
+        result = processor.normalize_init_units(init_params,
+                                                'flux_init')
+        assert_equal(np.asarray(result['flux_init']), [1.0, 2.0])
 
     def test_normalize_init_units_init_has_units_data_does_not(
             self, param_mapper):
@@ -252,9 +267,9 @@ class TestPSFDataProcessor:
 
     def test_validate_init_params_nonfinite_local_bkg(self, param_mapper):
         """
-        Test validate_init_params allows non-finite local_bkg values.
+        Test validate_init_params allows nonfinite local_bkg values.
 
-        Non-finite local_bkg values should be allowed and will be
+        Nonfinite local_bkg values should be allowed and will be
         flagged later during processing.
         """
         processor = PSFDataProcessor(param_mapper, (7, 7))
@@ -266,7 +281,7 @@ class TestPSFDataProcessor:
             'local_bkg': [np.nan],
         })
 
-        # Should not raise an error - non-finite local_bkg is allowed
+        # Should not raise an error - nonfinite local_bkg is allowed
         result = processor.validate_init_params(init_params)
         assert result is not None
         assert 'local_bkg' in result.colnames
@@ -342,7 +357,6 @@ class TestPSFFitter:
             fitter=None,
             fitter_maxiters=100,
             xy_bounds=None,
-            group_warning_threshold=25,
         )
 
         assert fitter.psf_model is psf_model
@@ -350,7 +364,6 @@ class TestPSFFitter:
         assert isinstance(fitter.fitter, TRFLSQFitter)  # Default fitter
         assert fitter.fitter_maxiters == 100
         assert fitter.xy_bounds is None
-        assert fitter.group_warning_threshold == 25
 
     def test_init_custom_fitter(self, psf_model, param_mapper):
         """
@@ -418,6 +431,78 @@ class TestPSFFitter:
         assert model.x_0_1.value == 20.0
         assert model.y_0_1.value == 25.0
 
+    def test_get_flat_model_without_class_cache(self, psf_model,
+                                                param_mapper):
+        """
+        Test that _get_flat_model creates a new flat-model class on
+        every call when no class cache is given.
+        """
+        sources = Table({
+            'id': [1, 2],
+            'x_init': [10.0, 20.0],
+            'y_init': [15.0, 25.0],
+            'flux_init': [100.0, 200.0],
+        })
+
+        model1 = _get_flat_model(sources, psf_model, param_mapper)
+        model2 = _get_flat_model(sources, psf_model, param_mapper)
+        assert type(model1) is not type(model2)
+        assert model1.flux_0.value == 100.0
+        assert model1.x_0_1.value == 20.0
+
+        # With a cache, the class is created once and then reused
+        cache = {}
+        model3 = _get_flat_model(sources, psf_model, param_mapper,
+                                 class_cache=cache)
+        model4 = _get_flat_model(sources, psf_model, param_mapper,
+                                 class_cache=cache)
+        assert type(model3) is type(model4)
+
+    def test_make_psf_model_no_stale_class_cache(self):
+        """
+        Regression test that flat-model classes are not shared
+        between PSFFitter instances with different PSF models of the
+        same class.
+        """
+        sources = Table({
+            'id': [1, 2],
+            'x_init': [10.0, 20.0],
+            'y_init': [15.0, 25.0],
+            'flux_init': [100.0, 200.0],
+            'fwhm_init': [2.7, 2.7],
+        })
+
+        psf_model1 = CircularGaussianPRF(flux=1, fwhm=2.7)
+        fitter1 = PSFFitter(psf_model1, _PSFParameterMapper(psf_model1))
+        flat_model1 = fitter1.make_psf_model(sources)
+        assert flat_model1.fwhm_0.fixed is True
+
+        psf_model2 = CircularGaussianPRF(flux=1, fwhm=2.7)
+        psf_model2.fwhm.fixed = False
+        fitter2 = PSFFitter(psf_model2, _PSFParameterMapper(psf_model2))
+        flat_model2 = fitter2.make_psf_model(sources)
+        assert flat_model2.fwhm_0.fixed is False
+        assert flat_model2.fwhm_1.fixed is False
+
+    def test_flat_model_preserves_bounds(self, psf_model, param_mapper):
+        """
+        Regression test that flat models preserve the parameter
+        bounds of the base PSF model.
+        """
+        assert psf_model.fwhm.bounds[0] is not None
+        fitter = PSFFitter(psf_model, param_mapper)
+
+        sources = Table({
+            'id': [1, 2],
+            'x_init': [10.0, 20.0],
+            'y_init': [15.0, 25.0],
+            'flux_init': [100.0, 200.0],
+        })
+
+        flat_model = fitter.make_psf_model(sources)
+        assert flat_model.fwhm_0.bounds == psf_model.fwhm.bounds
+        assert flat_model.fwhm_1.bounds == psf_model.fwhm.bounds
+
     def test_make_psf_model_with_xy_bounds(self, psf_model, param_mapper):
         """
         Test make_psf_model with xy bounds.
@@ -471,12 +556,33 @@ class TestPSFResultsAssembler:
         assembler = PSFResultsAssembler(
             param_mapper=param_mapper,
             fit_shape=fit_shape,
-            xy_bounds=(1.0, 1.0),
         )
 
         assert assembler.param_mapper is param_mapper
         assert assembler.fit_shape == fit_shape
-        assert assembler.xy_bounds == (1.0, 1.0)
+
+    def test_define_flags_no_valid_mask(self, param_mapper):
+        """
+        Test that define_flags treats every source as valid when
+        valid_mask is None.
+        """
+        assembler = PSFResultsAssembler(param_mapper, (7, 7))
+        results_tbl = QTable({'x_fit': [11.0, 30.0], 'y_fit': [10.0, 30.0],
+                              'flux_fit': [100.0, 100.0],
+                              'n_pixels_fit': [49, 49]})
+        init_params = QTable({'x_init': [10.0, 30.0], 'y_init': [10.0, 30.0],
+                              'local_bkg': [0.0, 0.0]})
+        fitted_models_table = Table({'id': [1, 2],
+                                     'x_0': [11.0, 30.0],
+                                     'x_0_fixed': [False, False],
+                                     'x_0_bounds': [(9.0, 11.0),
+                                                    (29.0, 31.0)]})
+        fit_info = [{'param_cov': np.eye(3)}, {'param_cov': np.eye(3)}]
+
+        flags = assembler.define_flags(results_tbl, (50, 50), None, fit_info,
+                                       fitted_models_table, None, None,
+                                       init_params)
+        assert_equal(flags, [32, 0])
 
     def test_get_fit_error_indices_all_converged(self, param_mapper):
         """
@@ -622,7 +728,39 @@ class TestComponentIntegration:
         fitter = PSFFitter(psf_model, param_mapper)
         psf_model_fit = fitter.make_psf_model(sources_with_id)
 
-        # Model parameters should be unitless for fitting
-        assert not hasattr(psf_model_fit.x_0.value, 'unit')
-        assert not hasattr(psf_model_fit.y_0.value, 'unit')
-        assert not hasattr(psf_model_fit.flux.value, 'unit')
+        # Model parameters should be unitless values for fitting
+        assert psf_model_fit.x_0.value == 12.0
+        assert psf_model_fit.y_0.value == 12.0
+        assert psf_model_fit.flux.value == 100.0
+
+
+class TestModelImageMaker:
+    """
+    Tests for the _ModelImageMaker class.
+    """
+
+    def test_local_bkg_none(self, psf_model):
+        """
+        Test that include_local_bkg=True with local_bkg=None treats
+        the local background as zero.
+        """
+        params = QTable({'x_0': [12.0], 'y_0': [12.0], 'flux': [100.0]})
+        maker = _ModelImageMaker(psf_model, params)
+        image = maker.make_model_image((25, 25), psf_shape=(9, 9))
+        image_bkg = maker.make_model_image((25, 25), psf_shape=(9, 9),
+                                           include_local_bkg=True)
+        assert_allclose(image_bkg, image)
+
+    def test_local_bkg_nonfinite(self, psf_model):
+        """
+        Test that nonfinite local background values are treated as
+        zero.
+        """
+        params = QTable({'x_0': [8.0, 17.0], 'y_0': [8.0, 17.0],
+                         'flux': [100.0, 50.0]})
+        maker = _ModelImageMaker(psf_model, params,
+                                 local_bkg=np.array([np.nan, 0.0]))
+        image = maker.make_model_image((25, 25), psf_shape=(9, 9))
+        image_bkg = maker.make_model_image((25, 25), psf_shape=(9, 9),
+                                           include_local_bkg=True)
+        assert_allclose(image_bkg, image)

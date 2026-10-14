@@ -12,11 +12,6 @@ convention), so this module is where the promise gets checked.
 Layering is the usual reason for a copy but not the only one, so the
 scope here is the PROMISE rather than that one pair of packages: the
 comma-set pin below reads _pipeline._state instead of config.
-
-The differential harness makes the same kind of copy by hand, into
-files that could not import a Python constant if they wanted to. Those
-are pinned in test_ledger_guards.py, which shares nothing with this
-module but the idea (#352).
 """
 import pathlib
 import re
@@ -45,6 +40,11 @@ def test_period_not_at_end_matches_config() -> None:
     source = _config.REGEXES["period_not_at_end"]
     assert _vocab._PERIOD_NOT_AT_END.pattern == source.pattern
     assert _vocab._PERIOD_NOT_AT_END.flags == source.flags
+
+
+def test_combining_mark_class_matches_config() -> None:
+    from nameparser.config import regexes as _regexes
+    assert _vocab._MARKS == _regexes._MARKS
 
 
 def test_period_abbreviation_matches_config() -> None:

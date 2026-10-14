@@ -41,6 +41,7 @@ from .literals import (
     ConnectorStatusType,
     ControlFindingGeneratorType,
     ControlStatusType,
+    CriticalitySourceTypeType,
     CspmConnectorStatusType,
     CspmEnablementStatusType,
     DateRangeComparisonType,
@@ -84,6 +85,7 @@ from .literals import (
     RemediationStatusType,
     RemediationStringFieldType,
     ResourceCategoryType,
+    ResourceCriticalityType,
     ResourceGroupByFieldType,
     ResourcesDateFieldType,
     ResourcesNumberFieldType,
@@ -160,6 +162,7 @@ __all__ = (
     "AutomationRulesFindingFiltersUnionTypeDef",
     "AutomationRulesMetadataTypeDef",
     "AutomationRulesMetadataV2TypeDef",
+    "AutomationRulesResourceFieldsUpdateV2TypeDef",
     "AvailabilityZoneTypeDef",
     "AwsAmazonMqBrokerDetailsOutputTypeDef",
     "AwsAmazonMqBrokerDetailsTypeDef",
@@ -1086,6 +1089,7 @@ __all__ = (
     "CriteriaOutputTypeDef",
     "CriteriaTypeDef",
     "CriteriaUnionTypeDef",
+    "CriticalitySourceTypeDef",
     "CspmConnectorSummaryTypeDef",
     "CspmHealthCheckTypeDef",
     "CspmProviderConfigurationTypeDef",
@@ -1445,12 +1449,16 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResourceTypeDef",
     "ResourceUnionTypeDef",
+    "ResourcesCompositeFilterOutputTypeDef",
     "ResourcesCompositeFilterPaginatorTypeDef",
     "ResourcesCompositeFilterTypeDef",
+    "ResourcesCompositeFilterUnionTypeDef",
     "ResourcesCountTypeDef",
     "ResourcesDateFilterTypeDef",
+    "ResourcesFiltersOutputTypeDef",
     "ResourcesFiltersPaginatorTypeDef",
     "ResourcesFiltersTypeDef",
+    "ResourcesFiltersUnionTypeDef",
     "ResourcesMapFilterTypeDef",
     "ResourcesNumberFilterTypeDef",
     "ResourcesStringFilterTypeDef",
@@ -1764,6 +1772,10 @@ class AutomationRulesFindingFieldsUpdateV2TypeDef(TypedDict):
     SeverityId: NotRequired[int]
     Comment: NotRequired[str]
     StatusId: NotRequired[int]
+
+
+class AutomationRulesResourceFieldsUpdateV2TypeDef(TypedDict):
+    Criticality: ResourceCriticalityType
 
 
 class ExternalIntegrationConfigurationTypeDef(TypedDict):
@@ -4370,6 +4382,11 @@ class CreateTicketV2RequestTypeDef(TypedDict):
     Mode: NotRequired[Literal["DRYRUN"]]
 
 
+class CriticalitySourceTypeDef(TypedDict):
+    Source: CriticalitySourceTypeType
+    Reason: str
+
+
 class HealthIssueTypeDef(TypedDict):
     Code: HealthIssueCodeType
     Message: str
@@ -5332,6 +5349,7 @@ AutomationRulesActionV2TypeDef = TypedDict(
         "Type": AutomationRulesActionTypeV2Type,
         "FindingFieldsUpdate": NotRequired[AutomationRulesFindingFieldsUpdateV2TypeDef],
         "ExternalIntegrationConfiguration": NotRequired[ExternalIntegrationConfigurationTypeDef],
+        "ResourceFieldsUpdate": NotRequired[AutomationRulesResourceFieldsUpdateV2TypeDef],
     },
 )
 
@@ -10286,6 +10304,8 @@ class ResourceResultTypeDef(TypedDict):
     ResourceSubCategory: NotRequired[ResourceSubCategoryType]
     DiscoveryType: NotRequired[DiscoveryTypeType]
     ResourceInfo: NotRequired[ResourceInfoTypeDef]
+    ResourceCriticality: NotRequired[ResourceCriticalityType]
+    CriticalitySources: NotRequired[list[CriticalitySourceTypeDef]]
 
 
 class ResourcesTrendsMetricsResultTypeDef(TypedDict):
@@ -11266,6 +11286,15 @@ class CompositeFilterTypeDef(TypedDict):
     Operator: NotRequired[AllowedOperatorsType]
 
 
+class ResourcesCompositeFilterOutputTypeDef(TypedDict):
+    StringFilters: NotRequired[list[ResourcesStringFilterTypeDef]]
+    DateFilters: NotRequired[list[ResourcesDateFilterTypeDef]]
+    NumberFilters: NotRequired[list[ResourcesNumberFilterTypeDef]]
+    MapFilters: NotRequired[list[ResourcesMapFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[list[dict[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+
 class ResourcesCompositeFilterPaginatorTypeDef(TypedDict):
     StringFilters: NotRequired[Sequence[ResourcesStringFilterTypeDef]]
     DateFilters: NotRequired[Sequence[ResourcesDateFilterTypeDef]]
@@ -12037,16 +12066,19 @@ class OcsfFindingFiltersPaginatorTypeDef(TypedDict):
 CompositeFilterUnionTypeDef = Union[CompositeFilterTypeDef, CompositeFilterOutputTypeDef]
 
 
+class ResourcesFiltersOutputTypeDef(TypedDict):
+    CompositeFilters: NotRequired[list[ResourcesCompositeFilterOutputTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+
 class ResourcesFiltersPaginatorTypeDef(TypedDict):
     CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterPaginatorTypeDef]]
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 
-class ResourcesFiltersTypeDef(TypedDict):
-    CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterTypeDef]]
-    CompositeOperator: NotRequired[AllowedOperatorsType]
-
-
+ResourcesCompositeFilterUnionTypeDef = Union[
+    ResourcesCompositeFilterTypeDef, ResourcesCompositeFilterOutputTypeDef
+]
 SequenceUnionTypeDef = Union[SequenceTypeDef, SequenceOutputTypeDef]
 NetworkHeaderUnionTypeDef = Union[NetworkHeaderTypeDef, NetworkHeaderOutputTypeDef]
 
@@ -12319,10 +12351,6 @@ class ListConnectorsV2ResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class CriteriaOutputTypeDef(TypedDict):
-    OcsfFindingCriteria: NotRequired[OcsfFindingFiltersOutputTypeDef]
-
-
 class FindingsExtraTypeDef(TypedDict):
     Format: FindingsExportFormatType
     Filters: NotRequired[OcsfFindingFiltersOutputTypeDef]
@@ -12341,6 +12369,11 @@ class OcsfFindingFiltersTypeDef(TypedDict):
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 
+class CriteriaOutputTypeDef(TypedDict):
+    OcsfFindingCriteria: NotRequired[OcsfFindingFiltersOutputTypeDef]
+    ResourceCriteria: NotRequired[ResourcesFiltersOutputTypeDef]
+
+
 class GetResourcesV2RequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[ResourcesFiltersPaginatorTypeDef]
     Scopes: NotRequired[ResourceScopesTypeDef]
@@ -12348,17 +12381,9 @@ class GetResourcesV2RequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class GetResourcesV2RequestTypeDef(TypedDict):
-    Filters: NotRequired[ResourcesFiltersTypeDef]
-    Scopes: NotRequired[ResourceScopesTypeDef]
-    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
-
-class ResourceGroupByRuleTypeDef(TypedDict):
-    GroupByField: ResourceGroupByFieldType
-    Filters: NotRequired[ResourcesFiltersTypeDef]
+class ResourcesFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterUnionTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
 
 
 DetectionTypeDef = TypedDict(
@@ -12551,6 +12576,19 @@ AwsWafv2WebAclActionDetailsUnionTypeDef = Union[
 ]
 
 
+class ExportExtraTypeDef(TypedDict):
+    Findings: NotRequired[FindingsExtraTypeDef]
+
+
+class FindingsOutputTypeDef(TypedDict):
+    Format: FindingsExportFormatType
+    Filters: NotRequired[OcsfFindingFiltersTypeDef]
+    SelectedFields: NotRequired[Sequence[FindingsSelectableFieldType]]
+
+
+OcsfFindingFiltersUnionTypeDef = Union[OcsfFindingFiltersTypeDef, OcsfFindingFiltersOutputTypeDef]
+
+
 class GetAutomationRuleV2ResponseTypeDef(TypedDict):
     RuleArn: str
     RuleId: str
@@ -12565,30 +12603,12 @@ class GetAutomationRuleV2ResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ExportExtraTypeDef(TypedDict):
-    Findings: NotRequired[FindingsExtraTypeDef]
-
-
 class CriteriaTypeDef(TypedDict):
     OcsfFindingCriteria: NotRequired[OcsfFindingFiltersTypeDef]
+    ResourceCriteria: NotRequired[ResourcesFiltersTypeDef]
 
 
-class FindingsOutputTypeDef(TypedDict):
-    Format: FindingsExportFormatType
-    Filters: NotRequired[OcsfFindingFiltersTypeDef]
-    SelectedFields: NotRequired[Sequence[FindingsSelectableFieldType]]
-
-
-OcsfFindingFiltersUnionTypeDef = Union[OcsfFindingFiltersTypeDef, OcsfFindingFiltersOutputTypeDef]
-
-
-class GetResourcesStatisticsV2RequestTypeDef(TypedDict):
-    GroupByRules: Sequence[ResourceGroupByRuleTypeDef]
-    Scopes: NotRequired[ResourceScopesTypeDef]
-    SortOrder: NotRequired[SortOrderType]
-    MaxStatisticResults: NotRequired[int]
-
-
+ResourcesFiltersUnionTypeDef = Union[ResourcesFiltersTypeDef, ResourcesFiltersOutputTypeDef]
 DetectionUnionTypeDef = Union[DetectionTypeDef, DetectionOutputTypeDef]
 NetworkPathComponentUnionTypeDef = Union[
     NetworkPathComponentTypeDef, NetworkPathComponentOutputTypeDef
@@ -12713,9 +12733,6 @@ class GetExportJobV2ResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-CriteriaUnionTypeDef = Union[CriteriaTypeDef, CriteriaOutputTypeDef]
-
-
 class ExportOutputTypeDef(TypedDict):
     Findings: NotRequired[FindingsOutputTypeDef]
 
@@ -12731,6 +12748,22 @@ class GetFindingsV2RequestTypeDef(TypedDict):
 class GroupByRuleTypeDef(TypedDict):
     GroupByField: GroupByFieldType
     Filters: NotRequired[OcsfFindingFiltersUnionTypeDef]
+
+
+CriteriaUnionTypeDef = Union[CriteriaTypeDef, CriteriaOutputTypeDef]
+
+
+class GetResourcesV2RequestTypeDef(TypedDict):
+    Filters: NotRequired[ResourcesFiltersUnionTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ResourceGroupByRuleTypeDef(TypedDict):
+    GroupByField: ResourceGroupByFieldType
+    Filters: NotRequired[ResourcesFiltersUnionTypeDef]
 
 
 CustomDataIdentifiersResultUnionTypeDef = Union[
@@ -12811,6 +12844,16 @@ class AwsWafv2WebAclDetailsTypeDef(TypedDict):
     VisibilityConfig: NotRequired[AwsWafv2VisibilityConfigDetailsTypeDef]
 
 
+ExportUnionTypeDef = Union[ExportOutputTypeDef, ExportExtraTypeDef]
+
+
+class GetFindingStatisticsV2RequestTypeDef(TypedDict):
+    GroupByRules: Sequence[GroupByRuleTypeDef]
+    Scopes: NotRequired[FindingScopesTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    MaxStatisticResults: NotRequired[int]
+
+
 class CreateAutomationRuleV2RequestTypeDef(TypedDict):
     RuleName: str
     Description: str
@@ -12832,12 +12875,9 @@ class UpdateAutomationRuleV2RequestTypeDef(TypedDict):
     Actions: NotRequired[Sequence[AutomationRulesActionV2TypeDef]]
 
 
-ExportUnionTypeDef = Union[ExportOutputTypeDef, ExportExtraTypeDef]
-
-
-class GetFindingStatisticsV2RequestTypeDef(TypedDict):
-    GroupByRules: Sequence[GroupByRuleTypeDef]
-    Scopes: NotRequired[FindingScopesTypeDef]
+class GetResourcesStatisticsV2RequestTypeDef(TypedDict):
+    GroupByRules: Sequence[ResourceGroupByRuleTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
     SortOrder: NotRequired[SortOrderType]
     MaxStatisticResults: NotRequired[int]
 

@@ -38,7 +38,7 @@ where
 		match self.0 {
 			// `>` plus exactly one space on a content line, or a bare `>` on an otherwise empty
 			// line. The latter is peeked rather than consumed so that the line ending is left for
-			// the block loop to turn into a `Node::Empty`.
+			// the block loop to turn into an `Element::Empty`.
 			//
 			// Only one space belongs to the prefix: the rest is content, and multi-line block rules
 			// need it to measure their own indentation. Consuming it greedily would flatten

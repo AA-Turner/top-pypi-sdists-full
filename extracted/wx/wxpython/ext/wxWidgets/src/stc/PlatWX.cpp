@@ -561,8 +561,10 @@ void SurfaceImpl::GradientRectangle(PRectangle rc,
 
     wxGCDC dc(wxGraphicsContext::CreateFromUnknownDC(*hdc));
     wxGraphicsContext* gc = dc.GetGraphicsContext();
-    gc->SetBrush(gc->CreateLinearGradientBrush(rc.left, rc.top, ep.x, ep.y, gradientStops));
-    gc->DrawRectangle(rc.left, rc.top, rc.Width(), rc.Height());
+    gc->SetBrush(gc->CreateLinearGradientBrush(
+        double(rc.left), double(rc.top), ep.x, ep.y, gradientStops));
+    gc->DrawRectangle(
+        double(rc.left), double(rc.top), double(rc.Width()), double(rc.Height()));
 #else
     // limited implementation that only uses the first and last stop
     wxDirection dir;
@@ -2872,7 +2874,7 @@ PRectangle wxSTCListBox::GetDesiredRect() const
 
     // Add space for a scrollbar if needed.
     if ( count > desiredVisibleRows )
-        maxw += wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, this);
+        maxw += GetScrollbarSize(wxVERTICAL);
 
     // Add borders.
     maxw += 2 * m_borderSize;

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import copy
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from trilogy.constants import DEFAULT_NAMESPACE, REMOTE_PREFIXES
+from trilogy.core.assertions import AssertionSpecError, plan_assertion
 from trilogy.core.constants import ALL_ROWS_ADDRESS
 from trilogy.core.enums import (
     AddressType,
@@ -31,8 +34,11 @@ from trilogy.core.models.datasource import (
     Address,
     ColumnAssignment,
     Datasource,
+    DatasourceAssertion,
+    DatasourceTemplate,
     FreshnessLag,
     RawColumnExpr,
+    compose_datasource,
 )
 from trilogy.parsing.helpers import comment_body
 from trilogy.parsing.v2.rules_context import (
@@ -64,6 +70,11 @@ class DatasourceUpdateTrigger(Enum):
 @dataclass
 class DatasourcePartitionClause:
     columns: list[ConceptRef]
+
+
+@dataclass
+class DatasourceExtends:
+    names: list[str]
 
 
 @dataclass
@@ -383,8 +394,15 @@ def _process_file_path(context: RuleContext, ipath: str) -> tuple[str, str, bool
     in_resolver = isinstance(resolver, DictImportResolver) and resolver.has_data_file(
         ipath, base
     )
-    # Globs cannot be stat'd as a single file; trust the caller.
-    exists = is_cloud or is_glob or in_resolver or Path(base).exists()
+    # Globs cannot be stat'd as a single file; trust the caller. An
+    # extensionless program address resolves to its .exe on Windows.
+    exists = (
+        is_cloud
+        or is_glob
+        or in_resolver
+        or Path(base).exists()
+        or (not suffix and sys.platform == "win32" and Path(base + ".exe").exists())
+    )
     return base, suffix, exists
 
 
@@ -394,6 +412,9 @@ _FILE_TYPE_MAP = {
     ".csv": AddressType.CSV,
     ".tsv": AddressType.TSV,
     ".parquet": AddressType.PARQUET,
+    # A program with no extension (or a Windows .exe) is run, like a .py.
+    "": AddressType.EXECUTABLE,
+    ".exe": AddressType.EXECUTABLE,
 }
 
 
@@ -579,6 +600,75 @@ def _validate_lag_against_columns(
             )
 
 
+def datasource_assert_clause(
+    node: SyntaxNode,
+    context: RuleContext,
+    hydrate: HydrateFunction,
+) -> DatasourceAssertion:
+    from trilogy.core.models.author import (
+        Between,
+        Comparison,
+        Conditional,
+        FunctionCallWrapper,
+        Parenthetical,
+    )
+    from trilogy.parsing.v2.rules.function_rules import _expr_to_boolean
+
+    args = hydrated_children(node, hydrate)
+    root = args[0]
+    # `assert @check(...)`: keep the call so the declaration renders as
+    # written; its body is already a boolean.
+    if isinstance(root, FunctionCallWrapper) and isinstance(
+        root.content, (Comparison, Conditional, Parenthetical, Between)
+    ):
+        return DatasourceAssertion(condition=root, line_no=node.line)
+    return DatasourceAssertion(
+        condition=_expr_to_boolean(root, context), line_no=node.line
+    )
+
+
+def _validate_assertions(
+    node: SyntaxNode,
+    context: RuleContext,
+    name: str,
+    assertions: list[DatasourceAssertion],
+    columns: list[ColumnAssignment],
+) -> None:
+    """An assertion measures a build of the datasource, so every column it
+    reads must be one the build stores, and its shape must split into the
+    per-side queries that evaluate it (see core/assertions.py)."""
+    stored = {col.concept.address for col in columns}
+    for assertion in assertions:
+        try:
+            plan_assertion(assertion.condition)
+        except AssertionSpecError as exc:
+            raise fail(node, f"Datasource '{name}' `assert {assertion}`: {exc}")
+        unresolved = sorted(
+            {
+                ref.address
+                for ref in assertion.condition.concept_arguments
+                if not _resolves_from(ref.address, stored, context)
+            }
+        )
+        if unresolved:
+            raise fail(
+                node,
+                f"Datasource '{name}' `assert {assertion}` reads"
+                f" {', '.join(repr(a) for a in unresolved)}, which its columns"
+                " neither store nor derive row by row. An assertion checks a"
+                " build of the datasource, so it can only read what the build"
+                " writes: add the column to the datasource.",
+            )
+
+
+def datasource_extends_clause(
+    node: SyntaxNode,
+    context: RuleContext,
+    hydrate: HydrateFunction,
+) -> DatasourceExtends:
+    return DatasourceExtends(names=[str(a) for a in hydrated_children(node, hydrate)])
+
+
 def datasource_lag_clause(
     node: SyntaxNode,
     context: RuleContext,
@@ -638,21 +728,25 @@ def datasource_node(
     node: SyntaxNode,
     context: RuleContext,
     hydrate: HydrateFunction,
-) -> Datasource:
+) -> Datasource | DatasourceTemplate:
     args = hydrated_children(node, hydrate)
     is_root = False
+    is_template = False
     is_partial = False
     filtered: list[Any] = []
     for a in args:
         if isinstance(a, str) and a.lower() == "root":
             is_root = True
+        elif isinstance(a, str) and a.lower() == "template":
+            is_template = True
         elif isinstance(a, Modifier) and a == Modifier.PARTIAL:
             is_partial = True
         else:
             filtered.append(a)
 
     name = filtered[0]
-    columns: list[ColumnAssignment] = filtered[1]
+    columns: list[ColumnAssignment] = []
+    extends: list[str] = []
     grain: Grain | None = None
     addr: Address | None = None
     where: WhereClause | None = None
@@ -663,10 +757,15 @@ def datasource_node(
     freshness_probe: str | None = None
     refresh_script: str | None = None
     allowed_lag: FreshnessLag | None = None
+    assertions: list[DatasourceAssertion] = []
     ds_status = DatasourceState.PUBLISHED
 
     for val in filtered[1:]:
-        if isinstance(val, Address):
+        if isinstance(val, list):
+            columns = val
+        elif isinstance(val, DatasourceExtends):
+            extends = val.names
+        elif isinstance(val, Address):
             addr = val
         elif isinstance(val, Grain):
             grain = val
@@ -699,9 +798,80 @@ def datasource_node(
             allowed_lag = val
         elif isinstance(val, DatasourcePartitionClause):
             partition_by = val.columns
+        elif isinstance(val, DatasourceAssertion):
+            assertions.append(val)
 
-    if not addr:
-        raise fail(node, "Datasource missing address or query declaration")
+    authored = DatasourceTemplate(
+        name=name,
+        namespace=context.environment.namespace,
+        columns=columns,
+        grain=grain,
+        where=where,
+        non_partial_for=non_partial_for,
+        incremental_by=incremental_by,
+        partition_by=partition_by,
+        freshness_by=freshness_by,
+        freshness_probe=freshness_probe,
+        refresh_script=refresh_script,
+        allowed_lag=allowed_lag,
+        assertions=assertions,
+        is_partial=is_partial,
+        column_level_partial_addresses={
+            pc.concept.address for pc in columns if Modifier.PARTIAL in pc.modifiers
+        },
+        extends=extends,
+        address=addr,
+    )
+    if extends:
+        bases = [_resolve_base(node, context, base, [name]) for base in extends]
+        try:
+            composed = compose_datasource(authored, bases)
+        except ValueError as exc:
+            raise fail(node, f"Datasource '{name}': {exc}")
+    else:
+        composed = authored
+    for assertion in composed.assertions:
+        try:
+            plan_assertion(assertion.condition)
+        except AssertionSpecError as exc:
+            raise fail(node, f"Datasource '{name}' `assert {assertion}`: {exc}")
+    if is_template:
+        if is_root:
+            raise fail(
+                node,
+                f"Datasource '{name}' cannot be both `root` and `template`: a"
+                " template is never read, a root is a source of truth.",
+            )
+        if addr is not None:
+            raise fail(
+                node,
+                f"Template datasource '{name}' names a location; a template is"
+                " only ever extended, never read. Drop `template`, or the"
+                " address, query or file.",
+            )
+        if composed.columns:
+            _validate_template_columns(node, context, composed)
+        return authored
+    if composed.address is None:
+        raise fail(
+            node,
+            f"Datasource '{name}' names no address, query or file. Declare it"
+            " `template datasource` if it is only meant to be extended.",
+        )
+
+    columns = [copy.deepcopy(c) for c in composed.columns] if extends else columns
+    addr = copy.copy(composed.address)
+    grain = composed.grain
+    where = composed.where
+    non_partial_for = composed.non_partial_for
+    incremental_by = composed.incremental_by
+    partition_by = composed.partition_by
+    freshness_by = composed.freshness_by
+    freshness_probe = composed.freshness_probe
+    refresh_script = composed.refresh_script
+    allowed_lag = composed.allowed_lag
+    assertions = composed.assertions
+    is_partial = composed.is_partial
 
     if allowed_lag is not None:
         if freshness_probe is not None:
@@ -746,6 +916,8 @@ def datasource_node(
 
     if where is not None:
         _validate_where_against_columns(node, context, name, where, columns)
+    if assertions:
+        _validate_assertions(node, context, name, assertions, columns)
 
     if addr.is_file and not addr.exists:
         ds_status = DatasourceState.UNPOPULATED
@@ -801,12 +973,51 @@ def datasource_node(
         freshness_probe=freshness_probe,
         refresh_script=refresh_script,
         allowed_lag=allowed_lag,
+        assertions=assertions,
+        extends=extends,
+        authored=authored if extends else None,
         is_root=is_root,
         is_partial=is_partial,
         column_level_partial_addresses=column_level_partial_addresses,
     )
     datasource.metadata.line_no = node.line
     return datasource
+
+
+def _resolve_base(
+    node: SyntaxNode, context: RuleContext, name: str, chain: list[str]
+) -> DatasourceTemplate:
+    """The composed parts of an extended datasource, following its own
+    `extends` first."""
+    if name in chain:
+        raise fail(node, f"Datasource '{chain[0]}' extends itself through {name}")
+    base = context.environment.datasource_base(name)
+    if base is None:
+        raise fail(
+            node,
+            f"Datasource '{chain[0]}' extends '{name}', which is not a datasource"
+            " declared or imported here.",
+        )
+    if not base.extends:
+        return base
+    bases = [_resolve_base(node, context, b, [*chain, name]) for b in base.extends]
+    try:
+        return compose_datasource(base, bases)
+    except ValueError as exc:
+        raise fail(node, f"Datasource '{name}': {exc}")
+
+
+def _validate_template_columns(
+    node: SyntaxNode, context: RuleContext, template: DatasourceTemplate
+) -> None:
+    if template.where is not None:
+        _validate_where_against_columns(
+            node, context, template.name, template.where, template.columns
+        )
+    if template.assertions:
+        _validate_assertions(
+            node, context, template.name, template.assertions, template.columns
+        )
 
 
 DATASOURCE_NODE_HYDRATORS: dict[SyntaxNodeKind, NodeHydrator] = {
@@ -832,4 +1043,6 @@ DATASOURCE_NODE_HYDRATORS: dict[SyntaxNodeKind, NodeHydrator] = {
     SyntaxNodeKind.DATASOURCE_UPDATE_TRIGGER_CLAUSE: datasource_update_trigger_clause,
     SyntaxNodeKind.DATASOURCE_REFRESH_CLAUSE: datasource_refresh_clause,
     SyntaxNodeKind.DATASOURCE_LAG_CLAUSE: datasource_lag_clause,
+    SyntaxNodeKind.DATASOURCE_ASSERT_CLAUSE: datasource_assert_clause,
+    SyntaxNodeKind.DATASOURCE_EXTENDS_CLAUSE: datasource_extends_clause,
 }

@@ -21,8 +21,12 @@ __all__ = [
 ]
 
 import errno
+import json
+from dataclasses import replace
+from datetime import datetime
+from http.cookies import SimpleCookie
 import os
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 import warnings
 
 try:
@@ -40,6 +44,7 @@ from lazr.restfulclient.resource import (  # noqa: F401
 )
 from lazr.restfulclient.authorize.oauth import SystemWideConsumer
 from lazr.restfulclient._browser import RestfulHttp
+from lazr.restfulclient.errors import HTTPError
 from launchpadlib.credentials import (
     AccessToken,
     AnonymousAccessToken,
@@ -51,7 +56,25 @@ from launchpadlib.credentials import (
     KeyringCredentialStore,
     UnencryptedFileCredentialStore,
 )
-from launchpadlib import uris
+from launchpadlib import fido2compat, uris
+from launchpadlib.hardware import (
+    HardwareKeyClient,
+    HardwareKeyError,
+    validate_origin,
+)
+from launchpadlib.hardware_tokens import (
+    HardwareTokenAuthorizationEngine,
+    HardwareTokenCredentials,
+    HardwareTokenError,
+    HardwareTokenGrant,
+    HardwareTokenHttp,
+    HttpMintingTransport,
+    KeyringHardwareTokenCredentialStore,
+    MemoryHardwareTokenCredentialStore,
+    UnencryptedFileHardwareTokenCredentialStore,
+    text,
+    utcnow,
+)
 
 # Import old constants for backwards compatibility
 from launchpadlib.uris import (  # noqa: F401
@@ -157,6 +180,23 @@ class LaunchpadOAuthAwareHttp(RestfulHttp):
         return response, content
 
 
+def _cookie_header(response):
+    """Return a Cookie header value for the cookies set by `response`."""
+    raw = response.get("set-cookie") or response.get("Set-Cookie")
+    if not raw:
+        return None
+    if isinstance(raw, bytes):
+        raw = raw.decode("latin-1")
+    cookies = SimpleCookie()
+    cookies.load(raw)
+    if not cookies:
+        return None
+    return "; ".join(
+        "%s=%s" % (name, morsel.coded_value)
+        for name, morsel in cookies.items()
+    )
+
+
 class Launchpad(ServiceRoot):
     """Root Launchpad API class.
 
@@ -232,6 +272,189 @@ class Launchpad(ServiceRoot):
             timeout,
             proxy_info,
         )
+
+    def _me_write_operation(
+        self, operation, parameters=None, cookie=None, expected_status=200
+    ):
+        """Call a write operation on `self.me` and return the raw response.
+
+        The generated lazr.restfulclient methods do not give access to the
+        response headers, and the hardware-key operations need those to
+        carry the WebAuthn session cookie from one request to the next.
+        """
+        payload = {"ws.op": operation}
+        if parameters is not None:
+            payload.update(
+                (name, value)
+                for name, value in parameters.items()
+                if value is not None
+            )
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        if cookie:
+            headers["Cookie"] = cookie
+
+        response, content = self._browser._connection.request(
+            self.me.self_link,
+            method="POST",
+            body=urlencode(payload).encode("utf-8"),
+            headers=headers,
+            redirections=0,
+        )
+        if response.status != expected_status:
+            raise HTTPError(response, content)
+        return response, content
+
+    def _me_json_write_operation(
+        self, operation, parameters=None, cookie=None
+    ):
+        """Call a write operation on `self.me` and decode its JSON body."""
+        response, content = self._me_write_operation(
+            operation, parameters, cookie
+        )
+        try:
+            return response, json.loads(content)
+        except (TypeError, ValueError, UnicodeError) as error:
+            raise HardwareKeyError(
+                "Launchpad returned malformed JSON for %s." % operation
+            ) from error
+
+    def register_hardware_key(
+        self,
+        name,
+        *,
+        origin=None,
+        interaction=None,
+        hardware_client=None,
+    ):
+        """Register a USB FIDO2 security key with the logged-in account.
+
+        This needs the "devel" web service version and a person must be
+        present to touch the key.
+
+        :param name: A name to help tell registered keys apart.
+        :param origin: The WebAuthn origin. It defaults to the web root
+            of this service root, such as "https://launchpad.net".
+        :param interaction: Hooks for touch, PIN and device selection
+            prompts. The default prompts on the console.
+        :param hardware_client: A `HardwareKeyClient` to use instead of
+            the default. Configure `interaction` on it directly.
+        :return: The new registered authenticator entry.
+        """
+        if not isinstance(name, str) or not name:
+            raise ValueError("name must be a non-empty string.")
+        if hardware_client is not None and interaction is not None:
+            raise ValueError(
+                "Configure interaction on the supplied hardware_client."
+            )
+        if origin is None:
+            origin = uris.web_root_for_service_root(str(self._root_uri))
+        origin = validate_origin(origin)
+        client = hardware_client or HardwareKeyClient(interaction=interaction)
+
+        begin_response, options = self._me_json_write_operation(
+            "beginWebAuthnRegistration"
+        )
+        if not isinstance(options, dict) or not isinstance(
+            options.get("publicKey"), dict
+        ):
+            raise HardwareKeyError(
+                "Launchpad returned malformed WebAuthn creation options."
+            )
+
+        registration = client.register(options, origin)
+
+        # The registration state lives in the server session, so the
+        # completion request must carry the cookie set by the first one.
+        # `response` is a Text parameter, which the web service decodes
+        # from JSON, so the JSON registration is encoded a second time.
+        complete_response, _ = self._me_write_operation(
+            "completeWebAuthnRegistration",
+            {
+                "response": json.dumps(json.dumps(registration)),
+                "name": name,
+            },
+            cookie=_cookie_header(begin_response),
+            expected_status=201,
+        )
+        authenticator_url = complete_response.get("location")
+        if not authenticator_url:
+            raise HardwareKeyError(
+                "Launchpad returned no registered authenticator URL."
+            )
+        return self.load(authenticator_url)
+
+    def issue_hardware_bound_oauth_token(
+        self,
+        *,
+        consumer_key,
+        authenticator,
+        permission,
+        context=None,
+        date_expires=None,
+    ):
+        """Issue a hardware-bound OAuth refresh grant.
+
+        The grant cannot be broader than the permission and context of the
+        credentials used by this `Launchpad` object. Its secret is only
+        returned once, so pass the result straight to
+        `Launchpad.login_with_hardware_token` or keep it secret.
+
+        :param consumer_key: The OAuth consumer that will use the grant.
+        :param authenticator: The registered authenticator entry
+            that the grant is bound to.
+        :param permission: The public `OAuthPermission` title, such as
+            "Change Anything" (not "WRITE_PRIVATE").
+        :param context: An optional pillar name, or
+            "distribution/sourcepackagename", to restrict the grant to.
+        :param date_expires: An optional timezone-aware expiry. Launchpad
+            defaults to, and limits grants to, 365 days.
+        :return: A dictionary with "oauth_token" and "oauth_token_secret".
+        """
+        consumer_key = text(consumer_key, "consumer key")
+        permission = text(permission, "permission")
+        if context is not None:
+            text(context, "context")
+        if date_expires is not None:
+            if not isinstance(date_expires, datetime):
+                raise TypeError("date_expires must be a datetime or None.")
+            if date_expires.utcoffset() is None:
+                raise ValueError("date_expires must be timezone-aware.")
+
+        person = self.load(self.me.self_link)
+        try:
+            result = person.issueHardwareBoundOAuthToken(
+                consumer_key=consumer_key,
+                authenticator=authenticator,
+                permission=permission,
+                context=context,
+                date_expires=date_expires,
+            )
+            if not isinstance(result, dict):
+                raise TypeError()
+            token = text(result["oauth_token"], "refresh token")
+            secret = text(result["oauth_token_secret"], "refresh-token secret")
+        except (KeyError, TypeError, ValueError) as error:
+            raise HardwareTokenError(
+                "Launchpad returned a malformed refresh-grant response."
+            ) from error
+
+        # Build a new dictionary so that unrelated server fields are never
+        # stored by accident.
+        return {"oauth_token": token, "oauth_token_secret": secret}
+
+    def revoke_hardware_bound_oauth_token(self, token_key):
+        """Revoke one of the logged-in account's hardware-bound grants.
+
+        Access tokens already minted from the grant expire as well.
+
+        :param token_key: The grant's "oauth_token" value.
+        """
+        token_key = text(token_key, "refresh token")
+        person = self.load(self.me.self_link)
+        person.revokeHardwareBoundOAuthToken(token_key=token_key)
 
     @classmethod
     def _is_sudo(cls):
@@ -748,6 +971,226 @@ class Launchpad(ServiceRoot):
             credential_save_failed,
             version,
         )
+
+    @classmethod
+    def login_with_hardware_token(
+        cls,
+        application_name=None,
+        service_root=uris.STAGING_SERVICE_ROOT,
+        *,
+        account,
+        consumer_name=None,
+        grant=None,
+        credential_id=None,
+        origin=None,
+        interaction=None,
+        hardware_client=None,
+        credentials_file=None,
+        credential_store=None,
+        credential_save_failed=None,
+        launchpadlib_dir=None,
+        timeout=None,
+        proxy_info=proxy_info_from_environment,
+        version="devel",
+        minting_transport=None,
+        clock=utcnow,
+    ):
+        """Log in to Launchpad using a hardware-bound OAuth refresh grant.
+
+        Each login exchanges the grant for a short-lived access token,
+        which needs a touch of the security key the grant is bound to.
+        Pass `grant` on the first login; it is stored once it has
+        authenticated a request as `account`, and later logins load it from
+        the credential store.
+
+        Other parameters mean the same as for `login_with`.
+
+        :param account: The name of the Launchpad account that owns the
+            grant.
+        :param grant: The dictionary returned by
+            `issue_hardware_bound_oauth_token`, or a `HardwareTokenGrant`.
+        :param credential_id: The base64url WebAuthn credential ID of the
+            key to use. This is not the numeric authenticator ID.
+        :param origin: The WebAuthn origin. It defaults to the web root of
+            `service_root`, such as "https://launchpad.net", and does not
+            change where the token exchange is sent.
+        :param interaction: Hooks for touch, PIN and device selection
+            prompts. The default prompts on the console.
+        :param hardware_client: A `HardwareKeyClient` to use instead of the
+            default. Configure `interaction` on it directly.
+        :param minting_transport: Exchanges the grant for access tokens.
+            The default uses the web root of `service_root`.
+        :param clock: Returns the current timezone-aware time.
+
+        :return: A web service root authorized as the end-user.
+        :rtype: `Launchpad`
+        """
+        service_root = uris.lookup_service_root(service_root)
+        account = text(account, "account")
+
+        if application_name is None and consumer_name is None:
+            raise ValueError(
+                "At least one of application_name or consumer_name must be "
+                "provided."
+            )
+        if consumer_name is not None:
+            consumer = Consumer(
+                text(consumer_name, "consumer"),
+                application_name=application_name,
+            )
+        else:
+            consumer = SystemWideConsumer(application_name)
+
+        origin = validate_origin(
+            origin or uris.web_root_for_service_root(service_root)
+        )
+
+        if isinstance(grant, dict):
+            try:
+                grant = HardwareTokenGrant(
+                    grant["oauth_token"],
+                    grant["oauth_token_secret"],
+                    account,
+                    credential_id,
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise HardwareTokenError(
+                    "Invalid refresh-token issuance response."
+                ) from error
+        elif grant is not None and not isinstance(grant, HardwareTokenGrant):
+            raise TypeError(
+                "grant must be an issuance response dict or "
+                "HardwareTokenGrant."
+            )
+        if grant is not None and grant.account != account:
+            raise HardwareTokenError(
+                "Imported grant belongs to a different account."
+            )
+
+        if credential_id is not None:
+            credential_id = fido2compat.encode_base64url(
+                fido2compat.decode_base64url(credential_id)
+            )
+            if grant is not None:
+                grant = cls._select_hardware_credential(
+                    grant, credential_id, "Conflicting credential selectors."
+                )
+
+        if hardware_client is not None and interaction is not None:
+            raise ValueError(
+                "Configure interaction on the supplied hardware_client."
+            )
+
+        if credentials_file is None:
+            credentials_file = os.environ.get("LP_HARDWARE_CREDENTIALS_FILE")
+        if credentials_file is not None and credential_store is not None:
+            raise ValueError(
+                "At most one of credentials_file and credential_store "
+                "must be provided."
+            )
+        if credential_store is None:
+            if credentials_file is not None:
+                credential_store = UnencryptedFileHardwareTokenCredentialStore(
+                    credentials_file, credential_save_failed
+                )
+            elif cls._is_sudo():
+                credential_store = MemoryHardwareTokenCredentialStore(
+                    credential_save_failed
+                )
+            else:
+                credential_store = KeyringHardwareTokenCredentialStore(
+                    credential_save_failed
+                )
+        else:
+            cls._assert_login_argument_consistency(
+                "credential_save_failed",
+                credential_save_failed,
+                credential_store.credential_save_failed,
+                "credential_store",
+            )
+
+        if grant is not None:
+            credentials = HardwareTokenCredentials(
+                grant, service_root, consumer, origin
+            )
+            grant_changed = True
+        else:
+            credentials = credential_store.load(
+                HardwareTokenCredentials.storage_key_for(
+                    service_root, consumer
+                )
+            )
+            if credentials is None:
+                raise HardwareTokenError(
+                    "No grant stored; import an authorized hardware-bound "
+                    "grant first."
+                )
+            stored_grant = credentials.grant
+            if credential_id is not None:
+                credentials.grant = cls._select_hardware_credential(
+                    stored_grant,
+                    credential_id,
+                    "Stored grant uses a different credential.",
+                )
+            grant_changed = credentials.grant != stored_grant
+
+        if minting_transport is None:
+            minting_transport = HttpMintingTransport(
+                uris.web_root_for_service_root(service_root),
+                timeout=timeout,
+                proxy_info=proxy_info,
+            )
+        engine = HardwareTokenAuthorizationEngine(
+            service_root,
+            consumer,
+            account,
+            origin,
+            minting_transport,
+            hardware_client or HardwareKeyClient(interaction=interaction),
+            clock,
+        )
+        credentials.attach(engine)
+        credentials.ensure_access_token()
+
+        service_root, _, cache_path, _ = cls._get_paths(
+            service_root, launchpadlib_dir
+        )
+
+        class HardwareTokenLaunchpad(cls):
+            def httpFactory(self, credentials, cache, timeout, proxy_info):
+                return HardwareTokenHttp(
+                    credentials, cache, timeout, proxy_info
+                )
+
+        launchpad = HardwareTokenLaunchpad(
+            credentials,
+            None,
+            credential_store,
+            service_root,
+            cache_path,
+            timeout,
+            proxy_info,
+            version,
+        )
+        if grant_changed:
+            # Minting does not check the consumer or the account, so only
+            # replace the stored grant once it has authenticated a request
+            # as the expected account.
+            if launchpad.me.name != account:
+                raise HardwareTokenError(
+                    "Imported grant belongs to a different account."
+                )
+            credential_store.save(credentials, credentials.storage_key)
+        return launchpad
+
+    @staticmethod
+    def _select_hardware_credential(grant, credential_id, conflict):
+        """Return `grant` restricted to the key with `credential_id`."""
+        if grant.credential_id is None:
+            return replace(grant, credential_id=credential_id)
+        if grant.credential_id != credential_id:
+            raise HardwareTokenError(conflict)
+        return grant
 
     @classmethod
     def _warn_of_deprecated_login_method(cls, name):

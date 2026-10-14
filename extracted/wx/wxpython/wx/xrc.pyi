@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -40,23 +43,25 @@ _FourFloats: TypeAlias = Tuple[float, float, float, float]
 The classes in this module enable loading widgets and layout from XML.
 """
 #-- begin-_xrc --#
+import wx.adv
+import wx.siplib
 import wx.xml
 
 import wx
 ID_NONE = wx.ID_NONE  # Needed for some parameter defaults in this module
 
-class _XmlResourceFlags(IntFlag):
-    XRC_USE_LOCALE = auto()
-    XRC_NO_SUBCLASSING = auto()
-    XRC_NO_RELOADING = auto()
-    XRC_USE_ENVVARS = auto()
-XmlResourceFlags: TypeAlias = Union[_XmlResourceFlags, int]
-XRC_USE_LOCALE = _XmlResourceFlags.XRC_USE_LOCALE
-XRC_NO_SUBCLASSING = _XmlResourceFlags.XRC_NO_SUBCLASSING
-XRC_NO_RELOADING = _XmlResourceFlags.XRC_NO_RELOADING
-XRC_USE_ENVVARS = _XmlResourceFlags.XRC_USE_ENVVARS
+@final
+class XmlResourceFlags(int, metaclass=wx.siplib.enumtype):
+    XRC_USE_LOCALE: ClassVar[XmlResourceFlags]
+    XRC_NO_SUBCLASSING: ClassVar[XmlResourceFlags]
+    XRC_NO_RELOADING: ClassVar[XmlResourceFlags]
+    XRC_USE_ENVVARS: ClassVar[XmlResourceFlags]
+XRC_USE_LOCALE: XmlResourceFlags
+XRC_NO_SUBCLASSING: XmlResourceFlags
+XRC_NO_RELOADING: XmlResourceFlags
+XRC_USE_ENVVARS: XmlResourceFlags
 
-class XmlResource(Object):
+class XmlResource(wx.Object):
     """
     XmlResource(filemask, flags=XRC_USE_LOCALE, domain='') -> None
     XmlResource(flags=XRC_USE_LOCALE, domain='') -> None
@@ -93,9 +98,9 @@ class XmlResource(Object):
         Add a new handler at the beginning of the handler list.
         """
 
-    def AttachUnknownControl(self, name: str, control: Window, parent: Window=nullptr) -> bool:
+    def AttachUnknownControl(self, name: str, control: wx.Window, parent: Optional[wx.Window]=None) -> bool:
         """
-        AttachUnknownControl(name, control, parent=nullptr) -> bool
+        AttachUnknownControl(name, control, parent=None) -> bool
         
         Attaches an unknown control to the given panel/window/dialog.
         """
@@ -138,9 +143,9 @@ class XmlResource(Object):
         enumeration values.
         """
 
-    def GetResourceNode(self, name: str) -> XmlNode:
+    def GetResourceNode(self, name: str) -> wx.xml.XmlNode:
         """
-        GetResourceNode(name) -> XmlNode
+        GetResourceNode(name) -> wx.xml.XmlNode
         
         Returns the wxXmlNode containing the definition of the object with the
         given name or nullptr.
@@ -167,7 +172,7 @@ class XmlResource(Object):
         Loads resources from XML files that match given filemask.
         """
 
-    def LoadDocument(self, doc: XmlDocument, name: str="") -> bool:
+    def LoadDocument(self, doc: wx.xml.XmlDocument, name: str="") -> bool:
         """
         LoadDocument(doc, name="") -> bool
         
@@ -188,74 +193,74 @@ class XmlResource(Object):
         Loads all .xrc files from directory dirname.
         """
 
-    def LoadBitmap(self, name: str) -> Bitmap:
+    def LoadBitmap(self, name: str) -> wx.Bitmap:
         """
-        LoadBitmap(name) -> Bitmap
+        LoadBitmap(name) -> wx.Bitmap
         
         Loads a bitmap resource from a file.
         """
 
     @overload
-    def LoadDialog(self, dlg: Dialog, parent: Window, name: str) -> bool:
+    def LoadDialog(self, dlg: wx.Dialog, parent: wx.Window, name: str) -> bool:
         ...
 
     @overload
-    def LoadDialog(self, parent: Window, name: str) -> Dialog:
+    def LoadDialog(self, parent: wx.Window, name: str) -> wx.Dialog:
         """
-        LoadDialog(parent, name) -> Dialog
+        LoadDialog(parent, name) -> wx.Dialog
         LoadDialog(dlg, parent, name) -> bool
         
         Loads a dialog.
         """
 
     @overload
-    def LoadFrame(self, frame: Frame, parent: Window, name: str) -> bool:
+    def LoadFrame(self, frame: wx.Frame, parent: wx.Window, name: str) -> bool:
         ...
 
     @overload
-    def LoadFrame(self, parent: Window, name: str) -> Frame:
+    def LoadFrame(self, parent: wx.Window, name: str) -> wx.Frame:
         """
-        LoadFrame(parent, name) -> Frame
+        LoadFrame(parent, name) -> wx.Frame
         LoadFrame(frame, parent, name) -> bool
         
         Loads a frame from the resource.
         """
 
-    def LoadIcon(self, name: str) -> Icon:
+    def LoadIcon(self, name: str) -> wx.Icon:
         """
-        LoadIcon(name) -> Icon
+        LoadIcon(name) -> wx.Icon
         
         Loads an icon resource from a file.
         """
 
-    def LoadMenu(self, name: str) -> Menu:
+    def LoadMenu(self, name: str) -> wx.Menu:
         """
-        LoadMenu(name) -> Menu
+        LoadMenu(name) -> wx.Menu
         
         Loads menu from resource.
         """
 
     @overload
-    def LoadMenuBar(self, name: str) -> MenuBar:
+    def LoadMenuBar(self, name: str) -> wx.MenuBar:
         ...
 
     @overload
-    def LoadMenuBar(self, parent: Window, name: str) -> MenuBar:
+    def LoadMenuBar(self, parent: wx.Window, name: str) -> wx.MenuBar:
         """
-        LoadMenuBar(parent, name) -> MenuBar
-        LoadMenuBar(name) -> MenuBar
+        LoadMenuBar(parent, name) -> wx.MenuBar
+        LoadMenuBar(name) -> wx.MenuBar
         
         Loads a menubar from resource.
         """
 
     @overload
-    def LoadObject(self, instance: Object, parent: Window, name: str, classname: str) -> bool:
+    def LoadObject(self, instance: wx.Object, parent: wx.Window, name: str, classname: str) -> bool:
         ...
 
     @overload
-    def LoadObject(self, parent: Window, name: str, classname: str) -> Object:
+    def LoadObject(self, parent: wx.Window, name: str, classname: str) -> wx.Object:
         """
-        LoadObject(parent, name, classname) -> Object
+        LoadObject(parent, name, classname) -> wx.Object
         LoadObject(instance, parent, name, classname) -> bool
         
         Load an object from the resource specifying both the resource name and
@@ -263,34 +268,34 @@ class XmlResource(Object):
         """
 
     @overload
-    def LoadObjectRecursively(self, instance: Object, parent: Window, name: str, classname: str) -> bool:
+    def LoadObjectRecursively(self, instance: wx.Object, parent: wx.Window, name: str, classname: str) -> bool:
         ...
 
     @overload
-    def LoadObjectRecursively(self, parent: Window, name: str, classname: str) -> Object:
+    def LoadObjectRecursively(self, parent: wx.Window, name: str, classname: str) -> wx.Object:
         """
-        LoadObjectRecursively(parent, name, classname) -> Object
+        LoadObjectRecursively(parent, name, classname) -> wx.Object
         LoadObjectRecursively(instance, parent, name, classname) -> bool
         
         Load an object from anywhere in the resource tree.
         """
 
     @overload
-    def LoadPanel(self, panel: Panel, parent: Window, name: str) -> bool:
+    def LoadPanel(self, panel: wx.Panel, parent: wx.Window, name: str) -> bool:
         ...
 
     @overload
-    def LoadPanel(self, parent: Window, name: str) -> Panel:
+    def LoadPanel(self, parent: wx.Window, name: str) -> wx.Panel:
         """
-        LoadPanel(parent, name) -> Panel
+        LoadPanel(parent, name) -> wx.Panel
         LoadPanel(panel, parent, name) -> bool
         
         Loads a panel.
         """
 
-    def LoadToolBar(self, parent: Window, name: str) -> ToolBar:
+    def LoadToolBar(self, parent: wx.Window, name: str) -> wx.ToolBar:
         """
-        LoadToolBar(parent, name) -> ToolBar
+        LoadToolBar(parent, name) -> wx.ToolBar
         
         Loads a toolbar.
         """
@@ -358,7 +363,7 @@ class XmlResource(Object):
         Sets the global resources object and returns a pointer to the previous one (may be nullptr).
         """
 
-    def LoadFromBuffer(self, data: PyBuffer) -> bool:
+    def LoadFromBuffer(self, data: Buffer) -> bool:
         """
         LoadFromBuffer(data) -> bool
         
@@ -380,7 +385,7 @@ class XmlResource(Object):
 # end of class XmlResource
 
 
-class XmlResourceHandler(Object):
+class XmlResourceHandler(wx.Object):
     """
     XmlResourceHandler() -> None
     
@@ -396,21 +401,21 @@ class XmlResourceHandler(Object):
         a wxSizer object from an XML node.
         """
 
-    def CreateResource(self, node: XmlNode, parent: Object, instance: Object) -> Object:
+    def CreateResource(self, node: wx.xml.XmlNode, parent: wx.Object, instance: wx.Object) -> wx.Object:
         """
-        CreateResource(node, parent, instance) -> Object
+        CreateResource(node, parent, instance) -> wx.Object
         
         Creates an object (menu, dialog, control, ...) from an XML node.
         """
 
-    def DoCreateResource(self) -> Object:
+    def DoCreateResource(self) -> wx.Object:
         """
-        DoCreateResource() -> Object
+        DoCreateResource() -> wx.Object
         
         Called from CreateResource after variables were filled.
         """
 
-    def CanHandle(self, node: XmlNode) -> bool:
+    def CanHandle(self, node: wx.xml.XmlNode) -> bool:
         """
         CanHandle(node) -> bool
         
@@ -425,39 +430,39 @@ class XmlResourceHandler(Object):
         Sets the parent resource.
         """
     @property
-    def Animation(self) -> Animation: ...
+    def Animation(self) -> wx.adv.Animation: ...
     @property
-    def Bitmap(self) -> Bitmap: ...
+    def Bitmap(self) -> wx.Bitmap: ...
     @property
-    def BitmapBundle(self) -> BitmapBundle: ...
+    def BitmapBundle(self) -> wx.BitmapBundle: ...
     @property
     def Class(self) -> str: ...
     @property
-    def CurFileSystem(self) -> FileSystem: ...
+    def CurFileSystem(self) -> wx.FileSystem: ...
     @property
-    def Font(self) -> Font: ...
+    def Font(self) -> wx.Font: ...
     @property
     def ID(self) -> int: ...
     @property
-    def Icon(self) -> Icon: ...
+    def Icon(self) -> wx.Icon: ...
     @property
-    def ImageList(self) -> ImageList: ...
+    def ImageList(self) -> wx.ImageList: ...
     @property
-    def Instance(self) -> Object: ...
+    def Instance(self) -> wx.Object: ...
     @property
     def Name(self) -> str: ...
     @property
-    def Node(self) -> XmlNode: ...
+    def Node(self) -> wx.xml.XmlNode: ...
     @property
-    def Parent(self) -> Object: ...
+    def Parent(self) -> wx.Object: ...
     @property
-    def ParentAsWindow(self) -> Window: ...
+    def ParentAsWindow(self) -> wx.Window: ...
     @property
-    def Position(self) -> Point: ...
+    def Position(self) -> wx.Point: ...
     @property
     def Resource(self) -> XmlResource: ...
     @property
-    def Size(self) -> Size: ...
+    def Size(self) -> wx.Size: ...
     @property
     def Style(self) -> int: ...
 
@@ -475,57 +480,57 @@ class XmlResourceHandler(Object):
         Add styles common to all wxWindow-derived classes.
         """
 
-    def CreateChildren(self, parent: Object, this_hnd_only: bool=False) -> None:
+    def CreateChildren(self, parent: wx.Object, this_hnd_only: bool=False) -> None:
         """
         CreateChildren(parent, this_hnd_only=False) -> None
         
         Creates children.
         """
 
-    def CreateChildrenPrivately(self, parent: Object, rootnode: XmlNode=nullptr) -> None:
+    def CreateChildrenPrivately(self, parent: wx.Object, rootnode: Optional[wx.xml.XmlNode]=None) -> None:
         """
-        CreateChildrenPrivately(parent, rootnode=nullptr) -> None
+        CreateChildrenPrivately(parent, rootnode=None) -> None
         
         Helper function.
         """
 
-    def CreateResFromNode(self, node: XmlNode, parent: Object, instance: Object=nullptr) -> Object:
+    def CreateResFromNode(self, node: wx.xml.XmlNode, parent: wx.Object, instance: Optional[wx.Object]=None) -> wx.Object:
         """
-        CreateResFromNode(node, parent, instance=nullptr) -> Object
+        CreateResFromNode(node, parent, instance=None) -> wx.Object
         
         Creates a resource from a node.
         """
 
-    def GetAnimation(self, param: str="animation", ctrl: AnimationCtrl=nullptr) -> Animation:
+    def GetAnimation(self, param: str="animation", ctrl: Optional[wx.adv.AnimationCtrl]=None) -> wx.adv.Animation:
         """
-        GetAnimation(param="animation", ctrl=nullptr) -> Animation
+        GetAnimation(param="animation", ctrl=None) -> wx.adv.Animation
         
         Creates an animation (see wxAnimation) from the filename specified in
         param.
         """
 
     @overload
-    def GetBitmap(self, node: XmlNode, defaultArtClient: ArtClient=ART_OTHER, size: Size=DefaultSize) -> Bitmap:
+    def GetBitmap(self, node: wx.xml.XmlNode, defaultArtClient: Union[str, bytes]=wx.ART_OTHER, size: Union[wx.Size, _TwoInts]=wx.DefaultSize) -> wx.Bitmap:
         ...
 
     @overload
-    def GetBitmap(self, param: str="bitmap", defaultArtClient: ArtClient=ART_OTHER, size: Size=DefaultSize) -> Bitmap:
+    def GetBitmap(self, param: str="bitmap", defaultArtClient: Union[str, bytes]=wx.ART_OTHER, size: Union[wx.Size, _TwoInts]=wx.DefaultSize) -> wx.Bitmap:
         """
-        GetBitmap(param="bitmap", defaultArtClient=ART_OTHER, size=DefaultSize) -> Bitmap
-        GetBitmap(node, defaultArtClient=ART_OTHER, size=DefaultSize) -> Bitmap
+        GetBitmap(param="bitmap", defaultArtClient=wx.ART_OTHER, size=wx.DefaultSize) -> wx.Bitmap
+        GetBitmap(node, defaultArtClient=wx.ART_OTHER, size=wx.DefaultSize) -> wx.Bitmap
         
         Gets a bitmap.
         """
 
     @overload
-    def GetBitmapBundle(self, node: XmlNode, defaultArtClient: ArtClient=ART_OTHER, size: Size=DefaultSize) -> BitmapBundle:
+    def GetBitmapBundle(self, node: wx.xml.XmlNode, defaultArtClient: Union[str, bytes]=wx.ART_OTHER, size: Union[wx.Size, _TwoInts]=wx.DefaultSize) -> wx.BitmapBundle:
         ...
 
     @overload
-    def GetBitmapBundle(self, param: str="bitmap", defaultArtClient: ArtClient=ART_OTHER, size: Size=DefaultSize) -> BitmapBundle:
+    def GetBitmapBundle(self, param: str="bitmap", defaultArtClient: Union[str, bytes]=wx.ART_OTHER, size: Union[wx.Size, _TwoInts]=wx.DefaultSize) -> wx.BitmapBundle:
         """
-        GetBitmapBundle(param="bitmap", defaultArtClient=ART_OTHER, size=DefaultSize) -> BitmapBundle
-        GetBitmapBundle(node, defaultArtClient=ART_OTHER, size=DefaultSize) -> BitmapBundle
+        GetBitmapBundle(param="bitmap", defaultArtClient=wx.ART_OTHER, size=wx.DefaultSize) -> wx.BitmapBundle
+        GetBitmapBundle(node, defaultArtClient=wx.ART_OTHER, size=wx.DefaultSize) -> wx.BitmapBundle
         
         Gets a bitmap bundle.
         """
@@ -538,37 +543,37 @@ class XmlResourceHandler(Object):
         false).
         """
 
-    def GetColour(self, param: str, defaultLight: Colour=NullColour, defaultDark: Colour=NullColour) -> Colour:
+    def GetColour(self, param: str, defaultLight: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour, defaultDark: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour) -> wx.Colour:
         """
-        GetColour(param, defaultLight=NullColour, defaultDark=NullColour) -> Colour
+        GetColour(param, defaultLight=wx.NullColour, defaultDark=wx.NullColour) -> wx.Colour
         
         Gets colour from the given parameter.
         """
 
-    def GetCurFileSystem(self) -> FileSystem:
+    def GetCurFileSystem(self) -> wx.FileSystem:
         """
-        GetCurFileSystem() -> FileSystem
+        GetCurFileSystem() -> wx.FileSystem
         
         Returns the current file system.
         """
 
-    def GetDimension(self, param: str, defaultv: int=0, windowToUse: Window=nullptr) -> int:
+    def GetDimension(self, param: str, defaultv: int=0, windowToUse: Optional[wx.Window]=None) -> int:
         """
-        GetDimension(param, defaultv=0, windowToUse=nullptr) -> int
+        GetDimension(param, defaultv=0, windowToUse=None) -> int
         
         Gets a dimension (may be in dialog units).
         """
 
-    def GetDirection(self, param: str, dirDefault: Direction=LEFT) -> Direction:
+    def GetDirection(self, param: str, dirDefault: Union[wx.Direction, int]=wx.LEFT) -> wx.Direction:
         """
-        GetDirection(param, dirDefault=LEFT) -> Direction
+        GetDirection(param, dirDefault=wx.LEFT) -> wx.Direction
         
         Gets a direction.
         """
 
-    def GetFont(self, param: str="font") -> Font:
+    def GetFont(self, param: str="font") -> wx.Font:
         """
-        GetFont(param="font") -> Font
+        GetFont(param="font") -> wx.Font
         
         Gets a font.
         """
@@ -581,28 +586,28 @@ class XmlResourceHandler(Object):
         """
 
     @overload
-    def GetIcon(self, node: XmlNode, defaultArtClient: ArtClient=ART_OTHER, size: Size=DefaultSize) -> Icon:
+    def GetIcon(self, node: wx.xml.XmlNode, defaultArtClient: Union[str, bytes]=wx.ART_OTHER, size: Union[wx.Size, _TwoInts]=wx.DefaultSize) -> wx.Icon:
         ...
 
     @overload
-    def GetIcon(self, param: str="icon", defaultArtClient: ArtClient=ART_OTHER, size: Size=DefaultSize) -> Icon:
+    def GetIcon(self, param: str="icon", defaultArtClient: Union[str, bytes]=wx.ART_OTHER, size: Union[wx.Size, _TwoInts]=wx.DefaultSize) -> wx.Icon:
         """
-        GetIcon(param="icon", defaultArtClient=ART_OTHER, size=DefaultSize) -> Icon
-        GetIcon(node, defaultArtClient=ART_OTHER, size=DefaultSize) -> Icon
+        GetIcon(param="icon", defaultArtClient=wx.ART_OTHER, size=wx.DefaultSize) -> wx.Icon
+        GetIcon(node, defaultArtClient=wx.ART_OTHER, size=wx.DefaultSize) -> wx.Icon
         
         Returns an icon.
         """
 
-    def GetIconBundle(self, param: str, defaultArtClient: ArtClient=ART_OTHER) -> IconBundle:
+    def GetIconBundle(self, param: str, defaultArtClient: Union[str, bytes]=wx.ART_OTHER) -> wx.IconBundle:
         """
-        GetIconBundle(param, defaultArtClient=ART_OTHER) -> IconBundle
+        GetIconBundle(param, defaultArtClient=wx.ART_OTHER) -> wx.IconBundle
         
         Returns an icon bundle.
         """
 
-    def GetImageList(self, param: str="imagelist") -> ImageList:
+    def GetImageList(self, param: str="imagelist") -> wx.ImageList:
         """
-        GetImageList(param="imagelist") -> ImageList
+        GetImageList(param="imagelist") -> wx.ImageList
         
         Creates an image list from the param markup data.
         """
@@ -628,65 +633,65 @@ class XmlResourceHandler(Object):
         Returns the resource name.
         """
 
-    def IsObjectNode(self, node: XmlNode) -> bool:
+    def IsObjectNode(self, node: wx.xml.XmlNode) -> bool:
         """
         IsObjectNode(node) -> bool
         
         Checks if the given node is an object node.
         """
 
-    def GetNodeName(self, node: XmlNode) -> str:
+    def GetNodeName(self, node: wx.xml.XmlNode) -> str:
         """
         GetNodeName(node) -> str
         
         Returns the node name.
         """
 
-    def GetNodeAttribute(self, node: XmlNode, attrName: str, defaultValue: str={}) -> str:
+    def GetNodeAttribute(self, node: wx.xml.XmlNode, attrName: str, defaultValue: str={}) -> str:
         """
         GetNodeAttribute(node, attrName, defaultValue={}) -> str
         
         Gets the node attribute value.
         """
 
-    def GetNodeContent(self, node: XmlNode) -> str:
+    def GetNodeContent(self, node: wx.xml.XmlNode) -> str:
         """
         GetNodeContent(node) -> str
         
         Gets node content from wxXML_ENTITY_NODE.
         """
 
-    def GetNodeParent(self, node: XmlNode) -> XmlNode:
+    def GetNodeParent(self, node: wx.xml.XmlNode) -> wx.xml.XmlNode:
         """
-        GetNodeParent(node) -> XmlNode
+        GetNodeParent(node) -> wx.xml.XmlNode
         
         Gets the parent of the node given.
         """
 
-    def GetNodeNext(self, node: XmlNode) -> XmlNode:
+    def GetNodeNext(self, node: wx.xml.XmlNode) -> wx.xml.XmlNode:
         """
-        GetNodeNext(node) -> XmlNode
+        GetNodeNext(node) -> wx.xml.XmlNode
         
         Gets the next sibling node related to the given node, possibly
         nullptr.
         """
 
-    def GetNodeChildren(self, node: XmlNode) -> XmlNode:
+    def GetNodeChildren(self, node: wx.xml.XmlNode) -> wx.xml.XmlNode:
         """
-        GetNodeChildren(node) -> XmlNode
+        GetNodeChildren(node) -> wx.xml.XmlNode
         
         Gets the first child of the given node or nullptr.
         """
 
-    def GetParamNode(self, param: str) -> XmlNode:
+    def GetParamNode(self, param: str) -> wx.xml.XmlNode:
         """
-        GetParamNode(param) -> XmlNode
+        GetParamNode(param) -> wx.xml.XmlNode
         
         Finds the node or returns nullptr.
         """
 
     @overload
-    def GetParamValue(self, node: XmlNode) -> str:
+    def GetParamValue(self, node: wx.xml.XmlNode) -> str:
         ...
 
     @overload
@@ -698,16 +703,16 @@ class XmlResourceHandler(Object):
         Finds the parameter value or returns the empty string.
         """
 
-    def GetPosition(self, param: str="pos", windowToUse: Window=nullptr) -> Point:
+    def GetPosition(self, param: str="pos", windowToUse: Optional[wx.Window]=None) -> wx.Point:
         """
-        GetPosition(param="pos", windowToUse=nullptr) -> Point
+        GetPosition(param="pos", windowToUse=None) -> wx.Point
         
         Gets the position (may be in dialog units).
         """
 
-    def GetSize(self, param: str="size", windowToUse: Window=nullptr) -> Size:
+    def GetSize(self, param: str="size", windowToUse: Optional[wx.Window]=None) -> wx.Size:
         """
-        GetSize(param="size", windowToUse=nullptr) -> Size
+        GetSize(param="size", windowToUse=None) -> wx.Size
         
         Gets the size (may be in dialog units).
         """
@@ -734,14 +739,14 @@ class XmlResourceHandler(Object):
         Check to see if a parameter exists.
         """
 
-    def IsOfClass(self, node: XmlNode, classname: str) -> bool:
+    def IsOfClass(self, node: wx.xml.XmlNode, classname: str) -> bool:
         """
         IsOfClass(node, classname) -> bool
         
         Convenience function.
         """
 
-    def SetupWindow(self, wnd: Window) -> None:
+    def SetupWindow(self, wnd: wx.Window) -> None:
         """
         SetupWindow(wnd) -> None
         
@@ -753,7 +758,7 @@ class XmlResourceHandler(Object):
         ...
 
     @overload
-    def ReportError(self, context: XmlNode, message: str) -> None:
+    def ReportError(self, context: wx.xml.XmlNode, message: str) -> None:
         """
         ReportError(context, message) -> None
         ReportError(message) -> None
@@ -777,9 +782,9 @@ class XmlResourceHandler(Object):
         wxXmlResource object.
         """
 
-    def GetNode(self) -> XmlNode:
+    def GetNode(self) -> wx.xml.XmlNode:
         """
-        GetNode() -> XmlNode
+        GetNode() -> wx.xml.XmlNode
         
         After CreateResource has been called this will return the XML node
         being processed.
@@ -793,26 +798,26 @@ class XmlResourceHandler(Object):
         of the XML resource node being processed.
         """
 
-    def GetParent(self) -> Object:
+    def GetParent(self) -> wx.Object:
         """
-        GetParent() -> Object
+        GetParent() -> wx.Object
         
         After CreateResource has been called this will return the current
         item's parent, if any.
         """
 
-    def GetInstance(self) -> Object:
+    def GetInstance(self) -> wx.Object:
         """
-        GetInstance() -> Object
+        GetInstance() -> wx.Object
         
         After CreateResource has been called this will return the instance
         that the XML resource content should be created upon, if it has
         already been created.
         """
 
-    def GetParentAsWindow(self) -> Window:
+    def GetParentAsWindow(self) -> wx.Window:
         """
-        GetParentAsWindow() -> Window
+        GetParentAsWindow() -> wx.Window
         
         After CreateResource has been called this will return the item's
         parent as a wxWindow.
@@ -839,7 +844,7 @@ def XRCCTRL(window, str_id, *ignoreargs):
     """
     pass
 
-class XmlSubclassFactory:
+class XmlSubclassFactory(wx.siplib.wrapper):
     """
     XmlSubclassFactory() -> None
     """
@@ -849,9 +854,9 @@ class XmlSubclassFactory:
         XmlSubclassFactory() -> None
         """
 
-    def Create(self, className: str) -> Object:
+    def Create(self, className: str) -> wx.Object:
         """
-        Create(className) -> Object
+        Create(className) -> wx.Object
         """
 # end of class XmlSubclassFactory
 

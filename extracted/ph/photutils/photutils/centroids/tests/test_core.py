@@ -10,23 +10,17 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.modeling.models import Gaussian2D
-from astropy.utils.exceptions import (AstropyDeprecationWarning,
-                                      AstropyUserWarning)
+from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose, assert_array_equal
 
 from photutils.centroids.core import (CentroidQuadratic, centroid_com,
-                                      centroid_quadratic, centroid_sources)
+                                      centroid_quadratic, centroid_sources,
+                                      centroid_symmetry)
 from photutils.centroids.gaussian import centroid_1dg, centroid_2dg
+from photutils.centroids.tests.helpers import make_gaussian_source
 from photutils.datasets import make_4gaussians_image, make_noise_image
-
-
-def _make_gaussian_source(shape, amplitude, xc, yc, xstd, ystd, theta):
-    """
-    Make a 2D Gaussian source.
-    """
-    yy, xx = np.mgrid[0:shape[0], 0:shape[1]]
-    model = Gaussian2D(amplitude, xc, yc, xstd, ystd, theta)
-    return model(xx, yy)
+from photutils.psf import CircularGaussianPRF
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 
 @pytest.fixture(name='test_data')
@@ -54,7 +48,7 @@ def fixture_nan_data():
     """
     xc_ref = 24.7
     yc_ref = 25.2
-    data = _make_gaussian_source((50, 50), 2.4, xc_ref, yc_ref, 5.0, 5.0, 0)
+    data = make_gaussian_source((50, 50), 2.4, xc_ref, yc_ref, 5.0, 5.0, 0)
     data[20, :] = np.nan
     return data, xc_ref, yc_ref
 
@@ -69,8 +63,8 @@ def test_centroid_com(x_std, y_std, theta, units):
     """
     xc_ref = 25.7
     yc_ref = 26.2
-    data = _make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref, x_std, y_std,
-                                 theta)
+    data = make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref, x_std, y_std,
+                                theta)
 
     if units:
         data = data * u.nJy
@@ -100,7 +94,7 @@ def test_centroid_com_nan_withmask(nan_data, use_mask):
         ctx = nullcontext()
     else:
         mask = None
-        match = 'Input data contains non-finite values'
+        match = 'Input data contains nonfinite values'
         ctx = pytest.warns(AstropyUserWarning, match=match)
 
     with ctx as warnlist:
@@ -117,7 +111,7 @@ def test_centroid_com_allmask():
     """
     xc_ref = 24.7
     yc_ref = 25.2
-    data = _make_gaussian_source((50, 50), 2.4, xc_ref, yc_ref, 5.0, 5.0, 0)
+    data = make_gaussian_source((50, 50), 2.4, xc_ref, yc_ref, 5.0, 5.0, 0)
 
     mask = np.ones(data.shape, dtype=bool)
     xc, yc = centroid_com(data, mask=mask)
@@ -186,6 +180,26 @@ def test_centroid_com_masked_array():
     assert yc3 == yc4
 
 
+@pytest.mark.parametrize('centroid_func', [centroid_com, centroid_symmetry,
+                                           centroid_quadratic, centroid_1dg,
+                                           centroid_2dg])
+def test_centroid_hard_masked_array(centroid_func):
+    """
+    Test that a MaskedArray with a hard mask gives the same result as
+    one with a soft mask.
+    """
+    data = make_gaussian_source((21, 21), 10.0, 10.3, 9.8, 2.0, 2.0, 0)
+    data[4, 5] = 1000.0
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[4, 5] = True
+
+    expected = centroid_func(data, mask=mask)
+    soft = centroid_func(np.ma.MaskedArray(data, mask=mask))
+    hard = centroid_func(np.ma.MaskedArray(data, mask=mask, hard_mask=True))
+    assert_allclose(soft, expected)
+    assert_allclose(hard, expected)
+
+
 def test_centroid_com_mutation():
     """
     Test that centroid_com does not mutate the input data or mask.
@@ -200,6 +214,420 @@ def test_centroid_com_mutation():
     assert_array_equal(mask, mask_orig)
 
 
+@pytest.mark.parametrize(('xc', 'yc'), [(10.3, 9.6), (11.2, 10.0),
+                                        (9.1, 11.4)])
+@pytest.mark.parametrize('radius', [None, 3, 4.5])
+@pytest.mark.parametrize('units', [True, False])
+def test_centroid_symmetry(xc, yc, radius, units):
+    """
+    Test centroid_symmetry with Gaussian data.
+    """
+    data = make_gaussian_source((21, 21), 2.4, xc, yc, 2.0, 2.5, 0.3)
+    if units:
+        data = data * u.nJy
+    xycen = centroid_symmetry(data, radius=radius)
+    assert isinstance(xycen, np.ndarray)
+    assert not isinstance(xycen, u.Quantity)
+    assert_allclose(xycen, (xc, yc), atol=2.0e-3)
+
+
+def test_centroid_symmetry_small_array():
+    """
+    Test centroid_symmetry with the default radius on a 5 x 5 array.
+    """
+    data = make_gaussian_source((5, 5), 1.0, 2.1, 1.9, 1.2, 1.2, 0)
+    xycen = centroid_symmetry(data)
+    assert_allclose(xycen, (2.1, 1.9), atol=0.01)
+
+
+@pytest.mark.parametrize(('shape', 'radius'), [((4, 4), None),
+                                               ((10, 10), 4.2),
+                                               ((6, 8), None),
+                                               ((21, 9), None),
+                                               ((9, 31), 3)])
+def test_centroid_symmetry_shapes(shape, radius):
+    """
+    Test centroid_symmetry with even and rectangular shapes.
+
+    The search area of the first two cases lies between the pixel
+    centers.
+    """
+    xc = (shape[1] - 1) / 2 + 0.1
+    yc = (shape[0] - 1) / 2 - 0.1
+    data = make_gaussian_source(shape, 1.0, xc, yc, 1.2, 1.2, 0)
+    xycen = centroid_symmetry(data, radius=radius)
+    assert_allclose(xycen, (xc, yc), atol=0.02)
+
+
+@pytest.mark.parametrize('radius', [3, 4, 7])
+@pytest.mark.parametrize(('std', 'atol'), [(0.6, 0.05), (0.8, 0.015)])
+def test_centroid_symmetry_undersampled(radius, std, atol):
+    """
+    Test the accuracy for an undersampled source with offsets spaced
+    by half a pixel (a radius less than 6) and by one pixel.
+    """
+    rng = np.random.default_rng(0)
+    for _ in range(10):
+        xc, yc = 10 + rng.uniform(-0.5, 0.5, 2)
+        data = make_gaussian_source((21, 21), 1.0, xc, yc, std, std, 0)
+        xycen = centroid_symmetry(data, radius=radius)
+        assert_allclose(xycen, (xc, yc), atol=atol)
+
+
+@pytest.mark.parametrize('size', [101, 201, 401])
+@pytest.mark.parametrize('noise', [False, True])
+def test_centroid_symmetry_large_array(size, noise):
+    """
+    Test that the search stays on a compact source in a large array.
+
+    The featureless region around the source is also symmetric.
+    """
+    xc = (size - 1) / 2 + 0.3
+    yc = (size - 1) / 2 - 0.2
+    data = make_gaussian_source((size, size), 100.0, xc, yc, 1.5, 1.5, 0)
+    if noise:
+        rng = np.random.default_rng(1)
+        data += rng.normal(0, 1.0, data.shape)
+    xycen = centroid_symmetry(data, radius=3)
+    assert_allclose(xycen, (xc, yc), atol=0.02)
+
+
+def test_centroid_symmetry_search_area():
+    """
+    Test that the result is on the edge of the search area if the
+    source lies outside of it.
+    """
+    data = make_gaussian_source((101, 101), 1.0, 70.3, 30.6, 1.5, 1.5, 0)
+    xycen = centroid_symmetry(data)
+    assert_allclose(xycen, (69.7, 30.6), atol=1.0e-3)
+
+    xycen = centroid_symmetry(data, radius=3)
+    assert_allclose(xycen, (70.3, 30.6), atol=2.0e-3)
+
+
+@pytest.mark.parametrize(('size', 'fwhm'),
+                         [(5, 1.5), (10, 3.0), (11, 3.0), (11, 5.0),
+                          (21, 6.0), (21, 10.0)])
+@pytest.mark.parametrize('factor', [1.5, 2.0, 3.0])
+@pytest.mark.parametrize('direction',
+                         [(-1.0, -1.0), (1.0, 0.0), (0.0, -1.0), (1.0, -0.4)])
+def test_centroid_symmetry_far_outside_search_area(size, fwhm, factor,
+                                                   direction):
+    """
+    Test that the result is on the edge of the search area nearest to
+    the source if the source lies far outside of it.
+
+    A featureless region is also symmetric, so the asymmetry decreases
+    away from a source that lies well beyond the search area.
+    """
+    center = (size - 1) / 2
+    margin = center - 0.3 * size
+    offset = factor * margin * np.array(direction)
+    model = CircularGaussianPRF(flux=1.0, x_0=center + offset[0],
+                                y_0=center + offset[1], fwhm=fwhm)
+    yy, xx = np.mgrid[:size, :size]
+    data = model(xx, yy)
+
+    xycen = centroid_symmetry(data)
+    expected = center + np.clip(offset, -margin, margin)
+    assert_allclose(xycen, expected, atol=0.05)
+
+
+def test_centroid_symmetry_far_outside_inputs():
+    """
+    Test a source far outside of the search area with noise, with
+    masked values, and in an array that is not square.
+    """
+    yy, xx = np.mgrid[:21, :21]
+    model = CircularGaussianPRF(flux=1.0, x_0=0.75, y_0=0.75, fwhm=10.0)
+    data = model(xx, yy)
+    expected = (6.3, 6.3)
+
+    rng = np.random.default_rng(0)
+    noise = rng.normal(0.0, 0.01 * np.max(data), data.shape)
+    xycen = centroid_symmetry(data + noise)
+    assert_allclose(xycen, expected, atol=0.05)
+
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[3:6, 3:6] = True
+    xycen = centroid_symmetry(data, mask=mask)
+    assert_allclose(xycen, expected, atol=0.05)
+
+    # The search area is 4.5 to 9.5 in x and 4.5 to 25.5 in y
+    yy, xx = np.mgrid[:31, :15]
+    model = CircularGaussianPRF(flux=1.0, x_0=13.25, y_0=3.0, fwhm=4.0)
+    xycen = centroid_symmetry(model(xx, yy))
+    assert_allclose(xycen, (9.5, 4.5), atol=0.05)
+
+
+@pytest.mark.parametrize('offset', [0.0, 0.2, 1.0, 2.0])
+def test_centroid_symmetry_negative_data(offset):
+    """
+    Test that the result for a source in the search area does not
+    change if a constant is subtracted from the data, including one that
+    makes all of the data values negative.
+    """
+    core = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    lobe = make_gaussian_source((21, 21), 0.1, 14.5, 10.0, 1.5, 1.5, 0)
+    data = core + lobe
+    expected = centroid_symmetry(data, radius=3)
+
+    xycen = centroid_symmetry(data - offset * np.max(data), radius=3)
+    assert_allclose(xycen, expected, atol=1.0e-4)
+
+    xycen = centroid_symmetry(data - offset * np.max(data))
+    assert_allclose(xycen, centroid_symmetry(data), atol=1.0e-4)
+
+
+@pytest.mark.parametrize('neighbor_flux', [0.5, 2.0, 5.0, 20.0])
+def test_centroid_symmetry_search_area_neighbor(neighbor_flux):
+    """
+    Test that the result stays on the edge of the search area nearest
+    to a source just outside of it if there is a brighter source beyond
+    the opposite edge.
+    """
+    yy, xx = np.mgrid[:21, :21]
+    source = CircularGaussianPRF(flux=1.0, x_0=5.9, y_0=10.3, fwhm=4.0)
+    neighbor = CircularGaussianPRF(flux=neighbor_flux, x_0=19.5, y_0=9.0,
+                                   fwhm=4.0)
+    data = source(xx, yy) + neighbor(xx, yy)
+
+    xycen = centroid_symmetry(data)
+    assert_allclose(xycen, (6.3, 10.3), atol=0.05)
+
+
+@pytest.mark.parametrize(('size', 'fwhm'),
+                         [(10, 3.0), (11, 3.0), (11, 5.0), (21, 6.0),
+                          (21, 10.0)])
+@pytest.mark.parametrize('inset', [0.02, 0.05, 0.1, 0.2])
+@pytest.mark.parametrize('direction',
+                         [(-1.0, -1.0), (1.0, 0.3), (-0.4, 1.0)])
+def test_centroid_symmetry_near_search_area_edge(size, fwhm, inset,
+                                                 direction):
+    """
+    Test that the result is not on the edge of the search area if the
+    source lies a fraction of a pixel inside of it.
+    """
+    center = (size - 1) / 2
+    margin = center - 0.3 * size
+    offset = (margin - inset) * np.array(direction)
+    model = CircularGaussianPRF(flux=1.0, x_0=center + offset[0],
+                                y_0=center + offset[1], fwhm=fwhm)
+    yy, xx = np.mgrid[:size, :size]
+    data = model(xx, yy)
+
+    xycen = centroid_symmetry(data)
+    assert_allclose(xycen, center + offset, atol=0.006)
+
+
+def test_centroid_symmetry_centroid_sources():
+    """
+    Test centroid_symmetry as the centroid function of
+    centroid_sources.
+    """
+    data = make_4gaussians_image()
+    data -= np.median(data[0:30, 0:125])
+    x, y = centroid_sources(data, (91, 151), (61, 24),
+                            centroid_func=centroid_symmetry)
+    assert_allclose(x, (90, 150), atol=0.1)
+    assert_allclose(y, (60, 25), atol=0.1)
+
+    x2, y2 = centroid_sources(data, (91, 151), (61, 24), box_size=21,
+                              centroid_func=centroid_symmetry, radius=4)
+    assert_allclose(x2, (90, 150), atol=0.1)
+    assert_allclose(y2, (60, 25), atol=0.1)
+    assert not np.array_equal(x2, x)
+
+
+def test_centroid_symmetry_asymmetric_source():
+    """
+    Test that centroid_symmetry is insensitive to structure beyond the
+    radius, unlike centroid_com.
+    """
+    core = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    lobe = make_gaussian_source((21, 21), 0.2, 16.0, 10.0, 1.5, 1.5, 0)
+    data = core + lobe
+    xycen = centroid_symmetry(data, radius=3)
+    assert_allclose(xycen, (10.3, 9.6), atol=0.03)
+    assert centroid_com(data)[0] - 10.3 > 0.3
+
+
+@pytest.mark.parametrize(('index', 'atol'), [((9, 12), 3.0e-3),
+                                             ((10, 10), 3.0e-3),
+                                             ((slice(None), 12), 0.015)])
+def test_centroid_symmetry_mask(index, atol):
+    """
+    Test centroid_symmetry with a masked pixel near the center, a
+    masked peak pixel, and a masked column near the center.
+
+    The masked values have a large value to test that they have no
+    effect on the result.
+    """
+    data = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[index] = True
+    data[mask] = 1000.0
+    xycen = centroid_symmetry(data, mask=mask)
+    assert_allclose(xycen, (10.3, 9.6), atol=atol)
+
+
+@pytest.mark.parametrize(('std', 'atol'), [(2.0, 4.0e-3), (1.2, 0.04)])
+def test_centroid_symmetry_mask_adjacent(std, atol):
+    """
+    Test centroid_symmetry with a masked pixel adjacent to the peak
+    pixel for different subpixel positions of the source.
+
+    The asymmetry is a continuous function of the center, so the search
+    does not stop at a position where the set of unmasked pairs
+    changes.
+    """
+    offsets = ((0, 1), (1, 0), (1, 1), (-1, 1), (0, -1), (-1, 0),
+               (-1, -1), (1, -1))
+    rng = np.random.default_rng(0)
+    for i in range(40):
+        xc, yc = 10 + rng.uniform(-0.5, 0.5, 2)
+        data = make_gaussian_source((21, 21), 1.0, xc, yc, std, std, 0)
+        mask = np.zeros(data.shape, dtype=bool)
+        dy, dx = offsets[i % 8]
+        mask[round(yc) + dy, round(xc) + dx] = True
+        xycen = centroid_symmetry(data, mask=mask)
+        assert_allclose(xycen, (xc, yc), atol=atol)
+
+
+def test_centroid_symmetry_masked_array():
+    """
+    Test that a masked array gives the same result as a mask.
+    """
+    data = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[9, 12] = True
+    xycen = centroid_symmetry(data, mask=mask)
+    xycen2 = centroid_symmetry(np.ma.masked_array(data, mask=mask))
+    assert_allclose(xycen2, xycen)
+
+
+def test_centroid_symmetry_hot_pixel():
+    """
+    Test that a bright outlier near the source must be masked.
+    """
+    data = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    data[9, 16] = 3.0
+    xycen = centroid_symmetry(data, radius=3)
+    assert_allclose(xycen, (16, 9), atol=0.05)
+
+    xycen = centroid_symmetry(data, mask=(data == 3.0), radius=3)
+    assert_allclose(xycen, (10.3, 9.6), atol=2.0e-3)
+
+
+def test_centroid_symmetry_nan():
+    """
+    Test that a nonfinite value gives the same result as a mask.
+    """
+    data = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[9, 12] = True
+    xycen = centroid_symmetry(data, mask=mask)
+
+    data[9, 12] = np.nan
+    match = 'Input data contains nonfinite values'
+    with pytest.warns(AstropyUserWarning, match=match):
+        xycen2 = centroid_symmetry(data)
+    assert_allclose(xycen2, xycen)
+
+
+def test_centroid_symmetry_all_masked():
+    """
+    Test centroid_symmetry when no pair of values is unmasked.
+    """
+    data = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    mask = np.ones(data.shape, dtype=bool)
+    assert np.all(np.isnan(centroid_symmetry(data, mask=mask)))
+
+    # Only two adjacent values are unmasked, so there are no pairs
+    mask[10, 10:12] = False
+    assert np.all(np.isnan(centroid_symmetry(data, mask=mask)))
+
+    # The search area is masked
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[5:16, 5:16] = True
+    assert np.all(np.isnan(centroid_symmetry(data, mask=mask)))
+
+
+@pytest.mark.parametrize('value', [0.0, 1.0])
+def test_centroid_symmetry_constant(value):
+    """
+    Test centroid_symmetry with constant data, which are symmetric
+    about every position.
+    """
+    data = np.full((21, 21), value)
+    assert np.all(np.isnan(centroid_symmetry(data)))
+
+    mask = np.ones(data.shape, dtype=bool)
+    mask[10, 10] = False
+    assert np.all(np.isnan(centroid_symmetry(data, mask=mask)))
+
+
+@pytest.mark.parametrize('radius', [-1, 0.5, 5, 20, np.nan, np.inf])
+def test_centroid_symmetry_invalid_radius(radius):
+    """
+    Test centroid_symmetry with an invalid radius.
+    """
+    data = np.ones((11, 11))
+    match = 'radius must be at least 1'
+    with pytest.raises(ValueError, match=match):
+        centroid_symmetry(data, radius=radius)
+
+
+@pytest.mark.parametrize('radius', ['3', np.array([3, 3]), 3 * u.pix,
+                                    3 + 0j])
+def test_centroid_symmetry_invalid_radius_type(radius):
+    """
+    Test centroid_symmetry with a radius that is not a real number.
+    """
+    data = np.ones((11, 11))
+    match = 'radius must be a real number or None'
+    with pytest.raises(TypeError, match=match):
+        centroid_symmetry(data, radius=radius)
+
+
+def test_centroid_symmetry_invalid_inputs():
+    """
+    Test centroid_symmetry with invalid inputs.
+    """
+    data = np.ones((11, 11))
+    match = 'data must be a 2D array'
+    with pytest.raises(ValueError, match=match):
+        centroid_symmetry(np.ones(11))
+
+    match = 'data and mask must have the same shape'
+    with pytest.raises(ValueError, match=match):
+        centroid_symmetry(data, mask=np.zeros((3, 3), dtype=bool))
+
+
+@pytest.mark.parametrize('shape', [(3, 3), (3, 11), (0, 0)])
+def test_centroid_symmetry_small_data(shape):
+    """
+    Test centroid_symmetry with data that are too small.
+    """
+    match = 'data must have at least 4 pixels along each axis'
+    with pytest.raises(ValueError, match=match):
+        centroid_symmetry(np.ones(shape))
+
+
+def test_centroid_symmetry_mutation():
+    """
+    Test that centroid_symmetry does not mutate the input data or mask.
+    """
+    data = make_gaussian_source((21, 21), 1.0, 10.3, 9.6, 2.0, 2.0, 0)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[2, 2] = True
+    data_orig = data.copy()
+    mask_orig = mask.copy()
+    centroid_symmetry(data, mask=mask)
+    assert_array_equal(data, data_orig)
+    assert_array_equal(mask, mask_orig)
+
+
 @pytest.mark.parametrize('x_std', [3.2, 4.0])
 @pytest.mark.parametrize('y_std', [5.7, 4.1])
 @pytest.mark.parametrize('theta', np.deg2rad([30.0, 45.0]))
@@ -210,8 +638,8 @@ def test_centroid_quadratic(x_std, y_std, theta, units):
     """
     xc_ref = 25.7
     yc_ref = 26.2
-    data = _make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref, x_std, y_std,
-                                 theta)
+    data = make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref, x_std, y_std,
+                                theta)
 
     if units:
         data = data * u.nJy
@@ -230,6 +658,21 @@ def test_centroid_quadratic(x_std, y_std, theta, units):
     assert_allclose((xc, yc), (xc_ref, yc_ref), rtol=0, atol=0.015)
 
 
+def test_centroid_quadratic_mask():
+    """
+    Test centroid_quadratic with an extensive mask.
+
+    The original data should not be altered when a mask is input.
+    """
+    xc_ref = 24.7
+    yc_ref = 25.2
+    data = make_gaussian_source((51, 51), 2.4, xc_ref, yc_ref, 5.0, 5.0, 0)
+    mask = data < 1
+    xycen = centroid_quadratic(data, mask=mask)
+    assert not np.any(np.isnan(data))
+    assert_allclose(xycen, (xc_ref, yc_ref), atol=0.01)
+
+
 def test_centroid_quadratic_xypeak():
     """
     Test centroid_quadratic with xpeak and ypeak inputs.
@@ -242,34 +685,53 @@ def test_centroid_quadratic_xypeak():
     xycen1 = centroid_quadratic(data, fit_boxsize=3)
     assert_allclose(xycen1, (9, 9))
 
-    with pytest.warns(AstropyDeprecationWarning):
+    with pytest.warns(PhotutilsDeprecationWarning):
         xycen2 = centroid_quadratic(data, xpeak=5, ypeak=5, fit_boxsize=3)
     assert_allclose(xycen2, (5, 5))
 
-    with pytest.warns(AstropyDeprecationWarning):
+    with pytest.warns(PhotutilsDeprecationWarning):
         xycen3 = centroid_quadratic(data, xpeak=5, ypeak=5, fit_boxsize=3,
                                     search_boxsize=5)
     assert_allclose(xycen3, (7, 7))
 
     match = 'xpeak is outside the input data'
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.raises(ValueError, match=match)):
         centroid_quadratic(data, xpeak=15, ypeak=5)
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.raises(ValueError, match=match)):
         centroid_quadratic(data, xpeak=15, ypeak=15)
 
     match = 'ypeak is outside the input data'
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.raises(ValueError, match=match)):
         centroid_quadratic(data, xpeak=5, ypeak=15)
+
+
+def test_centroid_quadratic_large_coordinates():
+    """
+    Test for centroid_quadratic with a source at large pixel
+    coordinates.
+
+    The quadratic fit is performed in coordinates centered on the
+    peak pixel. A design matrix built from absolute pixel coordinates
+    becomes ill-conditioned at large coordinates (condition number
+    ~coordinate**4) and previously returned NaN with a spurious "fit
+    does not have a maximum" warning.
+    """
+    xc_ref = 15.7
+    yc_ref = 15980.2
+    data = make_gaussian_source((16000, 31), 2.4, xc_ref, yc_ref, 2.5,
+                                2.5, 0)
+    xc, yc = centroid_quadratic(data)
+    assert_allclose((xc, yc), (xc_ref, yc_ref), rtol=0, atol=0.03)
 
 
 def test_centroid_quadratic_nan():
     """
     Test centroid_quadratic with NaN values.
     """
-    data = _make_gaussian_source((100, 100), 42.1, 47.8, 52.4, 4.7, 4.7, 0)
+    data = make_gaussian_source((100, 100), 42.1, 47.8, 52.4, 4.7, 4.7, 0)
     error = make_noise_image(data.shape, mean=0., stddev=2.4, seed=123)
     data += error
 
@@ -291,7 +753,7 @@ def test_centroid_quadratic_nan_withmask(nan_data, use_mask):
         ctx = nullcontext()
     else:
         mask = None
-        match = 'Input data contains non-finite values'
+        match = 'Input data contains nonfinite values'
         ctx = pytest.warns(AstropyUserWarning, match=match)
 
     with ctx as warnlist:
@@ -306,22 +768,60 @@ def test_centroid_quadratic_nan_in_fitbox():
     """
     Test centroid_quadratic with a NaN inside the fit box.
 
-    This tests that non-finite values are removed from the coefficient
+    This tests that nonfinite values are removed from the coefficient
     matrix and cutout before the least-squares fit. The NaN pixel is
     masked so that _process_data_mask fills it with NaN (fill_value),
     which is then filtered out by the ``finite_mask`` check inside the
     fit.
     """
-    data = _make_gaussian_source((11, 11), 100.0, 5.0, 5.0, 2.0, 2.0, 0)
-    # Place a NaN adjacent to the peak; with fit_boxsize=5 centered at
+    data = make_gaussian_source((11, 11), 100.0, 5.0, 5.0, 2.0, 2.0, 0)
+    # Place a NaN adjacent to the peak. With fit_boxsize=5 centered at
     # (5, 5) the fit box covers rows/cols [3:8], so (row=5, col=4) is
     # inside the box and will trigger the ``if not np.all(finite_mask)``
     # branch.
     data[5, 4] = np.nan
     mask = np.zeros(data.shape, dtype=bool)
-    mask[5, 4] = True  # suppress the non-finite warning via explicit mask
+    mask[5, 4] = True  # suppress the nonfinite warning via explicit mask
     xycen = centroid_quadratic(data, mask=mask, fit_boxsize=5)
     assert_allclose(xycen, (5.0, 5.0), atol=0.01)
+
+
+def test_centroid_quadratic_all_masked():
+    """
+    Test that centroid_quadratic raises a clear ValueError when all data
+    values are masked or nonfinite.
+
+    Previously, this raised a cryptic "All-NaN slice encountered"
+    ValueError from numpy.
+    """
+    data = np.ones((11, 11))
+    mask = np.ones(data.shape, dtype=bool)
+    match = 'All data values are masked or nonfinite'
+    with pytest.raises(ValueError, match=match):
+        centroid_quadratic(data, mask=mask)
+
+    data = np.full((11, 11), np.nan)
+    warn_match = 'Input data contains nonfinite values'
+    with (pytest.warns(AstropyUserWarning, match=warn_match),
+          pytest.raises(ValueError, match=match)):
+        centroid_quadratic(data)
+
+
+def test_centroid_quadratic_masked_array():
+    """
+    Test that a MaskedArray input to centroid_quadratic gives the same
+    result as equivalent plain array and mask inputs.
+    """
+    xc_ref = 24.7
+    yc_ref = 25.2
+    data = make_gaussian_source((51, 51), 2.4, xc_ref, yc_ref, 5.0, 5.0, 0)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[25, 25] = True
+
+    xc1, yc1 = centroid_quadratic(data, mask=mask)
+    xc2, yc2 = centroid_quadratic(np.ma.array(data, mask=mask))
+    assert_allclose((xc1, yc1), (xc2, yc2))
+    assert_allclose((xc1, yc1), (xc_ref, yc_ref), atol=0.03)
 
 
 def test_centroid_quadratic_npts():
@@ -335,7 +835,7 @@ def test_centroid_quadratic_npts():
     mask[2, :] = True
     match = 'at least 6 unmasked data points'
     with pytest.warns(AstropyUserWarning, match=match):
-        centroid_quadratic(data, mask=mask)
+        centroid_quadratic(data, mask=mask, fit_boxsize=3)
 
 
 def test_centroid_quadratic_invalid_inputs():
@@ -350,10 +850,10 @@ def test_centroid_quadratic_invalid_inputs():
     data = np.zeros((4, 4))
     mask = np.zeros((2, 2), dtype=bool)
     match = 'xpeak and ypeak must both be input or "None"'
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.raises(ValueError, match=match)):
         centroid_quadratic(data, xpeak=3, ypeak=None)
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.raises(ValueError, match=match)):
         centroid_quadratic(data, xpeak=None, ypeak=3)
 
@@ -372,6 +872,27 @@ def test_centroid_quadratic_invalid_inputs():
         centroid_quadratic(data, mask=mask)
 
 
+def test_centroid_quadratic_boxsize_clamp():
+    """
+    Test centroid_quadratic with a fit_boxsize larger than the data.
+
+    The fit box is clamped to the data shape and reduced to odd values
+    with a warning. The warning is emitted whether the data size is
+    even or odd.
+    """
+    data = make_gaussian_source((4, 4), 10.0, 2.0, 2.0, 1.0, 1.0, 0)
+    match = "'fit_boxsize' was clamped to the upper bound and reduced to"
+    with pytest.warns(AstropyUserWarning, match=match):
+        xc, yc = centroid_quadratic(data, fit_boxsize=5)
+    assert_allclose((xc, yc), (2.0, 2.0), atol=0.1)
+
+    data = make_gaussian_source((5, 5), 10.0, 2.0, 2.0, 1.0, 1.0, 0)
+    match = "'fit_boxsize' was clamped to the upper bound"
+    with pytest.warns(AstropyUserWarning, match=match):
+        xc, yc = centroid_quadratic(data, fit_boxsize=7)
+    assert_allclose((xc, yc), (2.0, 2.0), atol=0.1)
+
+
 def test_centroid_quadratic_edge():
     """
     Test centroid_quadratic when the maximum is at the edge.
@@ -380,11 +901,11 @@ def test_centroid_quadratic_edge():
     data[1, 1] = 100
     data[9, 9] = 100
 
-    with pytest.warns(AstropyDeprecationWarning):
+    with pytest.warns(PhotutilsDeprecationWarning):
         xycen = centroid_quadratic(data, xpeak=1, ypeak=1, fit_boxsize=5)
     assert_allclose(xycen, (0.923077, 0.923077))
 
-    with pytest.warns(AstropyDeprecationWarning):
+    with pytest.warns(PhotutilsDeprecationWarning):
         xycen = centroid_quadratic(data, xpeak=9, ypeak=9, fit_boxsize=5)
     assert_allclose(xycen, (9.076923, 9.076923))
 
@@ -418,7 +939,7 @@ def test_centroid_quadratic_units():
     """
     xc_ref = 25.7
     yc_ref = 26.2
-    data = _make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref, 3.2, 5.7, 0)
+    data = make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref, 3.2, 5.7, 0)
 
     xc_plain, yc_plain = centroid_quadratic(data)
     xc_unit, yc_unit = centroid_quadratic(data * u.nJy)
@@ -443,7 +964,7 @@ def test_centroid_quadratic_fit_failed():
 
     with patch('numpy.linalg.lstsq', side_effect=np.linalg.LinAlgError):
         match = 'quadratic fit failed'
-        with (pytest.warns(AstropyDeprecationWarning),
+        with (pytest.warns(PhotutilsDeprecationWarning),
               pytest.warns(AstropyUserWarning, match=match)):
             xycen = centroid_quadratic(data, xpeak=5, ypeak=5, fit_boxsize=5)
         assert np.isnan(xycen[0])
@@ -470,7 +991,7 @@ def test_centroid_quadratic_no_maximum():
     data[5, 5] = 20.0
 
     match = 'quadratic fit does not have a maximum'
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.warns(AstropyUserWarning, match=match)):
         xycen = centroid_quadratic(data, xpeak=5, ypeak=5, fit_boxsize=5)
     assert np.isnan(xycen[0])
@@ -495,7 +1016,7 @@ def test_centroid_quadratic_max_outside_image():
     data[3, 3] = 6.0  # local peak to center the fit
 
     match = 'quadratic polynomial maximum value falls outside'
-    with (pytest.warns(AstropyDeprecationWarning),
+    with (pytest.warns(PhotutilsDeprecationWarning),
           pytest.warns(AstropyUserWarning, match=match)):
         xycen = centroid_quadratic(data, xpeak=3, ypeak=3, fit_boxsize=5)
     assert np.isnan(xycen[0])
@@ -513,8 +1034,8 @@ class TestCentroidSources:
         Test centroid_sources with Gaussian data.
         """
         theta = np.pi / 6.0
-        data = _make_gaussian_source((50, 47), 2.4, 25.7, 26.2, 3.2, 5.7,
-                                     theta)
+        data = make_gaussian_source((50, 47), 2.4, 25.7, 26.2, 3.2, 5.7,
+                                    theta)
         error = np.ones(data.shape, dtype=float)
         mask = np.zeros(data.shape, dtype=bool)
         mask[10, 10] = True
@@ -529,35 +1050,46 @@ class TestCentroidSources:
         assert_allclose(xc, (25.67,), atol=1e-1)
         assert_allclose(yc, (26.41,), atol=1e-1)
 
-        match = 'xpos must be a 1D array'
+    @pytest.mark.parametrize(
+        ('xpos', 'ypos', 'kwargs', 'match'),
+        [([[25]], 26, {'box_size': 11}, 'xpos must be a 1D array'),
+         (25, [[26]], {'box_size': 11}, 'ypos must be a 1D array'),
+         ([25, 26], [26], {'box_size': 11},
+          'xpos and ypos must have the same length'),
+         (25, 26, {'box_size': (1, 2, 3)},
+          'box_size must have 1 or 2 elements'),
+         (25, 26, {'box_size': None, 'footprint': None},
+          'box_size or footprint must be defined'),
+         (25, 26, {'footprint': np.ones((3, 3, 3))},
+          'footprint must be a 2D array')])
+    def test_invalid_inputs(self, xpos, ypos, kwargs, match):
+        """
+        Test centroid_sources with invalid inputs.
+        """
+        data = np.ones((50, 47))
         with pytest.raises(ValueError, match=match):
-            centroid_sources(data, [[25]], 26, box_size=11)
-        match = 'ypos must be a 1D array'
-        with pytest.raises(ValueError, match=match):
-            centroid_sources(data, 25, [[26]], box_size=11)
-        match = 'xpos and ypos must have the same length'
-        with pytest.raises(ValueError, match=match):
-            centroid_sources(data, [25, 26], [26], box_size=11)
-        match = 'box_size must have 1 or 2 elements'
-        with pytest.raises(ValueError, match=match):
-            centroid_sources(data, 25, 26, box_size=(1, 2, 3))
-        match = 'box_size or footprint must be defined'
-        with pytest.raises(ValueError, match=match):
-            centroid_sources(data, 25, 26, box_size=None, footprint=None)
-        match = 'footprint must be a 2D array'
-        with pytest.raises(ValueError, match=match):
-            centroid_sources(data, 25, 26, footprint=np.ones((3, 3, 3)))
+            centroid_sources(data, xpos, ypos, **kwargs)
 
-        def test_func(data):
-            return data
-
-        match = "The input 'centroid_func' must have a 'mask' keyword"
-        with pytest.raises(ValueError, match=match):
-            centroid_sources(data, [25], 26, centroid_func=test_func)
-
+    def test_invalid_data(self):
+        """
+        Test centroid_sources with non-2D data.
+        """
         match = 'data must be a 2D array'
         with pytest.raises(ValueError, match=match):
             centroid_sources(np.ones((3, 3, 3)), 1, 1, box_size=3)
+
+    def test_centroid_func_no_mask_keyword(self):
+        """
+        Test centroid_sources with a centroid function that has no
+        mask keyword.
+        """
+        def test_func(data):
+            return data
+
+        data = np.ones((50, 47))
+        match = "The input 'centroid_func' must have a 'mask' keyword"
+        with pytest.raises(ValueError, match=match):
+            centroid_sources(data, [25], 26, centroid_func=test_func)
 
     @pytest.mark.parametrize('centroid_func', [centroid_com,
                                                centroid_quadratic,
@@ -602,27 +1134,17 @@ class TestCentroidSources:
         assert_allclose(xcen, xpos)
         assert_allclose(ycen, ypos)
 
+        # The last source is at the data edge, so its 2x2 cutout
+        # clamps the fit_boxsize (with a warning) to a size that is
+        # too small for the quadratic fit
         match = 'Centroid failed for source'
-        with pytest.warns(AstropyUserWarning, match=match):
+        clamp_match = "'fit_boxsize' was clamped"
+        with (pytest.warns(AstropyUserWarning, match=match),
+              pytest.warns(AstropyUserWarning, match=clamp_match)):
             xcen, ycen = centroid_sources(data, xpos, ypos, box_size=3,
                                           centroid_func=centroid_quadratic)
         assert_allclose(xcen, xres)
         assert_allclose(ycen, yres)
-
-    def test_centroid_quadratic_mask(self):
-        """
-        Test centroid_sources with centroid_quadratic and a mask.
-
-        The original data should not be altered when a mask is input.
-        """
-        xc_ref = 24.7
-        yc_ref = 25.2
-        data = _make_gaussian_source((51, 51), 2.4, xc_ref, yc_ref, 5.0, 5.0,
-                                     0)
-        mask = data < 1
-        xycen = centroid_quadratic(data, mask=mask)
-        assert ~np.any(np.isnan(data))
-        assert_allclose(xycen, (xc_ref, yc_ref), atol=0.01)
 
     def test_mask(self, test_data):
         """
@@ -682,11 +1204,69 @@ class TestCentroidSources:
         data[7, 7] = 110
         data[9, 9] = 120
 
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             xycen3 = centroid_sources(data, xpos=7, ypos=7, box_size=5,
                                       centroid_func=centroid_quadratic,
                                       xpeak=7, ypeak=7, fit_boxsize=3)
         assert_allclose(xycen3, ([7], [7]))
+
+    def test_unknown_kwargs(self):
+        """
+        Test that centroid_sources raises a TypeError for keyword
+        arguments not accepted by the centroid function.
+        """
+        data = np.ones((50, 50))
+        match = 'Unrecognized keyword argument\\(s\\) for the input'
+        with pytest.raises(TypeError, match=match):
+            centroid_sources(data, 25, 25, box_size=11,
+                             centroid_func=centroid_quadratic,
+                             fit_boxsizes=3)
+
+        # The error keyword is not accepted by centroid_com
+        with pytest.raises(TypeError, match=match):
+            centroid_sources(data, 25, 25, box_size=11,
+                             error=np.ones(data.shape))
+
+    def test_error_wrong_shape(self):
+        """
+        Test that centroid_sources raises a ValueError when the error
+        shape does not match the data shape.
+        """
+        data = np.ones((50, 50))
+        match = 'error and data must have the same shape'
+        with pytest.raises(ValueError, match=match):
+            centroid_sources(data, 25, 25, box_size=11,
+                             centroid_func=centroid_1dg, error=np.ones((5, 5)))
+
+    def test_var_keyword_centroid_func(self, test_data):
+        """
+        Test centroid_sources with a centroid function that accepts
+        the mask keyword via **kwargs.
+        """
+        def my_centroid(data, **kwargs):
+            return centroid_com(data, mask=kwargs.get('mask'))
+
+        data, xpos, ypos = test_data
+        xcen1, ycen1 = centroid_sources(data, xpos[1], ypos[1],
+                                        box_size=11,
+                                        centroid_func=my_centroid)
+        xcen2, ycen2 = centroid_sources(data, xpos[1], ypos[1],
+                                        box_size=11,
+                                        centroid_func=centroid_com)
+        assert_allclose(xcen1, xcen2)
+        assert_allclose(ycen1, ycen2)
+
+    def test_nonfinite_positions(self, test_data):
+        """
+        Test that centroid_sources raises a ValueError for nonfinite
+        xpos or ypos values.
+        """
+        data = test_data[0]
+        match = 'xpos and ypos must contain only finite values'
+        with pytest.raises(ValueError, match=match):
+            centroid_sources(data, np.nan, 25, box_size=11)
+        with pytest.raises(ValueError, match=match):
+            centroid_sources(data, 25, np.inf, box_size=11)
 
     def test_mask_wrong_shape(self):
         """
@@ -702,7 +1282,7 @@ class TestCentroidSources:
     def test_xypeak_multiple_sources(self):
         """
         Test that xpeak/ypeak are correctly offset for each source in
-        a multi-source centroid_sources call.
+        a multisource centroid_sources call.
         """
         # Two isolated peaks close together so that xpeak=10 (absolute)
         # lies within both source cutouts (box_size=5):
@@ -712,7 +1292,7 @@ class TestCentroidSources:
         data[10, 10] = 100.0
         data[10, 11] = 100.0
 
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             xc_multi, yc_multi = centroid_sources(
                 data, xpos=[10, 11], ypos=[10, 10], box_size=5,
                 centroid_func=centroid_quadratic,
@@ -720,12 +1300,12 @@ class TestCentroidSources:
 
         # Compare with individual single-source calls using the same
         # xpeak/ypeak to get the reference values.
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             xc1, yc1 = centroid_sources(
                 data, xpos=10, ypos=10, box_size=5,
                 centroid_func=centroid_quadratic,
                 xpeak=10, ypeak=10, fit_boxsize=3)
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             xc2, yc2 = centroid_sources(
                 data, xpos=11, ypos=10, box_size=5,
                 centroid_func=centroid_quadratic,
@@ -744,10 +1324,10 @@ def test_centroid_sources_error_multiple_sources():
     """
     xpos = [25.0, 75.0]
     ypos = [30.0, 70.0]
-    data1 = _make_gaussian_source((100, 100), 10.0, xpos[0], ypos[0],
-                                  4.0, 4.0, 0)
-    data2 = _make_gaussian_source((100, 100), 10.0, xpos[1], ypos[1],
-                                  4.0, 4.0, 0)
+    data1 = make_gaussian_source((100, 100), 10.0, xpos[0], ypos[0],
+                                 4.0, 4.0, 0)
+    data2 = make_gaussian_source((100, 100), 10.0, xpos[1], ypos[1],
+                                 4.0, 4.0, 0)
     data = data1 + data2
 
     error = np.ones(data.shape, dtype=float)
@@ -787,7 +1367,7 @@ def test_cutout_mask():
     x_init = (25, 91, 151, 160)
     y_init = (40, 61, 24, 71)
     footprint = np.zeros((3, 3))
-    match = 'is completely masked'
+    match = 'footprint must contain at least one True value'
     with pytest.raises(ValueError, match=match):
         _ = centroid_sources(data, x_init, y_init, footprint=footprint,
                              centroid_func=centroid_com)
@@ -798,6 +1378,7 @@ def test_cutout_mask():
                              centroid_func=centroid_com)
 
     mask = np.ones(data.shape, dtype=bool)
+    match = 'is completely masked'
     with pytest.raises(ValueError, match=match):
         _ = centroid_sources(data, x_init, y_init, box_size=11, mask=mask)
 
@@ -816,8 +1397,8 @@ class TestCentroidQuadraticClass:
         """
         xc_ref = 25.7
         yc_ref = 26.2
-        data = _make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref,
-                                     x_std, y_std, theta)
+        data = make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref,
+                                    x_std, y_std, theta)
 
         # Test with default parameters
         centroid_func = CentroidQuadratic()
@@ -830,8 +1411,8 @@ class TestCentroidQuadraticClass:
         """
         xc_ref = 25.7
         yc_ref = 26.2
-        data = _make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref,
-                                     3.2, 5.7, 0)
+        data = make_gaussian_source((50, 47), 2.4, xc_ref, yc_ref,
+                                    3.2, 5.7, 0)
 
         # Add an outlier
         x0 = 11

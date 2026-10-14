@@ -27,7 +27,7 @@ class OpenStackNestedFloatingIP:
         subnet_uuid (Union[Unset, UUID]):
         subnet_name (Union[Unset, str]):
         subnet_description (Union[Unset, str]):
-        subnet_cidr (Union[Unset, str]): IPv4 network address in CIDR format (e.g. 192.168.0.0/24)
+        subnet_cidr (Union[Unset, str]): Network address in CIDR format (e.g. 192.168.0.0/24 or 2001:db8::/64)
     """
 
     url: Union[Unset, str] = UNSET

@@ -99,6 +99,12 @@ exclude = ["plato/_generated"]
 select = ["E", "F", "I", "UP"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# A mirror of the exploration world's resolver, kept AST-identical to it by
+# tests/unit/chronos/test_login_snapshot_parity.py: a `timezone.utc` -> `UTC`
+# rewrite would make the two differ.
+"plato/chronos/login_snapshot.py" = ["UP017"]
+
 [tool.basedpyright]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"

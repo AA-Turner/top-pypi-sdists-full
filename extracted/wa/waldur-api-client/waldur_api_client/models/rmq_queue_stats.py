@@ -4,6 +4,8 @@ from typing import Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.queue_kind_enum import QueueKindEnum
+
 T = TypeVar("T", bound="RmqQueueStats")
 
 
@@ -19,6 +21,8 @@ class RmqQueueStats:
         subscription_uuid (Union[None, str]): Parsed subscription UUID from queue name
         offering_uuid (Union[None, str]): Parsed offering UUID from queue name
         object_type (Union[None, str]): Parsed object type from queue name (e.g., 'resource', 'order')
+        consumer_uuid (Union[None, str]): Parsed EventConsumer UUID from a unified consumer queue name
+        queue_kind (QueueKindEnum):
         message_ttl (Union[None, int]): Message TTL in milliseconds
         max_length (Union[None, int]): Maximum number of messages in queue
         max_length_bytes (Union[None, int]): Maximum total size of messages in bytes
@@ -39,6 +43,8 @@ class RmqQueueStats:
     subscription_uuid: Union[None, str]
     offering_uuid: Union[None, str]
     object_type: Union[None, str]
+    consumer_uuid: Union[None, str]
+    queue_kind: QueueKindEnum
     message_ttl: Union[None, int]
     max_length: Union[None, int]
     max_length_bytes: Union[None, int]
@@ -70,6 +76,11 @@ class RmqQueueStats:
 
         object_type: Union[None, str]
         object_type = self.object_type
+
+        consumer_uuid: Union[None, str]
+        consumer_uuid = self.consumer_uuid
+
+        queue_kind = self.queue_kind.value
 
         message_ttl: Union[None, int]
         message_ttl = self.message_ttl
@@ -113,6 +124,8 @@ class RmqQueueStats:
                 "subscription_uuid": subscription_uuid,
                 "offering_uuid": offering_uuid,
                 "object_type": object_type,
+                "consumer_uuid": consumer_uuid,
+                "queue_kind": queue_kind,
                 "message_ttl": message_ttl,
                 "max_length": max_length,
                 "max_length_bytes": max_length_bytes,
@@ -161,6 +174,15 @@ class RmqQueueStats:
             return cast(Union[None, str], data)
 
         object_type = _parse_object_type(d.pop("object_type"))
+
+        def _parse_consumer_uuid(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        consumer_uuid = _parse_consumer_uuid(d.pop("consumer_uuid"))
+
+        queue_kind = QueueKindEnum(d.pop("queue_kind"))
 
         def _parse_message_ttl(data: object) -> Union[None, int]:
             if data is None:
@@ -241,6 +263,8 @@ class RmqQueueStats:
             subscription_uuid=subscription_uuid,
             offering_uuid=offering_uuid,
             object_type=object_type,
+            consumer_uuid=consumer_uuid,
+            queue_kind=queue_kind,
             message_ttl=message_ttl,
             max_length=max_length,
             max_length_bytes=max_length_bytes,

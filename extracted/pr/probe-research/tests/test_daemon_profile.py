@@ -18,8 +18,9 @@ def _body(name: str) -> str:
 def test_the_daemon_blurb_is_the_approved_text():
     assert agent_rules.DAEMON_POINTER_BODY == _body("agent-facing/managed-block.PROPOSED.md")
     # 1,131 approved 09-27; the `probe session inline` line (10-05) out again 10-06;
-    # 1,365 with the PLAN FIRST section (10-11); 1,624 with PAPERS (10-12).
-    assert len(agent_rules.DAEMON_POINTER_BODY) < 1650
+    # 1,365 with the PLAN FIRST section (10-11); 1,624 with PAPERS (10-12);
+    # 1,816 with FEEDBACK (10-13); 1,969 with `probe ask --writer` (10-13).
+    assert len(agent_rules.DAEMON_POINTER_BODY) < 2000
 
 
 def test_the_paper_search_hold_is_the_approved_text():
@@ -93,7 +94,8 @@ def _guard(tmp_path, command: str, *, state: str = "daemon", tool: str = "Bash",
     return json.loads(out.stdout)["hookSpecificOutput"]["permissionDecisionReason"] if out.stdout else None
 
 
-@pytest.mark.parametrize("command", ['probe ask "any prior SVM sweeps?"', "probe exec -- python train.py",
+@pytest.mark.parametrize("command", ['probe ask "any prior SVM sweeps?"', 'probe ask --writer "group the arms"',
+                                     'probe ask --writer --wait "file the score runs"', "probe exec -- python train.py",
                                     "probe run start --name x", "probe run end r1", "probe session status",
                                     "probe log --run r1 acc=0.9", "probe get --help", "ls -la"])
 def test_the_main_agent_keeps_its_own_commands(tmp_path, command):
@@ -180,7 +182,10 @@ def test_read_only_still_refuses_a_directed_write(tmp_path):
 
 def test_the_write_refusal_is_the_approved_text_and_the_daemon_states_retry():
     approved = _body("agent-facing/guard-refusal.NEW.md").rstrip("\n")
-    assert session_marker.DAEMON_PROFILE_DENY_WRITE == approved + "\n\n" + session_marker.DIRECTED_RETRY
+    assert session_marker.DAEMON_PROFILE_DENY_WRITE == (approved + "\n\n" + session_marker.DIRECTED_RETRY + " "
+                                                         + session_marker.WRITER_RETRY)
+    # Richard's approved text (2026-10-13, ~/plans/writer-channel).
+    assert session_marker.WRITER_RETRY == 'Otherwise ask the daemon\'s writer: `probe ask --writer "<request>"`.'
     assert session_marker.DENY_REASON_DAEMON.endswith("\n\n" + session_marker.DIRECTED_RETRY)
 
 

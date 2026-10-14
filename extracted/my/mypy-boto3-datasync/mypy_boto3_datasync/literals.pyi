@@ -46,6 +46,7 @@ __all__ = (
     "ManifestFormatType",
     "MtimeType",
     "NfsVersionType",
+    "ObjectMetadataType",
     "ObjectStorageServerProtocolType",
     "ObjectTagsType",
     "ObjectVersionIdsType",
@@ -99,7 +100,8 @@ LogLevelType = Literal["BASIC", "OFF", "TRANSFER"]
 ManifestActionType = Literal["TRANSFER"]
 ManifestFormatType = Literal["CSV"]
 MtimeType = Literal["NONE", "PRESERVE"]
-NfsVersionType = Literal["AUTOMATIC", "NFS3", "NFS4_0", "NFS4_1"]
+NfsVersionType = Literal["AUTOMATIC", "NFS3", "NFS4_0", "NFS4_1", "NFS4_2"]
+ObjectMetadataType = Literal["NONE", "PRESERVE"]
 ObjectStorageServerProtocolType = Literal["HTTP", "HTTPS"]
 ObjectTagsType = Literal["NONE", "PRESERVE"]
 ObjectVersionIdsType = Literal["INCLUDE", "NONE"]
@@ -158,8 +160,11 @@ DataSyncServiceName = Literal["datasync"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -232,6 +237,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -304,8 +310,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -334,6 +342,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -376,6 +385,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -428,6 +438,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -464,6 +475,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -508,6 +520,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

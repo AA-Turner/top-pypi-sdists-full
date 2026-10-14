@@ -629,3 +629,49 @@ def test_the_reader_takes_no_unasked_turn_while_paused(tmp_path):
     assert lane.cursor() == start - 1, "a resume reads this turn, not the paused backlog"
     lane.w._paused = False
     assert lane.due() == "prompt"
+
+
+def test_a_request_to_the_writer_is_an_ml_signal(tmp_path):
+    """O6=B (Richard 2026-10-13): a request the main agent sends the writer says
+    the session is ML work: it lifts a pause at once, and for good."""
+    from probe.daemon.events import REQUEST_SOURCE, REQUEST_STREAM, REQUEST_TOOL
+
+    s, marker, g, lines = _paused_gate(tmp_path, [])
+    with s.store.tx():
+        s.store.add([Event(kind=Kind.META, stream=REQUEST_STREAM, offset=1, text="The main agent asks you: file it",
+                           tool=REQUEST_TOOL, source=REQUEST_SOURCE)])
+    assert asyncio.run(g.check()) is False and not marker.is_paused
+    assert s.store.fact(gate_mod.FACT_SIGNAL) == "the main agent asked the writer"
+    s.turn("rename the button")
+    assert asyncio.run(g.check()) is False, "ML for good: never asked again"
+    # The same words on a harness line (no request tool) are no signal.
+    assert gate_mod.ml_signal({"kind": "meta", "tool": None, "text": "The main agent asks you: x",
+                               "command": None, "tool_input": None}) is None
+
+
+def test_a_request_in_a_paused_session_lifts_the_pause_and_runs_in_the_same_poll(tmp_path, monkeypatch):
+    pytest.importorskip("pydantic_ai")
+    from probe.daemon import mailbox
+    from probe.daemon import worker as worker_mod
+
+    work = tmp_path / "home" / "work"
+    work.mkdir(parents=True)
+    transcript = tmp_path / f"{SID}.jsonl"
+    transcript.write_text(
+        json.dumps({"type": "user", "message": {"content": "rename the settings button"}, "cwd": str(work)}) + "\n"
+        + json.dumps({"type": "system", "subtype": "turn_duration", "durationMs": 5}) + "\n")
+    _seed_default()
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"))
+    w.gate.classify, _asked = _classifier([0.02, 0.02])
+    bites: list[str] = []
+
+    async def fake_bite(trigger, *, workdirs=None):
+        bites.append(trigger)
+        return True
+
+    monkeypatch.setattr(w, "run_bite", fake_bite)
+    assert sm.set_auto_pause(SID, {"since": 1.0})
+    assert asyncio.run(w.tick()) is None and bites == [] and w.paused()
+    mailbox.write_request(SID, "group the arms into one experiment")
+    assert asyncio.run(w.tick()) is None
+    assert not w.paused() and not sm.auto_paused(SID) and bites == ["request"]

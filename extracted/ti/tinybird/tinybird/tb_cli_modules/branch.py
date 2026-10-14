@@ -554,17 +554,9 @@ async def data_branch(last_partition: bool, all: bool, wait: bool) -> None:
     default=False,
     help="Flag to skip execution of regression tests. This is handy for CI branches where regression might be flaky",
 )
-@click.option(
-    "--main",
-    is_flag=True,
-    default=False,
-    help="Run regression tests in the main Branch. For this flag to work all the resources in the Branch pipe endpoints need to exist in the main Branch.",
-)
 @click.pass_context
 @coro
-async def regression_tests(
-    ctx, filename: str, wait: bool, skip_regression_tests: Optional[bool] = False, main: Optional[bool] = False
-):
+async def regression_tests(ctx, filename: str, wait: bool, skip_regression_tests: Optional[bool] = False):
     """Regression test commands for Branches"""
     if skip_regression_tests:
         click.echo(FeedbackManager.warning_regression_skipped())
@@ -590,9 +582,7 @@ async def regression_tests(
         if current_main_workspace["id"] == config["id"]:
             raise CLIException(FeedbackManager.error_not_allowed_in_main_branch())
         try:
-            response = await client.branch_regression_tests_file(
-                config["id"], regression_tests_commands, run_in_main=main
-            )
+            response = await client.branch_regression_tests_file(config["id"], regression_tests_commands)
             if "job" not in response:
                 raise CLIBranchException(str(response))
             job_id = response["job"]["job_id"]
@@ -604,7 +594,7 @@ async def regression_tests(
         except Exception as e:
             raise CLIBranchException(FeedbackManager.error_exception(error=str(e)))
     elif not ctx.invoked_subcommand:
-        await _run_regression(type="coverage", wait=wait, run_in_main=main)
+        await _run_regression(type="coverage", wait=wait)
 
 
 async def _run_regression(
@@ -620,7 +610,6 @@ async def _run_regression(
     failfast: Optional[bool] = False,
     wait: Optional[bool] = False,
     skip: Optional[bool] = False,
-    run_in_main: Optional[bool] = False,
     **kwargs,
 ):
     if skip:
@@ -648,7 +637,6 @@ async def _run_regression(
             assert_time_increase_percentage=assert_time_increase_percentage,
             assert_bytes_read_increase_percentage=assert_bytes_read_increase_percentage,
             assert_max_time=assert_max_time,
-            run_in_main=run_in_main,
             **kwargs,
         )
         if "job" not in response:
@@ -728,12 +716,6 @@ async def _run_regression(
     default=False,
     help="Flag to skip execution of regression tests. This is handy for CI branches where regression might be flaky",
 )
-@click.option(
-    "--main",
-    is_flag=True,
-    default=False,
-    help="Run regression tests in the main Branch. For this flag to work all the resources in the Branch pipe endpoints need to exist in the main Branch.",
-)
 @coro
 async def coverage(
     pipe_name: str,
@@ -747,7 +729,6 @@ async def coverage(
     failfast: bool,
     wait: bool,
     skip_regression_tests: Optional[bool] = False,
-    main: Optional[bool] = False,
 ):
     await _run_regression(
         "coverage",
@@ -762,7 +743,6 @@ async def coverage(
         failfast,
         wait,
         skip_regression_tests,
-        run_in_main=main,
     )
 
 

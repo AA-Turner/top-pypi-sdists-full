@@ -43,6 +43,7 @@ class OpenStackNetworkFieldEnum(str, Enum):
     STATE = "state"
     SUBNETS = "subnets"
     TENANT = "tenant"
+    TENANT_IS_MANAGED = "tenant_is_managed"
     TENANT_NAME = "tenant_name"
     TENANT_UUID = "tenant_uuid"
     TYPE = "type"

@@ -23,13 +23,15 @@ class OfferingComponentRequest:
         measured_unit (Union[Unset, str]): Unit of measurement, for example, GB.
         unit_factor (Union[Unset, int]): The conversion factor from backend units to measured_unit
         limit_period (Union[LimitPeriodEnum, None, Unset]):
-        limit_amount (Union[None, Unset, int]):
+        limit_amount (Union[None, Unset, float]):
+        limit_decimal_places (Union[Unset, int]): Number of decimal places accepted for this component's limit. 0 keeps
+            the limit integer-only.
         article_code (Union[Unset, str]):
-        max_value (Union[None, Unset, int]):
-        min_value (Union[None, Unset, int]):
-        max_available_limit (Union[None, Unset, int]):
+        max_value (Union[None, Unset, float]):
+        min_value (Union[None, Unset, float]):
+        max_available_limit (Union[None, Unset, float]):
         is_boolean (Union[Unset, bool]):
-        default_limit (Union[None, Unset, int]):
+        default_limit (Union[None, Unset, float]):
         is_prepaid (Union[Unset, bool]):
         overage_component (Union[None, UUID, Unset]):
         min_prepaid_duration (Union[None, Unset, int]):
@@ -50,13 +52,14 @@ class OfferingComponentRequest:
     measured_unit: Union[Unset, str] = UNSET
     unit_factor: Union[Unset, int] = UNSET
     limit_period: Union[LimitPeriodEnum, None, Unset] = UNSET
-    limit_amount: Union[None, Unset, int] = UNSET
+    limit_amount: Union[None, Unset, float] = UNSET
+    limit_decimal_places: Union[Unset, int] = UNSET
     article_code: Union[Unset, str] = UNSET
-    max_value: Union[None, Unset, int] = UNSET
-    min_value: Union[None, Unset, int] = UNSET
-    max_available_limit: Union[None, Unset, int] = UNSET
+    max_value: Union[None, Unset, float] = UNSET
+    min_value: Union[None, Unset, float] = UNSET
+    max_available_limit: Union[None, Unset, float] = UNSET
     is_boolean: Union[Unset, bool] = UNSET
-    default_limit: Union[None, Unset, int] = UNSET
+    default_limit: Union[None, Unset, float] = UNSET
     is_prepaid: Union[Unset, bool] = UNSET
     overage_component: Union[None, UUID, Unset] = UNSET
     min_prepaid_duration: Union[None, Unset, int] = UNSET
@@ -88,27 +91,29 @@ class OfferingComponentRequest:
         else:
             limit_period = self.limit_period
 
-        limit_amount: Union[None, Unset, int]
+        limit_amount: Union[None, Unset, float]
         if isinstance(self.limit_amount, Unset):
             limit_amount = UNSET
         else:
             limit_amount = self.limit_amount
 
+        limit_decimal_places = self.limit_decimal_places
+
         article_code = self.article_code
 
-        max_value: Union[None, Unset, int]
+        max_value: Union[None, Unset, float]
         if isinstance(self.max_value, Unset):
             max_value = UNSET
         else:
             max_value = self.max_value
 
-        min_value: Union[None, Unset, int]
+        min_value: Union[None, Unset, float]
         if isinstance(self.min_value, Unset):
             min_value = UNSET
         else:
             min_value = self.min_value
 
-        max_available_limit: Union[None, Unset, int]
+        max_available_limit: Union[None, Unset, float]
         if isinstance(self.max_available_limit, Unset):
             max_available_limit = UNSET
         else:
@@ -116,7 +121,7 @@ class OfferingComponentRequest:
 
         is_boolean = self.is_boolean
 
-        default_limit: Union[None, Unset, int]
+        default_limit: Union[None, Unset, float]
         if isinstance(self.default_limit, Unset):
             default_limit = UNSET
         else:
@@ -187,6 +192,8 @@ class OfferingComponentRequest:
             field_dict["limit_period"] = limit_period
         if limit_amount is not UNSET:
             field_dict["limit_amount"] = limit_amount
+        if limit_decimal_places is not UNSET:
+            field_dict["limit_decimal_places"] = limit_decimal_places
         if article_code is not UNSET:
             field_dict["article_code"] = article_code
         if max_value is not UNSET:
@@ -250,52 +257,54 @@ class OfferingComponentRequest:
 
         limit_period = _parse_limit_period(d.pop("limit_period", UNSET))
 
-        def _parse_limit_amount(data: object) -> Union[None, Unset, int]:
+        def _parse_limit_amount(data: object) -> Union[None, Unset, float]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(Union[None, Unset, float], data)
 
         limit_amount = _parse_limit_amount(d.pop("limit_amount", UNSET))
 
+        limit_decimal_places = d.pop("limit_decimal_places", UNSET)
+
         article_code = d.pop("article_code", UNSET)
 
-        def _parse_max_value(data: object) -> Union[None, Unset, int]:
+        def _parse_max_value(data: object) -> Union[None, Unset, float]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(Union[None, Unset, float], data)
 
         max_value = _parse_max_value(d.pop("max_value", UNSET))
 
-        def _parse_min_value(data: object) -> Union[None, Unset, int]:
+        def _parse_min_value(data: object) -> Union[None, Unset, float]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(Union[None, Unset, float], data)
 
         min_value = _parse_min_value(d.pop("min_value", UNSET))
 
-        def _parse_max_available_limit(data: object) -> Union[None, Unset, int]:
+        def _parse_max_available_limit(data: object) -> Union[None, Unset, float]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(Union[None, Unset, float], data)
 
         max_available_limit = _parse_max_available_limit(d.pop("max_available_limit", UNSET))
 
         is_boolean = d.pop("is_boolean", UNSET)
 
-        def _parse_default_limit(data: object) -> Union[None, Unset, int]:
+        def _parse_default_limit(data: object) -> Union[None, Unset, float]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, int], data)
+            return cast(Union[None, Unset, float], data)
 
         default_limit = _parse_default_limit(d.pop("default_limit", UNSET))
 
@@ -381,6 +390,7 @@ class OfferingComponentRequest:
             unit_factor=unit_factor,
             limit_period=limit_period,
             limit_amount=limit_amount,
+            limit_decimal_places=limit_decimal_places,
             article_code=article_code,
             max_value=max_value,
             min_value=min_value,

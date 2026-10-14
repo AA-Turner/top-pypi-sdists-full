@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyBoolector
-Version: 3.2.4.19342042739
+Version: 3.2.4.38488416565
 Summary: Python wrapper around the Boolector SMT solver
 Home-page: https://github.com/boolector/boolector
 Download-URL: https://pypi.org/project/PyBoolector/
@@ -12,12 +12,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE

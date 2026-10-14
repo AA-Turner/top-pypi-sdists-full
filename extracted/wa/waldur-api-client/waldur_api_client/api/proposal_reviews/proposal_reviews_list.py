@@ -16,6 +16,8 @@ from ...utils import parse_link_header
 def _get_kwargs(
     *,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -33,6 +35,10 @@ def _get_kwargs(
     if not isinstance(call_uuid, Unset):
         json_call_uuid = str(call_uuid)
     params["call_uuid"] = json_call_uuid
+
+    params["due_within_days"] = due_within_days
+
+    params["managed_calls_only"] = managed_calls_only
 
     json_o: Union[Unset, list[str]] = UNSET
     if not isinstance(o, Unset):
@@ -121,6 +127,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -135,6 +143,8 @@ def sync_detailed(
     """
     Args:
         call_uuid (Union[Unset, UUID]):
+        due_within_days (Union[Unset, float]):
+        managed_calls_only (Union[Unset, bool]):
         o (Union[Unset, list[ProposalReviewOEnum]]):
         organization_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -156,6 +166,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         call_uuid=call_uuid,
+        due_within_days=due_within_days,
+        managed_calls_only=managed_calls_only,
         o=o,
         organization_uuid=organization_uuid,
         page=page,
@@ -179,6 +191,8 @@ def sync(
     *,
     client: AuthenticatedClient,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -193,6 +207,8 @@ def sync(
     """
     Args:
         call_uuid (Union[Unset, UUID]):
+        due_within_days (Union[Unset, float]):
+        managed_calls_only (Union[Unset, bool]):
         o (Union[Unset, list[ProposalReviewOEnum]]):
         organization_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -215,6 +231,8 @@ def sync(
     return sync_detailed(
         client=client,
         call_uuid=call_uuid,
+        due_within_days=due_within_days,
+        managed_calls_only=managed_calls_only,
         o=o,
         organization_uuid=organization_uuid,
         page=page,
@@ -232,6 +250,8 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -246,6 +266,8 @@ async def asyncio_detailed(
     """
     Args:
         call_uuid (Union[Unset, UUID]):
+        due_within_days (Union[Unset, float]):
+        managed_calls_only (Union[Unset, bool]):
         o (Union[Unset, list[ProposalReviewOEnum]]):
         organization_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -267,6 +289,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         call_uuid=call_uuid,
+        due_within_days=due_within_days,
+        managed_calls_only=managed_calls_only,
         o=o,
         organization_uuid=organization_uuid,
         page=page,
@@ -288,6 +312,8 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -302,6 +328,8 @@ async def asyncio(
     """
     Args:
         call_uuid (Union[Unset, UUID]):
+        due_within_days (Union[Unset, float]):
+        managed_calls_only (Union[Unset, bool]):
         o (Union[Unset, list[ProposalReviewOEnum]]):
         organization_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -325,6 +353,8 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             call_uuid=call_uuid,
+            due_within_days=due_within_days,
+            managed_calls_only=managed_calls_only,
             o=o,
             organization_uuid=organization_uuid,
             page=page,
@@ -343,6 +373,8 @@ def sync_all(
     *,
     client: AuthenticatedClient,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     proposal: Union[Unset, str] = UNSET,
@@ -361,6 +393,8 @@ def sync_all(
 
     Args:
         call_uuid (Union[Unset, UUID]):
+        due_within_days (Union[Unset, float]):
+        managed_calls_only (Union[Unset, bool]):
         o (Union[Unset, list[ProposalReviewOEnum]]):
         organization_uuid (Union[Unset, UUID]):
         proposal (Union[Unset, str]):
@@ -384,6 +418,8 @@ def sync_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         call_uuid=call_uuid,
+        due_within_days=due_within_days,
+        managed_calls_only=managed_calls_only,
         o=o,
         organization_uuid=organization_uuid,
         proposal=proposal,
@@ -440,6 +476,8 @@ async def asyncio_all(
     *,
     client: AuthenticatedClient,
     call_uuid: Union[Unset, UUID] = UNSET,
+    due_within_days: Union[Unset, float] = UNSET,
+    managed_calls_only: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[ProposalReviewOEnum]] = UNSET,
     organization_uuid: Union[Unset, UUID] = UNSET,
     proposal: Union[Unset, str] = UNSET,
@@ -458,6 +496,8 @@ async def asyncio_all(
 
     Args:
         call_uuid (Union[Unset, UUID]):
+        due_within_days (Union[Unset, float]):
+        managed_calls_only (Union[Unset, bool]):
         o (Union[Unset, list[ProposalReviewOEnum]]):
         organization_uuid (Union[Unset, UUID]):
         proposal (Union[Unset, str]):
@@ -481,6 +521,8 @@ async def asyncio_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         call_uuid=call_uuid,
+        due_within_days=due_within_days,
+        managed_calls_only=managed_calls_only,
         o=o,
         organization_uuid=organization_uuid,
         proposal=proposal,

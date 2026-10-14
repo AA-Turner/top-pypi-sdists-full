@@ -18,7 +18,9 @@ class PatchedCreateCustomerCreditRequest:
     Attributes:
         value (Union[Unset, str]):
         customer (Union[Unset, str]):
-        offerings (Union[Unset, list[Union[None, str]]]):
+        offerings (Union[Unset, list[Union[None, str]]]): Offerings the credit may be drawn against. Leave empty to
+            allow all offerings: an empty list means unrestricted, not none. Cost on any other offering is invoiced normally
+            and is never compensated from this credit.
         end_date (Union[None, Unset, datetime.date]):
         expected_consumption (Union[Unset, str]):
         minimal_consumption_logic (Union[Unset, MinimalConsumptionLogicEnum]):

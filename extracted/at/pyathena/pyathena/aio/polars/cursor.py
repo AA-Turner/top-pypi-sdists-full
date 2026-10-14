@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Callable
 from multiprocessing import cpu_count
 from typing import TYPE_CHECKING, Any, cast
 
 from pyathena.aio.common import WithAsyncFetch
+from pyathena.aio.util import create_in_thread
 from pyathena.common import CursorIterator
 from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
@@ -30,8 +30,9 @@ _logger = logging.getLogger(__name__)
 class AioPolarsCursor(WithAsyncFetch):
     """Native asyncio cursor that returns results as Polars DataFrames.
 
-    Uses ``asyncio.to_thread()`` for both result set creation and fetch
-    operations, keeping the event loop free. This is especially important
+    Runs result set creation (with
+    :func:`~pyathena.aio.util.create_in_thread`) and fetch operations in
+    threads, keeping the event loop free. This is especially important
     when ``chunksize`` is set, as fetch calls trigger lazy S3 reads.
 
     Example:
@@ -77,7 +78,11 @@ class AioPolarsCursor(WithAsyncFetch):
             result_reuse_enable: Whether to enable Athena query result reuse.
             result_reuse_minutes: Maximum age of a reused query result in minutes.
             block_size: Default block size of the S3 filesystem that reads the results.
-            cache_type: Default cache type of the S3 filesystem that reads the results.
+            cache_type: The default fsspec cache type of the S3 filesystem that reads the results,
+                such as ``"none"``, ``"bytes"``, ``"readahead"``, ``"blockcache"``, or
+                ``"background"``; see ``S3FileSystem``. Without ``cache_type``, PyAthena's
+                filesystem reads a Parquet file of a chunked UNLOAD result that is larger than
+                32 MiB without a cache.
             s3_max_workers: Maximum number of workers of the S3 filesystem.
             chunksize: Number of rows per chunk. If set, result files in S3 are read
                 lazily in chunks of this size.
@@ -161,7 +166,7 @@ class AioPolarsCursor(WithAsyncFetch):
         Returns:
             Self reference for method chaining.
         """
-        self._reset_state()
+        await self._async_reset_state()
         options = ExecuteOptions.resolve(
             options,
             work_group=work_group,
@@ -186,7 +191,7 @@ class AioPolarsCursor(WithAsyncFetch):
 
         query_execution = await self._poll(self.query_id)
         if query_execution.state == AthenaQueryExecution.STATE_SUCCEEDED:
-            self.result_set = await asyncio.to_thread(
+            self.result_set = await create_in_thread(
                 AthenaPolarsResultSet,
                 connection=self._connection,
                 converter=self._converter,

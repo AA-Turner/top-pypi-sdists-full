@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -47,8 +50,9 @@ applications which do not need any of these classes.
 import wx
 #-- end-_adv --#
 #-- begin-aboutdlg --#
+import wx.siplib
 
-class AboutDialogInfo:
+class AboutDialogInfo(wx.siplib.wrapper):
     """
     AboutDialogInfo() -> None
     
@@ -169,14 +173,14 @@ class AboutDialogInfo:
         Returns true if an icon has been set for the about dialog.
         """
 
-    def GetIcon(self, window: wx.Window=nullptr) -> wx.Icon:
+    def GetIcon(self, window: Optional[wx.Window]=None) -> wx.Icon:
         """
-        GetIcon(window=nullptr) -> wx.Icon
+        GetIcon(window=None) -> wx.Icon
         
         Returns the icon set by SetIcon().
         """
 
-    def SetIcon(self, icon: wx.BitmapBundle) -> None:
+    def SetIcon(self, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetIcon(icon) -> None
         
@@ -352,9 +356,9 @@ class AboutDialogInfo:
     @DocWriters.setter
     def DocWriters(self, value: List[str], /) -> None: ...
     @property
-    def Icon(self) -> wx.BitmapBundle: ...
+    def Icon(self) -> wx.Icon: ...
     @Icon.setter
-    def Icon(self, value: wx.BitmapBundle, /) -> None: ...
+    def Icon(self, value: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], /) -> None: ...
     @property
     def Licence(self) -> str: ...
     @Licence.setter
@@ -384,15 +388,15 @@ class AboutDialogInfo:
 # end of class AboutDialogInfo
 
 
-def AboutBox(info: AboutDialogInfo, parent: wx.Window=nullptr) -> None:    """
-    AboutBox(info, parent=nullptr) -> None
+def AboutBox(info: AboutDialogInfo, parent: Optional[wx.Window]=None) -> None:    """
+    AboutBox(info, parent=None) -> None
     
     This function shows the standard about dialog containing the
     information specified in info.
     """
 
-def GenericAboutBox(info: AboutDialogInfo, parent: wx.Window=nullptr) -> None:    """
-    GenericAboutBox(info, parent=nullptr) -> None
+def GenericAboutBox(info: AboutDialogInfo, parent: Optional[wx.Window]=None) -> None:    """
+    GenericAboutBox(info, parent=None) -> None
     
     This function does the same thing as wxAboutBox() except that it
     always uses the generic wxWidgets version of the dialog instead of the
@@ -403,14 +407,14 @@ def GenericAboutBox(info: AboutDialogInfo, parent: wx.Window=nullptr) -> None:  
 
 class ExtHelpController(wx.HelpControllerBase):
     """
-    ExtHelpController(parentWindow=nullptr) -> None
+    ExtHelpController(parentWindow=None) -> None
     
     This class implements help via an external browser.
     """
 
-    def __init__(self, parentWindow: wx.Window=nullptr) -> None:
+    def __init__(self, parentWindow: Optional[wx.Window]=None) -> None:
         """
-        ExtHelpController(parentWindow=nullptr) -> None
+        ExtHelpController(parentWindow=None) -> None
         
         This class implements help via an external browser.
         """
@@ -465,7 +469,7 @@ class ExtHelpController(wx.HelpControllerBase):
         KeywordSearch)
         """
 
-    def KeywordSearch(self, k: str, mode: wx.HelpSearchMode=wx.HELP_SEARCH_ALL) -> bool:
+    def KeywordSearch(self, k: str, mode: Union[wx.HelpSearchMode, int]=wx.HELP_SEARCH_ALL) -> bool:
         """
         KeywordSearch(k, mode=wx.HELP_SEARCH_ALL) -> bool
         
@@ -494,16 +498,16 @@ class ExtHelpController(wx.HelpControllerBase):
         Call the browser using a relative URL.
         """
 
-    def SetFrameParameters(self, titleFormat: str, size: wx.Size, pos: wx.Point=wx.DefaultPosition, newFrameEachTime: bool=False) -> None:
+    def SetFrameParameters(self, titleFormat: str, size: Union[wx.Size, _TwoInts], pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, newFrameEachTime: bool=False) -> None:
         """
         SetFrameParameters(titleFormat, size, pos=wx.DefaultPosition, newFrameEachTime=False) -> None
         
         Allows one to override the default settings for the help frame.
         """
 
-    def GetFrameParameters(self, size: wx.Size=nullptr, pos: wx.Point=nullptr, newFrameEachTime: bool=nullptr) -> wx.Frame:
+    def GetFrameParameters(self, size: Optional[Union[wx.Size, _TwoInts]]=None, pos: Optional[Union[wx.Point, _TwoInts]]=None, newFrameEachTime: Optional[bool]=None) -> wx.Frame:
         """
-        GetFrameParameters(size=nullptr, pos=nullptr, newFrameEachTime=nullptr) -> wx.Frame
+        GetFrameParameters(size=None, pos=None, newFrameEachTime=None) -> wx.Frame
         
         Obtains the latest settings used by the help frame and the help frame.
         """
@@ -524,7 +528,7 @@ class CommandLinkButton(wx.Button):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, mainLabel: str='', note: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=wx.ButtonNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, mainLabel: str='', note: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> None:
         ...
 
     @overload
@@ -537,7 +541,7 @@ class CommandLinkButton(wx.Button):
         wxButtons but are similar to the links in a web page in functionality.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, mainLabel: str='', note: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=wx.ButtonNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, mainLabel: str='', note: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, mainLabel='', note='', pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, validator=wx.DefaultValidator, name=wx.ButtonNameStr) -> bool
         
@@ -593,13 +597,8 @@ class CommandLinkButton(wx.Button):
         Returns the currently used note.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -632,7 +631,7 @@ class DateEvent(wx.CommandEvent):
     """
 
     @overload
-    def __init__(self, win: wx.Window, dt: wx.DateTime, type: EventType) -> None:
+    def __init__(self, win: wx.Window, dt: Union[wx.DateTime, datetime, date], type: int) -> None:
         ...
 
     @overload
@@ -652,7 +651,7 @@ class DateEvent(wx.CommandEvent):
         Returns the date.
         """
 
-    def SetDate(self, date: wx.DateTime) -> None:
+    def SetDate(self, date: Union[wx.DateTime, datetime, date]) -> None:
         """
         SetDate(date) -> None
         
@@ -669,26 +668,19 @@ class DateEvent(wx.CommandEvent):
     @property
     def Date(self) -> wx.DateTime: ...
     @Date.setter
-    def Date(self, value: wx.DateTime, /) -> None: ...
+    def Date(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
 # end of class DateEvent
 
 
-EVT_DATE_CHANGED = wx.PyEventBinder( wxEVT_DATE_CHANGED, 1 )
-EVT_TIME_CHANGED = wx.PyEventBinder( wxEVT_TIME_CHANGED, 1 )
+EVT_DATE_CHANGED: wx.PyEventBinder[DateEvent]
+EVT_TIME_CHANGED: wx.PyEventBinder[DateEvent]
 #-- end-dateevt --#
 #-- begin-datectrl --#
-
-class _enum_11(IntEnum):
-    DP_DEFAULT = auto()
-    DP_SPIN = auto()
-    DP_DROPDOWN = auto()
-    DP_SHOWCENTURY = auto()
-    DP_ALLOWNONE = auto()
-DP_DEFAULT = _enum_11.DP_DEFAULT
-DP_SPIN = _enum_11.DP_SPIN
-DP_DROPDOWN = _enum_11.DP_DROPDOWN
-DP_SHOWCENTURY = _enum_11.DP_SHOWCENTURY
-DP_ALLOWNONE = _enum_11.DP_ALLOWNONE
+DP_DEFAULT: int
+DP_SPIN: int
+DP_DROPDOWN: int
+DP_SHOWCENTURY: int
+DP_ALLOWNONE: int
 
 class DatePickerCtrl(wx.Control):
     """
@@ -699,7 +691,7 @@ class DatePickerCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, dt: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, dt: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> None:
         ...
 
     @overload
@@ -711,7 +703,7 @@ class DatePickerCtrl(wx.Control):
         This control allows the user to select a date.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, dt: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, dt: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> bool:
         """
         Create(parent, id=wx.ID_ANY, dt=wx.DefaultDateTime, pos=wx.DefaultPosition, size=wx.DefaultSize, style=DP_DEFAULT|DP_SHOWCENTURY, validator=wx.DefaultValidator, name="datectrl") -> bool
         
@@ -740,34 +732,29 @@ class DatePickerCtrl(wx.Control):
         Set the text to show when there is no valid value.
         """
 
-    def SetRange(self, dt1: wx.DateTime, dt2: wx.DateTime) -> None:
+    def SetRange(self, dt1: Union[wx.DateTime, datetime, date], dt2: Union[wx.DateTime, datetime, date]) -> None:
         """
         SetRange(dt1, dt2) -> None
         
         Sets the valid range for the date selection.
         """
 
-    def SetValue(self, dt: wx.DateTime) -> None:
+    def SetValue(self, dt: Union[wx.DateTime, datetime, date]) -> None:
         """
         SetValue(dt) -> None
         
         Changes the current value of the control.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
     def Value(self) -> wx.DateTime: ...
     @Value.setter
-    def Value(self, value: wx.DateTime, /) -> None: ...
+    def Value(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
 # end of class DatePickerCtrl
 
 
@@ -780,7 +767,7 @@ class DatePickerCtrlGeneric(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, dt: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, dt: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> None:
         ...
 
     @overload
@@ -792,7 +779,7 @@ class DatePickerCtrlGeneric(wx.Control):
         This control allows the user to select a date.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, dt: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, dt: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DP_DEFAULT|DP_SHOWCENTURY, validator: wx.Validator=wx.DefaultValidator, name: str="datectrl") -> bool:
         """
         Create(parent, id=wx.ID_ANY, dt=wx.DefaultDateTime, pos=wx.DefaultPosition, size=wx.DefaultSize, style=DP_DEFAULT|DP_SHOWCENTURY, validator=wx.DefaultValidator, name="datectrl") -> bool
         
@@ -821,84 +808,70 @@ class DatePickerCtrlGeneric(wx.Control):
         Set the text to show when there is no valid value.
         """
 
-    def SetRange(self, dt1: wx.DateTime, dt2: wx.DateTime) -> None:
+    def SetRange(self, dt1: Union[wx.DateTime, datetime, date], dt2: Union[wx.DateTime, datetime, date]) -> None:
         """
         SetRange(dt1, dt2) -> None
         
         Sets the valid range for the date selection.
         """
 
-    def SetValue(self, dt: wx.DateTime) -> None:
+    def SetValue(self, dt: Union[wx.DateTime, datetime, date]) -> None:
         """
         SetValue(dt) -> None
         
         Changes the current value of the control.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
     def Value(self) -> wx.DateTime: ...
     @Value.setter
-    def Value(self, value: wx.DateTime, /) -> None: ...
+    def Value(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
 # end of class DatePickerCtrlGeneric
 
 
 GenericDatePickerCtrl = DatePickerCtrlGeneric
 #-- end-datectrl --#
 #-- begin-calctrl --#
+import wx.siplib
+CAL_SUNDAY_FIRST: int
+CAL_MONDAY_FIRST: int
+CAL_SHOW_HOLIDAYS: int
+CAL_NO_YEAR_CHANGE: int
+CAL_NO_MONTH_CHANGE: int
+CAL_SEQUENTIAL_MONTH_SELECTION: int
+CAL_SHOW_SURROUNDING_WEEKS: int
+CAL_SHOW_WEEK_NUMBERS: int
 
-class _enum_4(IntEnum):
-    CAL_SUNDAY_FIRST = auto()
-    CAL_MONDAY_FIRST = auto()
-    CAL_SHOW_HOLIDAYS = auto()
-    CAL_NO_YEAR_CHANGE = auto()
-    CAL_NO_MONTH_CHANGE = auto()
-    CAL_SEQUENTIAL_MONTH_SELECTION = auto()
-    CAL_SHOW_SURROUNDING_WEEKS = auto()
-    CAL_SHOW_WEEK_NUMBERS = auto()
-CAL_SUNDAY_FIRST = _enum_4.CAL_SUNDAY_FIRST
-CAL_MONDAY_FIRST = _enum_4.CAL_MONDAY_FIRST
-CAL_SHOW_HOLIDAYS = _enum_4.CAL_SHOW_HOLIDAYS
-CAL_NO_YEAR_CHANGE = _enum_4.CAL_NO_YEAR_CHANGE
-CAL_NO_MONTH_CHANGE = _enum_4.CAL_NO_MONTH_CHANGE
-CAL_SEQUENTIAL_MONTH_SELECTION = _enum_4.CAL_SEQUENTIAL_MONTH_SELECTION
-CAL_SHOW_SURROUNDING_WEEKS = _enum_4.CAL_SHOW_SURROUNDING_WEEKS
-CAL_SHOW_WEEK_NUMBERS = _enum_4.CAL_SHOW_WEEK_NUMBERS
+@final
+class CalendarDateBorder(int, metaclass=wx.siplib.enumtype):
+    CAL_BORDER_NONE: ClassVar[CalendarDateBorder]
+    CAL_BORDER_SQUARE: ClassVar[CalendarDateBorder]
+    CAL_BORDER_ROUND: ClassVar[CalendarDateBorder]
+CAL_BORDER_NONE: CalendarDateBorder
+CAL_BORDER_SQUARE: CalendarDateBorder
+CAL_BORDER_ROUND: CalendarDateBorder
 
-class _CalendarDateBorder(IntEnum):
-    CAL_BORDER_NONE = auto()
-    CAL_BORDER_SQUARE = auto()
-    CAL_BORDER_ROUND = auto()
-CalendarDateBorder: TypeAlias = Union[_CalendarDateBorder, int]
-CAL_BORDER_NONE = _CalendarDateBorder.CAL_BORDER_NONE
-CAL_BORDER_SQUARE = _CalendarDateBorder.CAL_BORDER_SQUARE
-CAL_BORDER_ROUND = _CalendarDateBorder.CAL_BORDER_ROUND
-
-class _CalendarHitTestResult(IntEnum):
-    CAL_HITTEST_NOWHERE = auto()
-    CAL_HITTEST_HEADER = auto()
-    CAL_HITTEST_DAY = auto()
-    CAL_HITTEST_INCMONTH = auto()
-    CAL_HITTEST_DECMONTH = auto()
-    CAL_HITTEST_SURROUNDING_WEEK = auto()
-    CAL_HITTEST_WEEK = auto()
-CalendarHitTestResult: TypeAlias = Union[_CalendarHitTestResult, int]
-CAL_HITTEST_NOWHERE = _CalendarHitTestResult.CAL_HITTEST_NOWHERE
-CAL_HITTEST_HEADER = _CalendarHitTestResult.CAL_HITTEST_HEADER
-CAL_HITTEST_DAY = _CalendarHitTestResult.CAL_HITTEST_DAY
-CAL_HITTEST_INCMONTH = _CalendarHitTestResult.CAL_HITTEST_INCMONTH
-CAL_HITTEST_DECMONTH = _CalendarHitTestResult.CAL_HITTEST_DECMONTH
-CAL_HITTEST_SURROUNDING_WEEK = _CalendarHitTestResult.CAL_HITTEST_SURROUNDING_WEEK
-CAL_HITTEST_WEEK = _CalendarHitTestResult.CAL_HITTEST_WEEK
+@final
+class CalendarHitTestResult(int, metaclass=wx.siplib.enumtype):
+    CAL_HITTEST_NOWHERE: ClassVar[CalendarHitTestResult]
+    CAL_HITTEST_HEADER: ClassVar[CalendarHitTestResult]
+    CAL_HITTEST_DAY: ClassVar[CalendarHitTestResult]
+    CAL_HITTEST_INCMONTH: ClassVar[CalendarHitTestResult]
+    CAL_HITTEST_DECMONTH: ClassVar[CalendarHitTestResult]
+    CAL_HITTEST_SURROUNDING_WEEK: ClassVar[CalendarHitTestResult]
+    CAL_HITTEST_WEEK: ClassVar[CalendarHitTestResult]
+CAL_HITTEST_NOWHERE: CalendarHitTestResult
+CAL_HITTEST_HEADER: CalendarHitTestResult
+CAL_HITTEST_DAY: CalendarHitTestResult
+CAL_HITTEST_INCMONTH: CalendarHitTestResult
+CAL_HITTEST_DECMONTH: CalendarHitTestResult
+CAL_HITTEST_SURROUNDING_WEEK: CalendarHitTestResult
+CAL_HITTEST_WEEK: CalendarHitTestResult
 wxEVT_CALENDAR_SEL_CHANGED: int
 wxEVT_CALENDAR_PAGE_CHANGED: int
 wxEVT_CALENDAR_DOUBLECLICKED: int
@@ -917,7 +890,7 @@ class CalendarEvent(DateEvent):
     """
 
     @overload
-    def __init__(self, win: wx.Window, dt: wx.DateTime, type: EventType) -> None:
+    def __init__(self, win: wx.Window, dt: Union[wx.DateTime, datetime, date], type: int) -> None:
         ...
 
     @overload
@@ -937,7 +910,7 @@ class CalendarEvent(DateEvent):
         EVT_CALENDAR_WEEKDAY_CLICKED handler.
         """
 
-    def SetWeekDay(self, day: wx.DateTime.WeekDay) -> None:
+    def SetWeekDay(self, day: Union[wx.DateTime.WeekDay, int]) -> None:
         """
         SetWeekDay(day) -> None
         
@@ -947,11 +920,11 @@ class CalendarEvent(DateEvent):
     @property
     def WeekDay(self) -> wx.DateTime.WeekDay: ...
     @WeekDay.setter
-    def WeekDay(self, value: wx.DateTime.WeekDay, /) -> None: ...
+    def WeekDay(self, value: Union[wx.DateTime.WeekDay, int], /) -> None: ...
 # end of class CalendarEvent
 
 
-class CalendarDateAttr:
+class CalendarDateAttr(wx.siplib.wrapper):
     """
     CalendarDateAttr(colText=wx.NullColour, colBack=wx.NullColour, colBorder=wx.NullColour, font=wx.NullFont, border=CAL_BORDER_NONE) -> None
     CalendarDateAttr(border, colBorder=wx.NullColour) -> None
@@ -960,11 +933,11 @@ class CalendarDateAttr:
     """
 
     @overload
-    def __init__(self, border: CalendarDateBorder, colBorder: wx.Colour=wx.NullColour) -> None:
+    def __init__(self, border: Union[CalendarDateBorder, int], colBorder: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour) -> None:
         ...
 
     @overload
-    def __init__(self, colText: wx.Colour=wx.NullColour, colBack: wx.Colour=wx.NullColour, colBorder: wx.Colour=wx.NullColour, font: wx.Font=wx.NullFont, border: CalendarDateBorder=CAL_BORDER_NONE) -> None:
+    def __init__(self, colText: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour, colBack: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour, colBorder: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour, font: wx.Font=wx.NullFont, border: Union[CalendarDateBorder, int]=CAL_BORDER_NONE) -> None:
         """
         CalendarDateAttr(colText=wx.NullColour, colBack=wx.NullColour, colBorder=wx.NullColour, font=wx.NullFont, border=CAL_BORDER_NONE) -> None
         CalendarDateAttr(border, colBorder=wx.NullColour) -> None
@@ -1049,21 +1022,21 @@ class CalendarDateAttr:
         Returns true if this calendar day is displayed as a holiday.
         """
 
-    def SetBackgroundColour(self, colBack: wx.Colour) -> None:
+    def SetBackgroundColour(self, colBack: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetBackgroundColour(colBack) -> None
         
         Sets the text background colour to use.
         """
 
-    def SetBorder(self, border: CalendarDateBorder) -> None:
+    def SetBorder(self, border: Union[CalendarDateBorder, int]) -> None:
         """
         SetBorder(border) -> None
         
         Sets the border to use.
         """
 
-    def SetBorderColour(self, col: wx.Colour) -> None:
+    def SetBorderColour(self, col: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetBorderColour(col) -> None
         
@@ -1084,7 +1057,7 @@ class CalendarDateAttr:
         If holiday is true, this calendar day will be displayed as a holiday.
         """
 
-    def SetTextColour(self, colText: wx.Colour) -> None:
+    def SetTextColour(self, colText: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetTextColour(colText) -> None
         
@@ -1110,15 +1083,15 @@ class CalendarDateAttr:
     @property
     def BackgroundColour(self) -> wx.Colour: ...
     @BackgroundColour.setter
-    def BackgroundColour(self, value: wx.Colour, /) -> None: ...
+    def BackgroundColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def Border(self) -> CalendarDateBorder: ...
     @Border.setter
-    def Border(self, value: CalendarDateBorder, /) -> None: ...
+    def Border(self, value: Union[CalendarDateBorder, int], /) -> None: ...
     @property
     def BorderColour(self) -> wx.Colour: ...
     @BorderColour.setter
-    def BorderColour(self, value: wx.Colour, /) -> None: ...
+    def BorderColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def Font(self) -> wx.Font: ...
     @Font.setter
@@ -1126,10 +1099,10 @@ class CalendarDateAttr:
     @property
     def TextColour(self) -> wx.Colour: ...
     @TextColour.setter
-    def TextColour(self, value: wx.Colour, /) -> None: ...
+    def TextColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
 # end of class CalendarDateAttr
 
-CalendarNameStr: str
+CalendarNameStr: bytes
 
 class CalendarCtrl(wx.Control):
     """
@@ -1140,7 +1113,7 @@ class CalendarCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, date: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=CalendarNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, date: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=...) -> None:
         ...
 
     @overload
@@ -1152,7 +1125,7 @@ class CalendarCtrl(wx.Control):
         The calendar control allows the user to pick a date.
         """
 
-    def SetDateRange(self, lowerdate: wx.DateTime=wx.DefaultDateTime, upperdate: wx.DateTime=wx.DefaultDateTime) -> bool:
+    def SetDateRange(self, lowerdate: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, upperdate: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime) -> bool:
         """
         SetDateRange(lowerdate=wx.DefaultDateTime, upperdate=wx.DefaultDateTime) -> bool
         
@@ -1167,7 +1140,7 @@ class CalendarCtrl(wx.Control):
         Returns the limits currently being used.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, date: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=CalendarNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, date: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, date=wx.DefaultDateTime, pos=wx.DefaultPosition, size=wx.DefaultSize, style=CAL_SHOW_HOLIDAYS, name=CalendarNameStr) -> bool
         
@@ -1247,7 +1220,7 @@ class CalendarCtrl(wx.Control):
         Return the foreground colour currently used for holiday highlighting.
         """
 
-    def HitTest(self, pos: wx.Point) -> Tuple[CalendarHitTestResult, wx.DateTime, wx.DateTime.WeekDay]:
+    def HitTest(self, pos: Union[wx.Point, _TwoInts]) -> Tuple[CalendarHitTestResult, wx.DateTime, wx.DateTime.WeekDay]:
         """
         HitTest(pos) -> Tuple[CalendarHitTestResult, wx.DateTime, wx.DateTime.WeekDay]
         
@@ -1272,14 +1245,14 @@ class CalendarCtrl(wx.Control):
         1...31).
         """
 
-    def SetDate(self, date: wx.DateTime) -> bool:
+    def SetDate(self, date: Union[wx.DateTime, datetime, date]) -> bool:
         """
         SetDate(date) -> bool
         
         Sets the current date.
         """
 
-    def SetHeaderColours(self, colFg: wx.Colour, colBg: wx.Colour) -> None:
+    def SetHeaderColours(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHeaderColours(colFg, colBg) -> None
         
@@ -1287,7 +1260,7 @@ class CalendarCtrl(wx.Control):
         control.
         """
 
-    def SetHighlightColours(self, colFg: wx.Colour, colBg: wx.Colour) -> None:
+    def SetHighlightColours(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHighlightColours(colFg, colBg) -> None
         
@@ -1302,7 +1275,7 @@ class CalendarCtrl(wx.Control):
         Marks the specified day as being a holiday in the current month.
         """
 
-    def SetHolidayColours(self, colFg: wx.Colour, colBg: wx.Colour) -> None:
+    def SetHolidayColours(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHolidayColours(colFg, colBg) -> None
         
@@ -1316,13 +1289,8 @@ class CalendarCtrl(wx.Control):
         Mark or unmark the day.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -1337,11 +1305,7 @@ class CalendarCtrl(wx.Control):
     @property
     def Date(self) -> wx.DateTime: ...
     @Date.setter
-    def Date(self, value: wx.DateTime, /) -> None: ...
-    @property
-    def DateRange(self) -> wx.DateTime: ...
-    @DateRange.setter
-    def DateRange(self, value: wx.DateTime, /) -> None: ...
+    def Date(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
     @property
     def HeaderColourBg(self) -> wx.Colour: ...
     @property
@@ -1354,6 +1318,10 @@ class CalendarCtrl(wx.Control):
     def HolidayColourBg(self) -> wx.Colour: ...
     @property
     def HolidayColourFg(self) -> wx.Colour: ...
+    @property
+    def DateRange(self) -> Tuple[bool, wx.DateTime, wx.DateTime]: ...
+    @DateRange.setter
+    def DateRange(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
 # end of class CalendarCtrl
 
 
@@ -1366,7 +1334,7 @@ class GenericCalendarCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, date: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=CalendarNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, date: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=...) -> None:
         ...
 
     @overload
@@ -1378,7 +1346,7 @@ class GenericCalendarCtrl(wx.Control):
         The calendar control allows the user to pick a date.
         """
 
-    def SetDateRange(self, lowerdate: wx.DateTime=wx.DefaultDateTime, upperdate: wx.DateTime=wx.DefaultDateTime) -> bool:
+    def SetDateRange(self, lowerdate: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, upperdate: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime) -> bool:
         """
         SetDateRange(lowerdate=wx.DefaultDateTime, upperdate=wx.DefaultDateTime) -> bool
         
@@ -1393,7 +1361,7 @@ class GenericCalendarCtrl(wx.Control):
         Returns the limits currently being used.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, date: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=CalendarNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, date: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=CAL_SHOW_HOLIDAYS, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, date=wx.DefaultDateTime, pos=wx.DefaultPosition, size=wx.DefaultSize, style=CAL_SHOW_HOLIDAYS, name=CalendarNameStr) -> bool
         
@@ -1478,7 +1446,7 @@ class GenericCalendarCtrl(wx.Control):
         Return the foreground colour currently used for holiday highlighting.
         """
 
-    def HitTest(self, pos: wx.Point) -> Tuple[CalendarHitTestResult, wx.DateTime, wx.DateTime.WeekDay]:
+    def HitTest(self, pos: Union[wx.Point, _TwoInts]) -> Tuple[CalendarHitTestResult, wx.DateTime, wx.DateTime.WeekDay]:
         """
         HitTest(pos) -> Tuple[CalendarHitTestResult, wx.DateTime, wx.DateTime.WeekDay]
         
@@ -1503,14 +1471,14 @@ class GenericCalendarCtrl(wx.Control):
         1...31).
         """
 
-    def SetDate(self, date: wx.DateTime) -> bool:
+    def SetDate(self, date: Union[wx.DateTime, datetime, date]) -> bool:
         """
         SetDate(date) -> bool
         
         Sets the current date.
         """
 
-    def SetHeaderColours(self, colFg: wx.Colour, colBg: wx.Colour) -> None:
+    def SetHeaderColours(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHeaderColours(colFg, colBg) -> None
         
@@ -1518,7 +1486,7 @@ class GenericCalendarCtrl(wx.Control):
         control.
         """
 
-    def SetHighlightColours(self, colFg: wx.Colour, colBg: wx.Colour) -> None:
+    def SetHighlightColours(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHighlightColours(colFg, colBg) -> None
         
@@ -1533,7 +1501,7 @@ class GenericCalendarCtrl(wx.Control):
         Marks the specified day as being a holiday in the current month.
         """
 
-    def SetHolidayColours(self, colFg: wx.Colour, colBg: wx.Colour) -> None:
+    def SetHolidayColours(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHolidayColours(colFg, colBg) -> None
         
@@ -1547,13 +1515,8 @@ class GenericCalendarCtrl(wx.Control):
         Mark or unmark the day.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -1568,11 +1531,7 @@ class GenericCalendarCtrl(wx.Control):
     @property
     def Date(self) -> wx.DateTime: ...
     @Date.setter
-    def Date(self, value: wx.DateTime, /) -> None: ...
-    @property
-    def DateRange(self) -> wx.DateTime: ...
-    @DateRange.setter
-    def DateRange(self, value: wx.DateTime, /) -> None: ...
+    def Date(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
     @property
     def HeaderColourBg(self) -> wx.Colour: ...
     @property
@@ -1585,19 +1544,23 @@ class GenericCalendarCtrl(wx.Control):
     def HolidayColourBg(self) -> wx.Colour: ...
     @property
     def HolidayColourFg(self) -> wx.Colour: ...
+    @property
+    def DateRange(self) -> Tuple[bool, wx.DateTime, wx.DateTime]: ...
+    @DateRange.setter
+    def DateRange(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
 # end of class GenericCalendarCtrl
 
 
-EVT_CALENDAR =                 wx.PyEventBinder( wxEVT_CALENDAR_DOUBLECLICKED, 1)
-EVT_CALENDAR_SEL_CHANGED =     wx.PyEventBinder( wxEVT_CALENDAR_SEL_CHANGED, 1)
-EVT_CALENDAR_WEEKDAY_CLICKED = wx.PyEventBinder( wxEVT_CALENDAR_WEEKDAY_CLICKED, 1)
-EVT_CALENDAR_PAGE_CHANGED =    wx.PyEventBinder( wxEVT_CALENDAR_PAGE_CHANGED, 1)
-EVT_CALENDAR_WEEK_CLICKED =    wx.PyEventBinder( wxEVT_CALENDAR_WEEK_CLICKED, 1)
+EVT_CALENDAR: wx.PyEventBinder[CalendarEvent]
+EVT_CALENDAR_SEL_CHANGED: wx.PyEventBinder[CalendarEvent]
+EVT_CALENDAR_WEEKDAY_CLICKED: wx.PyEventBinder[CalendarEvent]
+EVT_CALENDAR_PAGE_CHANGED: wx.PyEventBinder[CalendarEvent]
+EVT_CALENDAR_WEEK_CLICKED: wx.PyEventBinder[CalendarEvent]
 
 # These are deprecated, will be removed later...
-EVT_CALENDAR_DAY =             wx.PyEventBinder( wxEVT_CALENDAR_DAY_CHANGED, 1)
-EVT_CALENDAR_MONTH =           wx.PyEventBinder( wxEVT_CALENDAR_MONTH_CHANGED, 1)
-EVT_CALENDAR_YEAR =            wx.PyEventBinder( wxEVT_CALENDAR_YEAR_CHANGED, 1)
+EVT_CALENDAR_DAY: wx.PyEventBinder[CalendarEvent]
+EVT_CALENDAR_MONTH: wx.PyEventBinder[CalendarEvent]
+EVT_CALENDAR_YEAR: wx.PyEventBinder[CalendarEvent]
 #-- end-calctrl --#
 #-- begin-hyperlink --#
 HL_CONTEXTMENU: int
@@ -1640,7 +1603,7 @@ class HyperlinkEvent(wx.CommandEvent):
     def URL(self, value: str, /) -> None: ...
 # end of class HyperlinkEvent
 
-HyperlinkCtrlNameStr: str
+HyperlinkCtrlNameStr: bytes
 
 class HyperlinkCtrl(wx.Control):
     """
@@ -1651,7 +1614,7 @@ class HyperlinkCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', url: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=HL_DEFAULT_STYLE, name: str=HyperlinkCtrlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', url: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=HL_DEFAULT_STYLE, name: str=...) -> None:
         ...
 
     @overload
@@ -1663,7 +1626,7 @@ class HyperlinkCtrl(wx.Control):
         This class shows a static text element which links to an URL.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', url: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=HL_DEFAULT_STYLE, name: str=HyperlinkCtrlNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', url: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=HL_DEFAULT_STYLE, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, label='', url='', pos=wx.DefaultPosition, size=wx.DefaultSize, style=HL_DEFAULT_STYLE, name=HyperlinkCtrlNameStr) -> bool
         
@@ -1711,7 +1674,7 @@ class HyperlinkCtrl(wx.Control):
         link has been visited).
         """
 
-    def SetHoverColour(self, colour: wx.Colour) -> None:
+    def SetHoverColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHoverColour(colour) -> None
         
@@ -1719,7 +1682,7 @@ class HyperlinkCtrl(wx.Control):
         mouse is over the control.
         """
 
-    def SetNormalColour(self, colour: wx.Colour) -> None:
+    def SetNormalColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetNormalColour(colour) -> None
         
@@ -1743,7 +1706,7 @@ class HyperlinkCtrl(wx.Control):
         wxHyperlinkCtrl::SetVisitedColour).
         """
 
-    def SetVisitedColour(self, colour: wx.Colour) -> None:
+    def SetVisitedColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetVisitedColour(colour) -> None
         
@@ -1752,24 +1715,19 @@ class HyperlinkCtrl(wx.Control):
         has been visited).
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
     def HoverColour(self) -> wx.Colour: ...
     @HoverColour.setter
-    def HoverColour(self, value: wx.Colour, /) -> None: ...
+    def HoverColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def NormalColour(self) -> wx.Colour: ...
     @NormalColour.setter
-    def NormalColour(self, value: wx.Colour, /) -> None: ...
+    def NormalColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def URL(self) -> str: ...
     @URL.setter
@@ -1781,18 +1739,19 @@ class HyperlinkCtrl(wx.Control):
     @property
     def VisitedColour(self) -> wx.Colour: ...
     @VisitedColour.setter
-    def VisitedColour(self, value: wx.Colour, /) -> None: ...
+    def VisitedColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
 # end of class HyperlinkCtrl
 
 
-EVT_HYPERLINK = wx.PyEventBinder( wxEVT_HYPERLINK, 1 )
+EVT_HYPERLINK: wx.PyEventBinder[HyperlinkEvent]
 
 # deprecated wxEVT alias
 wxEVT_COMMAND_HYPERLINK  = wxEVT_HYPERLINK
 #-- end-hyperlink --#
 #-- begin-tipdlg --#
+import wx.siplib
 
-class TipProvider:
+class TipProvider(wx.siplib.wrapper):
     """
     TipProvider(currentTip) -> None
     
@@ -1841,15 +1800,16 @@ def ShowTip(parent: wx.Window, tipProvider: TipProvider, showAtStartup: bool=Tru
     """
 #-- end-tipdlg --#
 #-- begin-taskbar --#
+import wx.siplib
 
-class _TaskBarIconType(IntEnum):
-    TBI_DOCK = auto()
-    TBI_CUSTOM_STATUSITEM = auto()
-    TBI_DEFAULT_TYPE = auto()
-TaskBarIconType: TypeAlias = Union[_TaskBarIconType, int]
-TBI_DOCK = _TaskBarIconType.TBI_DOCK
-TBI_CUSTOM_STATUSITEM = _TaskBarIconType.TBI_CUSTOM_STATUSITEM
-TBI_DEFAULT_TYPE = _TaskBarIconType.TBI_DEFAULT_TYPE
+@final
+class TaskBarIconType(int, metaclass=wx.siplib.enumtype):
+    TBI_DOCK: ClassVar[TaskBarIconType]
+    TBI_CUSTOM_STATUSITEM: ClassVar[TaskBarIconType]
+    TBI_DEFAULT_TYPE: ClassVar[TaskBarIconType]
+TBI_DOCK: TaskBarIconType
+TBI_CUSTOM_STATUSITEM: TaskBarIconType
+TBI_DEFAULT_TYPE: TaskBarIconType
 wxEVT_TASKBAR_MOVE: int
 wxEVT_TASKBAR_LEFT_DOWN: int
 wxEVT_TASKBAR_LEFT_UP: int
@@ -1868,7 +1828,7 @@ class TaskBarIconEvent(wx.Event):
     The event class used by wxTaskBarIcon.
     """
 
-    def __init__(self, evtType: EventType, tbIcon: TaskBarIcon) -> None:
+    def __init__(self, evtType: int, tbIcon: TaskBarIcon) -> None:
         """
         TaskBarIconEvent(evtType, tbIcon) -> None
         
@@ -1884,7 +1844,7 @@ class TaskBarIcon(wx.EvtHandler):
     This class represents a taskbar icon.
     """
 
-    def __init__(self, iconType: TaskBarIconType=TBI_DEFAULT_TYPE) -> None:
+    def __init__(self, iconType: Union[TaskBarIconType, int]=TBI_DEFAULT_TYPE) -> None:
         """
         TaskBarIcon(iconType=TBI_DEFAULT_TYPE) -> None
         
@@ -1929,7 +1889,7 @@ class TaskBarIcon(wx.EvtHandler):
         Removes the icon previously set with SetIcon().
         """
 
-    def SetIcon(self, icon: wx.BitmapBundle, tooltip: str='') -> bool:
+    def SetIcon(self, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], tooltip: str='') -> bool:
         """
         SetIcon(icon, tooltip='') -> bool
         
@@ -1979,16 +1939,16 @@ class TaskBarIcon(wx.EvtHandler):
 # end of class TaskBarIcon
 
 
-EVT_TASKBAR_MOVE = wx.PyEventBinder (         wxEVT_TASKBAR_MOVE )
-EVT_TASKBAR_LEFT_DOWN = wx.PyEventBinder (    wxEVT_TASKBAR_LEFT_DOWN )
-EVT_TASKBAR_LEFT_UP = wx.PyEventBinder (      wxEVT_TASKBAR_LEFT_UP )
-EVT_TASKBAR_RIGHT_DOWN = wx.PyEventBinder (   wxEVT_TASKBAR_RIGHT_DOWN )
-EVT_TASKBAR_RIGHT_UP = wx.PyEventBinder (     wxEVT_TASKBAR_RIGHT_UP )
-EVT_TASKBAR_LEFT_DCLICK = wx.PyEventBinder (  wxEVT_TASKBAR_LEFT_DCLICK )
-EVT_TASKBAR_RIGHT_DCLICK = wx.PyEventBinder ( wxEVT_TASKBAR_RIGHT_DCLICK )
-EVT_TASKBAR_CLICK =  wx.PyEventBinder (       wxEVT_TASKBAR_CLICK )
-EVT_TASKBAR_BALLOON_TIMEOUT = wx.PyEventBinder ( wxEVT_TASKBAR_BALLOON_TIMEOUT )
-EVT_TASKBAR_BALLOON_CLICK = wx.PyEventBinder ( wxEVT_TASKBAR_BALLOON_CLICK )
+EVT_TASKBAR_MOVE: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_LEFT_DOWN: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_LEFT_UP: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_RIGHT_DOWN: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_RIGHT_UP: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_LEFT_DCLICK: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_RIGHT_DCLICK: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_CLICK: wx.PyEventBinder[Any]
+EVT_TASKBAR_BALLOON_TIMEOUT: wx.PyEventBinder[TaskBarIconEvent]
+EVT_TASKBAR_BALLOON_CLICK: wx.PyEventBinder[TaskBarIconEvent]
 #-- end-taskbar --#
 #-- begin-sound --#
 SOUND_SYNC: int
@@ -2056,7 +2016,7 @@ class Sound(wx.Object):
         If a sound is played, this function stops it.
         """
 
-    def CreateFromData(self, data: PyBuffer) -> bool:
+    def CreateFromData(self, data: Buffer) -> bool:
         """
         CreateFromData(data) -> bool
         
@@ -2467,32 +2427,34 @@ class Joystick(wx.Object):
 USE_JOYSTICK: int
 #-- end-joystick --#
 #-- begin-animate --#
+import wx.adv
+import wx.siplib
 AC_NO_AUTORESIZE: int
 AC_DEFAULT_STYLE: int
 
-class _AnimationType(IntEnum):
-    ANIMATION_TYPE_INVALID = auto()
-    ANIMATION_TYPE_GIF = auto()
-    ANIMATION_TYPE_ANI = auto()
-    ANIMATION_TYPE_WEBP = auto()
-    ANIMATION_TYPE_ANY = auto()
-AnimationType: TypeAlias = Union[_AnimationType, int]
-ANIMATION_TYPE_INVALID = _AnimationType.ANIMATION_TYPE_INVALID
-ANIMATION_TYPE_GIF = _AnimationType.ANIMATION_TYPE_GIF
-ANIMATION_TYPE_ANI = _AnimationType.ANIMATION_TYPE_ANI
-ANIMATION_TYPE_WEBP = _AnimationType.ANIMATION_TYPE_WEBP
-ANIMATION_TYPE_ANY = _AnimationType.ANIMATION_TYPE_ANY
+@final
+class AnimationType(int, metaclass=wx.siplib.enumtype):
+    ANIMATION_TYPE_INVALID: ClassVar[AnimationType]
+    ANIMATION_TYPE_GIF: ClassVar[AnimationType]
+    ANIMATION_TYPE_ANI: ClassVar[AnimationType]
+    ANIMATION_TYPE_WEBP: ClassVar[AnimationType]
+    ANIMATION_TYPE_ANY: ClassVar[AnimationType]
+ANIMATION_TYPE_INVALID: AnimationType
+ANIMATION_TYPE_GIF: AnimationType
+ANIMATION_TYPE_ANI: AnimationType
+ANIMATION_TYPE_WEBP: AnimationType
+ANIMATION_TYPE_ANY: AnimationType
 
-class _AnimationDisposal(IntEnum):
-    ANIM_UNSPECIFIED = auto()
-    ANIM_DONOTREMOVE = auto()
-    ANIM_TOBACKGROUND = auto()
-    ANIM_TOPREVIOUS = auto()
-AnimationDisposal: TypeAlias = Union[_AnimationDisposal, int]
-ANIM_UNSPECIFIED = _AnimationDisposal.ANIM_UNSPECIFIED
-ANIM_DONOTREMOVE = _AnimationDisposal.ANIM_DONOTREMOVE
-ANIM_TOBACKGROUND = _AnimationDisposal.ANIM_TOBACKGROUND
-ANIM_TOPREVIOUS = _AnimationDisposal.ANIM_TOPREVIOUS
+@final
+class AnimationDisposal(int, metaclass=wx.siplib.enumtype):
+    ANIM_UNSPECIFIED: ClassVar[AnimationDisposal]
+    ANIM_DONOTREMOVE: ClassVar[AnimationDisposal]
+    ANIM_TOBACKGROUND: ClassVar[AnimationDisposal]
+    ANIM_TOPREVIOUS: ClassVar[AnimationDisposal]
+ANIM_UNSPECIFIED: AnimationDisposal
+ANIM_DONOTREMOVE: AnimationDisposal
+ANIM_TOBACKGROUND: AnimationDisposal
+ANIM_TOPREVIOUS: AnimationDisposal
 
 class Animation(wx.Object):
     """
@@ -2505,7 +2467,7 @@ class Animation(wx.Object):
     """
 
     @overload
-    def __init__(self, name: str, type: AnimationType=ANIMATION_TYPE_ANY) -> None:
+    def __init__(self, name: str, type: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> None:
         ...
 
     @overload
@@ -2565,14 +2527,14 @@ class Animation(wx.Object):
         Returns the size of the animation.
         """
 
-    def LoadFile(self, name: str, type: AnimationType=ANIMATION_TYPE_ANY) -> bool:
+    def LoadFile(self, name: str, type: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> bool:
         """
         LoadFile(name, type=ANIMATION_TYPE_ANY) -> bool
         
         Loads an animation from a file.
         """
 
-    def Load(self, stream: wx.InputStream, type: AnimationType=ANIMATION_TYPE_ANY) -> bool:
+    def Load(self, stream: wx.InputStream, type: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> bool:
         """
         Load(stream, type=ANIMATION_TYPE_ANY) -> bool
         
@@ -2605,7 +2567,7 @@ class Animation(wx.Object):
         """
 
     @staticmethod
-    def FindHandler(animType: AnimationType) -> AnimationDecoder:
+    def FindHandler(animType: Union[AnimationType, int]) -> AnimationDecoder:
         """
         FindHandler(animType) -> AnimationDecoder
         
@@ -2642,28 +2604,28 @@ class AnimationCtrl(wx.Control):
     This is a static control which displays an animation.
     """
 
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, anim: Animation=NullAnimation, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=AnimationCtrlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, anim: wx.adv.Animation=NullAnimation, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=...) -> None:
         """
         AnimationCtrl(parent, id=wx.ID_ANY, anim=NullAnimation, pos=wx.DefaultPosition, size=wx.DefaultSize, style=AC_DEFAULT_STYLE, name=AnimationCtrlNameStr) -> None
         
         This is a static control which displays an animation.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, anim: Animation=NullAnimation, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=AnimationCtrlNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, anim: wx.adv.Animation=NullAnimation, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, anim=NullAnimation, pos=wx.DefaultPosition, size=wx.DefaultSize, style=AC_DEFAULT_STYLE, name=AnimationCtrlNameStr) -> bool
         
         Creates the control with the given anim animation.
         """
 
-    def CreateAnimation(self) -> Animation:
+    def CreateAnimation(self) -> wx.adv.Animation:
         """
         CreateAnimation() -> Animation
         
         Create a new animation object compatible with this control.
         """
 
-    def GetAnimation(self) -> Animation:
+    def GetAnimation(self) -> wx.adv.Animation:
         """
         GetAnimation() -> Animation
         
@@ -2685,14 +2647,14 @@ class AnimationCtrl(wx.Control):
         Returns true if the animation is being played.
         """
 
-    def LoadFile(self, file: str, animType: AnimationType=ANIMATION_TYPE_ANY) -> bool:
+    def LoadFile(self, file: str, animType: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> bool:
         """
         LoadFile(file, animType=ANIMATION_TYPE_ANY) -> bool
         
         Loads the animation from the given file and calls SetAnimation().
         """
 
-    def Load(self, file: wx.InputStream, animType: AnimationType=ANIMATION_TYPE_ANY) -> bool:
+    def Load(self, file: wx.InputStream, animType: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> bool:
         """
         Load(file, animType=ANIMATION_TYPE_ANY) -> bool
         
@@ -2713,7 +2675,7 @@ class AnimationCtrl(wx.Control):
         Sets the animation to play in this control.
         """
 
-    def SetInactiveBitmap(self, bmp: wx.BitmapBundle) -> None:
+    def SetInactiveBitmap(self, bmp: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetInactiveBitmap(bmp) -> None
         
@@ -2729,34 +2691,29 @@ class AnimationCtrl(wx.Control):
         """
 
     @staticmethod
-    def CreateCompatibleAnimation() -> Animation:
+    def CreateCompatibleAnimation() -> wx.adv.Animation:
         """
         CreateCompatibleAnimation() -> Animation
         
         Create a new animation object compatible with this control.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
-    def Animation(self) -> AnimationBundle: ...
+    def Animation(self) -> wx.adv.Animation: ...
     @Animation.setter
     def Animation(self, value: AnimationBundle, /) -> None: ...
     @property
-    def InactiveBitmap(self) -> wx.BitmapBundle: ...
+    def InactiveBitmap(self) -> wx.Bitmap: ...
     @InactiveBitmap.setter
-    def InactiveBitmap(self, value: wx.BitmapBundle, /) -> None: ...
+    def InactiveBitmap(self, value: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], /) -> None: ...
 # end of class AnimationCtrl
 
-AnimationCtrlNameStr: str
+AnimationCtrlNameStr: bytes
 NullAnimation: Animation
 
 class GenericAnimationCtrl(wx.Control):
@@ -2766,14 +2723,14 @@ class GenericAnimationCtrl(wx.Control):
     Generic implementation of wxAnimationCtrl interface.
     """
 
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, anim: Animation=NullAnimation, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=AnimationCtrlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, anim: wx.adv.Animation=NullAnimation, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=...) -> None:
         """
         GenericAnimationCtrl(parent, id=wx.ID_ANY, anim=NullAnimation, pos=wx.DefaultPosition, size=wx.DefaultSize, style=AC_DEFAULT_STYLE, name=AnimationCtrlNameStr) -> None
         
         Generic implementation of wxAnimationCtrl interface.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, anim: Animation=NullAnimation, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=AnimationCtrlNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, anim: wx.adv.Animation=NullAnimation, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=AC_DEFAULT_STYLE, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, anim=NullAnimation, pos=wx.DefaultPosition, size=wx.DefaultSize, style=AC_DEFAULT_STYLE, name=AnimationCtrlNameStr) -> bool
         
@@ -2823,13 +2780,8 @@ class GenericAnimationCtrl(wx.Control):
         Returns true if the window's background colour is being used.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2848,21 +2800,21 @@ class GenericAnimationCtrl(wx.Control):
         Returns true if the animation is being played.
         """
 
-    def Load(self, file: wx.InputStream, animType: AnimationType=ANIMATION_TYPE_ANY) -> bool:
+    def Load(self, file: wx.InputStream, animType: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> bool:
         """
         Load(file, animType=ANIMATION_TYPE_ANY) -> bool
         
         Loads the animation from the given stream and calls SetAnimation().
         """
 
-    def LoadFile(self, file: str, animType: AnimationType=ANIMATION_TYPE_ANY) -> bool:
+    def LoadFile(self, file: str, animType: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> bool:
         """
         LoadFile(file, animType=ANIMATION_TYPE_ANY) -> bool
         
         Loads the animation from the given file and calls SetAnimation().
         """
 
-    def GetAnimation(self) -> Animation:
+    def GetAnimation(self) -> wx.adv.Animation:
         """
         GetAnimation() -> Animation
         
@@ -2876,7 +2828,7 @@ class GenericAnimationCtrl(wx.Control):
         Sets the animation to play in this control.
         """
 
-    def SetInactiveBitmap(self, bmp: wx.BitmapBundle) -> None:
+    def SetInactiveBitmap(self, bmp: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetInactiveBitmap(bmp) -> None
         
@@ -2892,7 +2844,7 @@ class GenericAnimationCtrl(wx.Control):
         SetInactiveBitmap() for more info.
         """
 
-    def CreateAnimation(self) -> Animation:
+    def CreateAnimation(self) -> wx.adv.Animation:
         """
         CreateAnimation() -> Animation
         
@@ -2900,22 +2852,22 @@ class GenericAnimationCtrl(wx.Control):
         """
 
     @staticmethod
-    def CreateCompatibleAnimation() -> Animation:
+    def CreateCompatibleAnimation() -> wx.adv.Animation:
         """
         CreateCompatibleAnimation() -> Animation
         
         Create a new animation object compatible with this control.
         """
     @property
-    def Animation(self) -> AnimationBundle: ...
+    def Animation(self) -> wx.adv.Animation: ...
     @Animation.setter
     def Animation(self, value: AnimationBundle, /) -> None: ...
     @property
     def BackingStore(self) -> wx.Bitmap: ...
     @property
-    def InactiveBitmap(self) -> wx.BitmapBundle: ...
+    def InactiveBitmap(self) -> wx.Bitmap: ...
     @InactiveBitmap.setter
-    def InactiveBitmap(self, value: wx.BitmapBundle, /) -> None: ...
+    def InactiveBitmap(self, value: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], /) -> None: ...
 # end of class GenericAnimationCtrl
 
 
@@ -3213,12 +3165,12 @@ class GIFDecoder(AnimationDecoder):
 # end of class GIFDecoder
 
 
-class AnimationBundle:
+class AnimationBundle(wx.siplib.wrapper):
     """
     AnimationBundle() -> None
     AnimationBundle(anim) -> None
     AnimationBundle(filename, type=ANIMATION_TYPE_ANY) -> None
-    AnimationBundle() -> None
+    AnimationBundle(_param_0) -> None
     
     Container for possible multiple versions of the same animation in
     different resolutions.
@@ -3229,11 +3181,11 @@ class AnimationBundle:
         ...
 
     @overload
-    def __init__(self, filename: str, type: AnimationType=ANIMATION_TYPE_ANY) -> None:
+    def __init__(self, filename: str, type: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> None:
         ...
 
     @overload
-    def __init__(self, : AnimationBundle) -> None:
+    def __init__(self, _param_0: AnimationBundle) -> None:
         ...
 
     @overload
@@ -3242,14 +3194,14 @@ class AnimationBundle:
         AnimationBundle() -> None
         AnimationBundle(anim) -> None
         AnimationBundle(filename, type=ANIMATION_TYPE_ANY) -> None
-        AnimationBundle() -> None
+        AnimationBundle(_param_0) -> None
         
         Container for possible multiple versions of the same animation in
         different resolutions.
         """
 
     @overload
-    def Add(self, filename: str, type: AnimationType=ANIMATION_TYPE_ANY) -> None:
+    def Add(self, filename: str, type: Union[AnimationType, int]=ANIMATION_TYPE_ANY) -> None:
         ...
 
     @overload
@@ -3261,9 +3213,9 @@ class AnimationBundle:
         Add an animation in another, bigger, size.
         """
 
-    def GetAll(self) -> std.vectorwxAnimation:
+    def GetAll(self) -> List[Animation]:
         """
-        GetAll() -> std.vectorwxAnimation
+        GetAll() -> List[Animation]
         
         Get vector containing all animations in this bundle.
         """
@@ -3275,12 +3227,19 @@ class AnimationBundle:
         Return true if this animation bundle is not empty.
         """
     @property
-    def All(self) -> std.vectorwxAnimation: ...
+    def All(self) -> List[Animation]: ...
 # end of class AnimationBundle
 
+
+class AnimationDecoderList(wx.siplib.wrapper):
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int, /) -> AnimationDecoder: ...
+    def __contains__(self, obj: AnimationDecoder, /) -> bool: ...
+    def __iter__(self) -> Iterator[AnimationDecoder]: ...
+    def index(self, obj: AnimationDecoder) -> int: ...
 #-- end-animate --#
 #-- begin-bannerwindow --#
-BannerWindowNameStr: str
+BannerWindowNameStr: bytes
 
 class BannerWindow(wx.Window):
     """
@@ -3291,7 +3250,7 @@ class BannerWindow(wx.Window):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, winid: int=wx.ID_ANY, dir: wx.Direction=wx.LEFT, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=BannerWindowNameStr) -> None:
+    def __init__(self, parent: wx.Window, winid: int=wx.ID_ANY, dir: Union[wx.Direction, int]=wx.LEFT, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> None:
         ...
 
     @overload
@@ -3303,7 +3262,7 @@ class BannerWindow(wx.Window):
         A simple banner window showing either a bitmap or text.
         """
 
-    def Create(self, parent: wx.Window, winid: int=wx.ID_ANY, dir: wx.Direction=wx.LEFT, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=BannerWindowNameStr) -> bool:
+    def Create(self, parent: wx.Window, winid: int=wx.ID_ANY, dir: Union[wx.Direction, int]=wx.LEFT, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> bool:
         """
         Create(parent, winid=wx.ID_ANY, dir=wx.LEFT, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=BannerWindowNameStr) -> bool
         
@@ -3311,7 +3270,7 @@ class BannerWindow(wx.Window):
         default constructor.
         """
 
-    def SetBitmap(self, bmp: wx.BitmapBundle) -> None:
+    def SetBitmap(self, bmp: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetBitmap(bmp) -> None
         
@@ -3325,20 +3284,15 @@ class BannerWindow(wx.Window):
         Set the text to display.
         """
 
-    def SetGradient(self, start: wx.Colour, end: wx.Colour) -> None:
+    def SetGradient(self, start: Union[wx.Colour, _ThreeInts, _FourInts, str, None], end: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetGradient(start, end) -> None
         
         Set the colours between which the gradient runs.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -3351,7 +3305,7 @@ EL_ALLOW_EDIT: int
 EL_ALLOW_DELETE: int
 EL_NO_REORDER: int
 EL_DEFAULT_STYLE: int
-EditableListBoxNameStr: str
+EditableListBoxNameStr: bytes
 
 class EditableListBox(wx.Panel):
     """
@@ -3363,7 +3317,7 @@ class EditableListBox(wx.Panel):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=EL_DEFAULT_STYLE, name: str=EditableListBoxNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=EL_DEFAULT_STYLE, name: str=...) -> None:
         ...
 
     @overload
@@ -3376,7 +3330,7 @@ class EditableListBox(wx.Panel):
         enter, delete and reorder a list of strings.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=EL_DEFAULT_STYLE, name: str=EditableListBoxNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=EL_DEFAULT_STYLE, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, label='', pos=wx.DefaultPosition, size=wx.DefaultSize, style=EL_DEFAULT_STYLE, name=EditableListBoxNameStr) -> bool
         
@@ -3475,13 +3429,8 @@ class EditableListBox(wx.Panel):
         Returns the button used to edit the label of the selected item.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -3512,37 +3461,28 @@ wxEVT_NOTIFICATION_MESSAGE_ACTION: int
 class NotificationMessage(wx.EvtHandler):
     """
     NotificationMessage() -> None
-    NotificationMessage(title, message='', parent=nullptr, flags=wx.ICON_INFORMATION) -> None
+    NotificationMessage(title, message='', parent=None, flags=wx.ICON_INFORMATION) -> None
     
     This class allows showing the user a message non intrusively.
     """
+    Timeout_Auto: int
+    Timeout_Never: int
 
-    class _enum_39(IntEnum):
-        Timeout_Auto = auto()
-        Timeout_Never = auto()
-    Timeout_Auto = _enum_39.Timeout_Auto
-    Timeout_Never = _enum_39.Timeout_Never
-
-    class _DismissalReason(IntEnum):
+    class DismissalReason(IntEnum):
         Unknown = auto()
         ByUser = auto()
         ByApp = auto()
         TimedOut = auto()
-    DismissalReason: TypeAlias = Union[_DismissalReason, int]
-    Unknown = _DismissalReason.Unknown
-    ByUser = _DismissalReason.ByUser
-    ByApp = _DismissalReason.ByApp
-    TimedOut = _DismissalReason.TimedOut
 
     @overload
-    def __init__(self, title: str, message: str='', parent: wx.Window=nullptr, flags: int=wx.ICON_INFORMATION) -> None:
+    def __init__(self, title: str, message: str='', parent: Optional[wx.Window]=None, flags: int=wx.ICON_INFORMATION) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         NotificationMessage() -> None
-        NotificationMessage(title, message='', parent=nullptr, flags=wx.ICON_INFORMATION) -> None
+        NotificationMessage(title, message='', parent=None, flags=wx.ICON_INFORMATION) -> None
         
         This class allows showing the user a message non intrusively.
         """
@@ -3642,7 +3582,7 @@ class SplashScreen(wx.Frame):
     describing your application.
     """
 
-    def __init__(self, bitmap: wx.Bitmap, splashStyle: int, milliseconds: int, parent: Optional[wx.Window], id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.BORDER_SIMPLE|wx.FRAME_NO_TASKBAR|wx.STAY_ON_TOP) -> None:
+    def __init__(self, bitmap: wx.Bitmap, splashStyle: int, milliseconds: int, parent: Optional[wx.Window], id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.BORDER_SIMPLE|wx.FRAME_NO_TASKBAR|wx.STAY_ON_TOP) -> None:
         """
         SplashScreen(bitmap, splashStyle, milliseconds, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.BORDER_SIMPLE|wx.FRAME_NO_TASKBAR|wx.STAY_ON_TOP) -> None
         
@@ -3664,13 +3604,8 @@ class SplashScreen(wx.Frame):
         Returns the timeout in milliseconds.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -3704,31 +3639,32 @@ SPLASH_CENTER_ON_SCREEN = SPLASH_CENTRE_ON_SCREEN
 SPLASH_NO_CENTER = SPLASH_NO_CENTRE
 #-- end-splash --#
 #-- begin-sashwin --#
+import wx.siplib
 SW_NOBORDER: int
 SW_BORDER: int
 SW_3DSASH: int
 SW_3DBORDER: int
 SW_3D: int
 
-class _SashEdgePosition(IntEnum):
-    SASH_TOP = auto()
-    SASH_RIGHT = auto()
-    SASH_BOTTOM = auto()
-    SASH_LEFT = auto()
-    SASH_NONE = auto()
-SashEdgePosition: TypeAlias = Union[_SashEdgePosition, int]
-SASH_TOP = _SashEdgePosition.SASH_TOP
-SASH_RIGHT = _SashEdgePosition.SASH_RIGHT
-SASH_BOTTOM = _SashEdgePosition.SASH_BOTTOM
-SASH_LEFT = _SashEdgePosition.SASH_LEFT
-SASH_NONE = _SashEdgePosition.SASH_NONE
+@final
+class SashEdgePosition(int, metaclass=wx.siplib.enumtype):
+    SASH_TOP: ClassVar[SashEdgePosition]
+    SASH_RIGHT: ClassVar[SashEdgePosition]
+    SASH_BOTTOM: ClassVar[SashEdgePosition]
+    SASH_LEFT: ClassVar[SashEdgePosition]
+    SASH_NONE: ClassVar[SashEdgePosition]
+SASH_TOP: SashEdgePosition
+SASH_RIGHT: SashEdgePosition
+SASH_BOTTOM: SashEdgePosition
+SASH_LEFT: SashEdgePosition
+SASH_NONE: SashEdgePosition
 
-class _SashDragStatus(IntEnum):
-    SASH_STATUS_OK = auto()
-    SASH_STATUS_OUT_OF_RANGE = auto()
-SashDragStatus: TypeAlias = Union[_SashDragStatus, int]
-SASH_STATUS_OK = _SashDragStatus.SASH_STATUS_OK
-SASH_STATUS_OUT_OF_RANGE = _SashDragStatus.SASH_STATUS_OUT_OF_RANGE
+@final
+class SashDragStatus(int, metaclass=wx.siplib.enumtype):
+    SASH_STATUS_OK: ClassVar[SashDragStatus]
+    SASH_STATUS_OUT_OF_RANGE: ClassVar[SashDragStatus]
+SASH_STATUS_OK: SashDragStatus
+SASH_STATUS_OUT_OF_RANGE: SashDragStatus
 wxEVT_SASH_DRAGGED: int
 
 class SashWindow(wx.Window):
@@ -3741,7 +3677,7 @@ class SashWindow(wx.Window):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.CLIP_CHILDREN|SW_3D, name: str="sashWindow") -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.CLIP_CHILDREN|SW_3D, name: str="sashWindow") -> None:
         ...
 
     @overload
@@ -3782,7 +3718,7 @@ class SashWindow(wx.Window):
         Gets the minimum window size in the y direction.
         """
 
-    def GetSashVisible(self, edge: SashEdgePosition) -> bool:
+    def GetSashVisible(self, edge: Union[SashEdgePosition, int]) -> bool:
         """
         GetSashVisible(edge) -> bool
         
@@ -3817,7 +3753,7 @@ class SashWindow(wx.Window):
         Sets the minimum window size in the y direction.
         """
 
-    def SetSashVisible(self, edge: SashEdgePosition, visible: bool) -> None:
+    def SetSashVisible(self, edge: Union[SashEdgePosition, int], visible: bool) -> None:
         """
         SetSashVisible(edge, visible) -> None
         
@@ -3825,7 +3761,7 @@ class SashWindow(wx.Window):
         edge.
         """
 
-    def GetEdgeMargin(self, edge: SashEdgePosition) -> int:
+    def GetEdgeMargin(self, edge: Union[SashEdgePosition, int]) -> int:
         """
         GetEdgeMargin(edge) -> int
         
@@ -3874,13 +3810,8 @@ class SashWindow(wx.Window):
         Resizes subwindows.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -3919,7 +3850,7 @@ class SashEvent(wx.CommandEvent):
     by the user.
     """
 
-    def __init__(self, id: int=0, edge: SashEdgePosition=SASH_NONE) -> None:
+    def __init__(self, id: int=0, edge: Union[SashEdgePosition, int]=SASH_NONE) -> None:
         """
         SashEvent(id=0, edge=SASH_NONE) -> None
         
@@ -3950,59 +3881,60 @@ class SashEvent(wx.CommandEvent):
         Returns the dragged edge.
         """
 
-    def SetEdge(self, edge: SashEdgePosition) -> None:
+    def SetEdge(self, edge: Union[SashEdgePosition, int]) -> None:
         """
         SetEdge(edge) -> None
         """
 
-    def SetDragRect(self, rect: wx.Rect) -> None:
+    def SetDragRect(self, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         SetDragRect(rect) -> None
         """
 
-    def SetDragStatus(self, status: SashDragStatus) -> None:
+    def SetDragStatus(self, status: Union[SashDragStatus, int]) -> None:
         """
         SetDragStatus(status) -> None
         """
     @property
     def DragRect(self) -> wx.Rect: ...
     @DragRect.setter
-    def DragRect(self, value: wx.Rect, /) -> None: ...
+    def DragRect(self, value: Union[wx.Rect, _FourInts], /) -> None: ...
     @property
     def DragStatus(self) -> SashDragStatus: ...
     @DragStatus.setter
-    def DragStatus(self, value: SashDragStatus, /) -> None: ...
+    def DragStatus(self, value: Union[SashDragStatus, int], /) -> None: ...
     @property
     def Edge(self) -> SashEdgePosition: ...
     @Edge.setter
-    def Edge(self, value: SashEdgePosition, /) -> None: ...
+    def Edge(self, value: Union[SashEdgePosition, int], /) -> None: ...
 # end of class SashEvent
 
 
-EVT_SASH_DRAGGED = wx.PyEventBinder( wxEVT_SASH_DRAGGED, 1 )
-EVT_SASH_DRAGGED_RANGE = wx.PyEventBinder( wxEVT_SASH_DRAGGED, 2 )
+EVT_SASH_DRAGGED: wx.PyEventBinder[SashEvent]
+EVT_SASH_DRAGGED_RANGE: wx.PyEventBinder[SashEvent]
 #-- end-sashwin --#
 #-- begin-laywin --#
+import wx.siplib
 
-class _LayoutOrientation(IntEnum):
-    LAYOUT_HORIZONTAL = auto()
-    LAYOUT_VERTICAL = auto()
-LayoutOrientation: TypeAlias = Union[_LayoutOrientation, int]
-LAYOUT_HORIZONTAL = _LayoutOrientation.LAYOUT_HORIZONTAL
-LAYOUT_VERTICAL = _LayoutOrientation.LAYOUT_VERTICAL
+@final
+class LayoutOrientation(int, metaclass=wx.siplib.enumtype):
+    LAYOUT_HORIZONTAL: ClassVar[LayoutOrientation]
+    LAYOUT_VERTICAL: ClassVar[LayoutOrientation]
+LAYOUT_HORIZONTAL: LayoutOrientation
+LAYOUT_VERTICAL: LayoutOrientation
 
-class _LayoutAlignment(IntEnum):
-    LAYOUT_NONE = auto()
-    LAYOUT_TOP = auto()
-    LAYOUT_LEFT = auto()
-    LAYOUT_RIGHT = auto()
-    LAYOUT_BOTTOM = auto()
-LayoutAlignment: TypeAlias = Union[_LayoutAlignment, int]
-LAYOUT_NONE = _LayoutAlignment.LAYOUT_NONE
-LAYOUT_TOP = _LayoutAlignment.LAYOUT_TOP
-LAYOUT_LEFT = _LayoutAlignment.LAYOUT_LEFT
-LAYOUT_RIGHT = _LayoutAlignment.LAYOUT_RIGHT
-LAYOUT_BOTTOM = _LayoutAlignment.LAYOUT_BOTTOM
+@final
+class LayoutAlignment(int, metaclass=wx.siplib.enumtype):
+    LAYOUT_NONE: ClassVar[LayoutAlignment]
+    LAYOUT_TOP: ClassVar[LayoutAlignment]
+    LAYOUT_LEFT: ClassVar[LayoutAlignment]
+    LAYOUT_RIGHT: ClassVar[LayoutAlignment]
+    LAYOUT_BOTTOM: ClassVar[LayoutAlignment]
+LAYOUT_NONE: LayoutAlignment
+LAYOUT_TOP: LayoutAlignment
+LAYOUT_LEFT: LayoutAlignment
+LAYOUT_RIGHT: LayoutAlignment
+LAYOUT_BOTTOM: LayoutAlignment
 wxEVT_QUERY_LAYOUT_INFO: int
 wxEVT_CALCULATE_LAYOUT: int
 
@@ -4022,23 +3954,23 @@ class LayoutAlgorithm(wx.Object):
         frames.
         """
 
-    def LayoutFrame(self, frame: wx.Frame, mainWindow: wx.Window=nullptr) -> bool:
+    def LayoutFrame(self, frame: wx.Frame, mainWindow: Optional[wx.Window]=None) -> bool:
         """
-        LayoutFrame(frame, mainWindow=nullptr) -> bool
+        LayoutFrame(frame, mainWindow=None) -> bool
         
         Lays out the children of a normal frame.
         """
 
-    def LayoutMDIFrame(self, frame: wx.MDIParentFrame, rect: wx.Rect=nullptr) -> bool:
+    def LayoutMDIFrame(self, frame: wx.MDIParentFrame, rect: Optional[Union[wx.Rect, _FourInts]]=None) -> bool:
         """
-        LayoutMDIFrame(frame, rect=nullptr) -> bool
+        LayoutMDIFrame(frame, rect=None) -> bool
         
         Lays out the children of an MDI parent frame.
         """
 
-    def LayoutWindow(self, parent: wx.Window, mainWindow: wx.Window=nullptr) -> bool:
+    def LayoutWindow(self, parent: wx.Window, mainWindow: Optional[wx.Window]=None) -> bool:
         """
-        LayoutWindow(parent, mainWindow=nullptr) -> bool
+        LayoutWindow(parent, mainWindow=None) -> bool
         
         Lays out the children of a normal frame or other window.
         """
@@ -4055,7 +3987,7 @@ class SashLayoutWindow(SashWindow):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.CLIP_CHILDREN|SW_3D, name: str="layoutWindow") -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.CLIP_CHILDREN|SW_3D, name: str="layoutWindow") -> None:
         ...
 
     @overload
@@ -4068,7 +4000,7 @@ class SashLayoutWindow(SashWindow):
         wxLayoutAlgorithm.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.CLIP_CHILDREN|SW_3D, name: str="layoutWindow") -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.CLIP_CHILDREN|SW_3D, name: str="layoutWindow") -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.CLIP_CHILDREN|SW_3D, name="layoutWindow") -> bool
         
@@ -4109,7 +4041,7 @@ class SashLayoutWindow(SashWindow):
         for the window.
         """
 
-    def SetAlignment(self, alignment: LayoutAlignment) -> None:
+    def SetAlignment(self, alignment: Union[LayoutAlignment, int]) -> None:
         """
         SetAlignment(alignment) -> None
         
@@ -4117,14 +4049,14 @@ class SashLayoutWindow(SashWindow):
         client area the window is attached to).
         """
 
-    def SetDefaultSize(self, size: wx.Size) -> None:
+    def SetDefaultSize(self, size: Union[wx.Size, _TwoInts]) -> None:
         """
         SetDefaultSize(size) -> None
         
         Sets the default dimensions of the window.
         """
 
-    def SetOrientation(self, orientation: LayoutOrientation) -> None:
+    def SetOrientation(self, orientation: Union[LayoutOrientation, int]) -> None:
         """
         SetOrientation(orientation) -> None
         
@@ -4132,24 +4064,19 @@ class SashLayoutWindow(SashWindow):
         stretch in, to fill the available parent client area).
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
     def Alignment(self) -> LayoutAlignment: ...
     @Alignment.setter
-    def Alignment(self, value: LayoutAlignment, /) -> None: ...
+    def Alignment(self, value: Union[LayoutAlignment, int], /) -> None: ...
     @property
     def Orientation(self) -> LayoutOrientation: ...
     @Orientation.setter
-    def Orientation(self, value: LayoutOrientation, /) -> None: ...
+    def Orientation(self, value: Union[LayoutOrientation, int], /) -> None: ...
 # end of class SashLayoutWindow
 
 
@@ -4208,7 +4135,7 @@ class QueryLayoutInfoEvent(wx.Event):
         as being the requested size of the window.
         """
 
-    def SetAlignment(self, alignment: LayoutAlignment) -> None:
+    def SetAlignment(self, alignment: Union[LayoutAlignment, int]) -> None:
         """
         SetAlignment(alignment) -> None
         
@@ -4223,7 +4150,7 @@ class QueryLayoutInfoEvent(wx.Event):
         Sets the flags associated with this event.
         """
 
-    def SetOrientation(self, orientation: LayoutOrientation) -> None:
+    def SetOrientation(self, orientation: Union[LayoutOrientation, int]) -> None:
         """
         SetOrientation(orientation) -> None
         
@@ -4238,7 +4165,7 @@ class QueryLayoutInfoEvent(wx.Event):
         orientation.
         """
 
-    def SetSize(self, size: wx.Size) -> None:
+    def SetSize(self, size: Union[wx.Size, _TwoInts]) -> None:
         """
         SetSize(size) -> None
         
@@ -4247,7 +4174,7 @@ class QueryLayoutInfoEvent(wx.Event):
     @property
     def Alignment(self) -> LayoutAlignment: ...
     @Alignment.setter
-    def Alignment(self, value: LayoutAlignment, /) -> None: ...
+    def Alignment(self, value: Union[LayoutAlignment, int], /) -> None: ...
     @property
     def Flags(self) -> int: ...
     @Flags.setter
@@ -4255,7 +4182,7 @@ class QueryLayoutInfoEvent(wx.Event):
     @property
     def Orientation(self) -> LayoutOrientation: ...
     @Orientation.setter
-    def Orientation(self, value: LayoutOrientation, /) -> None: ...
+    def Orientation(self, value: Union[LayoutOrientation, int], /) -> None: ...
     @property
     def RequestedLength(self) -> int: ...
     @RequestedLength.setter
@@ -4263,7 +4190,7 @@ class QueryLayoutInfoEvent(wx.Event):
     @property
     def Size(self) -> wx.Size: ...
     @Size.setter
-    def Size(self, value: wx.Size, /) -> None: ...
+    def Size(self, value: Union[wx.Size, _TwoInts], /) -> None: ...
 # end of class QueryLayoutInfoEvent
 
 
@@ -4305,7 +4232,7 @@ class CalculateLayoutEvent(wx.Event):
         Sets the flags associated with this event.
         """
 
-    def SetRect(self, rect: wx.Rect) -> None:
+    def SetRect(self, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         SetRect(rect) -> None
         
@@ -4319,27 +4246,24 @@ class CalculateLayoutEvent(wx.Event):
     @property
     def Rect(self) -> wx.Rect: ...
     @Rect.setter
-    def Rect(self, value: wx.Rect, /) -> None: ...
+    def Rect(self, value: Union[wx.Rect, _FourInts], /) -> None: ...
 # end of class CalculateLayoutEvent
 
 
-EVT_QUERY_LAYOUT_INFO = wx.PyEventBinder( wxEVT_QUERY_LAYOUT_INFO )
-EVT_CALCULATE_LAYOUT = wx.PyEventBinder( wxEVT_CALCULATE_LAYOUT )
+EVT_QUERY_LAYOUT_INFO: wx.PyEventBinder[QueryLayoutInfoEvent]
+EVT_CALCULATE_LAYOUT: wx.PyEventBinder[CalculateLayoutEvent]
 #-- end-laywin --#
 #-- begin-odcombo --#
+import wx.siplib
 
-class _OwnerDrawnComboBoxPaintingFlags(IntFlag):
-    ODCB_PAINTING_CONTROL = auto()
-    ODCB_PAINTING_SELECTED = auto()
-OwnerDrawnComboBoxPaintingFlags: TypeAlias = Union[_OwnerDrawnComboBoxPaintingFlags, int]
-ODCB_PAINTING_CONTROL = _OwnerDrawnComboBoxPaintingFlags.ODCB_PAINTING_CONTROL
-ODCB_PAINTING_SELECTED = _OwnerDrawnComboBoxPaintingFlags.ODCB_PAINTING_SELECTED
-
-class _enum_40(IntEnum):
-    ODCB_DCLICK_CYCLES = auto()
-    ODCB_STD_CONTROL_PAINT = auto()
-ODCB_DCLICK_CYCLES = _enum_40.ODCB_DCLICK_CYCLES
-ODCB_STD_CONTROL_PAINT = _enum_40.ODCB_STD_CONTROL_PAINT
+@final
+class OwnerDrawnComboBoxPaintingFlags(int, metaclass=wx.siplib.enumtype):
+    ODCB_PAINTING_CONTROL: ClassVar[OwnerDrawnComboBoxPaintingFlags]
+    ODCB_PAINTING_SELECTED: ClassVar[OwnerDrawnComboBoxPaintingFlags]
+ODCB_PAINTING_CONTROL: OwnerDrawnComboBoxPaintingFlags
+ODCB_PAINTING_SELECTED: OwnerDrawnComboBoxPaintingFlags
+ODCB_DCLICK_CYCLES: int
+ODCB_STD_CONTROL_PAINT: int
 
 class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
     """
@@ -4350,7 +4274,7 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str="comboBox") -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str="comboBox") -> None:
         ...
 
     @overload
@@ -4362,7 +4286,7 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
         wxOwnerDrawnComboBox is a combobox with owner-drawn list items.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=wx.ComboBoxNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, value='', pos=wx.DefaultPosition, size=wx.DefaultSize, choices=[], style=0, validator=wx.DefaultValidator, name=wx.ComboBoxNameStr) -> bool
         
@@ -4397,13 +4321,8 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
         Returns width of the widest item in the list.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -4412,7 +4331,7 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
     @property
     def WidestItemWidth(self) -> int: ...
 
-    def OnDrawBackground(self, dc: wx.DC, rect: wx.Rect, item: int, flags: int) -> None:
+    def OnDrawBackground(self, dc: wx.DC, rect: Union[wx.Rect, _FourInts], item: int, flags: int) -> None:
         """
         OnDrawBackground(dc, rect, item, flags) -> None
         
@@ -4420,7 +4339,7 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
         around it.
         """
 
-    def OnDrawItem(self, dc: wx.DC, rect: wx.Rect, item: int, flags: int) -> None:
+    def OnDrawItem(self, dc: wx.DC, rect: Union[wx.Rect, _FourInts], item: int, flags: int) -> None:
         """
         OnDrawItem(dc, rect, item, flags) -> None
         
@@ -4447,7 +4366,7 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
 
 #-- end-odcombo --#
 #-- begin-bmpcbox --#
-BitmapComboBoxNameStr: str
+BitmapComboBoxNameStr: bytes
 
 class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
     """
@@ -4458,7 +4377,7 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=BitmapComboBoxNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> None:
         ...
 
     @overload
@@ -4471,11 +4390,11 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         """
 
     @overload
-    def Append(self, item: str, bitmap: wx.BitmapBundle, clientData: ClientData) -> int:
+    def Append(self, item: str, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], clientData: Any) -> int:
         ...
 
     @overload
-    def Append(self, item: str, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> int:
+    def Append(self, item: str, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle()) -> int:
         """
         Append(item, bitmap=wx.BitmapBundle()) -> int
         Append(item, bitmap, clientData) -> int
@@ -4483,7 +4402,7 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         Adds the item to the end of the combo box.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=BitmapComboBoxNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, value: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, choices: List[str]=[], style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, value='', pos=wx.DefaultPosition, size=wx.DefaultSize, choices=[], style=0, validator=wx.DefaultValidator, name=BitmapComboBoxNameStr) -> bool
         
@@ -4505,11 +4424,11 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         """
 
     @overload
-    def Insert(self, item: str, bitmap: wx.BitmapBundle, pos: int, clientData: ClientData) -> int:
+    def Insert(self, item: str, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], pos: int, clientData: Any) -> int:
         ...
 
     @overload
-    def Insert(self, item: str, bitmap: wx.BitmapBundle, pos: int) -> int:
+    def Insert(self, item: str, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], pos: int) -> int:
         """
         Insert(item, bitmap, pos) -> int
         Insert(item, bitmap, pos, clientData) -> int
@@ -4517,20 +4436,15 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         Inserts the item into the list before pos.
         """
 
-    def SetItemBitmap(self, n: int, bitmap: wx.BitmapBundle) -> None:
+    def SetItemBitmap(self, n: int, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetItemBitmap(n, bitmap) -> None
         
         Sets the bitmap for the given item.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -4653,27 +4567,28 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
 
 #-- end-bmpcbox --#
 #-- begin-richtooltip --#
+import wx.siplib
 
-class _TipKind(IntEnum):
-    TipKind_None = auto()
-    TipKind_TopLeft = auto()
-    TipKind_Top = auto()
-    TipKind_TopRight = auto()
-    TipKind_BottomLeft = auto()
-    TipKind_Bottom = auto()
-    TipKind_BottomRight = auto()
-    TipKind_Auto = auto()
-TipKind: TypeAlias = Union[_TipKind, int]
-TipKind_None = _TipKind.TipKind_None
-TipKind_TopLeft = _TipKind.TipKind_TopLeft
-TipKind_Top = _TipKind.TipKind_Top
-TipKind_TopRight = _TipKind.TipKind_TopRight
-TipKind_BottomLeft = _TipKind.TipKind_BottomLeft
-TipKind_Bottom = _TipKind.TipKind_Bottom
-TipKind_BottomRight = _TipKind.TipKind_BottomRight
-TipKind_Auto = _TipKind.TipKind_Auto
+@final
+class TipKind(int, metaclass=wx.siplib.enumtype):
+    TipKind_None: ClassVar[TipKind]
+    TipKind_TopLeft: ClassVar[TipKind]
+    TipKind_Top: ClassVar[TipKind]
+    TipKind_TopRight: ClassVar[TipKind]
+    TipKind_BottomLeft: ClassVar[TipKind]
+    TipKind_Bottom: ClassVar[TipKind]
+    TipKind_BottomRight: ClassVar[TipKind]
+    TipKind_Auto: ClassVar[TipKind]
+TipKind_None: TipKind
+TipKind_TopLeft: TipKind
+TipKind_Top: TipKind
+TipKind_TopRight: TipKind
+TipKind_BottomLeft: TipKind
+TipKind_Bottom: TipKind
+TipKind_BottomRight: TipKind
+TipKind_Auto: TipKind
 
-class RichToolTip:
+class RichToolTip(wx.siplib.wrapper):
     """
     RichToolTip(title, message) -> None
     
@@ -4688,7 +4603,7 @@ class RichToolTip:
         """
 
     @overload
-    def SetIcon(self, icon: wx.BitmapBundle) -> None:
+    def SetIcon(self, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         ...
 
     @overload
@@ -4700,7 +4615,7 @@ class RichToolTip:
         Set the small icon to show.
         """
 
-    def SetBackgroundColour(self, col: wx.Colour, colEnd: wx.Colour=wx.Colour()) -> None:
+    def SetBackgroundColour(self, col: Union[wx.Colour, _ThreeInts, _FourInts, str, None], colEnd: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.Colour()) -> None:
         """
         SetBackgroundColour(col, colEnd=wx.Colour()) -> None
         
@@ -4715,7 +4630,7 @@ class RichToolTip:
         set a delay before the tooltip is shown, in milliseconds.
         """
 
-    def SetTipKind(self, tipKind: TipKind) -> None:
+    def SetTipKind(self, tipKind: Union[TipKind, int]) -> None:
         """
         SetTipKind(tipKind) -> None
         
@@ -4729,9 +4644,9 @@ class RichToolTip:
         Set the title text font.
         """
 
-    def ShowFor(self, win: wx.Window, rect: wx.Rect=nullptr) -> None:
+    def ShowFor(self, win: wx.Window, rect: Optional[Union[wx.Rect, _FourInts]]=None) -> None:
         """
-        ShowFor(win, rect=nullptr) -> None
+        ShowFor(win, rect=None) -> None
         
         Show the tooltip for the given window and optionally specify where to
         show the tooltip.
@@ -4740,10 +4655,7 @@ class RichToolTip:
 
 #-- end-richtooltip --#
 #-- begin-timectrl --#
-
-class _enum_49(IntEnum):
-    TP_DEFAULT = auto()
-TP_DEFAULT = _enum_49.TP_DEFAULT
+TP_DEFAULT: int
 TimePickerCtrlNameStr: str
 
 class TimePickerCtrl(wx.Control):
@@ -4755,7 +4667,7 @@ class TimePickerCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, dt: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=TP_DEFAULT, validator: wx.Validator=wx.DefaultValidator, name: str=TimePickerCtrlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, dt: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=TP_DEFAULT, validator: wx.Validator=wx.DefaultValidator, name: str=TimePickerCtrlNameStr) -> None:
         ...
 
     @overload
@@ -4767,7 +4679,7 @@ class TimePickerCtrl(wx.Control):
         This control allows the user to enter time.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, dt: wx.DateTime=wx.DefaultDateTime, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=TP_DEFAULT, validator: wx.Validator=wx.DefaultValidator, name: str=TimePickerCtrlNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, dt: Union[wx.DateTime, datetime, date]=wx.DefaultDateTime, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=TP_DEFAULT, validator: wx.Validator=wx.DefaultValidator, name: str=TimePickerCtrlNameStr) -> bool:
         """
         Create(parent, id=wx.ID_ANY, dt=wx.DefaultDateTime, pos=wx.DefaultPosition, size=wx.DefaultSize, style=TP_DEFAULT, validator=wx.DefaultValidator, name=TimePickerCtrlNameStr) -> bool
         
@@ -4795,27 +4707,22 @@ class TimePickerCtrl(wx.Control):
         Changes the current time of the control.
         """
 
-    def SetValue(self, dt: wx.DateTime) -> None:
+    def SetValue(self, dt: Union[wx.DateTime, datetime, date]) -> None:
         """
         SetValue(dt) -> None
         
         Changes the current value of the control.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
     def Value(self) -> wx.DateTime: ...
     @Value.setter
-    def Value(self, value: wx.DateTime, /) -> None: ...
+    def Value(self, value: Union[wx.DateTime, datetime, date], /) -> None: ...
 # end of class TimePickerCtrl
 
 #-- end-timectrl --#
@@ -4847,7 +4754,7 @@ class WizardPage(wx.Panel):
     """
 
     @overload
-    def __init__(self, parent: Wizard, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> None:
+    def __init__(self, parent: Wizard, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle()) -> None:
         ...
 
     @overload
@@ -4861,7 +4768,7 @@ class WizardPage(wx.Panel):
         first/last page).
         """
 
-    def Create(self, parent: Wizard, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> bool:
+    def Create(self, parent: Wizard, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle()) -> bool:
         """
         Create(parent, bitmap=wx.BitmapBundle()) -> bool
         
@@ -4893,7 +4800,7 @@ class WizardPage(wx.Panel):
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -4909,7 +4816,7 @@ class WizardPage(wx.Panel):
 class WizardPageSimple(WizardPage):
     """
     WizardPageSimple() -> None
-    WizardPageSimple(parent, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> None
+    WizardPageSimple(parent, prev=None, next=None, bitmap=wx.BitmapBundle()) -> None
     
     wxWizardPageSimple is the simplest possible wxWizardPage
     implementation: it just returns the pointers given to its constructor
@@ -4917,23 +4824,23 @@ class WizardPageSimple(WizardPage):
     """
 
     @overload
-    def __init__(self, parent: Wizard, prev: WizardPage=nullptr, next: WizardPage=nullptr, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> None:
+    def __init__(self, parent: Wizard, prev: Optional[WizardPage]=None, next: Optional[WizardPage]=None, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle()) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         WizardPageSimple() -> None
-        WizardPageSimple(parent, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> None
+        WizardPageSimple(parent, prev=None, next=None, bitmap=wx.BitmapBundle()) -> None
         
         wxWizardPageSimple is the simplest possible wxWizardPage
         implementation: it just returns the pointers given to its constructor
         from wxWizardPage::GetNext() and wxWizardPage::GetPrev() functions.
         """
 
-    def Create(self, parent: Wizard=nullptr, prev: WizardPage=nullptr, next: WizardPage=nullptr, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> bool:
+    def Create(self, parent: Optional[Wizard]=None, prev: Optional[WizardPage]=None, next: Optional[WizardPage]=None, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle()) -> bool:
         """
-        Create(parent=nullptr, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> bool
+        Create(parent=None, prev=None, next=None, bitmap=wx.BitmapBundle()) -> bool
         
         Creates the wizard page.
         """
@@ -4967,7 +4874,7 @@ class WizardPageSimple(WizardPage):
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -4983,7 +4890,7 @@ class Wizard(wx.Dialog):
     """
 
     @overload
-    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', bitmap: wx.BitmapBundle=wx.BitmapBundle(), pos: wx.Point=wx.DefaultPosition, style: int=wx.DEFAULT_DIALOG_STYLE) -> None:
+    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, style: int=wx.DEFAULT_DIALOG_STYLE) -> None:
         ...
 
     @overload
@@ -4995,7 +4902,7 @@ class Wizard(wx.Dialog):
         wxWizard is the central class for implementing 'wizard-like' dialogs.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', bitmap: wx.BitmapBundle=wx.BitmapBundle(), pos: wx.Point=wx.DefaultPosition, style: int=wx.DEFAULT_DIALOG_STYLE) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, style: int=wx.DEFAULT_DIALOG_STYLE) -> bool:
         """
         Create(parent, id=wx.ID_ANY, title='', bitmap=wx.BitmapBundle(), pos=wx.DefaultPosition, style=wx.DEFAULT_DIALOG_STYLE) -> bool
         
@@ -5085,14 +4992,14 @@ class Wizard(wx.Dialog):
         was successfully finished or false if user cancelled it.
         """
 
-    def SetBitmap(self, bitmap: wx.BitmapBundle) -> None:
+    def SetBitmap(self, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetBitmap(bitmap) -> None
         
         Sets the bitmap used for the wizard.
         """
 
-    def SetBitmapBackgroundColour(self, colour: wx.Colour) -> None:
+    def SetBitmapBackgroundColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetBitmapBackgroundColour(colour) -> None
         
@@ -5125,7 +5032,7 @@ class Wizard(wx.Dialog):
         placement flag has been set.
         """
 
-    def SetPageSize(self, sizePage: wx.Size) -> None:
+    def SetPageSize(self, sizePage: Union[wx.Size, _TwoInts]) -> None:
         """
         SetPageSize(sizePage) -> None
         
@@ -5133,7 +5040,7 @@ class Wizard(wx.Dialog):
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -5150,13 +5057,13 @@ class Wizard(wx.Dialog):
         IsRunning() -> bool
         """
     @property
-    def Bitmap(self) -> wx.BitmapBundle: ...
+    def Bitmap(self) -> wx.Bitmap: ...
     @Bitmap.setter
-    def Bitmap(self, value: wx.BitmapBundle, /) -> None: ...
+    def Bitmap(self, value: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], /) -> None: ...
     @property
     def BitmapBackgroundColour(self) -> wx.Colour: ...
     @BitmapBackgroundColour.setter
-    def BitmapBackgroundColour(self, value: wx.Colour, /) -> None: ...
+    def BitmapBackgroundColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def BitmapPlacement(self) -> int: ...
     @BitmapPlacement.setter
@@ -5172,7 +5079,7 @@ class Wizard(wx.Dialog):
     @property
     def PageSize(self) -> wx.Size: ...
     @PageSize.setter
-    def PageSize(self, value: wx.Size, /) -> None: ...
+    def PageSize(self, value: Union[wx.Size, _TwoInts], /) -> None: ...
 # end of class Wizard
 
 
@@ -5185,7 +5092,7 @@ class WizardEvent(wx.NotifyEvent):
     there, goes up the window hierarchy as usual.
     """
 
-    def __init__(self, type: EventType=wx.wxEVT_NULL, id: int=wx.ID_ANY, direction: bool=True, page: WizardPage=0) -> None:
+    def __init__(self, type: int=wx.wxEVT_NULL, id: int=wx.ID_ANY, direction: bool=True, page: WizardPage=0) -> None:
         """
         WizardEvent(type=wx.wxEVT_NULL, id=wx.ID_ANY, direction=True, page=0) -> None
         
@@ -5220,13 +5127,13 @@ class WizardEvent(wx.NotifyEvent):
 
 PyWizardPage = wx.deprecated(WizardPage, 'Use WizardPage instead.')
 
-EVT_WIZARD_BEFORE_PAGE_CHANGED  = wx.PyEventBinder( wxEVT_WIZARD_BEFORE_PAGE_CHANGED, 1)
-EVT_WIZARD_PAGE_CHANGED  = wx.PyEventBinder( wxEVT_WIZARD_PAGE_CHANGED, 1)
-EVT_WIZARD_PAGE_CHANGING = wx.PyEventBinder( wxEVT_WIZARD_PAGE_CHANGING, 1)
-EVT_WIZARD_CANCEL        = wx.PyEventBinder( wxEVT_WIZARD_CANCEL, 1)
-EVT_WIZARD_HELP          = wx.PyEventBinder( wxEVT_WIZARD_HELP, 1)
-EVT_WIZARD_FINISHED      = wx.PyEventBinder( wxEVT_WIZARD_FINISHED, 1)
-EVT_WIZARD_PAGE_SHOWN    = wx.PyEventBinder( wxEVT_WIZARD_PAGE_SHOWN, 1)
+EVT_WIZARD_BEFORE_PAGE_CHANGED: wx.PyEventBinder[WizardEvent]
+EVT_WIZARD_PAGE_CHANGED: wx.PyEventBinder[WizardEvent]
+EVT_WIZARD_PAGE_CHANGING: wx.PyEventBinder[WizardEvent]
+EVT_WIZARD_CANCEL: wx.PyEventBinder[WizardEvent]
+EVT_WIZARD_HELP: wx.PyEventBinder[WizardEvent]
+EVT_WIZARD_FINISHED: wx.PyEventBinder[WizardEvent]
+EVT_WIZARD_PAGE_SHOWN: wx.PyEventBinder[WizardEvent]
 #-- end-wizard --#
 #-- begin-pseudodc --#
 
@@ -5325,7 +5232,7 @@ class PseudoDC(wx.Object):
         not.
         """
 
-    def FindObjects(self, x: int, y: int, radius: int=1, bg: wx.Colour=wx.WHITE) -> Any:
+    def FindObjects(self, x: int, y: int, radius: int=1, bg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.WHITE) -> Any:
         """
         FindObjects(x, y, radius=1, bg=wx.WHITE) -> Any
         
@@ -5351,7 +5258,7 @@ class PseudoDC(wx.Object):
         Draw recorded operations tagged with id to dc.
         """
 
-    def SetIdBounds(self, id: int, rect: wx.Rect) -> None:
+    def SetIdBounds(self, id: int, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         SetIdBounds(id, rect) -> None
         
@@ -5367,7 +5274,7 @@ class PseudoDC(wx.Object):
         If no bounds have been set, it returns wx.Rect(0,0,0,0).
         """
 
-    def DrawToDCClipped(self, dc: wx.DC, rect: wx.Rect) -> None:
+    def DrawToDCClipped(self, dc: wx.DC, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawToDCClipped(dc, rect) -> None
         
@@ -5391,11 +5298,11 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def FloodFill(self, pt: wx.Point, col: wx.Colour, style: wx.FloodFillStyle=wx.FLOOD_SURFACE) -> None:
+    def FloodFill(self, pt: Union[wx.Point, _TwoInts], col: Union[wx.Colour, _ThreeInts, _FourInts, str, None], style: Union[wx.FloodFillStyle, int]=wx.FLOOD_SURFACE) -> None:
         ...
 
     @overload
-    def FloodFill(self, x: int, y: int, col: wx.Colour, style: wx.FloodFillStyle=wx.FLOOD_SURFACE) -> None:
+    def FloodFill(self, x: int, y: int, col: Union[wx.Colour, _ThreeInts, _FourInts, str, None], style: Union[wx.FloodFillStyle, int]=wx.FLOOD_SURFACE) -> None:
         """
         FloodFill(x, y, col, style=wx.FLOOD_SURFACE) -> None
         FloodFill(pt, col, style=wx.FLOOD_SURFACE) -> None
@@ -5411,7 +5318,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawLine(self, pt1: wx.Point, pt2: wx.Point) -> None:
+    def DrawLine(self, pt1: Union[wx.Point, _TwoInts], pt2: Union[wx.Point, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5428,7 +5335,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def CrossHair(self, pt: wx.Point) -> None:
+    def CrossHair(self, pt: Union[wx.Point, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5456,7 +5363,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawCheckMark(self, rect: wx.Rect) -> None:
+    def DrawCheckMark(self, rect: Union[wx.Rect, _FourInts]) -> None:
         ...
 
     @overload
@@ -5469,7 +5376,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawEllipticArc(self, pt: wx.Point, sz: wx.Size, start: float, end: float) -> None:
+    def DrawEllipticArc(self, pt: Union[wx.Point, _TwoInts], sz: Union[wx.Size, _TwoInts], start: float, end: float) -> None:
         ...
 
     @overload
@@ -5492,7 +5399,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawPoint(self, pt: wx.Point) -> None:
+    def DrawPoint(self, pt: Union[wx.Point, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5505,11 +5412,11 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawRectangle(self, rect: wx.Rect) -> None:
+    def DrawRectangle(self, rect: Union[wx.Rect, _FourInts]) -> None:
         ...
 
     @overload
-    def DrawRectangle(self, pt: wx.Point, sz: wx.Size) -> None:
+    def DrawRectangle(self, pt: Union[wx.Point, _TwoInts], sz: Union[wx.Size, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5525,11 +5432,11 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawRoundedRectangle(self, rect: wx.Rect, radius: float) -> None:
+    def DrawRoundedRectangle(self, rect: Union[wx.Rect, _FourInts], radius: float) -> None:
         ...
 
     @overload
-    def DrawRoundedRectangle(self, pt: wx.Point, sz: wx.Size, radius: float) -> None:
+    def DrawRoundedRectangle(self, pt: Union[wx.Point, _TwoInts], sz: Union[wx.Size, _TwoInts], radius: float) -> None:
         ...
 
     @overload
@@ -5545,7 +5452,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawCircle(self, pt: wx.Point, radius: int) -> None:
+    def DrawCircle(self, pt: Union[wx.Point, _TwoInts], radius: int) -> None:
         ...
 
     @overload
@@ -5562,11 +5469,11 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawEllipse(self, rect: wx.Rect) -> None:
+    def DrawEllipse(self, rect: Union[wx.Rect, _FourInts]) -> None:
         ...
 
     @overload
-    def DrawEllipse(self, pt: wx.Point, sz: wx.Size) -> None:
+    def DrawEllipse(self, pt: Union[wx.Point, _TwoInts], sz: Union[wx.Size, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5584,7 +5491,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawIcon(self, icon: wx.Icon, pt: wx.Point) -> None:
+    def DrawIcon(self, icon: wx.Icon, pt: Union[wx.Point, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5597,7 +5504,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawBitmap(self, bmp: wx.Bitmap, pt: wx.Point, useMask: bool=False) -> None:
+    def DrawBitmap(self, bmp: wx.Bitmap, pt: Union[wx.Point, _TwoInts], useMask: bool=False) -> None:
         ...
 
     @overload
@@ -5620,7 +5527,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawText(self, text: str, pt: wx.Point) -> None:
+    def DrawText(self, text: str, pt: Union[wx.Point, _TwoInts]) -> None:
         ...
 
     @overload
@@ -5649,7 +5556,7 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawRotatedText(self, text: str, pt: wx.Point, angle: float) -> None:
+    def DrawRotatedText(self, text: str, pt: Union[wx.Point, _TwoInts], angle: float) -> None:
         ...
 
     @overload
@@ -5663,11 +5570,11 @@ class PseudoDC(wx.Object):
         """
 
     @overload
-    def DrawLabel(self, text: str, image: wx.Bitmap, rect: wx.Rect, alignment: int=wx.ALIGN_LEFT|wx.ALIGN_TOP, indexAccel: int=-1) -> None:
+    def DrawLabel(self, text: str, image: wx.Bitmap, rect: Union[wx.Rect, _FourInts], alignment: int=wx.ALIGN_LEFT|wx.ALIGN_TOP, indexAccel: int=-1) -> None:
         ...
 
     @overload
-    def DrawLabel(self, text: str, rect: wx.Rect, alignment: int=wx.ALIGN_LEFT|wx.ALIGN_TOP, indexAccel: int=-1) -> None:
+    def DrawLabel(self, text: str, rect: Union[wx.Rect, _FourInts], alignment: int=wx.ALIGN_LEFT|wx.ALIGN_TOP, indexAccel: int=-1) -> None:
         """
         DrawLabel(text, rect, alignment=wx.ALIGN_LEFT|wx.ALIGN_TOP, indexAccel=-1) -> None
         DrawLabel(text, image, rect, alignment=wx.ALIGN_LEFT|wx.ALIGN_TOP, indexAccel=-1) -> None
@@ -5736,21 +5643,21 @@ class PseudoDC(wx.Object):
         will be drawn with a background colour or not.
         """
 
-    def SetTextForeground(self, colour: wx.Colour) -> None:
+    def SetTextForeground(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetTextForeground(colour) -> None
         
         Sets the current text foreground colour for the DC.
         """
 
-    def SetTextBackground(self, colour: wx.Colour) -> None:
+    def SetTextBackground(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetTextBackground(colour) -> None
         
         Sets the current text background colour for the DC.
         """
 
-    def SetLogicalFunction(self, function: wx.RasterOperationMode) -> None:
+    def SetLogicalFunction(self, function: Union[wx.RasterOperationMode, int]) -> None:
         """
         SetLogicalFunction(function) -> None
         
@@ -5770,7 +5677,7 @@ class PseudoDC(wx.Object):
         colour.
         """
 
-    def DrawLines(self, points: PointList, xoffset: int=0, yoffset: int=0) -> None:
+    def DrawLines(self, points: Union[wx.PointList, Sequence[Union[wx.Point, _TwoInts]]], xoffset: int=0, yoffset: int=0) -> None:
         """
         DrawLines(points, xoffset=0, yoffset=0) -> None
         
@@ -5779,7 +5686,7 @@ class PseudoDC(wx.Object):
         lines.
         """
 
-    def DrawPolygon(self, points: PointList, xoffset: int=0, yoffset: int=0, fillStyle: wx.PolygonFillMode=wx.ODDEVEN_RULE) -> None:
+    def DrawPolygon(self, points: Union[wx.PointList, Sequence[Union[wx.Point, _TwoInts]]], xoffset: int=0, yoffset: int=0, fillStyle: Union[wx.PolygonFillMode, int]=wx.ODDEVEN_RULE) -> None:
         """
         DrawPolygon(points, xoffset=0, yoffset=0, fillStyle=wx.ODDEVEN_RULE) -> None
         
@@ -5793,7 +5700,7 @@ class PseudoDC(wx.Object):
         points.
         """
 
-    def DrawSpline(self, points: PointList) -> None:
+    def DrawSpline(self, points: Union[wx.PointList, Sequence[Union[wx.Point, _TwoInts]]]) -> None:
         """
         DrawSpline(points) -> None
         
@@ -5829,25 +5736,26 @@ class PseudoDC(wx.Object):
 
 #-- end-pseudodc --#
 #-- begin-propdlg --#
+import wx.siplib
 
-class _PropertySheetDialogFlags(IntFlag):
-    PROPSHEET_DEFAULT = auto()
-    PROPSHEET_NOTEBOOK = auto()
-    PROPSHEET_TOOLBOOK = auto()
-    PROPSHEET_CHOICEBOOK = auto()
-    PROPSHEET_LISTBOOK = auto()
-    PROPSHEET_BUTTONTOOLBOOK = auto()
-    PROPSHEET_TREEBOOK = auto()
-    PROPSHEET_SHRINKTOFIT = auto()
-PropertySheetDialogFlags: TypeAlias = Union[_PropertySheetDialogFlags, int]
-PROPSHEET_DEFAULT = _PropertySheetDialogFlags.PROPSHEET_DEFAULT
-PROPSHEET_NOTEBOOK = _PropertySheetDialogFlags.PROPSHEET_NOTEBOOK
-PROPSHEET_TOOLBOOK = _PropertySheetDialogFlags.PROPSHEET_TOOLBOOK
-PROPSHEET_CHOICEBOOK = _PropertySheetDialogFlags.PROPSHEET_CHOICEBOOK
-PROPSHEET_LISTBOOK = _PropertySheetDialogFlags.PROPSHEET_LISTBOOK
-PROPSHEET_BUTTONTOOLBOOK = _PropertySheetDialogFlags.PROPSHEET_BUTTONTOOLBOOK
-PROPSHEET_TREEBOOK = _PropertySheetDialogFlags.PROPSHEET_TREEBOOK
-PROPSHEET_SHRINKTOFIT = _PropertySheetDialogFlags.PROPSHEET_SHRINKTOFIT
+@final
+class PropertySheetDialogFlags(int, metaclass=wx.siplib.enumtype):
+    PROPSHEET_DEFAULT: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_NOTEBOOK: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_TOOLBOOK: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_CHOICEBOOK: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_LISTBOOK: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_BUTTONTOOLBOOK: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_TREEBOOK: ClassVar[PropertySheetDialogFlags]
+    PROPSHEET_SHRINKTOFIT: ClassVar[PropertySheetDialogFlags]
+PROPSHEET_DEFAULT: PropertySheetDialogFlags
+PROPSHEET_NOTEBOOK: PropertySheetDialogFlags
+PROPSHEET_TOOLBOOK: PropertySheetDialogFlags
+PROPSHEET_CHOICEBOOK: PropertySheetDialogFlags
+PROPSHEET_LISTBOOK: PropertySheetDialogFlags
+PROPSHEET_BUTTONTOOLBOOK: PropertySheetDialogFlags
+PROPSHEET_TREEBOOK: PropertySheetDialogFlags
+PROPSHEET_SHRINKTOFIT: PropertySheetDialogFlags
 
 class PropertySheetDialog(wx.Dialog):
     """
@@ -5859,7 +5767,7 @@ class PropertySheetDialog(wx.Dialog):
     """
 
     @overload
-    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.DEFAULT_DIALOG_STYLE, name: str=wx.DialogNameStr) -> None:
+    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.DEFAULT_DIALOG_STYLE, name: str=...) -> None:
         ...
 
     @overload
@@ -5880,7 +5788,7 @@ class PropertySheetDialog(wx.Dialog):
         from the standard way (for example, using different spacing).
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.DEFAULT_DIALOG_STYLE, name: str=wx.DialogNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.DEFAULT_DIALOG_STYLE, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, title='', pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.DEFAULT_DIALOG_STYLE, name=wx.DialogNameStr) -> bool
         
@@ -5992,7 +5900,7 @@ class PropertySheetDialog(wx.Dialog):
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """

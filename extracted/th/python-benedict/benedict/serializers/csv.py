@@ -27,7 +27,8 @@ class CSVSerializer(AbstractSerializer[str, list[dict[str, Any]]]):
             kwargs.setdefault("quoting", csv.QUOTE_ALL)
         columns = kwargs.pop("columns", None)
         columns_row = kwargs.pop("columns_row", True)
-        f = StringIO(s)
+        # let csv handle line endings and preserve newlines in quoted fields
+        f = StringIO(s, newline="")
         r = csv.reader(f, **kwargs)
         ln = 0
         data = []
@@ -50,13 +51,15 @@ class CSVSerializer(AbstractSerializer[str, list[dict[str, Any]]]):
         kwargs.setdefault("lineterminator", "\n")
         columns = kwargs.pop("columns", None)
         columns_row = kwargs.pop("columns_row", True)
+        headers = columns
         if not columns and len(ls) and type_util.is_dict(ls[0]):
-            keys = [str(key) for key in ls[0].keys()]
-            columns = sorted(keys)
+            # keep original keys for values lookup, use their string labels as headers
+            columns = sorted(ls[0].keys(), key=str)
+            headers = [str(key) for key in columns]
         f = StringIO()
         w = csv.writer(f, **kwargs)
         if columns_row and columns:
-            w.writerow(columns)
+            w.writerow(headers)
         for item in ls:
             if type_util.is_dict(item):
                 row = [item.get(key, "") for key in columns]

@@ -34,7 +34,7 @@ class MuteRuleDataCreate(ModelNormal):
 
     def __init__(self_, attributes: MuteRuleAttributesCreate, type: MuteRuleType, **kwargs):
         """
-        The data object for a mute rule create or update request.
+        The data object for a mute rule create request.
 
         :param attributes: Attributes for creating or updating a mute rule.
         :type attributes: MuteRuleAttributesCreate

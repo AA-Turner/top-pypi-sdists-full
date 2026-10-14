@@ -94,6 +94,7 @@ from trilogy.core.models.datasource import Address, Datasource, RawColumnExpr
 from trilogy.core.models.environment import Environment
 from trilogy.core.models.execute import (
     CTE,
+    INVALID_ALIAS_PREFIX,
     CompiledCTE,
     DatasourceCTE,
     Join,
@@ -609,9 +610,17 @@ def hash_from_args(val, hash_type):
         raise ValueError(f"Unsupported hash type: {hash_type}")
 
 
+def render_prior(args: list[str], types: list[Any]) -> str:
+    raise InvalidSyntaxException(
+        "prior() is only valid inside a datasource `assert` clause, where it"
+        " is evaluated against the asset being replaced; it has no SQL form."
+    )
+
+
 FUNCTION_MAP = {
     # generic types
     FunctionType.ALIAS: lambda x, types: f"{x[0]}",
+    FunctionType.PRIOR: render_prior,
     FunctionType.GROUP: lambda x, types: f"{x[0]}",
     FunctionType.GRAIN_PIN: lambda x, types: f"({x[0]})",
     FunctionType.CONSTANT: lambda x, types: f"{x[0]}",
@@ -1013,7 +1022,7 @@ class BaseDialect:
         columns. The rendered WHERE is unchanged either way, so returning None
         only costs the optimization.
         """
-        if address.type != AddressType.PYTHON_SCRIPT or not isinstance(cte, CTE):
+        if not address.type.is_program or not isinstance(cte, CTE):
             return None
         if isinstance(cte, DatasourceCTE):
             datasource = cte.datasource
@@ -1277,7 +1286,7 @@ class BaseDialect:
                             continue
                         rendered = cte.get_alias(member, source)
                         if isinstance(rendered, str) and rendered.startswith(
-                            "INVALID_ALIAS:"
+                            INVALID_ALIAS_PREFIX
                         ):
                             continue
                         self.used_map[source].add(member.address)
@@ -1334,6 +1343,13 @@ class BaseDialect:
             return rendered.text
         if isinstance(rendered, FUNCTION_ITEMS):
             return self.render_expr(rendered, cte=cte, raise_invalid=raise_invalid)
+        if isinstance(rendered, str) and rendered.startswith(INVALID_ALIAS_PREFIX):
+            if raise_invalid:
+                raise ValueError(rendered)
+            # The strict-mode guard extracts `<reason>`; the message's own
+            # angle brackets (`Grain<...>`) would cut it short.
+            reason = rendered.removeprefix(INVALID_ALIAS_PREFIX).lstrip(": ")
+            return INVALID_REFERENCE_STRING(reason.replace("<", "(").replace(">", ")"))
         # Translate the source_map token to the actual SQL alias: identity for
         # a normal CTE, the raw-table alias for an inlined DatasourceCTE.
         alias = cte.source_key_for(source) if isinstance(cte, CTE) else source

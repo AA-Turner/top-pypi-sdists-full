@@ -13,6 +13,7 @@ from photutils.utils._deprecation import (create_empty_deprecated_qtable,
                                           deprecated_getattr,
                                           deprecated_positional_kwargs)
 from photutils.utils._misc import _get_meta
+from photutils.utils._parameters import validate_table_columns
 
 __all__ = ['Isophote', 'IsophoteList']
 
@@ -49,7 +50,7 @@ class Isophote:
         The fitting stop code:
 
            *  0: Normal.
-           *  1: Fewer than the pre-specified fraction of the extracted
+           *  1: Fewer than the prespecified fraction of the extracted
               data points are valid.
            *  2: Exceeded maximum number of iterations.
            *  3: Singular matrix in harmonic fit, results may not be
@@ -61,7 +62,7 @@ class Isophote:
               used when the user turns off the fitting algorithm
               via the ``maxrit`` fitting parameter (see the
               `~photutils.isophote.Ellipse` class).
-           *  5: Ellipse diverged; not even the minimum number of
+           *  5: Ellipse diverged. Not even the minimum number of
               iterations could be executed. Subsequent ellipses at
               larger or smaller semimajor axis may have the same
               constant geometric parameters.
@@ -137,6 +138,30 @@ class Isophote:
 
         if sample.geometry.sma > 0:
             self.intens = sample.mean
+            if sample.actual_points == 0:
+                # No valid sampled points (e.g., a trial geometry that
+                # fell entirely outside the image). Operating on the
+                # empty sample arrays would emit numpy warnings (e.g.,
+                # "Mean of empty slice"), so set nonmeaningful values
+                # directly and skip the harmonic computations. Such a
+                # degenerate isophote is transient. It is either
+                # discarded or replaced by `_fix_last_isophote`.
+                self.rms = np.nan
+                self.int_err = np.nan
+                self.pix_stddev = np.nan
+                self.grad = sample.gradient
+                self.gradient_err = sample.gradient_err
+                self.gradient_rel_err = sample.gradient_rel_err
+                self.sarea = sample.sector_area
+                self.n_data = sample.actual_points
+                self.n_flag = sample.total_points - sample.actual_points
+                self.tflux_e = self.tflux_c = 0.0
+                self.npix_e = self.npix_c = 0
+                self.x0_err = self.y0_err = self.pa_err = self.ellip_err = 0.0
+                self.a3 = self.b3 = self.a3_err = self.b3_err = None
+                self.a4 = self.b4 = self.a4_err = self.b4_err = None
+                return
+
             self.rms = np.std(sample.values[2])
             self.int_err = self.rms / np.sqrt(sample.actual_points)
             self.pix_stddev = self.rms * np.sqrt(sample.sector_area)
@@ -251,7 +276,7 @@ class Isophote:
         Compute integrated flux inside ellipse, as well as inside a
         circle defined with the same semimajor axis.
 
-        Pixels in a square section enclosing circle are scanned; the
+        Pixels in a square section enclosing circle are scanned. The
         distance of each pixel to the isophote center is compared both
         with the semimajor axis length and with the length of the
         ellipse radius vector, and integrals are updated if the pixel
@@ -355,7 +380,7 @@ class Isophote:
             # parameter errors result from direct projection of
             # coefficient errors. These showed to be the error estimators
             # that best convey the errors measured in Monte Carlo
-            # experiments (see Busko 1996; ASPC 101, 139).
+            # experiments (see Busko 1996, ASPC 101, 139).
             ea = abs(errors[2] / self.grad)
             eb = abs(errors[1] * (1.0 - eps) / self.grad)
             self.x0_err = np.sqrt((ea * np.cos(pa))**2 + (eb * np.sin(pa))**2)
@@ -919,17 +944,45 @@ def _get_properties(isophote_list):
     result : dict
         An dictionary with the list of the isophote_list properties.
     """
-    # deprecated IsophoteList property names to exclude
-    _deprecated_props = {'npix_e', 'npix_c'}
-
     properties = {}
     for an_item in isophote_list.__class__.__dict__:
         p_type = isophote_list.__class__.__dict__[an_item]
-        # Exclude the sample property and deprecated properties
-        if (isinstance(p_type, property) and 'sample' not in an_item
-                and an_item not in _deprecated_props):
+        # Exclude the sample property
+        if isinstance(p_type, property) and 'sample' not in an_item:
             properties[str(an_item)] = str(an_item)
     return properties
+
+
+# The "main" isophote_list properties included in to_table() by default.
+_MAIN_PROPERTIES = ('sma', 'intens', 'int_err', 'eps', 'ellip_err',
+                    'pa', 'pa_err', 'grad', 'gradient_err',
+                    'gradient_rel_err', 'x0', 'x0_err', 'y0', 'y0_err',
+                    'n_data', 'n_flag', 'n_iter', 'stop_code')
+
+# Isophote_list property names renamed for their to_table() column names.
+_RENAME_MAP = {
+    'int_err': 'intens_err',
+    'eps': 'ellipticity',
+    'ellip_err': 'ellipticity_err',
+}
+
+
+def _rename_properties(names):
+    """
+    Map isophote_list property names to their to_table() column names.
+
+    Parameters
+    ----------
+    names : iterable of str
+        The isophote_list property names.
+
+    Returns
+    -------
+    properties : dict
+        A dictionary mapping each property name to its (possibly
+        renamed) table column name.
+    """
+    return {name: _RENAME_MAP.get(name, name) for name in names}
 
 
 def _isophote_list_to_table(isophote_list, *, columns='main'):
@@ -943,23 +996,30 @@ def _isophote_list_to_table(isophote_list, *, columns='main'):
             `~photutils.isophote.IsophoteList` instance
         A list of isophotes.
 
-    columns : list of str
+    columns : 'main', 'all', or list of str
         A list of properties to export from the ``isophote_list``. If
         ``columns`` is 'all' or 'main', it will pick all or few of the
-        main properties.
+        main properties. 'all' and 'main' must be passed by themselves
+        and not in a list containing other column names. The default is
+        'main'.
 
     Returns
     -------
     result : `~astropy.table.QTable`
         An astropy QTable with the selected or all isophote parameters.
-    """
-    properties = {}
 
-    # Remove in 4.0
-    _deprecation_map = {
-        'grad_error': 'gradient_err',
-        'grad_rerror': 'gradient_rel_err',
-    }
+    Raises
+    ------
+    ValueError
+        If any name in ``columns`` is not a valid (or deprecated)
+        column name.
+    """
+    _deprecation_map = _DEPRECATED_ATTRIBUTES.copy()
+    all_names = _get_properties(isophote_list).keys()
+
+    allowed_columns = {*all_names, 'main', 'all'}
+    table_columns = validate_table_columns(
+        columns, allowed_columns, deprecated_names=_deprecation_map)
 
     # Replace with QTable in 4.0
     isotable = create_empty_deprecated_qtable(
@@ -967,58 +1027,17 @@ def _isophote_list_to_table(isophote_list, *, columns='main'):
 
     isotable.meta.update(_get_meta())  # keep isotable.meta type
 
-    # main_properties: `List`
-    # A list of main parameters matching the original names of
-    # the isophote_list parameters
-
-    def __rename_properties(properties, *,
-                            orig_names=('int_err', 'eps', 'ellip_err',
-                                        'n_flag'),
-                            new_names=('intens_err', 'ellipticity',
-                                       'ellipticity_err', 'n_flag')):
-        """
-        Simple renaming for some of the isophote_list parameters.
-
-        Parameters
-        ----------
-        properties : dict
-            A dictionary with the list of the isophote_list parameters.
-
-        orig_names : list
-            A list of original names in the isophote_list parameters to
-            be renamed.
-
-        new_names : list
-            A list of new names matching in length of the orig_names.
-
-        Returns
-        -------
-        properties : dict
-            A dictionary with the list of the renamed isophote_list
-            parameters.
-        """
-        main_properties = ['sma', 'intens', 'int_err', 'eps', 'ellip_err',
-                           'pa', 'pa_err', 'grad', 'gradient_err',
-                           'gradient_rel_err', 'x0', 'x0_err', 'y0',
-                           'y0_err', 'n_data', 'n_flag', 'n_iter',
-                           'stop_code']
-
-        for an_item in main_properties:
-            if an_item in orig_names:
-                properties[an_item] = new_names[orig_names.index(an_item)]
-            else:
-                properties[an_item] = an_item
-        return properties
-
-    if columns == 'all':
-        properties = _get_properties(isophote_list)
-        properties = __rename_properties(properties)
-
-    elif columns == 'main':
-        properties = __rename_properties(properties)
+    if table_columns == ['all']:
+        properties = _rename_properties(all_names)
+    elif table_columns == ['main']:
+        properties = _rename_properties(_MAIN_PROPERTIES)
     else:
-        for an_item in columns:
-            properties[an_item] = an_item
+        # Use the canonical (nondeprecated) column name so that
+        # assigning into ``isotable`` does not trigger a second,
+        # redundant deprecation warning (the deprecated attribute access
+        # below already warns once).
+        properties = {name: _deprecation_map.get(name, name)
+                      for name in table_columns}
 
     for k, v in properties.items():
         isotable[v] = np.array([getattr(iso, k) for iso in isophote_list])

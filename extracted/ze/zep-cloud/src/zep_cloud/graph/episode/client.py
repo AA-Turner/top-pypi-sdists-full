@@ -3,13 +3,20 @@
 import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
+from ...types.add_episode_result import AddEpisodeResult
+from ...types.async_result import AsyncResult
 from ...types.episode import Episode
-from ...types.episode_mentions import EpisodeMentions
-from ...types.episode_response import EpisodeResponse
-from ...types.metadata_filter_group import MetadataFilterGroup
-from ...types.success_response import SuccessResponse
+from ...types.episode_debug_log import EpisodeDebugLog
+from ...types.episode_list_filters import EpisodeListFilters
+from ...types.episode_page import EpisodePage
+from ...types.ingestion_trace import IngestionTrace
+from ...types.ingestion_trace_page import IngestionTracePage
 from .raw_client import AsyncRawEpisodeClient, RawEpisodeClient
+from .types.add_episode_request_type import AddEpisodeRequestType
+from .types.episode_list_request_order import EpisodeListRequestOrder
+from .types.episode_list_request_order_by import EpisodeListRequestOrderBy
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -30,98 +37,37 @@ class EpisodeClient:
         """
         return self._raw_client
 
-    def get_by_graph_id(
+    def list_for_document(
         self,
-        graph_id: str,
+        graph_uuid: str,
+        document_id: str,
         *,
-        lastn: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EpisodeResponse:
+    ) -> SyncPager[Episode, EpisodePage]:
         """
-        Returns episodes by graph id.
-
         Parameters
         ----------
-        graph_id : str
-            Graph ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        lastn : typing.Optional[int]
-            The number of most recent episodes to retrieve.
+        document_id : str
+            Document ID
 
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EpisodeResponse
-            Episodes
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.graph.episode.get_by_graph_id(
-            graph_id="graph_id",
-            lastn=1,
-        )
-        """
-        _response = self._raw_client.get_by_graph_id(graph_id, lastn=lastn, request_options=request_options)
-        return _response.data
-
-    def list_by_graph_id(
-        self,
-        graph_id: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        episode_metadata_filters: typing.Optional[MetadataFilterGroup] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        mentioned_node_uuids: typing.Optional[typing.Sequence[str]] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Episode]:
-        """
-        Returns a paginated, filterable list of episodes for a graph.
-
-        Parameters
-        ----------
-        graph_id : str
-            Graph ID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
         cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor
-            response header of the previous page.
-
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc". Defaults to "desc".
-
-        episode_metadata_filters : typing.Optional[MetadataFilterGroup]
-            Restricts results to episodes whose stored metadata matches this
-            predicate. Same type and limits as graph.search episode_metadata_filters.
-
-        limit : typing.Optional[int]
-            Maximum number of episodes to return. An explicit value is clamped to
-            50; when omitted, the default page size (100) applies.
-
-        mentioned_node_uuids : typing.Optional[typing.Sequence[str]]
-            Restricts results to episodes that mention any of the listed node
-            UUIDs. The list can also contain episode UUIDs: an episode UUID
-            matches that episode, so one request can return a known set of
-            episodes. At most 256 entries; each must be a syntactically valid UUID.
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "uuid" or "created_at". Defaults to "uuid".
+            Opaque page cursor
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[Episode]
-            Episodes
+        SyncPager[Episode, EpisodePage]
+            OK
 
         Examples
         --------
@@ -130,114 +76,145 @@ class EpisodeClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.graph.episode.list_by_graph_id(
-            graph_id="graph_id",
+        response = client.graph.episode.list_for_document(
+            graph_uuid="graph_uuid",
+            document_id="document_id",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_for_document(
+            graph_uuid, document_id, page_size=page_size, cursor=cursor, request_options=request_options
+        )
+
+    def add(
+        self,
+        graph_uuid: str,
+        *,
+        data: str,
+        document_id: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        reference_time: typing.Optional[str] = OMIT,
+        source_description: typing.Optional[str] = OMIT,
+        strict_ontology: typing.Optional[bool] = OMIT,
+        type: typing.Optional[AddEpisodeRequestType] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AddEpisodeResult:
+        """
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        data : str
+            The episode content to add to the graph.
+
+        document_id : typing.Optional[str]
+            Groups this episode as a chunk of a document on the graph.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to store on the episode. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
+
+        reference_time : typing.Optional[str]
+            The episode's reference time, used for temporal reasoning rather than
+            ingestion time. Defaults to the ingestion time.
+
+        source_description : typing.Optional[str]
+            A description of the source of this episode.
+
+        strict_ontology : typing.Optional[bool]
+            When true, prevents extraction of generic entity nodes that do not match
+            the configured ontology.
+
+        type : typing.Optional[AddEpisodeRequestType]
+            The data format of the episode: text, json, or message. Defaults to text.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AddEpisodeResult
+            Accepted
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        client.graph.episode.add(
+            graph_uuid="graph_uuid",
+            data="data",
         )
         """
-        _response = self._raw_client.list_by_graph_id(
-            graph_id,
-            cursor=cursor,
-            direction=direction,
-            episode_metadata_filters=episode_metadata_filters,
-            limit=limit,
-            mentioned_node_uuids=mentioned_node_uuids,
-            order_by=order_by,
+        _response = self._raw_client.add(
+            graph_uuid,
+            data=data,
+            document_id=document_id,
+            metadata=metadata,
+            reference_time=reference_time,
+            source_description=source_description,
+            strict_ontology=strict_ontology,
+            type=type,
+            idempotency_key=idempotency_key,
             request_options=request_options,
         )
         return _response.data
 
-    def get_by_user_id(
+    def list(
         self,
-        user_id: str,
+        graph_uuid: str,
         *,
-        lastn: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[EpisodeListRequestOrderBy] = None,
+        order: typing.Optional[EpisodeListRequestOrder] = None,
+        filters: typing.Optional[EpisodeListFilters] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EpisodeResponse:
+    ) -> SyncPager[Episode, EpisodePage]:
         """
-        Returns episodes by user id.
+        Lists the episodes of a graph. `filters.mentioned_node_uuids` restricts
+        the results to episodes that mention any of the listed node UUIDs. The
+        list can also contain episode UUIDs: an episode UUID matches that episode,
+        so one request can return a known set of episodes. At most 256 entries.
+        `filters.metadata_filters` restricts the results to episodes whose stored
+        metadata matches the predicate.
 
         Parameters
         ----------
-        user_id : str
-            User ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        lastn : typing.Optional[int]
-            The number of most recent episodes entries to retrieve.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EpisodeResponse
-            Episodes
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.graph.episode.get_by_user_id(
-            user_id="user_id",
-            lastn=1,
-        )
-        """
-        _response = self._raw_client.get_by_user_id(user_id, lastn=lastn, request_options=request_options)
-        return _response.data
-
-    def list_by_user_id(
-        self,
-        user_id: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        episode_metadata_filters: typing.Optional[MetadataFilterGroup] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        mentioned_node_uuids: typing.Optional[typing.Sequence[str]] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Episode]:
-        """
-        Returns a paginated, filterable list of episodes for a user's graph.
-
-        Parameters
-        ----------
-        user_id : str
-            User ID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
         cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor
-            response header of the previous page.
+            Opaque page cursor
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc". Defaults to "desc".
+        order_by : typing.Optional[EpisodeListRequestOrderBy]
+            Sort field
 
-        episode_metadata_filters : typing.Optional[MetadataFilterGroup]
-            Restricts results to episodes whose stored metadata matches this
-            predicate. Same type and limits as graph.search episode_metadata_filters.
+        order : typing.Optional[EpisodeListRequestOrder]
+            Sort direction: asc or desc
 
-        limit : typing.Optional[int]
-            Maximum number of episodes to return. An explicit value is clamped to
-            50; when omitted, the default page size (100) applies.
-
-        mentioned_node_uuids : typing.Optional[typing.Sequence[str]]
-            Restricts results to episodes that mention any of the listed node
-            UUIDs. The list can also contain episode UUIDs: an episode UUID
-            matches that episode, so one request can return a known set of
-            episodes. At most 256 entries; each must be a syntactically valid UUID.
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "uuid" or "created_at". Defaults to "uuid".
+        filters : typing.Optional[EpisodeListFilters]
+            Filters that limit the episodes in the list.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[Episode]
-            Episodes
+        SyncPager[Episode, EpisodePage]
+            OK
 
         Examples
         --------
@@ -246,29 +223,35 @@ class EpisodeClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.graph.episode.list_by_user_id(
-            user_id="user_id",
+        response = client.graph.episode.list(
+            graph_uuid="graph_uuid",
         )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list_by_user_id(
-            user_id,
+        return self._raw_client.list(
+            graph_uuid,
+            page_size=page_size,
             cursor=cursor,
-            direction=direction,
-            episode_metadata_filters=episode_metadata_filters,
-            limit=limit,
-            mentioned_node_uuids=mentioned_node_uuids,
             order_by=order_by,
+            order=order,
+            filters=filters,
             request_options=request_options,
         )
-        return _response.data
 
-    def get(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> Episode:
+    def get(
+        self, graph_uuid: str, episode_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> Episode:
         """
-        Returns episodes by UUID
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
             Episode UUID
 
         request_options : typing.Optional[RequestOptions]
@@ -277,7 +260,7 @@ class EpisodeClient:
         Returns
         -------
         Episode
-            Episode
+            OK
 
         Examples
         --------
@@ -287,28 +270,39 @@ class EpisodeClient:
             api_key="YOUR_API_KEY",
         )
         client.graph.episode.get(
-            uuid_="uuid",
+            graph_uuid="graph_uuid",
+            episode_uuid="episode_uuid",
         )
         """
-        _response = self._raw_client.get(uuid_, request_options=request_options)
+        _response = self._raw_client.get(graph_uuid, episode_uuid, request_options=request_options)
         return _response.data
 
-    def delete(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> SuccessResponse:
+    def delete(
+        self,
+        graph_uuid: str,
+        episode_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncResult:
         """
-        Deletes an episode by its UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
             Episode UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SuccessResponse
-            Episode deleted
+        AsyncResult
+            Accepted
 
         Examples
         --------
@@ -318,29 +312,37 @@ class EpisodeClient:
             api_key="YOUR_API_KEY",
         )
         client.graph.episode.delete(
-            uuid_="uuid",
+            graph_uuid="graph_uuid",
+            episode_uuid="episode_uuid",
         )
         """
-        _response = self._raw_client.delete(uuid_, request_options=request_options)
+        _response = self._raw_client.delete(
+            graph_uuid, episode_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     def update(
         self,
-        uuid_: str,
+        graph_uuid: str,
+        episode_uuid: str,
         *,
-        metadata: typing.Dict[str, typing.Optional[typing.Any]],
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Episode:
         """
-        Update episode metadata with merge semantics. Supplied keys overwrite or add to existing metadata; keys set to null are removed.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
             Episode UUID
 
-        metadata : typing.Dict[str, typing.Optional[typing.Any]]
-            Updated metadata. Merged with existing metadata: supplied keys overwrite/add, keys set to null are removed. Maximum 10 keys. Values must be scalars (string, number, boolean, null) or arrays of scalars.
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to merge onto the episode; a key set to null is removed. Max 10 keys after the merge. Values must be strings, numbers, booleans, or arrays of scalars.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -348,7 +350,7 @@ class EpisodeClient:
         Returns
         -------
         Episode
-            Updated episode
+            OK
 
         Examples
         --------
@@ -358,31 +360,40 @@ class EpisodeClient:
             api_key="YOUR_API_KEY",
         )
         client.graph.episode.update(
-            uuid_="uuid",
-            metadata={"key": "value"},
+            graph_uuid="graph_uuid",
+            episode_uuid="episode_uuid",
         )
         """
-        _response = self._raw_client.update(uuid_, metadata=metadata, request_options=request_options)
+        _response = self._raw_client.update(
+            graph_uuid,
+            episode_uuid,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
         return _response.data
 
-    def get_nodes_and_edges(
-        self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> EpisodeMentions:
+    def get_debug_logs(
+        self, graph_uuid: str, episode_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> EpisodeDebugLog:
         """
-        Deprecated. Use edge and node listing with `filters.episode_uuids` instead. Returns nodes and edges mentioned in an episode, subject to an internal cap; responses reduced by that cap set the Zep-Truncated header.
+        Returns the ingestion workflow log of an episode. The log exists only when debug logging was enabled for the project when the episode was ingested (see `debug_log.enable`). The log holds episode content, so an API key with an ABAC policy needs an explicit grant of this action; the `readonly` macro does not grant it.
 
         Parameters
         ----------
-        uuid_ : str
-            Episode uuid
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
+            Episode UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        EpisodeMentions
-            Edges and nodes mentioned in an episode
+        EpisodeDebugLog
+            OK
 
         Examples
         --------
@@ -391,12 +402,68 @@ class EpisodeClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.graph.episode.get_nodes_and_edges(
-            uuid_="uuid",
+        client.graph.episode.get_debug_logs(
+            graph_uuid="graph_uuid",
+            episode_uuid="episode_uuid",
         )
         """
-        _response = self._raw_client.get_nodes_and_edges(uuid_, request_options=request_options)
+        _response = self._raw_client.get_debug_logs(graph_uuid, episode_uuid, request_options=request_options)
         return _response.data
+
+    def list_ingestion_traces(
+        self,
+        graph_uuid: str,
+        episode_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[IngestionTrace, IngestionTracePage]:
+        """
+        Returns the ingestion traces of an episode, oldest first. Each trace records the input and the output of one ingestion step, with an explanation on each output entry that has one. Traces exist only when ingestion tracing was enabled for the project when the episode was ingested (see `debug_log.enable`). An episode with no traces returns a page with an empty `items` array. Traces hold episode content, prompt input, and model output, so an API key with an ABAC policy needs an explicit grant of this action; the `readonly` macro does not grant it.
+
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
+            Episode UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[IngestionTrace, IngestionTracePage]
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        response = client.graph.episode.list_ingestion_traces(
+            graph_uuid="graph_uuid",
+            episode_uuid="episode_uuid",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_ingestion_traces(
+            graph_uuid, episode_uuid, page_size=page_size, cursor=cursor, request_options=request_options
+        )
 
 
 class AsyncEpisodeClient:
@@ -414,106 +481,37 @@ class AsyncEpisodeClient:
         """
         return self._raw_client
 
-    async def get_by_graph_id(
+    async def list_for_document(
         self,
-        graph_id: str,
+        graph_uuid: str,
+        document_id: str,
         *,
-        lastn: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EpisodeResponse:
+    ) -> AsyncPager[Episode, EpisodePage]:
         """
-        Returns episodes by graph id.
-
         Parameters
         ----------
-        graph_id : str
-            Graph ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        lastn : typing.Optional[int]
-            The number of most recent episodes to retrieve.
+        document_id : str
+            Document ID
 
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EpisodeResponse
-            Episodes
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.graph.episode.get_by_graph_id(
-                graph_id="graph_id",
-                lastn=1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_by_graph_id(graph_id, lastn=lastn, request_options=request_options)
-        return _response.data
-
-    async def list_by_graph_id(
-        self,
-        graph_id: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        episode_metadata_filters: typing.Optional[MetadataFilterGroup] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        mentioned_node_uuids: typing.Optional[typing.Sequence[str]] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Episode]:
-        """
-        Returns a paginated, filterable list of episodes for a graph.
-
-        Parameters
-        ----------
-        graph_id : str
-            Graph ID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
         cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor
-            response header of the previous page.
-
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc". Defaults to "desc".
-
-        episode_metadata_filters : typing.Optional[MetadataFilterGroup]
-            Restricts results to episodes whose stored metadata matches this
-            predicate. Same type and limits as graph.search episode_metadata_filters.
-
-        limit : typing.Optional[int]
-            Maximum number of episodes to return. An explicit value is clamped to
-            50; when omitted, the default page size (100) applies.
-
-        mentioned_node_uuids : typing.Optional[typing.Sequence[str]]
-            Restricts results to episodes that mention any of the listed node
-            UUIDs. The list can also contain episode UUIDs: an episode UUID
-            matches that episode, so one request can return a known set of
-            episodes. At most 256 entries; each must be a syntactically valid UUID.
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "uuid" or "created_at". Defaults to "uuid".
+            Opaque page cursor
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[Episode]
-            Episodes
+        AsyncPager[Episode, EpisodePage]
+            OK
 
         Examples
         --------
@@ -527,125 +525,157 @@ class AsyncEpisodeClient:
 
 
         async def main() -> None:
-            await client.graph.episode.list_by_graph_id(
-                graph_id="graph_id",
+            response = await client.graph.episode.list_for_document(
+                graph_uuid="graph_uuid",
+                document_id="document_id",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_for_document(
+            graph_uuid, document_id, page_size=page_size, cursor=cursor, request_options=request_options
+        )
+
+    async def add(
+        self,
+        graph_uuid: str,
+        *,
+        data: str,
+        document_id: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        reference_time: typing.Optional[str] = OMIT,
+        source_description: typing.Optional[str] = OMIT,
+        strict_ontology: typing.Optional[bool] = OMIT,
+        type: typing.Optional[AddEpisodeRequestType] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AddEpisodeResult:
+        """
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        data : str
+            The episode content to add to the graph.
+
+        document_id : typing.Optional[str]
+            Groups this episode as a chunk of a document on the graph.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to store on the episode. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
+
+        reference_time : typing.Optional[str]
+            The episode's reference time, used for temporal reasoning rather than
+            ingestion time. Defaults to the ingestion time.
+
+        source_description : typing.Optional[str]
+            A description of the source of this episode.
+
+        strict_ontology : typing.Optional[bool]
+            When true, prevents extraction of generic entity nodes that do not match
+            the configured ontology.
+
+        type : typing.Optional[AddEpisodeRequestType]
+            The data format of the episode: text, json, or message. Defaults to text.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AddEpisodeResult
+            Accepted
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.graph.episode.add(
+                graph_uuid="graph_uuid",
+                data="data",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_by_graph_id(
-            graph_id,
-            cursor=cursor,
-            direction=direction,
-            episode_metadata_filters=episode_metadata_filters,
-            limit=limit,
-            mentioned_node_uuids=mentioned_node_uuids,
-            order_by=order_by,
+        _response = await self._raw_client.add(
+            graph_uuid,
+            data=data,
+            document_id=document_id,
+            metadata=metadata,
+            reference_time=reference_time,
+            source_description=source_description,
+            strict_ontology=strict_ontology,
+            type=type,
+            idempotency_key=idempotency_key,
             request_options=request_options,
         )
         return _response.data
 
-    async def get_by_user_id(
+    async def list(
         self,
-        user_id: str,
+        graph_uuid: str,
         *,
-        lastn: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[EpisodeListRequestOrderBy] = None,
+        order: typing.Optional[EpisodeListRequestOrder] = None,
+        filters: typing.Optional[EpisodeListFilters] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> EpisodeResponse:
+    ) -> AsyncPager[Episode, EpisodePage]:
         """
-        Returns episodes by user id.
+        Lists the episodes of a graph. `filters.mentioned_node_uuids` restricts
+        the results to episodes that mention any of the listed node UUIDs. The
+        list can also contain episode UUIDs: an episode UUID matches that episode,
+        so one request can return a known set of episodes. At most 256 entries.
+        `filters.metadata_filters` restricts the results to episodes whose stored
+        metadata matches the predicate.
 
         Parameters
         ----------
-        user_id : str
-            User ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        lastn : typing.Optional[int]
-            The number of most recent episodes entries to retrieve.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        EpisodeResponse
-            Episodes
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.graph.episode.get_by_user_id(
-                user_id="user_id",
-                lastn=1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_by_user_id(user_id, lastn=lastn, request_options=request_options)
-        return _response.data
-
-    async def list_by_user_id(
-        self,
-        user_id: str,
-        *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        episode_metadata_filters: typing.Optional[MetadataFilterGroup] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        mentioned_node_uuids: typing.Optional[typing.Sequence[str]] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Episode]:
-        """
-        Returns a paginated, filterable list of episodes for a user's graph.
-
-        Parameters
-        ----------
-        user_id : str
-            User ID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
         cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor
-            response header of the previous page.
+            Opaque page cursor
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc". Defaults to "desc".
+        order_by : typing.Optional[EpisodeListRequestOrderBy]
+            Sort field
 
-        episode_metadata_filters : typing.Optional[MetadataFilterGroup]
-            Restricts results to episodes whose stored metadata matches this
-            predicate. Same type and limits as graph.search episode_metadata_filters.
+        order : typing.Optional[EpisodeListRequestOrder]
+            Sort direction: asc or desc
 
-        limit : typing.Optional[int]
-            Maximum number of episodes to return. An explicit value is clamped to
-            50; when omitted, the default page size (100) applies.
-
-        mentioned_node_uuids : typing.Optional[typing.Sequence[str]]
-            Restricts results to episodes that mention any of the listed node
-            UUIDs. The list can also contain episode UUIDs: an episode UUID
-            matches that episode, so one request can return a known set of
-            episodes. At most 256 entries; each must be a syntactically valid UUID.
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "uuid" or "created_at". Defaults to "uuid".
+        filters : typing.Optional[EpisodeListFilters]
+            Filters that limit the episodes in the list.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[Episode]
-            Episodes
+        AsyncPager[Episode, EpisodePage]
+            OK
 
         Examples
         --------
@@ -659,32 +689,39 @@ class AsyncEpisodeClient:
 
 
         async def main() -> None:
-            await client.graph.episode.list_by_user_id(
-                user_id="user_id",
+            response = await client.graph.episode.list(
+                graph_uuid="graph_uuid",
             )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_by_user_id(
-            user_id,
+        return await self._raw_client.list(
+            graph_uuid,
+            page_size=page_size,
             cursor=cursor,
-            direction=direction,
-            episode_metadata_filters=episode_metadata_filters,
-            limit=limit,
-            mentioned_node_uuids=mentioned_node_uuids,
             order_by=order_by,
+            order=order,
+            filters=filters,
             request_options=request_options,
         )
-        return _response.data
 
-    async def get(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> Episode:
+    async def get(
+        self, graph_uuid: str, episode_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> Episode:
         """
-        Returns episodes by UUID
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
             Episode UUID
 
         request_options : typing.Optional[RequestOptions]
@@ -693,7 +730,7 @@ class AsyncEpisodeClient:
         Returns
         -------
         Episode
-            Episode
+            OK
 
         Examples
         --------
@@ -708,31 +745,42 @@ class AsyncEpisodeClient:
 
         async def main() -> None:
             await client.graph.episode.get(
-                uuid_="uuid",
+                graph_uuid="graph_uuid",
+                episode_uuid="episode_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get(uuid_, request_options=request_options)
+        _response = await self._raw_client.get(graph_uuid, episode_uuid, request_options=request_options)
         return _response.data
 
-    async def delete(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> SuccessResponse:
+    async def delete(
+        self,
+        graph_uuid: str,
+        episode_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncResult:
         """
-        Deletes an episode by its UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
             Episode UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SuccessResponse
-            Episode deleted
+        AsyncResult
+            Accepted
 
         Examples
         --------
@@ -747,32 +795,40 @@ class AsyncEpisodeClient:
 
         async def main() -> None:
             await client.graph.episode.delete(
-                uuid_="uuid",
+                graph_uuid="graph_uuid",
+                episode_uuid="episode_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.delete(uuid_, request_options=request_options)
+        _response = await self._raw_client.delete(
+            graph_uuid, episode_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     async def update(
         self,
-        uuid_: str,
+        graph_uuid: str,
+        episode_uuid: str,
         *,
-        metadata: typing.Dict[str, typing.Optional[typing.Any]],
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Episode:
         """
-        Update episode metadata with merge semantics. Supplied keys overwrite or add to existing metadata; keys set to null are removed.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
             Episode UUID
 
-        metadata : typing.Dict[str, typing.Optional[typing.Any]]
-            Updated metadata. Merged with existing metadata: supplied keys overwrite/add, keys set to null are removed. Maximum 10 keys. Values must be scalars (string, number, boolean, null) or arrays of scalars.
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to merge onto the episode; a key set to null is removed. Max 10 keys after the merge. Values must be strings, numbers, booleans, or arrays of scalars.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -780,7 +836,7 @@ class AsyncEpisodeClient:
         Returns
         -------
         Episode
-            Updated episode
+            OK
 
         Examples
         --------
@@ -795,34 +851,43 @@ class AsyncEpisodeClient:
 
         async def main() -> None:
             await client.graph.episode.update(
-                uuid_="uuid",
-                metadata={"key": "value"},
+                graph_uuid="graph_uuid",
+                episode_uuid="episode_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.update(uuid_, metadata=metadata, request_options=request_options)
+        _response = await self._raw_client.update(
+            graph_uuid,
+            episode_uuid,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+            request_options=request_options,
+        )
         return _response.data
 
-    async def get_nodes_and_edges(
-        self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> EpisodeMentions:
+    async def get_debug_logs(
+        self, graph_uuid: str, episode_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> EpisodeDebugLog:
         """
-        Deprecated. Use edge and node listing with `filters.episode_uuids` instead. Returns nodes and edges mentioned in an episode, subject to an internal cap; responses reduced by that cap set the Zep-Truncated header.
+        Returns the ingestion workflow log of an episode. The log exists only when debug logging was enabled for the project when the episode was ingested (see `debug_log.enable`). The log holds episode content, so an API key with an ABAC policy needs an explicit grant of this action; the `readonly` macro does not grant it.
 
         Parameters
         ----------
-        uuid_ : str
-            Episode uuid
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
+            Episode UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        EpisodeMentions
-            Edges and nodes mentioned in an episode
+        EpisodeDebugLog
+            OK
 
         Examples
         --------
@@ -836,12 +901,77 @@ class AsyncEpisodeClient:
 
 
         async def main() -> None:
-            await client.graph.episode.get_nodes_and_edges(
-                uuid_="uuid",
+            await client.graph.episode.get_debug_logs(
+                graph_uuid="graph_uuid",
+                episode_uuid="episode_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get_nodes_and_edges(uuid_, request_options=request_options)
+        _response = await self._raw_client.get_debug_logs(graph_uuid, episode_uuid, request_options=request_options)
         return _response.data
+
+    async def list_ingestion_traces(
+        self,
+        graph_uuid: str,
+        episode_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[IngestionTrace, IngestionTracePage]:
+        """
+        Returns the ingestion traces of an episode, oldest first. Each trace records the input and the output of one ingestion step, with an explanation on each output entry that has one. Traces exist only when ingestion tracing was enabled for the project when the episode was ingested (see `debug_log.enable`). An episode with no traces returns a page with an empty `items` array. Traces hold episode content, prompt input, and model output, so an API key with an ABAC policy needs an explicit grant of this action; the `readonly` macro does not grant it.
+
+        Parameters
+        ----------
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        episode_uuid : str
+            Episode UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[IngestionTrace, IngestionTracePage]
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            response = await client.graph.episode.list_ingestion_traces(
+                graph_uuid="graph_uuid",
+                episode_uuid="episode_uuid",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_ingestion_traces(
+            graph_uuid, episode_uuid, page_size=page_size, cursor=cursor, request_options=request_options
+        )

@@ -115,8 +115,8 @@ wx_add_sample(preferences DEPENDS wxUSE_PREFERENCES_EDITOR)
 wx_add_sample(printing printing.cpp printing.h DEPENDS wxUSE_PRINTING_ARCHITECTURE)
 wx_add_sample(propgrid propgrid.cpp propgrid_minimal.cpp sampleprops.cpp
     sampleprops.h propgrid.h LIBRARIES wxpropgrid wxxrc NAME propgriddemo DEPENDS wxUSE_PROPGRID)
-wx_add_sample(render FOLDER render)
-wx_add_sample(render DLL renddll.cpp NAME renddll FOLDER render)
+wx_add_sample(render PLUGIN renddll.cpp NAME renddll FOLDER render)
+wx_add_sample(render FOLDER render LIBRARIES renddll)
 wx_add_sample(ribbon ribbondemo.cpp LIBRARIES wxribbon NAME ribbondemo DEPENDS wxUSE_RIBBON)
 wx_add_sample(richtext LIBRARIES wxrichtext wxhtml wxxml NAME richtextdemo DEPENDS wxUSE_XML wxUSE_RICHTEXT)
 wx_add_sample(sashtest sashtest.cpp sashtest.h RES sashtest.rc DEPENDS wxUSE_SASH)
@@ -286,7 +286,8 @@ if(WIN32)
         wx_add_sample(taskbarbutton DEPENDS wxUSE_TASKBARBUTTON)
 
         # only check if MFC is available when the mfc sample is enabled
-        if(wxBUILD_SAMPLES STREQUAL "ALL")
+        # MFC sample links MFC dynamically, which cannot be done when linking the CRT statically
+        if(wxBUILD_SAMPLES STREQUAL "ALL" AND NOT wxBUILD_USE_STATIC_RUNTIME)
             find_package(MFC QUIET)
             if(MFC_FOUND)
                 wx_add_sample(mfc mfctest.cpp mfctest.h resource.h stdafx.h RES mfctest.rc)

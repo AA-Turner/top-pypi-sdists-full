@@ -47,7 +47,14 @@ class TestIntegrationManagementDto(unittest.TestCase):
                 integration_error_message = '',
                 integration_error = 'Unknown',
                 broker_name = '',
-                server_version = ''
+                server_version = '',
+                health_summary = legit_api_client.models.integration_health_summary_dto.IntegrationHealthSummaryDto(
+                    collection_state = null, 
+                    freshness = null, 
+                    latest_successful_full_collection_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                    blocker_codes = [
+                        'Paused'
+                        ], )
             )
         else:
             return IntegrationManagementDto(

@@ -22,13 +22,13 @@ class MockBase:
     attr = ApertureAttribute(doc='a test attribute')
 
 
-class MockWithLazy:
+class MockWithCachedProperties:
     """
-    Minimal class with _lazyproperties for reset testing.
+    Minimal class with _cached_properties for reset testing.
     """
 
     attr = ApertureAttribute()
-    _lazyproperties = ['cached']  # noqa: RUF012
+    _cached_properties = ['cached']  # noqa: RUF012
 
 
 class MockPixelPos:
@@ -140,26 +140,26 @@ class TestApertureAttribute:
         obj.attr = val
         assert isinstance(obj.attr, SkyCoord)
 
-    def test_reset_lazyproperties(self):
+    def test_reset_cached_properties(self):
         """
-        Test that lazyproperties are cleared when the attribute is
+        Test that cached properties are cleared when the attribute is
         updated.
         """
-        obj = MockWithLazy()
+        obj = MockWithCachedProperties()
         obj.attr = 1.0
         obj.cached = 42
         assert 'cached' in obj.__dict__
-        obj.attr = 2.0  # second assignment triggers _reset_lazyproperties
+        obj.attr = 2.0  # second assignment triggers _reset_cached_properties
         assert 'cached' not in obj.__dict__
 
-    def test_reset_no_lazyproperties(self):
+    def test_reset_no_cached_properties(self):
         """
-        Test that AttributeError is silently caught when _lazyproperties
+        Test that AttributeError is silently caught when _cached_properties
         is absent.
         """
         obj = MockBase()
         obj.attr = 1.0
-        # Triggers _reset_lazyproperties; obj has no _lazyproperties
+        # Triggers _reset_cached_properties, but obj has no _cached_properties
         obj.attr = 2.0
         assert obj.attr == 2.0
 
@@ -222,13 +222,13 @@ class TestPixelPositions:
         obj.positions = zip([1.0, 2.0], [3.0, 4.0], strict=False)
         assert obj.positions.shape == (2, 2)
 
-    def test_reset_lazyproperties(self):
+    def test_reset_cached_properties(self):
         """
-        Test that setting positions twice clears cached lazyproperties.
+        Test that setting positions twice clears cached properties.
         """
         obj = MockPixelPos()
         obj.positions = [(1, 2)]
-        obj._lazyproperties = ['cached']
+        obj._cached_properties = ['cached']
         obj.cached = 99
         obj.positions = [(3, 4)]  # triggers reset
         assert 'cached' not in obj.__dict__
@@ -270,7 +270,7 @@ class TestPixelPositions:
         Test that NaN positions raise ValueError.
         """
         obj = MockPixelPos()
-        match = "'positions' must not contain any non-finite"
+        match = "'positions' must not contain any nonfinite"
         with pytest.raises(ValueError, match=match):
             obj.positions = [(np.nan, 2.0)]
 
@@ -279,7 +279,7 @@ class TestPixelPositions:
         Test that infinite positions raise ValueError.
         """
         obj = MockPixelPos()
-        match = "'positions' must not contain any non-finite"
+        match = "'positions' must not contain any nonfinite"
         with pytest.raises(ValueError, match=match):
             obj.positions = [(1.0, np.inf)]
 
@@ -359,12 +359,31 @@ class TestPositiveScalar:
 
     def test_array_error(self):
         """
-        Test that a non-scalar array raises ValueError.
+        Test that a nonscalar array raises ValueError.
         """
         obj = MockPositiveScalar()
         match = "'r' must be a positive scalar"
         with pytest.raises(ValueError, match=match):
             obj.r = np.array([1.0, 2.0])
+
+    def test_non_numeric_error(self):
+        """
+        Test that a nonnumeric scalar (e.g., a string) raises
+        TypeError with the intended message.
+        """
+        obj = MockPositiveScalar()
+        match = "'r' must be a positive scalar"
+        with pytest.raises(TypeError, match=match):
+            obj.r = 'abc'
+
+    def test_nan_error(self):
+        """
+        Test that NaN raises ValueError.
+        """
+        obj = MockPositiveScalar()
+        match = "'r' must be a positive scalar"
+        with pytest.raises(ValueError, match=match):
+            obj.r = np.nan
 
 
 class TestScalarAngle:
@@ -390,7 +409,7 @@ class TestScalarAngle:
 
     def test_nonscalar_error(self):
         """
-        Test that a non-scalar Quantity raises ValueError.
+        Test that a nonscalar Quantity raises ValueError.
         """
         obj = MockScalarAngle()
         match = "'angle' must be a scalar"
@@ -399,7 +418,7 @@ class TestScalarAngle:
 
     def test_non_angle_units_error(self):
         """
-        Test that a Quantity with non-angular units raises ValueError.
+        Test that a Quantity with nonangular units raises ValueError.
         """
         obj = MockScalarAngle()
         match = "'angle' must have angular units"
@@ -440,7 +459,7 @@ class TestPositiveScalarAngle:
 
     def test_nonscalar_error(self):
         """
-        Test that a non-scalar angle array raises ValueError.
+        Test that a nonscalar angle array raises ValueError.
         """
         obj = MockPositiveScalarAngle()
         match = "'angle' must be a scalar"
@@ -448,9 +467,18 @@ class TestPositiveScalarAngle:
             # Single-element array passes > 0 check but fails isscalar
             obj.angle = np.array([5.0]) * u.arcsec
 
+    def test_nan_error(self):
+        """
+        Test that a NaN angle raises ValueError.
+        """
+        obj = MockPositiveScalarAngle()
+        match = "'angle' must be greater than zero"
+        with pytest.raises(ValueError, match=match):
+            obj.angle = np.nan * u.arcsec
+
     def test_non_angle_units_error(self):
         """
-        Test that a Quantity with non-angular units raises ValueError.
+        Test that a Quantity with nonangular units raises ValueError.
         """
         obj = MockPositiveScalarAngle()
         match = "'angle' must have angular units"
@@ -490,20 +518,20 @@ class TestScalarAngleOrValue:
         assert obj.theta.unit == u.radian
         assert obj.theta.value == 1.5
 
-    def test_reset_lazyproperties(self):
+    def test_reset_cached_properties(self):
         """
-        Test that setting theta twice clears cached lazyproperties.
+        Test that setting theta twice clears cached properties.
         """
         obj = MockScalarAngleOrValue()
         obj.theta = 1.0
-        obj._lazyproperties = ['cached']
+        obj._cached_properties = ['cached']
         obj.cached = 42
         obj.theta = 2.0  # triggers reset
         assert 'cached' not in obj.__dict__
 
     def test_nonscalar_quantity_error(self):
         """
-        Test that a non-scalar angle Quantity raises ValueError.
+        Test that a nonscalar angle Quantity raises ValueError.
         """
         obj = MockScalarAngleOrValue()
         match = "'theta' must be a scalar"
@@ -512,7 +540,7 @@ class TestScalarAngleOrValue:
 
     def test_non_angle_units_error(self):
         """
-        Test that a Quantity with non-angular units raises ValueError.
+        Test that a Quantity with nonangular units raises ValueError.
         """
         obj = MockScalarAngleOrValue()
         match = "'theta' must have angular units"
@@ -521,7 +549,7 @@ class TestScalarAngleOrValue:
 
     def test_nonscalar_float_error(self):
         """
-        Test that a non-scalar float array raises ValueError.
+        Test that a nonscalar float array raises ValueError.
         """
         obj = MockScalarAngleOrValue()
         match = 'If not an angle Quantity'

@@ -192,7 +192,8 @@ sign's oracle, the junction and grounded-end readings, and why the
 resulting L is symmetric while the field matrix is not.
 
 DISTRIBUTED loading (`wire_conductivity`, `insulation_radius`,
-`insulation_eps_r`, `distributed_rlc`) is the siblings' API verbatim, over
+`insulation_eps_r`, `insulation_loss_tangent`, `distributed_rlc`) is the
+siblings' API verbatim, over
 the same `_wire_loading` physics. LUMPED loads (`lumped_loads`, a sequence of
 ``(wire_index, arclength, impedance)``) are razor's own kwarg: the other
 rows serve a lumped load as port algebra over a zero-volt gap a consumer
@@ -209,8 +210,10 @@ per solved wavenumber beside the reflection-coefficient weights.
 
 A jacket on a BURIED wire adds one more term, on the charge side rather
 than the series side (momwire#1154): `_charge_stencil`, scaled per solved ω
-by the shared `LoadingSpec.zq_seg` = ΔS′/(jω). It is absent on every deck
-without a jacketed wire in the lower medium.
+by the shared `LoadingSpec.zq_seg` = ΔS′/(jω). A jacket with a loss
+tangent (`insulation_loss_tangent`, momwire#765) adds its dielectric loss
+through the same term, in either medium. It is absent on every deck
+without a jacketed wire in the lower medium or a lossy jacket.
 
 Per-wire radius (momwire#147)
 -----------------------------
@@ -350,6 +353,7 @@ it on, and each is gated with it on.
 
 from dataclasses import dataclass
 import os
+import warnings
 
 import math
 
@@ -362,9 +366,12 @@ from . import (
     _ground_spec,
     _medium_spec,
     _crossing_fill,
+    _exact_kernel,
+    _exact_kernel_seam,
     _near_interface,
     _potential_ground,
     _razor_class,
+    _razor_exact_plan,
     _schedule,
     _sommerfeld_below,
     _wire_loading,
@@ -800,6 +807,50 @@ def derive_n_qp_path(k, wires_polylines, n_per_edge_per_wire):
     if k * h_max <= PATH_ORDER_KH_SWITCH:
         return PATH_ORDER_FINE
     return PATH_ORDER_COARSE
+
+
+# momwire#1433: the exact-kernel correction's assembly in C++.
+_HAVE_EXACT_POINT_ASSEMBLE_ACCEL = _acc is not None and hasattr(
+    _acc, "exact_kernel_point_assemble"
+)
+
+
+def _point_assemble_numpy(
+    dM0,
+    dM1,
+    row_m,
+    row_o,
+    row_cA,
+    row_cP,
+    col_ptr,
+    col_n,
+    ent_j,
+    ent_t,
+    ent_rise,
+    ent_q,
+    h,
+    Z,
+):
+    """The numpy twin of `exact_kernel_point_assemble` (the reference it is
+    gated against, and the route without the accelerator):
+
+        Z[m, n] += cA Σ_e t_e Δmom_e(o) - cP Σ_e q_e ΔM0(o, j_e)
+
+    over row entries (m, o, cA, cP) and each column n's wing entries e."""
+    nb = col_n.size
+    ncount = np.diff(col_ptr)
+    ecol = np.repeat(np.arange(nb), ncount)
+    d1 = dM1[:, ent_j] / h[ent_j]
+    mom = np.where(ent_rise.astype(bool), d1, dM0[:, ent_j] - d1)
+    P1 = np.zeros((dM0.shape[0], nb), dtype=np.complex128)
+    P0 = np.zeros((dM0.shape[0], nb), dtype=np.complex128)
+    np.add.at(P1.T, ecol, (mom * ent_t).T)
+    np.add.at(P0.T, ecol, (dM0[:, ent_j] * ent_q).T)
+    contrib = row_cA[:, None] * P1[row_o] - row_cP[:, None] * P0[row_o]
+    um, inv = np.unique(row_m, return_inverse=True)
+    acc = np.zeros((um.size, nb), dtype=np.complex128)
+    np.add.at(acc, inv, contrib)
+    Z[np.ix_(um, col_n)] += acc
 
 
 def _use_razor_fill_accel():
@@ -1411,7 +1462,20 @@ _CENTRE_FEEDS_REFUSAL = (
 )
 
 
-class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
+def _same_stamp(a, b) -> bool:
+    """Whether two `_find_junctions` input stamps name the same inputs: the
+    same polyline LIST object at the same length (identity, not equality —
+    a rebuilt list is a new geometry as far as the kept answer knows), the
+    same ``ground_z`` and the same declared-junctions object."""
+    return a[0] is b[0] and a[1] == b[1] and a[2] == b[2] and a[3] is b[3]
+
+
+class RazorSolver(
+    _exact_kernel_seam.ExactKernelOption,
+    _ElementCurrents,
+    _SweptPortSolutions,
+    _Cancelable,
+):
     """Tent-basis MoM with razor-blade (mixed-potential path) testing.
 
     The NEC-5 formulation twin — see the module docstring for the physics.
@@ -1461,6 +1525,26 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         identical to `BSplineSolver`'s and `SinusoidalSolver`'s, so a deck's
         `EK` card reaches this class through the same `build_solver` line
         that reaches them.
+    exact_kernel: the exact ring kernel on coaxial pairs (momwire#1433),
+        `BSplineSolver`'s option with its semantics, through the shared
+        `_exact_kernel_seam`: False (the default) is structurally absent and
+        bit-for-bit the fill without it; True replaces, after the free-space
+        fill, the kernel of every pair of segments on ONE line at ONE radius
+        by K(z) = (1/2π)∮e^{-jkR}/(4πR)dφ, R² = z² + 4a²sin²(φ/2); "auto"
+        resolves at construction to True iff it is served and some segment
+        is shorter than 3 radii. Razor's rows are path-tested, so the
+        correction is the kernel layer's 1-D point moments ∫τ'^q K dτ' at the
+        observer points the fill uses, assembled by the fill's own wing
+        algebra (`_add_exact_kernel_correction`; derivation in
+        scratch/1433/DERIVATION.md). Bends, offset wires, images and the
+        Sommerfeld remainder keep `extended_kernel`'s kernel. Refused by name
+        (skipped under "auto"): buried wires, a complex wavenumber,
+        restricted-row fills. **Razor's feed is a knot gap of zero width**,
+        and under the exact kernel such a gap has no limiting reactance:
+        each halving of the segments at it adds about 4 ln2·ωε₀a of
+        susceptance, so X keeps drifting logarithmically where the thin-wire
+        kernels drift faster; conductance, currents away from the feed and
+        far fields converge. A gap of fixed width is bspline's end-port feed.
     ground_z: height of the ground plane, or None for free space. With
         `ground_eps` unset the plane is a perfect conductor. Over PEC this
         solver is gated against the licensed NEC-5 binary's own `GN 1`
@@ -1750,9 +1834,11 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         nsegs=101,
         wire_radius=0.0005,
         extended_kernel=False,
+        exact_kernel=False,
         wire_conductivity=None,
         insulation_radius=None,
         insulation_eps_r=None,
+        insulation_loss_tangent=None,
         distributed_rlc=None,
         lumped_loads=None,
         ground_z=None,
@@ -1790,6 +1876,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 "wire_conductivity": wire_conductivity,
                 "insulation_radius": insulation_radius,
                 "insulation_eps_r": insulation_eps_r,
+                "insulation_loss_tangent": insulation_loss_tangent,
                 "distributed_rlc": distributed_rlc,
             },
             sites={
@@ -1805,6 +1892,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         wire_conductivity = _per_wire["wire_conductivity"]
         insulation_radius = _per_wire["insulation_radius"]
         insulation_eps_r = _per_wire["insulation_eps_r"]
+        insulation_loss_tangent = _per_wire["insulation_loss_tangent"]
         distributed_rlc = _per_wire["distributed_rlc"]
         feeds = _sites["feeds"]
         if feeds is None:
@@ -1976,6 +2064,12 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 f"{_below_interface.BURIED_EXTENDED_KERNEL_REFUSAL}"
             )
         self._cached_ek_groups = None
+        # The exact ring kernel on coaxial pairs (momwire#1433), through the
+        # shared option (`_exact_kernel_seam`): False -- the default -- is
+        # structurally absent (no line of the correction runs), True is
+        # refused by name on the routes it does not serve, and "auto" is
+        # resolved at the end of __init__ once the mesh is final.
+        self._exact_kernel_init(exact_kernel)
 
         if n_per_edge_per_wire is None:
             n_per_edge_per_wire = [None] * n_w
@@ -2127,6 +2221,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             insulation_radius,
             insulation_eps_r,
             distributed_rlc,
+            insulation_loss_tangent,
         )
         self.lumped_loads = _wire_loading.normalize_lumped_loads(lumped_loads, n_w)
 
@@ -2170,16 +2265,24 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
         self.z = None
         self._cached_geometry = None
+        if self.exact_kernel_requested == "auto":
+            self.exact_kernel = self._resolve_exact_kernel_auto()
+        # The advisories read the RESOLVED kernel (momwire#1412/#1433).
+        exact_runs, servable = self._exact_kernel_resolved()
         # momwire#1378: any segment under two radii, anywhere (not only at a gap).
-        # Advisory, once per solver, on the final mesh.
+        # Advisory, once per solver, on the final mesh; silent where the exact
+        # ring kernel runs.
         _wire_spec.advise_short_segments(
             type(self).__name__,
             self.wires_polylines,
             self.n_per_edge_per_wire,
             self._radius_per_wire,
+            exact_kernel=exact_runs,
         )
-        # momwire#959 (a stopgap until #1330): segments below the radius AT A
-        # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+        # momwire#959: segments below the radius AT A GAP. Advisory, once per
+        # solver. Razor's gaps are knots of zero width, so under the exact
+        # kernel the text states the drift and points at bspline's end-port
+        # feed rather than offering one (`EXACT_KERNEL_FIXED_GAP_FEED`).
         _wire_spec.advise_gap_mesh_floor(
             type(self).__name__,
             self.wires_polylines,
@@ -2188,7 +2291,36 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             self.extended_kernel,
             _wire_spec.solver_gaps(self),
             gap_model="knot",
+            exact_kernel=True if exact_runs else (False if servable else None),
+            fixed_gap_feed=self.EXACT_KERNEL_FIXED_GAP_FEED,
         )
+        if self.exact_kernel_requested is True and self.feeds:
+            warnings.warn(
+                _exact_kernel_seam.point_gap_warning(self.EXACT_KERNEL_FIXED_GAP_FEED),
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+    # -- the exact-kernel option's hooks (`_exact_kernel_seam`, momwire#1433)
+    # Razor's feeds are knots: no gap of fixed width to offer.
+    EXACT_KERNEL_FIXED_GAP_FEED = False
+
+    def _exact_kernel_buried(self):
+        # Read with defaults: probes that stub `_refuse_buried_geometry` (the
+        # wire-media gates) construct a solver whose route flags were never
+        # set, and the advisories ask this at construction.
+        return bool(
+            getattr(self, "_below_plane", False)
+            or getattr(self, "_detached", False)
+            or getattr(self, "_crossing", False)
+        )
+
+    def _exact_kernel_lossy(self):
+        return bool(np.iscomplexobj(self.k))
+
+    def _exact_kernel_h_and_a(self):
+        geom = self._build_geometry()
+        return geom["seg_h"], self._seg_radius(geom)
 
     # ------------------------------------------------------------------
     # geometry
@@ -2392,6 +2524,14 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # is wholly below the plane.
             self._below_plane = True
 
+    # The in-plane-edge refusal, one spelling for `_ground_ends`' vector path
+    # and its walk (momwire#1420).
+    _IN_PLANE_EDGE = (
+        "wire {i} has an edge lying in the ground plane "
+        "(both endpoints at ground_z) — degenerate over a "
+        "conducting ground"
+    )
+
     def _ground_ends(self):
         """Which wire ENDS lie in the ground plane; everything else refused.
 
@@ -2426,16 +2566,35 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         gz = self.ground_z
         if gz is None:
             return frozenset()
+        # momwire#1420: wires that are one straight edge each (every EZNEC
+        # card) are asked all at once — the same per-wire tolerance and the
+        # same `|z - gz| <= tol` test per anchor; such a wire has no interior
+        # anchor, so the only refusal it can meet is the in-plane edge, named
+        # for the first wire that has one, as the walk below names it.
+        ends = _ground_spec.two_point_ends(self.wires_polylines)
+        if ends is not None:
+            start, end = ends
+            tol = _ground_spec.segment_touch_tols(start, end)
+            at_start = np.abs(start[:, 2] - gz) <= tol
+            at_end = np.abs(end[:, 2] - gz) <= tol
+            in_plane = at_start & at_end
+            if in_plane.any():
+                raise ValueError(self._IN_PLANE_EDGE.format(i=int(np.argmax(in_plane))))
+            # Inserted in the walk's order (wire by wire, start before end),
+            # so even the frozenset's iteration order is the walk's.
+            touching = set()
+            for i in np.flatnonzero(at_start | at_end).tolist():
+                if at_start[i]:
+                    touching.add((i, "start"))
+                if at_end[i]:
+                    touching.add((i, "end"))
+            return frozenset(touching)
         touching = set()
         for i, pl in enumerate(self.wires_polylines):
             tol = _ground_spec.ground_touch_tol(pl)
             at = np.abs(pl[:, 2] - gz) <= tol
             if np.any(at[:-1] & at[1:]):
-                raise ValueError(
-                    f"wire {i} has an edge lying in the ground plane "
-                    "(both endpoints at ground_z) — degenerate over a "
-                    "conducting ground"
-                )
+                raise ValueError(self._IN_PLANE_EDGE.format(i=i))
             if np.any(at[1:-1]):
                 raise NotImplementedError(
                     f"wire {i} touches the ground plane at an interior "
@@ -2498,6 +2657,28 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         tolerance is absolute), so coincident ends could otherwise disagree
         about a plane they share.
         """
+        # momwire#1420: a construction asks this four times of the same
+        # wires (the node-gap check, `_wire_media` via the grounded junction
+        # ends, `_crossing_junctions`, `_build_geometry`), and on a small deck
+        # the grouping was a tenth of the whole call. The answer is kept ON
+        # THE SOLVER, stamped with the inputs it was computed from, so it
+        # dies with the solver and a pool worker serving many decks holds
+        # none of them; every caller gets fresh dicts and lists, since
+        # `_build_geometry` rebuilds groups from them.
+        stamp = (
+            self.wires_polylines,
+            len(self.wires_polylines),
+            self.ground_z,
+            self._declared_junctions,
+        )
+        kept = self.__dict__.get("_junctions_kept")
+        if kept is None or not _same_stamp(kept[0], stamp):
+            kept = (stamp, self._detect_junctions())
+            self.__dict__["_junctions_kept"] = kept
+        return [{"ends": list(g["ends"]), "grounded": g["grounded"]} for g in kept[1]]
+
+    def _detect_junctions(self):
+        """:meth:`_find_junctions` itself, uncached."""
         grounded_ends = self._ground_ends()
         labels, points = [], []
         for i, pl in enumerate(self.wires_polylines):
@@ -3736,11 +3917,15 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 np.add.at(Z, (mapped[keep], idx[keep]), z_l)
         return Z
 
-    def _has_buried_jacket(self):
-        """Whether a finite jacket sits on a wire in the lower medium — the
-        decks `_charge_stencil` exists for (momwire#1154). Asks nothing of
-        the geometry unless a jacket and a finite ground are both present,
-        so every other deck's prepare is what it was."""
+    def _has_jacket_charge(self):
+        """Whether `loading_for` can serve a charge-side term — a finite
+        jacket on a wire in the lower medium (momwire#1154) or a jacket with
+        tan δ > 0 anywhere (momwire#765): the decks `_charge_stencil` exists
+        for. Asks nothing of the geometry unless a lossy jacket, or a jacket
+        and a finite ground, are present, so every other deck's prepare is
+        what it was."""
+        if _wire_loading.has_lossy_jacket(self):
+            return True
         if self.insulation_radius is None or self.ground_eps is None:
             return False
         jacketed = np.isfinite(self.insulation_radius)
@@ -3748,8 +3933,9 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         return any(j and m == _medium_spec.BELOW for j, m in zip(jacketed, media))
 
     def _charge_stencil(self, geom):
-        """The k-independent half of a buried jacket's CHARGE-side term
-        (momwire#1154, `_wire_loading.jacket_elastance`).
+        """The k-independent half of a jacket's CHARGE-side term
+        (momwire#1154, `_wire_loading.jacket_elastance`; and a lossy
+        jacket's, momwire#765, `_wire_loading.jacket_loss_elastance`).
 
         **The derivation.** On a jacketed wire in the soil the thin-wire
         kernel at the equivalent radius a′ misses a local elastance ΔS′, so
@@ -3785,7 +3971,9 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         the two halves, so the full-geometry stencil applied once after the
         crossing assembly is the crossing row's term — the argument
         `_loading_stencil` makes for the series term. Each segment lies
-        wholly in one medium, and zq is zero on every ABOVE segment.
+        wholly in one medium, and the buried term's zq is zero on every
+        ABOVE segment; a lossy jacket's is not, and needs nothing different —
+        the derivation never asked which medium is outside the shell.
 
         Returns ``(rows, cols, seg, vals)``; `seg` is the segment whose zq
         scales the entry.
@@ -3829,15 +4017,16 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         """`Z += zq_seg ∘ stencil` in place (`_charge_stencil`, momwire#1154).
 
         Refuses the one inconsistent pairing rather than dropping a term: a
-        spec carrying a buried jacket's zq with no stencil prepared would be
-        a jacketed buried wire served with the free-space pair."""
+        spec carrying a jacket's zq with no stencil prepared would be a
+        jacketed buried wire served with the free-space pair, or a lossy
+        jacket served lossless."""
         if spec.zq_seg is None:
             return Z
         if stencil is None:
             raise RuntimeError(
-                "a jacketed buried wire's charge term has no prepared stencil "
-                "(momwire#1154): the prepare half and the loading spec disagree "
-                "about which wires are jacketed below the interface"
+                "a jacket's charge term has no prepared stencil (momwire#1154, "
+                "#765): the prepare half and the loading spec disagree about "
+                "which wires carry one"
             )
         rows, cols, vals = RazorSolver._stencil_rows(
             stencil, spec.zq_seg[stencil["seg"]] * stencil["vals"], row_of
@@ -4191,14 +4380,15 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 if loading and (self._loading_active or self.lumped_loads)
                 else None
             ),
-            # A jacketed BURIED wire's charge-side term (momwire#1154): the
-            # same split — the stencil is geometry, its ΔS′/(jω) is built per
-            # solved ω — and the same `loading` flag, so the crossing
-            # assembly's sub-geometries never carry it. `None` on every deck
-            # without such a wire, which is every deck that existed before.
+            # A jacket's charge-side term — a BURIED jacket's (momwire#1154)
+            # or a lossy one's (momwire#765): the same split — the stencil is
+            # geometry, its ΔS′/(jω) is built per solved ω — and the same
+            # `loading` flag, so the crossing assembly's sub-geometries never
+            # carry it. `None` on every deck without such a wire, which is
+            # every deck that existed before.
             "charge": (
                 self._charge_stencil(geom)
-                if loading and self._has_buried_jacket()
+                if loading and self._has_jacket_charge()
                 else None
             ),
         }
@@ -4302,6 +4492,9 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         is made here and not left to the source blocks.
         """
         _refuse_other_restriction(prepared.get("restrict_key"), restrict)
+        # The exact ring kernel (momwire#1433): refused by name on a route it
+        # does not serve under True, skipped under "auto"; False reads nothing.
+        use_exact = self._exact_kernel_fill_gate(restrict, False)
         crossing = getattr(self, "_crossing", False)
         detached = getattr(self, "_detached", False)
         if crossing or detached:
@@ -4331,6 +4524,9 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         Z = self._assemble_Z_source_block(
             geom, prepared, prepared, k, omega, restrict=restrict
         )
+        if use_exact:
+            self._checkpoint()
+            self._add_exact_kernel_correction(Z, geom, k, omega)
         image = prepared["image"]
         if image is not None:
             # The ground object is built HERE, not carried from the prepare
@@ -4354,6 +4550,116 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # and the composing one.
         self._load_in_place(Z, prepared, geom, omega, restrict=restrict)
         return Z
+
+    # ------------------------------------------------------------------
+    # the exact ring kernel on coaxial pairs (momwire#1433)
+    # ------------------------------------------------------------------
+
+    def _add_exact_kernel_correction(self, Z, geom, k, omega):
+        """Z += (Z_exact - Z_base) over every coaxial equal-radius group.
+
+        Razor's matrix element is linear in two moment tables, M0[o, j] =
+        ∫_seg_j g dl' and M1[o, j] = ∫_seg_j τ' g dl', taken at observer
+        POINTS o (`_seg_moments`): the testing-path nodes for T1 (under
+        `nec5_quadrature` the wing centroids) and the segment centroids for
+        T2. On a coaxial pair the observer lies on the source's own line at
+        its own radius, so the exact ring kernel replaces g there exactly,
+        and the replacement is the kernel layer's 1-D point moments
+        (`_exact_kernel.point_rows`: τ'^q, q = 0, 1, against K, the log
+        singularity integrated in closed form). Nothing two-dimensional is
+        needed: a path-tested row has no outer integral. The derivation is
+        `scratch/1433/DERIVATION.md`.
+
+        Per group the correction is the fill's own algebra applied to
+        ΔM = M_exact - M_base on the group's pairs, M_base recomputed through
+        `_seg_moments` with the fill's kernel spec (reduced or EK) at the
+        same observer points, so it removes what the fill put there to
+        roundoff:
+
+            ΔT1[m, n] = Σ_nodes w (t_obs·axis) Σ_wings (σ t_src·axis) Δmom
+            ΔT2[m, n] = Σ_wings q (ΔM0[c_after(m)] - ΔM0[c_before(m)])
+            ΔZ        = jωμ ΔT1 - ΔT2 / (jωε)
+
+        with Δmom = ΔM1/h on a rising wing and ΔM0 - ΔM1/h on a falling one
+        (`_source_block_rows`' wing algebra); a grounded row has no before
+        centroid. The free-space block only: an image keeps the fill's
+        kernel, as bs2's does. Walked by observer windows of each group, so
+        the transient is a window's (rows, n_group) tables; the assembly is
+        C++ (`exact_kernel_point_assemble`) where built.
+
+        The geometry-only half -- the groups, their frames, the wing and row
+        tables, the observer windows -- is `_razor_exact_plan`'s, kept across
+        calls on the same inputs, and each group's point-moment source is
+        kept with its pair cache for the wavenumber it was built at
+        (momwire#1454: the resident server's repeat calls). Both are reused
+        only on exactly the inputs they were computed from, so a hit adds the
+        same bits a fresh call does.
+        """
+        seg_a = np.asarray(self._seg_radius(geom), dtype=float)
+        pts, tans, wts = self._testing_paths(geom)
+        on_cent = bool(self.nec5_quadrature and pts.shape[1] == 2)
+        c_A = 1j * omega * self.mu
+        c_Phi = 1j * omega * self.eps
+        # The fill's kernel spec, so the base moments are the fill's.
+        src_lab = None
+        if self.extended_kernel:
+            src_lab, _img = self._ek_labels(geom, mirror=self.ground_z is not None)
+        accel = _HAVE_EXACT_POINT_ASSEMBLE_ACCEL and _exact_kernel.point_accel_serves(
+            k, 2
+        )
+        # The ground is not in the key: the correction is the free-space
+        # block only, and what the ground does reach (the grounded rows, the
+        # mirrored EK labels) is already in the arrays compared.
+        context = (
+            type(self).__qualname__,
+            repr((self.nec5_quadrature, self.n_qp_path, self.extended_kernel)),
+        )
+        plan, cached = _razor_exact_plan.plan_for(
+            geom, seg_a, pts, tans, wts, src_lab, on_cent, _CHUNK_ELEMS, context
+        )
+        keep = cached and _razor_exact_plan.rows_cacheable(k)
+        rkey = _razor_exact_plan.rows_key(k) if keep else None
+        sources = plan.take_rows(rkey) if keep else None
+        if sources is None:
+            sources = [None] * len(plan.groups)
+        for i, g in enumerate(plan.groups):
+            r_A = _razor_exact_plan.row_cA(g, c_A)
+            r_P = _razor_exact_plan.row_cP(g, c_Phi)
+            exact = sources[i]
+            if exact is None:
+                exact = sources[i] = _exact_kernel.point_rows(
+                    g.x0, g.sgn, g.h, g.a, k, 2, max_cached=4 * g.n + 1024
+                )
+            for o0, o1, e0, e1, r_o_win, ek_win in g.windows:
+                self._checkpoint()
+                mom = exact.rows(g.obs_x[o0:o1])  # (2, rows, n)
+                ek = None
+                if ek_win is not None:
+                    ek = _EK(None, *ek_win)
+                M0b, M1b = self._seg_moments(g.obs_pt[o0:o1], dict(g.sub), k, ek=ek)
+                dM0 = np.subtract(mom[0], M0b, out=M0b)
+                dM1 = np.subtract(mom[1], M1b, out=M1b)
+                del mom
+                args = (g.r_m[e0:e1], r_o_win, r_A[e0:e1], r_P[e0:e1])
+                if accel:
+                    _acc.exact_kernel_point_assemble(
+                        np.ascontiguousarray(dM0),
+                        np.ascontiguousarray(dM1),
+                        *args,
+                        g.col_ptr,
+                        g.B64,
+                        *g.ent,
+                        g.h,
+                        Z,
+                    )
+                else:
+                    _point_assemble_numpy(
+                        dM0, dM1, *args, g.col_ptr, g.B, *g.ent, g.h, Z
+                    )
+        # Only a completed correction's sources go back: a cancelled one may
+        # stop mid-window, and a group it never reached has none.
+        if keep and all(isinstance(s, _exact_kernel.PointRowsAccel) for s in sources):
+            plan.give_rows(rkey, sources)
 
     # ------------------------------------------------------------------
     # the crossing trunk's view of this solver (momwire#813)
@@ -6071,10 +6377,15 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         p1 = p0 + np.asarray(geom["seg_h"], dtype=float)[:, None] * np.asarray(
             geom["seg_t"], dtype=float
         )
+        # Rounded once as whole arrays and walked as Python floats
+        # (momwire#1445): two `np.round` calls PER SEGMENT were this check's
+        # whole cost -- 3.3 ms of a 30 ms warm solve at 400 segments, more
+        # than the LU. The same elementwise rounding, so the same keys.
         seen = {}
-        for i in range(p0.shape[0]):
-            a = tuple(np.round(p0[i], 9))
-            b = tuple(np.round(p1[i], 9))
+        ends = zip(np.round(p0, 9).tolist(), np.round(p1, 9).tolist())
+        for i, (a, b) in enumerate(ends):
+            a = tuple(a)
+            b = tuple(b)
             key = (a, b) if a <= b else (b, a)
             if key in seen:
                 raise ValueError(
@@ -6229,6 +6540,38 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
     # ------------------------------------------------------------------
     # field readout
 
+    def _end_wings(self, geom):
+        """``(wire, knot, wing indices)`` for every wire END that junction
+        wings sit on: ``knot`` is 0 or -1, and the indices (ascending) select
+        the flattened junction wings whose ``(segment, rise)`` is that end's
+        — exactly the boolean masks :meth:`currents_at_knots` used to build
+        per wire per call, so the sums over them are the same sums.
+
+        A function of the geometry alone, so it is kept beside it ON THE
+        SOLVER (momwire#1420), stamped with the geometry dict it came from:
+        a run reads its knot currents several times, and each read paid two
+        masks per wire."""
+        kept = self.__dict__.get("_end_wings_kept")
+        if kept is not None and kept[0] is geom:
+            return kept[1]
+        n_interior = geom["n_basis_interior"]
+        seg_offsets = geom["seg_offsets"]
+        j_seg = geom["wing_seg"][n_interior:].reshape(-1)
+        j_rise = geom["wing_rise"][n_interior:].reshape(-1)
+        by_end: dict[tuple[int, bool], list[int]] = {}
+        for k, (seg, rise) in enumerate(zip(j_seg.tolist(), j_rise.tolist())):
+            by_end.setdefault((int(seg), bool(rise)), []).append(k)
+        table = []
+        for w_idx in range(len(geom["per_wire"])):
+            start = by_end.get((int(seg_offsets[w_idx]), False))
+            if start:
+                table.append((w_idx, 0, np.asarray(start, dtype=np.intp)))
+            end = by_end.get((int(seg_offsets[w_idx + 1]) - 1, True))
+            if end:
+                table.append((w_idx, -1, np.asarray(end, dtype=np.intp)))
+        self.__dict__["_end_wings_kept"] = (geom, table)
+        return table
+
     @_wire_spec.reads_input_wires("per_wire")
     def currents_at_knots(self, coeffs, s_array=None):
         """Per-wire complex current at every mesh knot (momwire#309 unit 3).
@@ -6280,14 +6623,9 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         coeffs = np.asarray(coeffs)
         geom = self._build_geometry()
         per_wire = geom["per_wire"]
-        seg_offsets = geom["seg_offsets"]
         basis_offsets = geom["basis_offsets"]
         n_interior = geom["n_basis_interior"]
-        wing_seg, wing_rise, wing_sigma = (
-            geom["wing_seg"],
-            geom["wing_rise"],
-            geom["wing_sigma"],
-        )
+        wing_seg, wing_sigma = geom["wing_seg"], geom["wing_sigma"]
 
         out = []
         for w_idx, pw in enumerate(per_wire):
@@ -6301,19 +6639,10 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # Flatten the junction tents' two wings into one (seg, rise,
             # sigma, coeff) list per side, so a wire's end knot is just
             # "every wing whose (segment, rise) is that end's".
-            j_seg = wing_seg[n_interior:].reshape(-1)
-            j_rise = wing_rise[n_interior:].reshape(-1)
             j_sigma = wing_sigma[n_interior:].reshape(-1)
             j_coeff = np.repeat(coeffs[n_interior:], 2)
-            for w_idx in range(len(per_wire)):
-                start_seg = seg_offsets[w_idx]
-                end_seg = seg_offsets[w_idx + 1] - 1
-                at_start = (j_seg == start_seg) & ~j_rise
-                if at_start.any():
-                    out[w_idx][0] = (j_sigma[at_start] * j_coeff[at_start]).sum()
-                at_end = (j_seg == end_seg) & j_rise
-                if at_end.any():
-                    out[w_idx][-1] = (j_sigma[at_end] * j_coeff[at_end]).sum()
+            for w_idx, knot, wings in self._end_wings(geom):
+                out[w_idx][knot] = (j_sigma[wings] * j_coeff[wings]).sum()
 
         if s_array is None:
             return out
@@ -6370,7 +6699,10 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         for w_idx, pw in enumerate(per_wire):
             arc = pw["arc_at_knot"]
             # One constant per segment, and the whole of the derivative.
-            slope = np.diff(knot_currents[w_idx]) / np.diff(arc)
+            # (Spelled as the slices `np.diff` computes, without its wrapper:
+            # momwire#1420.)
+            knots = knot_currents[w_idx]
+            slope = (knots[1:] - knots[:-1]) / (arc[1:] - arc[:-1])
             s_eval = (
                 arc if s_array is None else np.asarray(s_array[w_idx], dtype=np.float64)
             )
@@ -6380,8 +6712,9 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             s_eval = np.clip(s_eval, arc[0], arc[-1])
             # `side="right"` is the right-hand span; the clip puts the final
             # knot back on the last one.
-            span = np.clip(
-                np.searchsorted(arc, s_eval, side="right") - 1, 0, slope.shape[0] - 1
+            span = np.minimum(
+                np.maximum(np.searchsorted(arc, s_eval, side="right") - 1, 0),
+                slope.shape[0] - 1,
             )
             out.append(np.asarray(slope[span], dtype=np.complex128))
         return out
@@ -6391,13 +6724,16 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
     @_wire_spec.reads_input_wires("loss")
     def wire_loss_power(self, coeffs, omega=None):
-        """Ohmic power dissipated in the wire metal, from a solve's coeffs.
+        """Power dissipated in the wire — its metal and its jacket — from a
+        solve's coeffs.
 
         P_wire = ½ Σ_w Re[Z'_w(ω)] · ∫_w |I(l)|² dl — the readout the
         downstream power budget reports, with the same signature and the
         same ``(total_watts, per_wire_watts)`` return as
-        `BSplineSolver.wire_loss_power` and `SinusoidalSolver`'s. Insulation
-        loading is purely reactive and contributes nothing here.
+        `BSplineSolver.wire_loss_power` and `SinusoidalSolver`'s. A lossless
+        jacket contributes nothing; one with tan δ > 0 (momwire#765) adds
+        ½·Re(zq_loss)·∫|dI/dl|² dl, and dI/dl is the constant (b − a)/h on
+        each segment, so its integral there is |b − a|²/h.
 
         This is a PHYSICAL integral over the conductor, so it is the
         Galerkin overlap of the tent basis with itself, not the testing-path
@@ -6446,6 +6782,10 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         r_w = np.real(_wire_loading.loading_for(self, omega, geom).z_wire)
         wire_of = self._wire_of_seg(geom)
         np.add.at(per_wire, wire_of, 0.5 * r_w[wire_of] * int_abs_i2)
+        zq_loss = _wire_loading.jacket_loss_charge(self, omega)
+        if zq_loss is not None:
+            int_abs_di2 = np.abs(i_hi - i_lo) ** 2 / h
+            np.add.at(per_wire, wire_of, 0.5 * np.real(zq_loss)[wire_of] * int_abs_di2)
         return float(per_wire.sum()), per_wire
 
     def lumped_load_power(self, coeffs):

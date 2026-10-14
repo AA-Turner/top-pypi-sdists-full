@@ -3,9 +3,11 @@
 
 # -*- coding: utf-8 -*-
 """Module for handling of NVM definitions and for generation of c&h-files defining the memory layout of the NVM."""
-import re
-import os
 import json
+import os
+import re
+import shutil
+
 from copy import deepcopy
 
 import powertrain_build.build_defs as bd
@@ -32,6 +34,7 @@ class NVMDef(ProblemLogger):
         "NVM_LIST_32_PER",
         "NVM_LIST_16_PER",
         "NVM_LIST_8_PER",
+        "NVM_LIST_IMMO_PER",
         "NVM_LIST_CRITICAL1",
         "NVM_LIST_CRITICAL2",
     ]
@@ -110,22 +113,28 @@ class NVMDef(ProblemLogger):
 
         Args:
             var_info (dict): a dict with the variable attributes.
-
         Returns:
-            area (str): a string with the area the variable should be
-                        defined in.
-
+            area (str): a string with the area the variable should be defined in.
         """
-        mtch = re.match(r"\D+(\d+)?", var_info["type"])
-        if mtch.group(1) is None:
+        custom_nvm_signal_mapping = self._project_config.get_code_generation_config("customNvmSignalMapping")
+        for signal_prefix, area in custom_nvm_signal_mapping.items():
+            if var_info["name"].startswith(signal_prefix) and var_info['class'].startswith("CVC_DISP_NVM"):
+                if area not in self._allowed_nvm_memory_areas:
+                    msg = f"Custom NVM mapping for signal prefix {signal_prefix} points to an invalid area: {area}!"
+                    self.critical(msg)
+                    return None
+                return area
+
+        match = re.match(r"\D+(\d+)?", var_info["type"])
+        if match.group(1) is None:
             size = "8"
         else:
-            size = mtch.group(1)
+            size = match.group(1)
         if var_info["class"] == "CVC_DISP_NVM":
             return "NVM_LIST_" + size
         if var_info["class"] == "CVC_DISP_NVM_P":
             return "NVM_LIST_" + size + "_PER"
-        self.critical("%s is not a NVM variable!", var_info["name"])
+        self.critical("%s is not an NVM variable!", var_info["name"])
         return None
 
     def _order_nvm_per_area(self):
@@ -532,13 +541,22 @@ class NVMDef(ProblemLogger):
         """Generate the c-file containing the NVM definition."""
         # TODO: Add memory from previous builds!!! and mark old positions #
         self.info("Start generating nvm source file")
-        with open(self._file_name + ".c", "w", encoding="utf-8") as cptr:
-            cptr.write(f'#include "{self._nvm_defs["fileName"]}.h"\n\n')
-            for area, pragma in zip(self._nvm_memory_areas, self._mem_area_pragmas):
-                struct_name, variable_name = self._get_struct_and_variable_name(area)
-                cptr.write(f'#include "{pragma[0]}"\n')
-                cptr.write(f"struct {struct_name} {variable_name};\n")
-                cptr.write(f'#include "{pragma[1]}"\n\n')
+        use_custom_nvm_source = self._project_config.get_code_generation_config("useCustomNvmSource")
+        if use_custom_nvm_source is not None:
+            src_file_dst = self._project_config.get_src_code_dst_dir()
+            src_path = os.path.join(self._project_config.get_root_dir(), use_custom_nvm_source)
+            if not os.path.exists(src_path):
+                raise FileNotFoundError(f"Custom NVM source file not found: {src_path}")
+            shutil.copy2(src_path, src_file_dst)
+            self.info('copied %s to %s', src_path, src_file_dst)
+        else:
+            with open(self._file_name + ".c", "w", encoding="utf-8") as cptr:
+                cptr.write(f'#include "{self._nvm_defs["fileName"]}.h"\n\n')
+                for area, pragma in zip(self._nvm_memory_areas, self._mem_area_pragmas):
+                    struct_name, variable_name = self._get_struct_and_variable_name(area)
+                    cptr.write(f'#include "{pragma[0]}"\n')
+                    cptr.write(f"struct {struct_name} {variable_name};\n")
+                    cptr.write(f'#include "{pragma[1]}"\n\n')
 
     def _generate_nvm_config_a2l(self):
         """Generate the a2l-file describing the NVM definition."""

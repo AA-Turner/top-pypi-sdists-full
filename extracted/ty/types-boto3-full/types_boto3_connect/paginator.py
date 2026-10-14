@@ -20,6 +20,7 @@ Usage::
         ListBotsPaginator,
         ListChildHoursOfOperationsPaginator,
         ListContactEvaluationsPaginator,
+        ListContactFlowAliasesPaginator,
         ListContactFlowModuleAliasesPaginator,
         ListContactFlowModuleVersionsPaginator,
         ListContactFlowModulesPaginator,
@@ -112,6 +113,7 @@ Usage::
     list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
     list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = client.get_paginator("list_child_hours_of_operations")
     list_contact_evaluations_paginator: ListContactEvaluationsPaginator = client.get_paginator("list_contact_evaluations")
+    list_contact_flow_aliases_paginator: ListContactFlowAliasesPaginator = client.get_paginator("list_contact_flow_aliases")
     list_contact_flow_module_aliases_paginator: ListContactFlowModuleAliasesPaginator = client.get_paginator("list_contact_flow_module_aliases")
     list_contact_flow_module_versions_paginator: ListContactFlowModuleVersionsPaginator = client.get_paginator("list_contact_flow_module_versions")
     list_contact_flow_modules_paginator: ListContactFlowModulesPaginator = client.get_paginator("list_contact_flow_modules")
@@ -218,6 +220,8 @@ from .type_defs import (
     ListChildHoursOfOperationsResponseTypeDef,
     ListContactEvaluationsRequestPaginateTypeDef,
     ListContactEvaluationsResponseTypeDef,
+    ListContactFlowAliasesRequestPaginateTypeDef,
+    ListContactFlowAliasesResponseTypeDef,
     ListContactFlowModuleAliasesRequestPaginateTypeDef,
     ListContactFlowModuleAliasesResponseTypeDef,
     ListContactFlowModulesRequestPaginateTypeDef,
@@ -393,6 +397,7 @@ __all__ = (
     "ListBotsPaginator",
     "ListChildHoursOfOperationsPaginator",
     "ListContactEvaluationsPaginator",
+    "ListContactFlowAliasesPaginator",
     "ListContactFlowModuleAliasesPaginator",
     "ListContactFlowModuleVersionsPaginator",
     "ListContactFlowModulesPaginator",
@@ -642,6 +647,27 @@ class ListContactEvaluationsPaginator(_ListContactEvaluationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactEvaluations.html#Connect.Paginator.ListContactEvaluations.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactevaluationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListContactFlowAliasesPaginatorBase = Paginator[ListContactFlowAliasesResponseTypeDef]
+else:
+    _ListContactFlowAliasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListContactFlowAliasesPaginator(_ListContactFlowAliasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactFlowAliases.html#Connect.Paginator.ListContactFlowAliases)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactflowaliasespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContactFlowAliasesRequestPaginateTypeDef]
+    ) -> PageIterator[ListContactFlowAliasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListContactFlowAliases.html#Connect.Paginator.ListContactFlowAliases.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/paginators/#listcontactflowaliasespaginator)
         """
 
 

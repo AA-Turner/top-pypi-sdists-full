@@ -76,6 +76,7 @@ _config: dict[str, Any] = {
     "chrome_options": [],
     "multiple_profiles": False,
     "custom_headers": {},
+    "uploaded_files": [],
 
     # Heal timeouts — tunable
     "heal_timeout_per_tier_ms": int(os.getenv("HEAL_TIMEOUT_PER_TIER_MS", "30000")),

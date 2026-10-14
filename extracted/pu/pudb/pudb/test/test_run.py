@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 
 import pytest
@@ -27,7 +25,7 @@ def test_main_version(capsys, mocker, argv):
 
     with pytest.raises(SystemExit) as ex:
         main()
-        assert ex.value == 0
+    assert ex.value.code == 0
 
     captured = capsys.readouterr()
 
@@ -47,7 +45,7 @@ def test_main_v_with_args(capsys, mocker):
 
     with pytest.raises(SystemExit) as ex:
         main()
-        assert ex.value == 2
+    assert ex.value.code == 2
 
     captured = capsys.readouterr()
 

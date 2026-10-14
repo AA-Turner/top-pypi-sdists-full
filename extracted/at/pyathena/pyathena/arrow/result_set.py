@@ -14,6 +14,7 @@ from pyathena import OperationalError
 from pyathena.arrow.converter import _to_timestamp
 from pyathena.arrow.util import to_column_info
 from pyathena.converter import Converter, _to_default
+from pyathena.filesystem.reader import ReadAheadStream
 from pyathena.model import AthenaQueryExecution
 from pyathena.result_set import AthenaResultSet
 from pyathena.util import RetryConfig, override, parse_output_location
@@ -228,6 +229,31 @@ class AthenaArrowResultSet(AthenaResultSet):
         self._rownumber += 1
         return self._rows.popleft()
 
+    def _open_csv(self, location: str) -> Any:
+        """Open the CSV result file for ``pyarrow.csv.read_csv()``.
+
+        The file is read in parts with several parts read ahead in parallel
+        through the pyarrow S3 filesystem; see
+        :class:`~pyathena.filesystem.reader.ReadAheadStream`.
+
+        Args:
+            location: The bucket and key of the file.
+
+        Returns:
+            The file as a pyarrow input stream, which closes the file when closed.
+        """
+        import pyarrow as pa
+
+        file = self._fs.open_input_file(location)
+        try:
+            stream = ReadAheadStream(
+                lambda offset, size: file.read_at(size, offset), file.size(), on_close=file.close
+            )
+        except BaseException:
+            file.close()
+            raise
+        return pa.PythonFile(stream, mode="r")
+
     def _read_csv(self) -> Table:
         """Read the CSV result file, or the GetQueryResults rows as one without it.
 
@@ -317,20 +343,21 @@ class AthenaArrowResultSet(AthenaResultSet):
             return pa.Table.from_pydict({})
 
         try:
-            table = csv.read_csv(
-                self._fs.open_input_stream(location) if data is None else pa.BufferReader(data),
-                read_options=read_opts,
-                parse_options=parse_opts,
-                convert_options=csv.ConvertOptions(
-                    strings_can_be_null=bool(binary_columns),
-                    quoted_strings_can_be_null=False,
-                    timestamp_parsers=self.timestamp_parsers,
-                    column_types={
-                        **column_types,
-                        **{column_names[i]: pa.string() for i in timestamp_types},
-                    },
-                ),
-            )
+            with self._open_csv(location) if data is None else pa.BufferReader(data) as source:
+                table = csv.read_csv(
+                    source,
+                    read_options=read_opts,
+                    parse_options=parse_opts,
+                    convert_options=csv.ConvertOptions(
+                        strings_can_be_null=bool(binary_columns),
+                        quoted_strings_can_be_null=False,
+                        timestamp_parsers=self.timestamp_parsers,
+                        column_types={
+                            **column_types,
+                            **{column_names[i]: pa.string() for i in timestamp_types},
+                        },
+                    ),
+                )
             for index, type_ in timestamp_types.items():
                 table = table.set_column(
                     index,

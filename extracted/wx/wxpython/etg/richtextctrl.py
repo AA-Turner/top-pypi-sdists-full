@@ -51,6 +51,12 @@ def run():
 
     #-----------------------------------------------------------------
     c = module.find('wxRichTextCtrl')
+    if tools.isWindows:
+        # wxRichTextCtrl overrides CreateAccessible as protected, so the public
+        # declaration that addWindowVirtuals would otherwise add can't compile.
+        c.addItem(etgtools.MethodDef(
+            name='CreateAccessible', type='wxAccessible*', isVirtual=True,
+            protection='protected', className=c.name))
     tools.fixWindowClass(c)
     c.bases = ['wxControl']  # wxTextCtrlIface, wxScrollHelper are also bases...
     c.find('GetSelection').findOverload('from').ignore()
@@ -119,7 +125,7 @@ def run():
         EVT_RICHTEXT_CONTENT_INSERTED = wx.PyEventBinder(wxEVT_RICHTEXT_CONTENT_INSERTED)
         EVT_RICHTEXT_CONTENT_DELETED = wx.PyEventBinder(wxEVT_RICHTEXT_CONTENT_DELETED)
         EVT_RICHTEXT_STYLE_CHANGED = wx.PyEventBinder(wxEVT_RICHTEXT_STYLE_CHANGED)
-        EVT_RICHTEXT_STYLE_CHANGED = wx.PyEventBinder(wxEVT_RICHTEXT_PROPERTIES_CHANGED)
+        EVT_RICHTEXT_PROPERTIES_CHANGED = wx.PyEventBinder(wxEVT_RICHTEXT_PROPERTIES_CHANGED)
         EVT_RICHTEXT_SELECTION_CHANGED = wx.PyEventBinder(wxEVT_RICHTEXT_SELECTION_CHANGED)
         EVT_RICHTEXT_BUFFER_RESET = wx.PyEventBinder(wxEVT_RICHTEXT_BUFFER_RESET)
         EVT_RICHTEXT_FOCUS_OBJECT_CHANGED = wx.PyEventBinder(wxEVT_RICHTEXT_FOCUS_OBJECT_CHANGED)

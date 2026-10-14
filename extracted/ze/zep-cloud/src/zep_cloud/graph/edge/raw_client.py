@@ -6,17 +6,28 @@ from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError as core_api_error_ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
-from ...core.jsonable_encoder import jsonable_encoder
+from ...core.idempotency import generate_idempotency_key
+from ...core.jsonable_encoder import encode_path_param
+from ...core.pagination import AsyncPager, SyncPager
+from ...core.parse_error import ParsingError
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.bad_request_error import BadRequestError
-from ...errors.internal_server_error import InternalServerError
+from ...errors.conflict_error import ConflictError
+from ...errors.forbidden_error import ForbiddenError
 from ...errors.not_found_error import NotFoundError
+from ...errors.unauthorized_error import UnauthorizedError
+from ...types.add_edges_result import AddEdgesResult
 from ...types.api_error import ApiError as types_api_error_ApiError
-from ...types.entity_edge import EntityEdge
-from ...types.search_filters import SearchFilters
-from ...types.success_response import SuccessResponse
+from ...types.async_result import AsyncResult
+from ...types.edge import Edge
+from ...types.edge_input import EdgeInput
+from ...types.edge_list_filters import EdgeListFilters
+from ...types.edge_page import EdgePage
+from .types.edge_list_request_order import EdgeListRequestOrder
+from .types.edge_list_request_order_by import EdgeListRequestOrderBy
+from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -26,70 +37,54 @@ class RawEdgeClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get_by_graph_id(
+    def add(
         self,
-        graph_id: str,
+        graph_uuid: str,
         *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
+        edges: typing.Sequence[EdgeInput],
+        deduplicate: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[typing.List[EntityEdge]]:
+    ) -> HttpResponse[AddEdgesResult]:
         """
-        Returns all edges for a graph.
+        Adds 1 to 100 edges. A name creates a node when deduplicate is false. When deduplicate is true, Zep matches a node by name first.
+        Example: {"edges":[{"fact":"Ada works at Acme Corp","fact_name":"WORKS_AT","source_node":{"uuid":"f47ac10b-58cc-4372-a567-0e02b2c3d479"},"target_node":{"uuid":"f47ac10b-58cc-4372-a567-0e02b2c3d480"}},{"fact":"Ada leads a team","fact_name":"LEADS","source_node":{"name":"Ada Lovelace","labels":["Person"]},"target_node":{"name":"Engineering","labels":["Department"]}}],"deduplicate":false}
 
         Parameters
         ----------
-        graph_id : str
-            Graph ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
+        edges : typing.Sequence[EdgeInput]
+            The edges to add to the graph. The request accepts 1 to 100 edges.
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
+        deduplicate : typing.Optional[bool]
+            When true, Zep compares each edge with graph edges and can merge a
+            duplicate or invalidate a contradicted edge. This adds an LLM call per
+            edge. The default is false.
 
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
-
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[typing.List[EntityEdge]]
-            Edges
+        HttpResponse[AddEdgesResult]
+            Accepted
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"graph/edge/graph/{jsonable_encoder(graph_id)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges",
             method="POST",
             json={
-                "cursor": cursor,
-                "direction": direction,
-                "filters": convert_and_respect_annotation_metadata(
-                    object_=filters, annotation=SearchFilters, direction="write"
+                "deduplicate": deduplicate,
+                "edges": convert_and_respect_annotation_metadata(
+                    object_=edges, annotation=typing.Sequence[EdgeInput], direction="write"
                 ),
-                "limit": limit,
-                "order_by": order_by,
-                "uuid_cursor": uuid_cursor,
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -97,9 +92,9 @@ class RawEdgeClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.List[EntityEdge],
+                    AddEdgesResult,
                     parse_obj_as(
-                        type_=typing.List[EntityEdge],  # type: ignore
+                        type_=AddEdgesResult,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -108,15 +103,48 @@ class RawEdgeClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -131,101 +159,149 @@ class RawEdgeClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    def get_by_user_id(
+    def list(
         self,
-        user_id: str,
+        graph_uuid: str,
         *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[EdgeListRequestOrderBy] = None,
+        order: typing.Optional[EdgeListRequestOrder] = None,
+        filters: typing.Optional[EdgeListFilters] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[typing.List[EntityEdge]]:
+    ) -> SyncPager[Edge, EdgePage]:
         """
-        Returns all edges for a user.
+        Lists the edges of a graph and returns one page of results. The default `page_size` is 50, and the maximum `page_size` is 100.
+        You can sort by `uuid`, `created_at`, or `valid_at`. The default sort is `uuid` in descending order. An edge with no `valid_at` sorts as if its `valid_at` is 1970-01-01T00:00:00Z. Thus it comes before an edge with a later `valid_at` in ascending order, and after an edge with an earlier `valid_at`.
+        You can use all `filters` fields except `content_policy_violated`.
+        If the request has an unsupported or unknown filter field, the API returns an `unsupported_filter` error.
 
         Parameters
         ----------
-        user_id : str
-            User ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
         cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
+            Opaque page cursor
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
+        order_by : typing.Optional[EdgeListRequestOrderBy]
+            Sort key: uuid (default), created_at, or valid_at
 
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
+        order : typing.Optional[EdgeListRequestOrder]
+            Sort direction: asc or desc (default desc)
 
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
+        filters : typing.Optional[EdgeListFilters]
+            Filters that limit the items in the list. The operation description
+            names the filter fields that the operation does not support.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[typing.List[EntityEdge]]
-            Edges
+        SyncPager[Edge, EdgePage]
+            OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"graph/edge/user/{jsonable_encoder(user_id)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/list",
             method="POST",
-            json={
+            params={
+                "page_size": page_size,
                 "cursor": cursor,
-                "direction": direction,
-                "filters": convert_and_respect_annotation_metadata(
-                    object_=filters, annotation=SearchFilters, direction="write"
-                ),
-                "limit": limit,
                 "order_by": order_by,
-                "uuid_cursor": uuid_cursor,
+                "order": order,
+            },
+            json={
+                "filters": convert_and_respect_annotation_metadata(
+                    object_=filters, annotation=EdgeListFilters, direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.List[EntityEdge],
+                _parsed_response = typing.cast(
+                    EdgePage,
                     parse_obj_as(
-                        type_=typing.List[EntityEdge],  # type: ignore
+                        type_=EdgePage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+                _get_next = lambda: self.list(
+                    graph_uuid,
+                    page_size=page_size,
+                    cursor=_parsed_next,
+                    order_by=order_by,
+                    order=order,
+                    filters=filters,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -240,17 +316,24 @@ class RawEdgeClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    def get(self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[EntityEdge]:
+    def get(
+        self, graph_uuid: str, edge_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[Edge]:
         """
-        Returns a specific edge by its UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        edge_uuid : str
             Edge UUID
 
         request_options : typing.Optional[RequestOptions]
@@ -258,37 +341,26 @@ class RawEdgeClient:
 
         Returns
         -------
-        HttpResponse[EntityEdge]
-            Edge
+        HttpResponse[Edge]
+            OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"graph/edge/{jsonable_encoder(uuid_)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/{encode_path_param(edge_uuid)}",
             method="GET",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EntityEdge,
+                    Edge,
                     parse_obj_as(
-                        type_=EntityEdge,  # type: ignore
+                        type_=Edge,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -298,8 +370,30 @@ class RawEdgeClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -314,40 +408,55 @@ class RawEdgeClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     def delete(
-        self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[SuccessResponse]:
+        self,
+        graph_uuid: str,
+        edge_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[AsyncResult]:
         """
-        Deletes an edge by UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        edge_uuid : str
             Edge UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[SuccessResponse]
-            Edge deleted
+        HttpResponse[AsyncResult]
+            Accepted
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"graph/edge/{jsonable_encoder(uuid_)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/{encode_path_param(edge_uuid)}",
             method="DELETE",
+            headers={
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SuccessResponse,
+                    AsyncResult,
                     parse_obj_as(
-                        type_=SuccessResponse,  # type: ignore
+                        type_=AsyncResult,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -356,9 +465,31 @@ class RawEdgeClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -374,8 +505,8 @@ class RawEdgeClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -389,6 +520,10 @@ class RawEdgeClient:
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
@@ -396,63 +531,56 @@ class RawEdgeClient:
 
     def update(
         self,
-        uuid_: str,
+        graph_uuid: str,
+        edge_uuid: str,
         *,
-        attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
-        expired_at: typing.Optional[str] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         fact: typing.Optional[str] = OMIT,
-        invalid_at: typing.Optional[str] = OMIT,
-        name: typing.Optional[str] = OMIT,
-        valid_at: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[EntityEdge]:
+    ) -> HttpResponse[Edge]:
         """
-        Updates an entity edge by UUID.
+        Updates one edge. When the edge belongs to a hyperedge, changing fact
+        rewrites it on every member of that hyperedge in one all-or-nothing
+        write, because the members share it. Attribute-only edits touch this
+        edge alone.
 
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        edge_uuid : str
             Edge UUID
 
-        attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Updated attributes. Merged with existing attributes. Set a key to null to delete it.
-
-        expired_at : typing.Optional[str]
-            Updated time at which the edge expires
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Additional attributes to merge onto the edge; a key set to null is
+            removed.
 
         fact : typing.Optional[str]
-            Updated fact for the edge
+            The fact text describing the relationship between the source and target
+            nodes.
 
-        invalid_at : typing.Optional[str]
-            Updated time at which the fact stopped being true
-
-        name : typing.Optional[str]
-            Updated name (relationship type) for the edge
-
-        valid_at : typing.Optional[str]
-            Updated time at which the fact becomes true
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[EntityEdge]
-            Updated edge
+        HttpResponse[Edge]
+            OK
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"graph/edge/{jsonable_encoder(uuid_)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/{encode_path_param(edge_uuid)}",
             method="PATCH",
             json={
                 "attributes": attributes,
-                "expired_at": expired_at,
                 "fact": fact,
-                "invalid_at": invalid_at,
-                "name": name,
-                "valid_at": valid_at,
             },
             headers={
                 "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -460,9 +588,9 @@ class RawEdgeClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EntityEdge,
+                    Edge,
                     parse_obj_as(
-                        type_=EntityEdge,  # type: ignore
+                        type_=Edge,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -471,9 +599,31 @@ class RawEdgeClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -489,8 +639,8 @@ class RawEdgeClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -504,6 +654,10 @@ class RawEdgeClient:
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
@@ -514,70 +668,54 @@ class AsyncRawEdgeClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get_by_graph_id(
+    async def add(
         self,
-        graph_id: str,
+        graph_uuid: str,
         *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
+        edges: typing.Sequence[EdgeInput],
+        deduplicate: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.List[EntityEdge]]:
+    ) -> AsyncHttpResponse[AddEdgesResult]:
         """
-        Returns all edges for a graph.
+        Adds 1 to 100 edges. A name creates a node when deduplicate is false. When deduplicate is true, Zep matches a node by name first.
+        Example: {"edges":[{"fact":"Ada works at Acme Corp","fact_name":"WORKS_AT","source_node":{"uuid":"f47ac10b-58cc-4372-a567-0e02b2c3d479"},"target_node":{"uuid":"f47ac10b-58cc-4372-a567-0e02b2c3d480"}},{"fact":"Ada leads a team","fact_name":"LEADS","source_node":{"name":"Ada Lovelace","labels":["Person"]},"target_node":{"name":"Engineering","labels":["Department"]}}],"deduplicate":false}
 
         Parameters
         ----------
-        graph_id : str
-            Graph ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
 
-        cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
+        edges : typing.Sequence[EdgeInput]
+            The edges to add to the graph. The request accepts 1 to 100 edges.
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
+        deduplicate : typing.Optional[bool]
+            When true, Zep compares each edge with graph edges and can merge a
+            duplicate or invalidate a contradicted edge. This adds an LLM call per
+            edge. The default is false.
 
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
-
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[typing.List[EntityEdge]]
-            Edges
+        AsyncHttpResponse[AddEdgesResult]
+            Accepted
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"graph/edge/graph/{jsonable_encoder(graph_id)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges",
             method="POST",
             json={
-                "cursor": cursor,
-                "direction": direction,
-                "filters": convert_and_respect_annotation_metadata(
-                    object_=filters, annotation=SearchFilters, direction="write"
+                "deduplicate": deduplicate,
+                "edges": convert_and_respect_annotation_metadata(
+                    object_=edges, annotation=typing.Sequence[EdgeInput], direction="write"
                 ),
-                "limit": limit,
-                "order_by": order_by,
-                "uuid_cursor": uuid_cursor,
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -585,9 +723,9 @@ class AsyncRawEdgeClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.List[EntityEdge],
+                    AddEdgesResult,
                     parse_obj_as(
-                        type_=typing.List[EntityEdge],  # type: ignore
+                        type_=AddEdgesResult,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -596,15 +734,48 @@ class AsyncRawEdgeClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -619,101 +790,152 @@ class AsyncRawEdgeClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
-    async def get_by_user_id(
+    async def list(
         self,
-        user_id: str,
+        graph_uuid: str,
         *,
-        cursor: typing.Optional[str] = OMIT,
-        direction: typing.Optional[str] = OMIT,
-        filters: typing.Optional[SearchFilters] = OMIT,
-        limit: typing.Optional[int] = OMIT,
-        order_by: typing.Optional[str] = OMIT,
-        uuid_cursor: typing.Optional[str] = OMIT,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        order_by: typing.Optional[EdgeListRequestOrderBy] = None,
+        order: typing.Optional[EdgeListRequestOrder] = None,
+        filters: typing.Optional[EdgeListFilters] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[typing.List[EntityEdge]]:
+    ) -> AsyncPager[Edge, EdgePage]:
         """
-        Returns all edges for a user.
+        Lists the edges of a graph and returns one page of results. The default `page_size` is 50, and the maximum `page_size` is 100.
+        You can sort by `uuid`, `created_at`, or `valid_at`. The default sort is `uuid` in descending order. An edge with no `valid_at` sorts as if its `valid_at` is 1970-01-01T00:00:00Z. Thus it comes before an edge with a later `valid_at` in ascending order, and after an edge with an earlier `valid_at`.
+        You can use all `filters` fields except `content_policy_violated`.
+        If the request has an unsupported or unknown filter field, the API returns an `unsupported_filter` error.
 
         Parameters
         ----------
-        user_id : str
-            User ID
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
         cursor : typing.Optional[str]
-            Opaque cursor for pagination, obtained from the Zep-Next-Cursor response header
-            of the previous page. Encodes the sort field, direction, and continuation position.
+            Opaque page cursor
 
-        direction : typing.Optional[str]
-            Sort direction. One of "asc" or "desc" (default "desc").
+        order_by : typing.Optional[EdgeListRequestOrderBy]
+            Sort key: uuid (default), created_at, or valid_at
 
-        filters : typing.Optional[SearchFilters]
-            Optional filters applied to the listed artifacts. Reuses the graph.search filter type.
+        order : typing.Optional[EdgeListRequestOrder]
+            Sort direction: asc or desc (default desc)
 
-        limit : typing.Optional[int]
-            Maximum number of items to return
-
-        order_by : typing.Optional[str]
-            Field to sort by. One of "created_at", "valid_at", "degree", or "uuid"
-            (default "uuid"). "degree" sorts by the count of live entity edges that
-            touch each node (the edge scopes the entity edge list returns) and is
-            supported on the node list endpoints only.
-
-        uuid_cursor : typing.Optional[str]
-            UUID based cursor, used for pagination. Should be the UUID of the last item in the previous page.
-
-            Deprecated: prefer Cursor, the opaque cursor returned via the Zep-Next-Cursor response header.
+        filters : typing.Optional[EdgeListFilters]
+            Filters that limit the items in the list. The operation description
+            names the filter fields that the operation does not support.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[typing.List[EntityEdge]]
-            Edges
+        AsyncPager[Edge, EdgePage]
+            OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"graph/edge/user/{jsonable_encoder(user_id)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/list",
             method="POST",
-            json={
+            params={
+                "page_size": page_size,
                 "cursor": cursor,
-                "direction": direction,
-                "filters": convert_and_respect_annotation_metadata(
-                    object_=filters, annotation=SearchFilters, direction="write"
-                ),
-                "limit": limit,
                 "order_by": order_by,
-                "uuid_cursor": uuid_cursor,
+                "order": order,
+            },
+            json={
+                "filters": convert_and_respect_annotation_metadata(
+                    object_=filters, annotation=EdgeListFilters, direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+                "Idempotency-Key": generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.List[EntityEdge],
+                _parsed_response = typing.cast(
+                    EdgePage,
                     parse_obj_as(
-                        type_=typing.List[EntityEdge],  # type: ignore
+                        type_=EdgePage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.items
+                _parsed_next = _parsed_response.next_cursor
+                _has_next = _parsed_next is not None and _parsed_next != ""
+
+                async def _get_next():
+                    return await self.list(
+                        graph_uuid,
+                        page_size=page_size,
+                        cursor=_parsed_next,
+                        order_by=order_by,
+                        order=order,
+                        filters=filters,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -727,20 +949,25 @@ class AsyncRawEdgeClient:
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     async def get(
-        self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[EntityEdge]:
+        self, graph_uuid: str, edge_uuid: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[Edge]:
         """
-        Returns a specific edge by its UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        edge_uuid : str
             Edge UUID
 
         request_options : typing.Optional[RequestOptions]
@@ -748,37 +975,26 @@ class AsyncRawEdgeClient:
 
         Returns
         -------
-        AsyncHttpResponse[EntityEdge]
-            Edge
+        AsyncHttpResponse[Edge]
+            OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"graph/edge/{jsonable_encoder(uuid_)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/{encode_path_param(edge_uuid)}",
             method="GET",
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EntityEdge,
+                    Edge,
                     parse_obj_as(
-                        type_=EntityEdge,  # type: ignore
+                        type_=Edge,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -788,8 +1004,30 @@ class AsyncRawEdgeClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -804,40 +1042,55 @@ class AsyncRawEdgeClient:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
             )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
         )
 
     async def delete(
-        self, uuid_: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[SuccessResponse]:
+        self,
+        graph_uuid: str,
+        edge_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AsyncResult]:
         """
-        Deletes an edge by UUID.
-
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        edge_uuid : str
             Edge UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[SuccessResponse]
-            Edge deleted
+        AsyncHttpResponse[AsyncResult]
+            Accepted
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"graph/edge/{jsonable_encoder(uuid_)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/{encode_path_param(edge_uuid)}",
             method="DELETE",
+            headers={
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    SuccessResponse,
+                    AsyncResult,
                     parse_obj_as(
-                        type_=SuccessResponse,  # type: ignore
+                        type_=AsyncResult,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -846,9 +1099,31 @@ class AsyncRawEdgeClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -864,8 +1139,8 @@ class AsyncRawEdgeClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -879,6 +1154,10 @@ class AsyncRawEdgeClient:
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json
@@ -886,63 +1165,56 @@ class AsyncRawEdgeClient:
 
     async def update(
         self,
-        uuid_: str,
+        graph_uuid: str,
+        edge_uuid: str,
         *,
-        attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
-        expired_at: typing.Optional[str] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         fact: typing.Optional[str] = OMIT,
-        invalid_at: typing.Optional[str] = OMIT,
-        name: typing.Optional[str] = OMIT,
-        valid_at: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[EntityEdge]:
+    ) -> AsyncHttpResponse[Edge]:
         """
-        Updates an entity edge by UUID.
+        Updates one edge. When the edge belongs to a hyperedge, changing fact
+        rewrites it on every member of that hyperedge in one all-or-nothing
+        write, because the members share it. Attribute-only edits touch this
+        edge alone.
 
         Parameters
         ----------
-        uuid_ : str
+        graph_uuid : str
+            The UUID of the graph. For a user graph, you can also use the UUID of the user.
+
+        edge_uuid : str
             Edge UUID
 
-        attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Updated attributes. Merged with existing attributes. Set a key to null to delete it.
-
-        expired_at : typing.Optional[str]
-            Updated time at which the edge expires
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Additional attributes to merge onto the edge; a key set to null is
+            removed.
 
         fact : typing.Optional[str]
-            Updated fact for the edge
+            The fact text describing the relationship between the source and target
+            nodes.
 
-        invalid_at : typing.Optional[str]
-            Updated time at which the fact stopped being true
-
-        name : typing.Optional[str]
-            Updated name (relationship type) for the edge
-
-        valid_at : typing.Optional[str]
-            Updated time at which the fact becomes true
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[EntityEdge]
-            Updated edge
+        AsyncHttpResponse[Edge]
+            OK
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"graph/edge/{jsonable_encoder(uuid_)}",
+            f"graphs/{encode_path_param(graph_uuid)}/edges/{encode_path_param(edge_uuid)}",
             method="PATCH",
             json={
                 "attributes": attributes,
-                "expired_at": expired_at,
                 "fact": fact,
-                "invalid_at": invalid_at,
-                "name": name,
-                "valid_at": valid_at,
             },
             headers={
                 "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else generate_idempotency_key(),
             },
             request_options=request_options,
             omit=OMIT,
@@ -950,9 +1222,9 @@ class AsyncRawEdgeClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    EntityEdge,
+                    Edge,
                     parse_obj_as(
-                        type_=EntityEdge,  # type: ignore
+                        type_=Edge,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -961,9 +1233,31 @@ class AsyncRawEdgeClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        types_api_error_ApiError,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        types_api_error_ApiError,
+                        parse_obj_as(
+                            type_=types_api_error_ApiError,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -979,8 +1273,8 @@ class AsyncRawEdgeClient:
                         ),
                     ),
                 )
-            if _response.status_code == 500:
-                raise InternalServerError(
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         types_api_error_ApiError,
@@ -994,6 +1288,10 @@ class AsyncRawEdgeClient:
         except JSONDecodeError:
             raise core_api_error_ApiError(
                 status_code=_response.status_code, headers=dict(_response.headers), body=_response.text
+            )
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
             )
         raise core_api_error_ApiError(
             status_code=_response.status_code, headers=dict(_response.headers), body=_response_json

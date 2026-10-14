@@ -7,14 +7,14 @@ from typing import Any
 
 import httpx2
 
-from trajectory._base_client import make_request_options, path_template
+from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, not_given
+from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._utils import maybe_transform
 from trajectory.types.training.checkpoints.training_checkpoint_response import (
   TrainingCheckpointResponse,
 )
-from trajectory.types.training_checkpoints_response import TrainingCheckpointsResponse
 
 
 class Checkpoints(APIResource):
@@ -26,12 +26,14 @@ class Checkpoints(APIResource):
     self,
     run_id: str,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> TrainingCheckpointsResponse:
-    """List every committed checkpoint produced by a training run.
+  ) -> SyncPage[TrainingCheckpointResponse]:
+    """List committed checkpoints in ascending step and checkpoint-ID order.
 
     Args:
       extra_headers: Send extra headers
@@ -49,8 +51,14 @@ class Checkpoints(APIResource):
         "/api/v1/train/{run_id}/checkpoints",
         run_id=run_id,
       ),
-      cast_to=TrainingCheckpointsResponse,
+      cast_to=SyncPage[TrainingCheckpointResponse],
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

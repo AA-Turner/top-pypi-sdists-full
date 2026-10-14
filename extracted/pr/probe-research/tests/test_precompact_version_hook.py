@@ -239,6 +239,37 @@ def test_precompact_reconciles_the_team_note(hook, monkeypatch):
     assert any("notes sync" in c for c in commands), commands
 
 
+def test_session_maintenance_sends_unsent_feedback_only_when_there_is_some(hook, monkeypatch, tmp_path):
+    """`probe feedback flush` is a cold `probe` process: it rides the maintenance
+    command only when a feedback question was answered and not sent yet."""
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    requests = tmp_path / "state" / "probe" / "approvals" / "requests"
+    requests.mkdir(parents=True)
+
+    def maintenance() -> str:
+        commands = _capture_maintenance(hook, monkeypatch)
+        hook._spawn_session_maintenance()
+        return commands[-1]
+
+    assert "feedback flush" not in maintenance()
+    (requests / "a1.json").write_text(json.dumps({"policy": "feedback.send", "state": "waiting"}))
+    (requests / "a2.json").write_text(json.dumps({"policy": "shell.unsafe_command", "state": "approved",
+                                                  "outcome": hook.FEEDBACK_UNSENT}))
+    assert "feedback flush" not in maintenance()  # unanswered, or not feedback
+    (requests / "a3.json").write_text(json.dumps({"policy": "feedback.send", "state": "approved",
+                                                  "outcome": hook.FEEDBACK_UNSENT}))
+    assert maintenance().rstrip().endswith("feedback flush")
+    (requests / "a3.json").unlink()
+    # A yes a daemon from before 0.247.0 voided is recovered by the flush too.
+    (requests / "a4.json").write_text(json.dumps({"policy": "feedback.send", "state": "void",
+                                                  "outcome": hook.FEEDBACK_OLD_DAEMON_VOID}))
+    assert maintenance().rstrip().endswith("feedback flush")
+    (requests / "a4.json").unlink()
+    (requests.parent / "answers").mkdir()
+    (requests.parent / "answers" / "a1.json").write_text("{}")
+    assert maintenance().rstrip().endswith("feedback flush")
+
+
 def test_the_reconcile_ignores_the_tracking_toggle(hook, monkeypatch):
     """REGRESSION. This used to send `--pull-only` when tracking was off, so an
     untracked session's edits sat unsent until some later session pushed them --

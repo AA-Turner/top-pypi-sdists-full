@@ -2101,6 +2101,59 @@ def test_cli_run_records_the_run_identity(monkeypatch, tmp_path):
     assert config["thresholds"]["baseline_tolerance"] == {"choice_accuracy": 0.02}
 
 
+def test_cli_run_an_unwritable_output_path_is_a_usage_error(monkeypatch, tmp_path, capsys):
+    """`--json`/`--markdown` to a path that cannot hold a file is the caller's mistake.
+
+    The module docstring reserves exit 1 for "a threshold or a baseline tolerance fails", and the
+    `EvalError` handler in `main` exists precisely so a broken request cannot read as a regression.
+    `_cmd_agreement` already raises `EvalError` for an unwritable report; `_cmd_run` opened both of
+    its outputs bare. Only one shape of that is caught by accident: a missing parent directory
+    raises `FileNotFoundError`, which `main` narrows to exit 2, while a path that *is* a directory
+    raises `IsADirectoryError` (PermissionError on Windows) -- an `OSError` that is not a
+    `FileNotFoundError`, so it escapes every handler and leaves a traceback and exit 1 for a run
+    that wrote nothing. Same mistake, two different codes.
+    """
+    from laya import evals_cli
+
+    real_open = open                      # captured before any patch below delegates to it
+    _patch_router(monkeypatch)
+    dataset = _write_dataset(tmp_path, RUN_ROWS)
+    spool = str(tmp_path / "spooled.json")
+    cases = [
+        ("a directory that does not exist", str(tmp_path / "no-such-dir" / "report.json"), None),
+        ("a path that is a directory, not a file", str(tmp_path), None),
+        # A full disk, a read-only mount, an expired quota: the errno names no path, so the only
+        # words that can say which output failed are the CLI's own. This is what the `%r` in the
+        # message buys, and `open` really is the call that raises for it.
+        ("a volume that refuses the write", spool, OSError(28, "No space left on device")),
+    ]
+
+    def make_refuser(wanted, err):
+        """`open` for real, except that one path raises. A factory, so nothing binds late."""
+        def refuse(target, *a, **k):
+            if str(target) == wanted:
+                raise err
+            return real_open(target, *a, **k)
+        return refuse
+
+    for flag in ("--json", "--markdown"):
+        for label, path, error in cases:
+            if error is not None:
+                monkeypatch.setattr("builtins.open", make_refuser(path, error))
+            capsys.readouterr()
+            assert evals_cli.main(["run", dataset, flag, path]) == 2, "%s: %s" % (flag, label)
+            err = capsys.readouterr().err
+            assert "Traceback" not in err, "%s %s leaked a traceback" % (flag, label)
+            assert "cannot write" in err, "%s %s: %s" % (flag, label, err)
+            assert path in err, "%s %s did not name the path it could not write: %s" % (
+                flag, label, err)
+            if error is not None:
+                assert "No space left on device" in err, (
+                    "%s %s lost the errno the caller needs: %s" % (flag, label, err))
+                # Put `open` back: a later row must not inherit a refuser aimed at this path.
+                monkeypatch.setattr("builtins.open", real_open)
+
+
 def test_cli_run_refuses_a_baseline_from_a_different_dataset(monkeypatch, tmp_path, capsys):
     """The gate that a promotion decision rests on: two different runs cannot pass as one.
 
@@ -2213,6 +2266,47 @@ def test_questions_fingerprint_keeps_criteria_order():
         evals.questions_fingerprint(with_criteria(["beta", "alpha"]))
     assert evals.questions_fingerprint(with_criteria({"a": "alpha", "b": "beta"})) != \
         evals.questions_fingerprint(with_criteria({"b": "beta", "a": "alpha"}))
+
+
+def test_questions_fingerprint_covers_option_order():
+    """`option_order` moves what the model reads and re-maps the answer, so it is a fifth field.
+
+    `laya/agent.py::Agent._check_question` accepts only a permutation of the option indices,
+    `Agent._to_internal` copies it into the internal question, and from there it reaches
+    `laya/common.py::build_sequence` (the tokenized head) and `unpermute_probs` on the way back, so
+    a permuted question is a different question in exactly the sense this key exists to notice.
+    `research/eval/metamorphic.py::permute_options` is one of that harness's two transforms, and
+    this suite's own `test_questions_fingerprint_follows_the_question_not_the_row` states "option
+    order and label rename flip answers" while the hash looked past the first of the two.
+
+    The literal digest at the end is the other half of the contract: a question set that never names
+    the field keeps the digest its committed baseline already carries, so adding a field to the key
+    moves no existing report's identity.
+    """
+    def question(order=None):
+        q = {"type": "choice", "instructions": "Pick one", "criteria": {"a": "alpha", "b": "beta"}}
+        if order is not None:
+            q["option_order"] = order
+        return {"pick": q}
+
+    def with_order(order=None):
+        return Dataset([Example("s", question(order), {"pick": "a"})])
+
+    plain = evals.questions_fingerprint(with_order())
+    assert evals.questions_fingerprint(with_order([1, 0])) != plain, \
+        "a permutation of the options left the fingerprint unchanged"
+    assert evals.questions_fingerprint(with_order([0, 1])) != plain, \
+        "naming an identity permutation left the fingerprint unchanged"
+    assert evals.questions_fingerprint(with_order([0, 1])) != \
+           evals.questions_fingerprint(with_order([1, 0])), "two orders hashed alike"
+
+    # The field is real on the way in, not an artefact of the hash: the engine carries it.
+    from laya.agent import Agent
+    assert "option_order" not in Agent._to_internal(question()["pick"])
+    assert Agent._to_internal(question([1, 0])["pick"])["option_order"] == [1, 0]
+
+    # Measured on `main` before `option_order` joined the key.
+    assert plain == "8263dfd11d6593803f61d78fe6ccc629924f01e85e9e8a2bac5ce629ebb97ff4"
 
 
 def test_a_top_level_schema_on_the_candidate_still_refuses(tmp_path, capsys):

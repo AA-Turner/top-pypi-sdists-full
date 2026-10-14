@@ -37,17 +37,17 @@ class INISerializer(AbstractSerializer[str, dict[str, Any]]):
     def _get_section_option_value(
         parser: RawConfigParser, section: str, option: str
     ) -> str | int | float | bool | None:
-        value = None
-        funcs: list[Callable[[str, str], Any]] = [
+        value: str | None = parser.get(section, option)
+        if value is None:
+            return None
+        funcs: list[Callable[[str, str], int | float | bool]] = [
             parser.getint,
             parser.getfloat,
             parser.getboolean,
-            parser.get,
         ]
         for func in funcs:
             try:
-                value = func(section, option)
-                break
+                return func(section, option)
             except ValueError:
                 continue
         return value
@@ -77,7 +77,7 @@ class INISerializer(AbstractSerializer[str, dict[str, Any]]):
         parser = self._get_parser(options=kwargs)
         for key, value in d.items():
             if not type_util.is_dict(value):
-                parser.set(default_section, key, f"{value}")
+                parser.set(default_section, key, None if value is None else f"{value}")
                 continue
             section = key
             parser.add_section(section)

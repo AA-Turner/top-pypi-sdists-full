@@ -168,6 +168,107 @@ def _csharp_pre_scan_interfaces(root_node, source: bytes) -> set[str]:
         stack.extend(n.children)
     return out
 
+_CSHARP_TYPE_DECLARATIONS = frozenset({
+    "class_declaration",
+    "interface_declaration",
+    "enum_declaration",
+    "struct_declaration",
+    "record_declaration",
+})
+
+
+def _csharp_type_name_for_id(node, class_name: str) -> str:
+    """A C# type's name as its node id spells it: the arity folds in (#4249).
+
+    `Effect` and `Effect<T>` are different types, so the generic one is named
+    the way C# metadata names it (`` Effect`1 ``); arity 0 is the bare name.
+    """
+    arity = sum(
+        1 for c in node.children if c.type == "type_parameter_list"
+        for _p in c.children if _p.type in ("type_parameter", "identifier")
+    )
+    return f"{class_name}`{arity}" if arity else class_name
+
+
+def _csharp_pre_scan_name_collisions(
+    root_node, source: bytes, stem: str
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Pre-scan a C# file for declared names that collapse to one node id.
+
+    C# is case-sensitive and `_Name` is the usual spelling of a private member,
+    but ``ids.py:make_id`` strips leading/trailing underscores and casefolds, so
+    `Action()` / `_Action()`, `Size` / `_Size`, `Load()` / `load()` and the types
+    `Pair` / `_Pair` each mint ONE id. ``add_node`` keeps the first declaration
+    and drops the second; the dropped method's calls are credited to the
+    survivor, and a type's members hang off the other type (#4415). This is
+    the Python #3302 collision in C#; the outcome is the same rule
+    (``_underscore_salted_nid``).
+
+    Returns ``(type_groups, member_groups)``, each ``{plain_nid: {raw names}}``
+    for the ids two or more distinct names would share. Types are keyed the way
+    the walk mints them (``_make_id(stem, namespace, name_for_id)``), members
+    (methods, properties, enum members) by ``_make_id(type_nid, name)`` where
+    ``type_nid`` is the type's FINAL id, already salted when the type itself
+    collides. Same-file partial declarations of one type share an id, so their
+    members are grouped together. Overloads are one name, never a collision.
+    """
+    type_names: dict[str, set[str]] = {}
+    member_names: dict[str, set[str]] = {}
+    type_decls: list[tuple[object, str, str]] = []
+
+    def _visit(n, ns: list[str]) -> None:
+        # Types are declared only at file level, in namespace and type bodies
+        # and in #if wrappers around them, so only those are entered: the
+        # recursion depth is the nesting depth of declarations, never of
+        # expressions.
+        scoped = list(ns)
+        for c in n.children:
+            if c.type == "namespace_declaration":
+                ns_name = _csharp_namespace_name(c, source)
+                body = c.child_by_field_name("body")
+                if body is not None:
+                    _visit(body, scoped + [ns_name] if ns_name else scoped)
+            elif c.type == "file_scoped_namespace_declaration":
+                # Applies to the rest of the file, as in the walk.
+                ns_name = _csharp_namespace_name(c, source)
+                if ns_name:
+                    scoped = scoped + [ns_name]
+            elif c.type in _CSHARP_TYPE_DECLARATIONS:
+                name_node = c.child_by_field_name("name")
+                name = _read_text(name_node, source) if name_node is not None else ""
+                if name:
+                    plain = _make_id(stem, ".".join(scoped), _csharp_type_name_for_id(c, name))
+                    type_names.setdefault(plain, set()).add(name)
+                    type_decls.append((c, plain, name))
+                # Nested types take the namespace, not the enclosing type (ids
+                # omit the outer type), so they join the same groups.
+                _visit(c, scoped)
+            elif c.type == "declaration_list" or c.type.startswith("preproc_"):
+                _visit(c, scoped)
+
+    _visit(root_node, [])
+    type_groups = {nid: names for nid, names in type_names.items() if len(names) >= 2}
+
+    def _members(n, type_nid: str) -> None:
+        for c in n.children:
+            if c.type in ("method_declaration", "property_declaration",
+                          "enum_member_declaration"):
+                name_node = c.child_by_field_name("name")
+                name = _read_text(name_node, source) if name_node is not None else ""
+                if name:
+                    member_names.setdefault(_make_id(type_nid, name), set()).add(name)
+            elif c.type in ("declaration_list", "enum_member_declaration_list") or (
+                c.type.startswith("preproc_")
+            ):
+                # The body, and #if/#region wrappers the walk sees through (#2631).
+                _members(c, type_nid)
+
+    for decl, plain, name in type_decls:
+        _members(decl, _underscore_salted_nid(plain, name, type_groups))
+    member_groups = {nid: names for nid, names in member_names.items() if len(names) >= 2}
+    return type_groups, member_groups
+
+
 def _csharp_classify_base(name: str, interface_names: set[str]) -> str:
     """`implements` if the base name is an interface (declared or by I-prefix convention), else `inherits`."""
     if name in interface_names:
@@ -788,6 +889,77 @@ def _php_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[s
             if c.is_named:
                 _php_collect_type_refs(c, source, generic, out)
 
+def _php_declared_type_name(node, source: bytes) -> str | None:
+    """The single class name a PHP type annotation names, or None.
+
+    Only `Greeter` and `?Greeter` qualify: a union, an intersection or a primitive names
+    no one class, and binding a receiver to the first arm of `A|B` would be a guess.
+    """
+    if node is None:
+        return None
+    if node.type == "optional_type":
+        node = next((c for c in node.children if c.is_named), None)
+        if node is None:
+            return None
+    if node.type != "named_type":
+        return None
+    return next((_php_name_text(c, source) for c in node.children
+                 if c.type in ("name", "qualified_name")), None)
+
+
+def _php_variable_text(node, source: bytes) -> str | None:
+    """The bare name a PHP `variable_name` binds: `$greeter` -> `greeter`."""
+    if node is None or node.type != "variable_name":
+        return None
+    return next((_read_text(c, source) for c in node.children if c.type == "name"), None)
+
+
+def _php_first_declared_type(node, source: bytes) -> str | None:
+    """The first single-class type annotation among ``node``'s direct children."""
+    return next((name for name in (_php_declared_type_name(c, source) for c in node.children)
+                 if name), None)
+
+
+def _php_receiver_type_table(root, source: bytes, table: dict[str, str]) -> None:
+    """Collect ``name -> TypeName`` for every PHP receiver whose type is written down.
+
+    Four sources, all needed: a typed property (`private Greeter $g;`), a constructor
+    promotion (`__construct(private Greeter $g)`), a typed parameter, and
+    `$g = new Greeter()`. File-scoped and flat, first binding wins — a parameter
+    shadowing a property in another method must not retype the property's own calls.
+    Children are pushed reversed so the walk yields document order and "first" means
+    first in the file.
+    """
+    stack = [root]
+    while stack:
+        n = stack.pop()
+        t = n.type
+        if t == "property_declaration":
+            type_name = _php_first_declared_type(n, source)
+            for element in n.children if type_name else ():
+                if element.type != "property_element":
+                    continue
+                name = next((_php_variable_text(c, source) for c in element.children
+                             if c.type == "variable_name"), None)
+                if name and name not in table:
+                    table[name] = type_name
+        elif t in ("property_promotion_parameter", "simple_parameter"):
+            type_name = _php_first_declared_type(n, source)
+            name = next((_php_variable_text(c, source) for c in n.children
+                         if c.type == "variable_name"), None)
+            if name and type_name and name not in table:
+                table[name] = type_name
+        elif t == "assignment_expression":
+            right = n.child_by_field_name("right")
+            if right is not None and right.type == "object_creation_expression":
+                name = _php_variable_text(n.child_by_field_name("left"), source)
+                type_name = next((_php_name_text(c, source) for c in right.children
+                                  if c.type in ("name", "qualified_name")), None)
+                if name and type_name and name not in table:
+                    table[name] = type_name
+        stack.extend(reversed(n.children))
+
+
 def _php_method_return_type_node(method_node):
     """Return the named_type/primitive_type node sitting after formal_parameters."""
     saw_params = False
@@ -947,10 +1119,45 @@ def _kotlin_annotation_class_literal_refs(
     return names
 
 
-def _kotlin_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]]) -> None:
-    """Walk a Kotlin type expression; append (name, role) tuples."""
+def _kotlin_type_parameters_in_scope(node, source: bytes) -> frozenset[str]:
+    """Return Kotlin type-parameter names visible from ``node``.
+
+    A `class Box<T>` or `fun <R> map(...)` binds `T`/`R` as local names, not
+    corpus symbols. Walking up to every enclosing declaration's `type_parameters`
+    list (the use site is `type_arguments`, a different node, so this never
+    collects an instantiation argument) collects them for the scope skip set.
+    """
+    names: set[str] = set()
+    scope = node
+    while scope is not None:
+        for child in scope.children:
+            if child.type != "type_parameters":
+                continue
+            for param in child.children:
+                if param.type != "type_parameter":
+                    continue
+                for sub in param.children:
+                    if sub.type in ("identifier", "type_identifier"):
+                        name = _read_text(sub, source)
+                        if name:
+                            names.add(name)
+                        break
+        scope = scope.parent
+    return frozenset(names)
+
+
+def _kotlin_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]],
+                              skip: frozenset[str] | None = None) -> None:
+    """Walk a Kotlin type expression; append (name, role) tuples.
+
+    Generic type parameters in scope (``skip``) are local bindings, not
+    references; emitting one mints a sourceless stub (the bare `t` god node a
+    `<T>` class or function would otherwise share corpus-wide).
+    """
     if node is None:
         return
+    if skip is None:
+        skip = _kotlin_type_parameters_in_scope(node, source)
     t = node.type
     if t in ("integral_literal", "boolean_literal"):
         return
@@ -958,14 +1165,14 @@ def _kotlin_collect_type_refs(node, source: bytes, generic: bool, out: list[tupl
         for c in node.children:
             if c.type in ("identifier", "type_identifier"):
                 text = _read_text(c, source)
-                if text and text not in _KOTLIN_BUILTIN_TYPES and text not in _JAVA_BUILTIN_TYPES:
+                if text and text not in _KOTLIN_BUILTIN_TYPES and text not in _JAVA_BUILTIN_TYPES and text not in skip:
                     out.append((text, "generic_arg" if generic else "type"))
                 break
             if c.type == "simple_user_type":
                 for sub in c.children:
                     if sub.type in ("identifier", "type_identifier"):
                         text = _read_text(sub, source)
-                        if text and text not in _KOTLIN_BUILTIN_TYPES and text not in _JAVA_BUILTIN_TYPES:
+                        if text and text not in _KOTLIN_BUILTIN_TYPES and text not in _JAVA_BUILTIN_TYPES and text not in skip:
                             out.append((text, "generic_arg" if generic else "type"))
                         break
                 break
@@ -975,24 +1182,24 @@ def _kotlin_collect_type_refs(node, source: bytes, generic: bool, out: list[tupl
                     if arg.type == "type_projection":
                         for sub in arg.children:
                             if sub.is_named:
-                                _kotlin_collect_type_refs(sub, source, True, out)
+                                _kotlin_collect_type_refs(sub, source, True, out, skip)
                     elif arg.is_named:
-                        _kotlin_collect_type_refs(arg, source, True, out)
+                        _kotlin_collect_type_refs(arg, source, True, out, skip)
         return
     if t in ("identifier", "type_identifier"):
         text = _read_text(node, source)
-        if text and text not in _KOTLIN_BUILTIN_TYPES and text not in _JAVA_BUILTIN_TYPES:
+        if text and text not in _KOTLIN_BUILTIN_TYPES and text not in _JAVA_BUILTIN_TYPES and text not in skip:
             out.append((text, "generic_arg" if generic else "type"))
         return
     if t in ("nullable_type", "parenthesized_type", "type_reference"):
         for c in node.children:
             if c.is_named:
-                _kotlin_collect_type_refs(c, source, generic, out)
+                _kotlin_collect_type_refs(c, source, generic, out, skip)
         return
     if node.is_named:
         for c in node.children:
             if c.is_named:
-                _kotlin_collect_type_refs(c, source, generic, out)
+                _kotlin_collect_type_refs(c, source, generic, out, skip)
 
 def _kotlin_property_type_node(property_node):
     """Find the user_type node within a Kotlin property_declaration."""
@@ -1083,10 +1290,11 @@ def _python_pre_scan_underscore_collisions(root_node, source: bytes, stem: str) 
     return {nid: names for nid, names in groups.items() if len(names) >= 2}
 
 
-def _python_underscore_salted_nid(plain_nid: str, name: str, groups: dict[str, set[str]]) -> str:
-    """Resolve a Python function/method's real node id against the collision map.
+def _underscore_salted_nid(plain_nid: str, name: str, groups: dict[str, set[str]]) -> str:
+    """Resolve a declaration's real node id against the collision map.
 
-    A name with no leading underscore at all is "public" per PEP 8 convention.
+    Shared by the Python and C# pre-scans (#3302, #4415). A name with no
+    leading underscore at all is "public" per PEP 8 convention.
     When a collision group has exactly one public member, that member keeps the
     plain id — cross-file/documentation references overwhelmingly target the
     public name, and keeping it stable means an incremental rebuild that adds or
@@ -1158,28 +1366,63 @@ def _swift_user_type_name(user_type_node, source: bytes) -> str | None:
             return text or None
     return None
 
-def _swift_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]]) -> None:
-    """Walk a Swift type expression; append (name, role) tuples (role 'type' or 'generic_arg')."""
+def _swift_type_parameters_in_scope(node, source: bytes) -> frozenset[str]:
+    """Return Swift generic type-parameter names visible from ``node``.
+
+    A `struct Stack<Element>` / `func map<R>(...)` binds `Element`/`R` as local
+    names, not corpus symbols. Walking up to every enclosing declaration's
+    `type_parameters` list collects them; a parameter's name is the first
+    `type_identifier` of its `type_parameter` node (a constraint like
+    `T: Equatable` is a separate `user_type` and is left to reference).
+    """
+    names: set[str] = set()
+    scope = node
+    while scope is not None:
+        for child in scope.children:
+            if child.type != "type_parameters":
+                continue
+            for param in child.children:
+                if param.type != "type_parameter":
+                    continue
+                for sub in param.children:
+                    if sub.type == "type_identifier":
+                        name = _read_text(sub, source)
+                        if name:
+                            names.add(name)
+                        break
+        scope = scope.parent
+    return frozenset(names)
+
+
+def _swift_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]],
+                             skip: frozenset[str] | None = None) -> None:
+    """Walk a Swift type expression; append (name, role) tuples (role 'type' or 'generic_arg').
+
+    Generic type parameters in scope (``skip``) are local bindings, not
+    references; emitting one mints a sourceless stub (the bare `t` god node a
+    `<T>` type or function would otherwise share corpus-wide)."""
     if node is None:
         return
+    if skip is None:
+        skip = _swift_type_parameters_in_scope(node, source)
     t = node.type
     if t == "type_annotation":
         for c in node.children:
             if c.is_named:
-                _swift_collect_type_refs(c, source, generic, out)
+                _swift_collect_type_refs(c, source, generic, out, skip)
         return
     if t == "user_type":
         for c in node.children:
             if c.type == "type_identifier":
                 text = _read_text(c, source)
-                if text and text != "Self":
+                if text and text != "Self" and text not in skip:
                     out.append((text, "generic_arg" if generic else "type"))
                 break
         for c in node.children:
             if c.type == "type_arguments":
                 for arg in c.children:
                     if arg.is_named:
-                        _swift_collect_type_refs(arg, source, True, out)
+                        _swift_collect_type_refs(arg, source, True, out, skip)
         return
     if t == "type_identifier":
         text = _read_text(node, source)
@@ -1188,19 +1431,19 @@ def _swift_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple
         # method collapses onto (a god node), the same keyword-type pitfall as
         # Rust's `Self`. A genuine type (including `Int`/`String` builtin hubs)
         # is unaffected.
-        if text and text != "Self":
+        if text and text != "Self" and text not in skip:
             out.append((text, "generic_arg" if generic else "type"))
         return
     if t in ("optional_type", "implicitly_unwrapped_optional_type", "array_type",
              "dictionary_type", "tuple_type"):
         for c in node.children:
             if c.is_named:
-                _swift_collect_type_refs(c, source, generic, out)
+                _swift_collect_type_refs(c, source, generic, out, skip)
         return
     if node.is_named:
         for c in node.children:
             if c.is_named:
-                _swift_collect_type_refs(c, source, generic, out)
+                _swift_collect_type_refs(c, source, generic, out, skip)
 
 def _swift_property_type_node(property_node):
     """Return the type_annotation child of a Swift property_declaration, if any."""
@@ -1345,41 +1588,79 @@ def _c_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str
             if c.is_named:
                 _c_collect_type_refs(c, source, generic, out)
 
-def _cpp_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]]) -> None:
+def _cpp_type_parameters_in_scope(node, source: bytes) -> frozenset[str]:
+    """Return C++ template type-parameter names visible from ``node``.
+
+    A `template<typename T, class U>` binds `T`/`U` as local names, not corpus
+    symbols. Walking up to every enclosing `template_declaration`'s
+    `template_parameter_list` collects the names from its
+    `type_parameter_declaration`/`variadic_type_parameter_declaration` children.
+    A non-type parameter (`int N`) is a value, not a type, and is left alone.
+    """
+    names: set[str] = set()
+    scope = node
+    while scope is not None:
+        for child in scope.children:
+            if child.type != "template_parameter_list":
+                continue
+            for param in child.children:
+                if param.type not in (
+                    "type_parameter_declaration",
+                    "variadic_type_parameter_declaration",
+                ):
+                    continue
+                for sub in param.children:
+                    if sub.type == "type_identifier":
+                        name = _read_text(sub, source)
+                        if name:
+                            names.add(name)
+                        break
+        scope = scope.parent
+    return frozenset(names)
+
+
+def _cpp_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]],
+                           skip: frozenset[str] | None = None) -> None:
     """Walk a C++ type expression; append (name, role) tuples.
     Resolves qualified_identifier tails (std::string → string) and template_type
-    base + arguments (std::vector<HttpClient> → vector + HttpClient as generic_arg)."""
+    base + arguments (std::vector<HttpClient> → vector + HttpClient as generic_arg).
+
+    Template type parameters in scope (``skip``) are local bindings, not
+    references; emitting one mints a sourceless stub (the bare `t` god node a
+    `template<typename T>` class or function would otherwise share corpus-wide)."""
     if node is None or node.type in _C_PRIMITIVE_TYPE_NODES:
         return
+    if skip is None:
+        skip = _cpp_type_parameters_in_scope(node, source)
     t = node.type
     if t == "type_identifier":
         text = _read_text(node, source)
-        if text:
+        if text and text not in skip:
             out.append((text, "generic_arg" if generic else "type"))
         return
     if t == "qualified_identifier":
         name_node = node.child_by_field_name("name")
         if name_node is not None:
-            _cpp_collect_type_refs(name_node, source, generic, out)
+            _cpp_collect_type_refs(name_node, source, generic, out, skip)
         return
     if t == "template_type":
         name_node = node.child_by_field_name("name")
         if name_node is not None:
             text = _read_text(name_node, source)
-            if text:
+            if text and text not in skip:
                 out.append((text, "generic_arg" if generic else "type"))
         args_node = node.child_by_field_name("arguments")
         if args_node is not None:
             for c in args_node.children:
                 if c.is_named:
-                    _cpp_collect_type_refs(c, source, True, out)
+                    _cpp_collect_type_refs(c, source, True, out, skip)
         return
     if t in ("type_descriptor", "pointer_declarator", "reference_declarator",
              "array_declarator", "type_qualifier", "abstract_pointer_declarator",
              "abstract_reference_declarator", "abstract_array_declarator"):
         for c in node.children:
             if c.is_named:
-                _cpp_collect_type_refs(c, source, generic, out)
+                _cpp_collect_type_refs(c, source, generic, out, skip)
 
 def _scala_given_synthetic_name(node, source: bytes) -> str | None:
     """A stable label for an anonymous Scala 3 given (`given Show[Int] with`).
@@ -1407,15 +1688,55 @@ def _scala_given_synthetic_name(node, source: bytes) -> str | None:
     return "given"
 
 
-def _scala_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]]) -> None:
+def _scala_type_parameters_in_scope(node, source: bytes) -> frozenset[str]:
+    """Return Scala type-parameter names visible from ``node``.
+
+    A `class Box[T]` / `def map[R](...)` binds `T`/`R` as local names, not
+    corpus symbols. Walking up to every enclosing declaration's `type_parameters`
+    list (the use site is `type_arguments`, a distinct node, so an instantiation
+    argument is never collected) collects them for the scope skip set. A
+    variance-annotated parameter (`[+A]`/`[-B]`) wraps its name one level
+    deeper. A bound (`[A: Ordering]`, `[T <: Base]`) names a real type, not a
+    parameter, so its `context_bound`/`upper_bound`/`lower_bound` node is skipped.
+    """
+    names: set[str] = set()
+    scope = node
+    while scope is not None:
+        for child in scope.children:
+            if child.type != "type_parameters":
+                continue
+            for param in child.children:
+                if param.type in ("identifier", "type_identifier"):
+                    name = _read_text(param, source)
+                    if name:
+                        names.add(name)
+                elif param.type in ("covariant_type_parameter", "contravariant_type_parameter"):
+                    for sub in param.children:
+                        if sub.type in ("identifier", "type_identifier"):
+                            name = _read_text(sub, source)
+                            if name:
+                                names.add(name)
+                            break
+        scope = scope.parent
+    return frozenset(names)
+
+
+def _scala_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]],
+                             skip: frozenset[str] | None = None) -> None:
     """Walk a Scala type expression; append (name, role) tuples.
-    Handles type_identifier, generic_type (List[T]), and common type wrappers."""
+    Handles type_identifier, generic_type (List[T]), and common type wrappers.
+
+    Generic type parameters in scope (``skip``) are local bindings, not
+    references; emitting one mints a sourceless stub (the bare `t` god node a
+    `[T]` class or method would otherwise share corpus-wide)."""
     if node is None:
         return
+    if skip is None:
+        skip = _scala_type_parameters_in_scope(node, source)
     t = node.type
     if t == "type_identifier":
         text = _read_text(node, source)
-        if text:
+        if text and text not in skip:
             out.append((text, "generic_arg" if generic else "type"))
         return
     if t == "generic_type":
@@ -1427,19 +1748,19 @@ def _scala_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple
                     break
         if base is not None and base.type == "type_identifier":
             text = _read_text(base, source)
-            if text:
+            if text and text not in skip:
                 out.append((text, "generic_arg" if generic else "type"))
         for c in node.children:
             if c.type == "type_arguments":
                 for arg in c.children:
                     if arg.is_named:
-                        _scala_collect_type_refs(arg, source, True, out)
+                        _scala_collect_type_refs(arg, source, True, out, skip)
         return
     if t in ("compound_type", "infix_type", "function_type", "tuple_type",
              "annotated_type", "projected_type"):
         for c in node.children:
             if c.is_named:
-                _scala_collect_type_refs(c, source, generic, out)
+                _scala_collect_type_refs(c, source, generic, out, skip)
     # A `match type` (`type Elem[X] = X match { case String => Char }`) names a
     # real type in every case clause -- both the type it discriminates on and
     # the type it yields. Without these two the walker returned nothing for a
@@ -1448,7 +1769,7 @@ def _scala_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple
     if t in ("match_type", "type_case_clause"):
         for c in node.children:
             if c.is_named:
-                _scala_collect_type_refs(c, source, generic, out)
+                _scala_collect_type_refs(c, source, generic, out, skip)
 
 
 def _scala_collect_context_bounds(
@@ -2503,6 +2824,83 @@ def _csharp_receiver_type_name(type_node, source: bytes) -> str | None:
     return name if name and name[:1].isupper() else None
 
 
+_CSHARP_LOOP_SEQUENCES = frozenset({
+    "List", "IList", "IReadOnlyList", "IEnumerable", "ICollection",
+    "IReadOnlyCollection", "HashSet", "ISet", "SortedSet", "Queue", "Stack",
+    "LinkedList",
+})
+_CSHARP_LOOP_DICTIONARIES = frozenset({
+    "Dictionary", "IDictionary", "IReadOnlyDictionary", "SortedDictionary",
+    "SortedList", "ConcurrentDictionary",
+})
+
+
+def _csharp_loop_element_types(type_node, source: bytes) -> dict[str, str]:
+    """What a C# ``foreach`` over a field or property of this type yields.
+
+    Maps the iterated suffix to the element class: ``""`` for a ``T[]`` or a
+    sequence of T, ``".Values"`` / ``".Keys"`` for a dictionary's values and
+    keys. Iterating a dictionary itself yields ``KeyValuePair`` and is left
+    out, as are nested collections, type parameters and primitives.
+    """
+    if type_node is None:
+        return {}
+    if type_node.type == "array_type":
+        args = [type_node.child_by_field_name("type")]
+        suffixes = ("",)
+    elif type_node.type == "generic_name":
+        info = _read_csharp_type_name(type_node, source)
+        arg_list = next(
+            (c for c in type_node.children if c.type == "type_argument_list"), None
+        )
+        args = arg_list.named_children if arg_list is not None else []
+        if info and info[0] in _CSHARP_LOOP_SEQUENCES and len(args) == 1:
+            suffixes = ("",)
+        elif info and info[0] in _CSHARP_LOOP_DICTIONARIES and len(args) == 2:
+            suffixes = (".Keys", ".Values")
+        else:
+            return {}
+    else:
+        return {}
+    type_params = _csharp_type_parameters_in_scope(type_node, source)
+    out: dict[str, str] = {}
+    for suffix, arg in zip(suffixes, args):
+        if arg is None or arg.type not in ("identifier", "qualified_name", "generic_name"):
+            continue
+        name = _csharp_receiver_type_name(arg, source)
+        if (
+            name
+            and name not in type_params
+            and name not in _CSHARP_LOOP_SEQUENCES
+            and name not in _CSHARP_LOOP_DICTIONARIES
+        ):
+            out[suffix] = name
+    return out
+
+
+def _csharp_loop_source(expr, source: bytes) -> tuple[str, str] | None:
+    """``(field, suffix)`` for a ``foreach`` over ``f``, ``this.f``,
+    ``f.Values`` or ``f.Keys``; None for anything else."""
+    if expr is None:
+        return None
+    if expr.type == "identifier":
+        return _read_text(expr, source), ""
+    if expr.type != "member_access_expression":
+        return None
+    inner = expr.child_by_field_name("expression")
+    name = expr.child_by_field_name("name")
+    if inner is None or name is None or name.type != "identifier":
+        return None
+    member = _read_text(name, source)
+    if inner.type in ("this", "this_expression"):
+        return member, ""
+    if member in ("Values", "Keys"):
+        root = _csharp_loop_source(inner, source)
+        if root is not None and root[1] == "":
+            return root[0], "." + member
+    return None
+
+
 def _csharp_element_type_name(type_node, source: bytes) -> str | None:
     """The element type of a C# array or list type, else None (#4246).
 
@@ -2625,6 +3023,9 @@ def _csharp_method_receiver_types(
     """
     bindings: dict[str, list[tuple[int, int, str | list | None]]] = {}
     field_poisoned: set[str] = set()
+    # `foreach (var x in field)` loops, typed once every local is bound so a
+    # local or parameter shadowing the field is seen wherever it is declared.
+    pending_loops: list[tuple] = []  # (loop variable, field, suffix, foreach node)
 
     def bind(
         name: str | None, type_name: str | list | None, scope_node,
@@ -2734,6 +3135,23 @@ def _csharp_method_receiver_types(
                                 type_name = _csharp_deferred_call(g, source)
                                 break
                     bind(_read_text(name_node, source), type_name, scope, declared_elem)
+        elif node.type == "foreach_statement":
+            # The loop variable is visible inside the loop: bound to its
+            # explicit type, or for `var` to the element type of the field or
+            # property it iterates (resolved after the walk, below).
+            left = node.child_by_field_name("left")
+            if left is not None and left.type == "identifier":
+                loop_type = _csharp_receiver_type_name(
+                    node.child_by_field_name("type"), source
+                )
+                loop_source = (
+                    None if loop_type
+                    else _csharp_loop_source(node.child_by_field_name("right"), source)
+                )
+                if loop_source is not None:
+                    pending_loops.append((_read_text(left, source), *loop_source, node))
+                else:
+                    bind(_read_text(left, source), loop_type, node)
         elif node.type in ("declaration_expression", "declaration_pattern"):
             # #2346: inline-declared receivers. `out Sect s` is a
             # declaration_expression; `is Leaf lf`, `is not Node nd`,
@@ -2760,6 +3178,12 @@ def _csharp_method_receiver_types(
             else scope
         )
         stack.extend((child, child_scope) for child in node.children)
+
+    for name, field, suffix, loop in pending_loops:
+        shadowed = any(
+            start <= loop.start_byte < end for start, end, _ in bindings.get(field, [])
+        )
+        bind(name, None if shadowed else field_types.get(field + suffix + "{}"), loop)
 
     base = {
         name: type_name
@@ -3780,7 +4204,8 @@ def _csharp_namespace_name(node, source: bytes) -> str:
 def _csharp_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                        nodes: list, edges: list, seen_ids: set, function_bodies: list,
                        parent_class_nid: str | None, add_node_fn, add_edge_fn,
-                       walk_fn, namespace_stack: list[str], scope_stack: list[str]) -> bool:
+                       walk_fn, namespace_stack: list[str], scope_stack: list[str],
+                       member_groups: dict[str, set[str]] | None = None) -> bool:
     """Handle C# namespaces, enum members, and transparent class-member wrappers."""
     if node.type == "enum_member_declaration" and parent_class_nid:
         # `enum_declaration` is in C#'s class_types, so the enum type is a node
@@ -3796,11 +4221,13 @@ def _csharp_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: 
         if not member_name:
             return True
         line = node.start_point[0] + 1
-        member_nid = _make_id(parent_class_nid, member_name)
         # C# is case-sensitive, so `enum E { Value, value }` is legal, but the id
-        # recipe casefolds — both members normalize to one id. Emitting the
-        # second would hang a duplicate edge on the first member's node, so the
-        # first declaration keeps it (same guard as the property nodes in #3006).
+        # recipe casefolds — both members normalize to one id. The pre-scan
+        # salts such a pair apart (#4415); the guard stays for anything else
+        # that lands on one id.
+        member_nid = _underscore_salted_nid(
+            _make_id(parent_class_nid, member_name), member_name, member_groups or {}
+        )
         if member_nid not in seen_ids:
             add_node_fn(member_nid, member_name, line)
             add_edge_fn(parent_class_nid, member_nid, "case_of", line)
@@ -5066,8 +5493,13 @@ def _extract_generic(
     csharp_method_returns: dict[str, dict[str, list]] = {}
 
     csharp_interface_names: set[str] = set()
+    csharp_type_groups: dict[str, set[str]] = {}
+    csharp_member_groups: dict[str, set[str]] = {}
     if config.ts_module == "tree_sitter_c_sharp":
         csharp_interface_names = _csharp_pre_scan_interfaces(root, source)
+        csharp_type_groups, csharp_member_groups = _csharp_pre_scan_name_collisions(
+            root, source, stem
+        )
 
     swift_protocol_names: set[str] = set()
     swift_class_names: set[str] = set()
@@ -5122,6 +5554,8 @@ def _extract_generic(
 
     def ensure_named_node(name: str, line: int) -> str:
         nid = _make_id(stem, ".".join(namespace_stack), name)
+        if config.ts_module == "tree_sitter_c_sharp":
+            nid = _underscore_salted_nid(nid, name, csharp_type_groups)
         if nid in seen_ids:
             return nid
         nid = _make_id(name)
@@ -5268,13 +5702,11 @@ def _extract_generic(
                 # matching how C# metadata itself names a generic type
                 # (`` Effect`1 ``), so each arity gets its own node; the
                 # label is untouched; arity 0 keeps today's id exactly.
-                _csharp_arity = sum(
-                    1 for c in node.children if c.type == "type_parameter_list"
-                    for _p in c.children if _p.type in ("type_parameter", "identifier")
-                )
-                if _csharp_arity:
-                    class_name_for_id = f"{class_name}`{_csharp_arity}"
+                class_name_for_id = _csharp_type_name_for_id(node, class_name)
             class_nid = _make_id(stem, ".".join(namespace_stack), class_name_for_id)
+            if config.ts_module == "tree_sitter_c_sharp":
+                # `Pair` / `_Pair` in one file share an id otherwise (#4415).
+                class_nid = _underscore_salted_nid(class_nid, class_name, csharp_type_groups)
             if config.ts_module == "tree_sitter_python" and parent_class_nid:
                 class_nid = _make_id(parent_class_nid, class_name)
             line = node.start_point[0] + 1
@@ -5711,13 +6143,19 @@ def _extract_generic(
                                 )
                         base_nid = None
                         if base_arity:
-                            _arity_nid = _make_id(
-                                stem, ".".join(namespace_stack), f"{base}`{base_arity}"
+                            _arity_nid = _underscore_salted_nid(
+                                _make_id(
+                                    stem, ".".join(namespace_stack), f"{base}`{base_arity}"
+                                ),
+                                base, csharp_type_groups,
                             )
                             if _arity_nid in seen_ids:
                                 base_nid = _arity_nid
                         if base_nid is None:
-                            base_nid = _make_id(stem, ".".join(namespace_stack), base)
+                            base_nid = _underscore_salted_nid(
+                                _make_id(stem, ".".join(namespace_stack), base),
+                                base, csharp_type_groups,
+                            )
                         if base_nid not in seen_ids:
                             base_nid = _make_id(base)
                             if base_nid not in seen_ids:
@@ -6187,6 +6625,7 @@ def _extract_generic(
                 if type_name[:1].isupper():
                     fields = csharp_field_types.setdefault(parent_class_nid, {})
                     elem_type = _csharp_element_type_name(type_node, source)
+                    loop_elems = _csharp_loop_element_types(type_node, source)
                     for child in node.children:
                         if child.type != "variable_declaration":
                             continue
@@ -6203,6 +6642,9 @@ def _extract_generic(
                                 if elem_type:
                                     # `_items[i].M()` reads an element (#4246)
                                     fields[_read_text(name_node, source) + "[]"] = elem_type
+                                for suffix, loop_elem in loop_elems.items():
+                                    # `foreach (var x in _items)` yields one
+                                    fields[_read_text(name_node, source) + suffix + "{}"] = loop_elem
                 line = node.start_point[0] + 1
                 # Walk the whole type expression rather than only its outer name, so
                 # `Box<Widget>` yields the Box field ref AND the Widget generic_arg ref.
@@ -6251,7 +6693,10 @@ def _extract_generic(
                 property_name = _read_text(prop_node_name, source)
                 if property_name:
                     property_line = node.start_point[0] + 1
-                    property_nid = _make_id(parent_class_nid, property_name)
+                    property_nid = _underscore_salted_nid(
+                        _make_id(parent_class_nid, property_name),
+                        property_name, csharp_member_groups,
+                    )
                     if property_nid not in seen_ids:
                         add_node(property_nid, property_name, property_line)
                         add_edge(parent_class_nid, property_nid, "defines",
@@ -6272,6 +6717,10 @@ def _extract_generic(
                         csharp_field_types[parent_class_nid][
                             _read_text(prop_name_node, source) + "[]"
                         ] = prop_elem
+                    for suffix, loop_elem in _csharp_loop_element_types(type_node, source).items():
+                        csharp_field_types[parent_class_nid][
+                            _read_text(prop_name_node, source) + suffix + "{}"
+                        ] = loop_elem
                 line = node.start_point[0] + 1
                 refs: list[tuple[str, str, bool, str]] = []
                 _csharp_collect_type_refs(type_node, source, False, refs)
@@ -6706,8 +7155,12 @@ def _extract_generic(
             if parent_class_nid:
                 func_nid = _make_id(parent_class_nid, sanitized_name)
                 if config.ts_module == "tree_sitter_python":
-                    func_nid = _python_underscore_salted_nid(
+                    func_nid = _underscore_salted_nid(
                         func_nid, sanitized_name, python_underscore_groups
+                    )
+                elif config.ts_module == "tree_sitter_c_sharp":
+                    func_nid = _underscore_salted_nid(
+                        func_nid, sanitized_name, csharp_member_groups
                     )
                 ruby_method_metadata = None
                 if ruby_method_kind is not None:
@@ -6743,7 +7196,7 @@ def _extract_generic(
             else:
                 func_nid = _make_id(stem, sanitized_name)
                 if config.ts_module == "tree_sitter_python":
-                    func_nid = _python_underscore_salted_nid(
+                    func_nid = _underscore_salted_nid(
                         func_nid, sanitized_name, python_underscore_groups
                     )
                 add_node(func_nid, f"{func_name}()", line)
@@ -7313,7 +7766,7 @@ def _extract_generic(
             if _csharp_extra_walk(node, source, file_nid, stem, str_path,
                                    nodes, edges, seen_ids, function_bodies,
                                    parent_class_nid, add_node, add_edge, walk,
-                                   namespace_stack, scope_stack):
+                                   namespace_stack, scope_stack, csharp_member_groups):
                 return
 
         if config.ts_module == "tree_sitter_swift":
@@ -8090,6 +8543,15 @@ def _extract_generic(
                                 )
                                 if isinstance(elem_type, str):
                                     csharp_receiver_chain = [elem_type]
+                        elif recv is not None and recv.type == "object_creation_expression":
+                            # new X(...).M(): the receiver is the constructed X
+                            # (#1770), typed here now that a nameless receiver no
+                            # longer falls back to the file's bare-name map.
+                            type_info = _read_csharp_type_name(
+                                recv.child_by_field_name("type"), source
+                            )
+                            if type_info and type_info[0]:
+                                csharp_receiver_chain = [type_info[0]]
                         elif recv is not None and recv.type == "parenthesized_expression":
                             # ((IStore)x).M() / (x as IStore).M(): the cast names
                             # the receiver's type in source, so resolve it as
@@ -8227,6 +8689,17 @@ def _extract_generic(
                             and callee_name
                             and callee_name.casefold() in _LANGUAGE_BUILTIN_GLOBALS):
                         self_receiver = "this"
+                    # `$this->greeter->greet()` types the receiver by the property name,
+                    # `$greeter->greet()` by the variable; a longer chain names neither.
+                    obj = node.child_by_field_name("object")
+                    if obj is not None and obj.type == "variable_name":
+                        member_receiver = _php_variable_text(obj, source)
+                    elif obj is not None and obj.type == "member_access_expression":
+                        inner = obj.child_by_field_name("object")
+                        if inner is not None and inner.type == "variable_name" and (
+                                _php_variable_text(inner, source) == "this"):
+                            member_receiver = _read_text(
+                                obj.child_by_field_name("name"), source)
             elif config.ts_module == "tree_sitter_cpp":
                 # C++: function field, then field_expression/qualified_identifier
                 func_node = node.child_by_field_name(config.call_function_field) if config.call_function_field else None
@@ -8440,9 +8913,13 @@ def _extract_generic(
                 # receiver's declared type and mis-binds to an unrelated same-named
                 # method (#1609). The receiver may be lowercase (`_server.Save()`),
                 # so this is broader than the capitalized/this-field Python rule.
+                # A receiver with no capturable name (`run.Sequence.Apply()`,
+                # `Make().Apply()`, `s.Items.Count()`) defers too: the bare-name
+                # map would bind it to the caller's own same-named method. A typed
+                # chain still resolves through `receiver_chain`; anything else
+                # gets no edge.
                 _csharp_defer = (
-                    config.ts_module == "tree_sitter_c_sharp"
-                    and is_member_call and member_receiver
+                    config.ts_module == "tree_sitter_c_sharp" and is_member_call
                 )
                 _python_defer = (
                     config.ts_module == "tree_sitter_python"
@@ -8461,13 +8938,12 @@ def _extract_generic(
                     and is_member_call
                     and not lua_self_qualified
                 )
-                if _python_defer or _java_defer or (_builtin_member_call and not php_builtin_self_call) or _lua_member_defer or is_scoped_call or (
+                if _python_defer or _java_defer or _csharp_defer or (_builtin_member_call and not php_builtin_self_call) or _lua_member_defer or is_scoped_call or (
                     is_member_call
                     and member_receiver
                     and (
                         member_receiver[:1].isupper()
                         or is_this_field_call
-                        or _csharp_defer
                     )
                 ):
                     tgt_nid = None
@@ -8514,6 +8990,16 @@ def _extract_generic(
                         csharp_qualified_prefix
                         and tgt_nid
                         and not nid_to_sf.get(tgt_nid)
+                    ):
+                        tgt_nid = None
+                    # `new X()` constructs a type, never a method that shares X's
+                    # name (`static Bounds Bounds(..) => new Bounds(..)` on a type
+                    # outside the corpus). Defer so the cross-file pass can look
+                    # for the type itself.
+                    if (
+                        config.ts_module == "tree_sitter_c_sharp"
+                        and node.type == "object_creation_expression"
+                        and tgt_nid in method_owner
                     ):
                         tgt_nid = None
                 # A name-only reference can leave a source-less stub behind when
@@ -8603,6 +9089,12 @@ def _extract_generic(
                         # suffix sets, so a source_file suffix alone can't separate them.
                         if config.ts_module == "tree_sitter_cpp":
                             rc_entry["lang"] = "cpp"
+                        # PHP: separate a scoped class call (`Helper::m()`, source-
+                        # qualified) from an instance member call (`$g->m()`), whose
+                        # receiver is a variable the resolver must type through the
+                        # per-file table instead of reading it as a class name.
+                        if config.ts_module == "tree_sitter_php":
+                            rc_entry["php_scoped"] = is_scoped_call
                         # C#: tag the raw_call so _resolve_csharp_member_calls claims
                         # it, and stamp the receiver's type from the method's SCOPED
                         # bindings by the call's byte offset (#1609, per-method since
@@ -9166,6 +9658,8 @@ def _extract_generic(
     if config.ts_module in ("tree_sitter_javascript", "tree_sitter_typescript"):
         _ts_receiver_type_table(root, source, type_table)
         _ts_mark_public_twins(root, source, result)
+    if config.ts_module == "tree_sitter_php":
+        _php_receiver_type_table(root, source, type_table)
     if config.ts_module == "tree_sitter_swift":
         if type_table or swift_factory_bindings:
             result["swift_type_table"] = {"path": str_path, "table": type_table}
@@ -9179,6 +9673,8 @@ def _extract_generic(
             result["ts_type_table"] = {"path": str_path, "table": type_table}
         elif config.ts_module == "tree_sitter_cpp":
             result["cpp_type_table"] = {"path": str_path, "table": type_table}
+        elif config.ts_module == "tree_sitter_php":
+            result["php_type_table"] = {"path": str_path, "table": type_table}
     return result
 
 def _ts_mark_public_twins(root, source: bytes, result: dict) -> None:

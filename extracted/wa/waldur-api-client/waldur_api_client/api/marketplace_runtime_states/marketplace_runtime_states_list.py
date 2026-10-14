@@ -14,6 +14,7 @@ from ...utils import parse_link_header
 def _get_kwargs(
     *,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
@@ -23,6 +24,11 @@ def _get_kwargs(
     if not isinstance(category_uuid, Unset):
         json_category_uuid = str(category_uuid)
     params["category_uuid"] = json_category_uuid
+
+    json_customer_uuid: Union[Unset, str] = UNSET
+    if not isinstance(customer_uuid, Unset):
+        json_customer_uuid = str(customer_uuid)
+    params["customer_uuid"] = json_customer_uuid
 
     json_offering_uuid: Union[Unset, str] = UNSET
     if not isinstance(offering_uuid, Unset):
@@ -75,22 +81,26 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["RuntimeStates"]]:
     """List available runtime states for resources
 
 
-            Returns a unique, sorted list of runtime states for all resources accessible to the current
+            Returns a unique, sorted list of runtime states for resources accessible to the current
     user.
             The runtime state is a backend-specific state of a resource (e.g., 'ACTIVE', 'SHUTOFF' for a
     VM).
             This endpoint is useful for building dynamic filters in a user interface.
-            The list can be optionally filtered by project or category.
+
+            At least one scope query parameter is required: `project_uuid`, `category_uuid`,
+            `offering_uuid`, or `customer_uuid`.
 
 
     Args:
         category_uuid (Union[Unset, UUID]):
+        customer_uuid (Union[Unset, UUID]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
 
@@ -104,6 +114,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         category_uuid=category_uuid,
+        customer_uuid=customer_uuid,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,
     )
@@ -119,22 +130,26 @@ def sync(
     *,
     client: AuthenticatedClient,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["RuntimeStates"]:
     """List available runtime states for resources
 
 
-            Returns a unique, sorted list of runtime states for all resources accessible to the current
+            Returns a unique, sorted list of runtime states for resources accessible to the current
     user.
             The runtime state is a backend-specific state of a resource (e.g., 'ACTIVE', 'SHUTOFF' for a
     VM).
             This endpoint is useful for building dynamic filters in a user interface.
-            The list can be optionally filtered by project or category.
+
+            At least one scope query parameter is required: `project_uuid`, `category_uuid`,
+            `offering_uuid`, or `customer_uuid`.
 
 
     Args:
         category_uuid (Union[Unset, UUID]):
+        customer_uuid (Union[Unset, UUID]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
 
@@ -149,6 +164,7 @@ def sync(
     return sync_detailed(
         client=client,
         category_uuid=category_uuid,
+        customer_uuid=customer_uuid,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,
     ).parsed
@@ -158,22 +174,26 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["RuntimeStates"]]:
     """List available runtime states for resources
 
 
-            Returns a unique, sorted list of runtime states for all resources accessible to the current
+            Returns a unique, sorted list of runtime states for resources accessible to the current
     user.
             The runtime state is a backend-specific state of a resource (e.g., 'ACTIVE', 'SHUTOFF' for a
     VM).
             This endpoint is useful for building dynamic filters in a user interface.
-            The list can be optionally filtered by project or category.
+
+            At least one scope query parameter is required: `project_uuid`, `category_uuid`,
+            `offering_uuid`, or `customer_uuid`.
 
 
     Args:
         category_uuid (Union[Unset, UUID]):
+        customer_uuid (Union[Unset, UUID]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
 
@@ -187,6 +207,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         category_uuid=category_uuid,
+        customer_uuid=customer_uuid,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,
     )
@@ -200,22 +221,26 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["RuntimeStates"]:
     """List available runtime states for resources
 
 
-            Returns a unique, sorted list of runtime states for all resources accessible to the current
+            Returns a unique, sorted list of runtime states for resources accessible to the current
     user.
             The runtime state is a backend-specific state of a resource (e.g., 'ACTIVE', 'SHUTOFF' for a
     VM).
             This endpoint is useful for building dynamic filters in a user interface.
-            The list can be optionally filtered by project or category.
+
+            At least one scope query parameter is required: `project_uuid`, `category_uuid`,
+            `offering_uuid`, or `customer_uuid`.
 
 
     Args:
         category_uuid (Union[Unset, UUID]):
+        customer_uuid (Union[Unset, UUID]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
 
@@ -231,6 +256,7 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             category_uuid=category_uuid,
+            customer_uuid=customer_uuid,
             offering_uuid=offering_uuid,
             project_uuid=project_uuid,
         )
@@ -241,6 +267,7 @@ def sync_all(
     *,
     client: AuthenticatedClient,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["RuntimeStates"]:
@@ -253,6 +280,7 @@ def sync_all(
 
     Args:
         category_uuid (Union[Unset, UUID]):
+        customer_uuid (Union[Unset, UUID]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
 
@@ -270,6 +298,7 @@ def sync_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         category_uuid=category_uuid,
+        customer_uuid=customer_uuid,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,
     )
@@ -320,6 +349,7 @@ async def asyncio_all(
     *,
     client: AuthenticatedClient,
     category_uuid: Union[Unset, UUID] = UNSET,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["RuntimeStates"]:
@@ -332,6 +362,7 @@ async def asyncio_all(
 
     Args:
         category_uuid (Union[Unset, UUID]):
+        customer_uuid (Union[Unset, UUID]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
 
@@ -349,6 +380,7 @@ async def asyncio_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         category_uuid=category_uuid,
+        customer_uuid=customer_uuid,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,
     )

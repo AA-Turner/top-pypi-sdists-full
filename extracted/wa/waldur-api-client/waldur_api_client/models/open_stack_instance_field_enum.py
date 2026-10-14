@@ -44,6 +44,7 @@ class OpenStackInstanceFieldEnum(str, Enum):
     MARKETPLACE_PLAN_UUID = "marketplace_plan_uuid"
     MARKETPLACE_RESOURCE_STATE = "marketplace_resource_state"
     MARKETPLACE_RESOURCE_UUID = "marketplace_resource_uuid"
+    METADATA = "metadata"
     MIN_DISK = "min_disk"
     MIN_RAM = "min_ram"
     MODIFIED = "modified"

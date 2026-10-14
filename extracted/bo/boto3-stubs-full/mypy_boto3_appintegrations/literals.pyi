@@ -41,7 +41,7 @@ __all__ = (
 )
 
 ApplicationTypeType = Literal["A2A_SERVER", "MCP_SERVER", "SERVICE", "STANDARD"]
-AuthTypeType = Literal["API_KEY"]
+AuthTypeType = Literal["API_KEY", "CONNECT_JWT"]
 ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]

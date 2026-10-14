@@ -3,13 +3,13 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
-from ..types.attached_policy_sets_response import AttachedPolicySetsResponse
-from ..types.user_group_list_response import UserGroupListResponse
-from ..types.user_group_members_response import UserGroupMembersResponse
-from ..types.user_group_membership_response import UserGroupMembershipResponse
-from ..types.user_group_response import UserGroupResponse
-from ..types.user_membership_groups_response import UserMembershipGroupsResponse
+from ..types.membership_mutation_result import MembershipMutationResult
+from ..types.user import User
+from ..types.user_group import UserGroup
+from ..types.user_group_page import UserGroupPage
+from ..types.user_page import UserPage
 from .raw_client import AsyncRawUserGroupClient, RawUserGroupClient
 
 # this is used as the default value for optional parameters
@@ -31,213 +31,33 @@ class UserGroupClient:
         """
         return self._raw_client
 
-    def list_policy_sets(
-        self, group_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AttachedPolicySetsResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AttachedPolicySetsResponse
-            OK
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.user_group.list_policy_sets(
-            group_uuid="groupUUID",
-            project_id="projectId",
-        )
-        """
-        _response = self._raw_client.list_policy_sets(
-            group_uuid, project_id=project_id, request_options=request_options
-        )
-        return _response.data
-
-    def attach_policy_set(
-        self,
-        group_uuid: str,
-        *,
-        project_id: str,
-        policy_set_uuid: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AttachedPolicySetsResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        policy_set_uuid : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AttachedPolicySetsResponse
-            OK
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.user_group.attach_policy_set(
-            group_uuid="groupUUID",
-            project_id="projectId",
-            policy_set_uuid="policy_set_uuid",
-        )
-        """
-        _response = self._raw_client.attach_policy_set(
-            group_uuid, project_id=project_id, policy_set_uuid=policy_set_uuid, request_options=request_options
-        )
-        return _response.data
-
-    def detach_policy_set(
-        self,
-        group_uuid: str,
-        policy_set_uuid: str,
-        *,
-        project_id: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AttachedPolicySetsResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        policy_set_uuid : str
-            Policy set UUID
-
-        project_id : str
-            Project UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AttachedPolicySetsResponse
-            OK
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.user_group.detach_policy_set(
-            group_uuid="groupUUID",
-            policy_set_uuid="policySetUUID",
-            project_id="projectId",
-        )
-        """
-        _response = self._raw_client.detach_policy_set(
-            group_uuid, policy_set_uuid, project_id=project_id, request_options=request_options
-        )
-        return _response.data
-
-    def list(
-        self,
-        *,
-        project_id: str,
-        page_number: int,
-        page_size: int,
-        search: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupListResponse:
-        """
-        Parameters
-        ----------
-        project_id : str
-            Project UUID
-
-        page_number : int
-            Page number
-
-        page_size : int
-            Page size
-
-        search : typing.Optional[str]
-            Name search
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserGroupListResponse
-            OK
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.user_group.list(
-            project_id="projectId",
-            page_number=1,
-            page_size=1,
-            search="search",
-        )
-        """
-        _response = self._raw_client.list(
-            project_id=project_id,
-            page_number=page_number,
-            page_size=page_size,
-            search=search,
-            request_options=request_options,
-        )
-        return _response.data
-
     def create(
         self,
         *,
-        project_id: str,
         name: str,
         description: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupResponse:
+    ) -> UserGroup:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
-        project_id : str
-            Project UUID
-
         name : str
+            The name of the user group.
 
         description : typing.Optional[str]
+            A description of the user group.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupResponse
+        UserGroup
             Created
 
         Examples
@@ -248,33 +68,42 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.create(
-            project_id="projectId",
             name="name",
         )
         """
         _response = self._raw_client.create(
-            project_id=project_id, name=name, description=description, request_options=request_options
+            name=name, description=description, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
 
-    def list_for_user(
-        self, user_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserMembershipGroupsResponse:
+    def list(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        search: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[UserGroup, UserGroupPage]:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
-        user_uuid : str
-            User UUID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        project_id : str
-            Project UUID
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        search : typing.Optional[str]
+            Filters results to items matching this free-text search term.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserMembershipGroupsResponse
+        SyncPager[UserGroup, UserGroupPage]
             OK
 
         Examples
@@ -284,32 +113,30 @@ class UserGroupClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.user_group.list_for_user(
-            user_uuid="userUUID",
-            project_id="projectId",
-        )
+        response = client.user_group.list()
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list_for_user(user_uuid, project_id=project_id, request_options=request_options)
-        return _response.data
+        return self._raw_client.list(page_size=page_size, cursor=cursor, search=search, request_options=request_options)
 
-    def get(
-        self, group_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserGroupResponse:
+    def get(self, group_uuid: str, *, request_options: typing.Optional[RequestOptions] = None) -> UserGroup:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
+            User group UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupResponse
+        UserGroup
             OK
 
         Examples
@@ -320,24 +147,28 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.get(
-            group_uuid="groupUUID",
-            project_id="projectId",
+            group_uuid="group_uuid",
         )
         """
-        _response = self._raw_client.get(group_uuid, project_id=project_id, request_options=request_options)
+        _response = self._raw_client.get(group_uuid, request_options=request_options)
         return _response.data
 
     def delete(
-        self, group_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        group_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
-        project_id : str
-            Project UUID
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -354,44 +185,49 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.delete(
-            group_uuid="groupUUID",
-            project_id="projectId",
+            group_uuid="group_uuid",
         )
         """
-        _response = self._raw_client.delete(group_uuid, project_id=project_id, request_options=request_options)
+        _response = self._raw_client.delete(
+            group_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     def update(
         self,
         group_uuid: str,
         *,
-        project_id: str,
-        expected_version: int,
         description: typing.Optional[str] = OMIT,
+        expected_version: typing.Optional[int] = OMIT,
         name: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupResponse:
+    ) -> UserGroup:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        expected_version : int
+            User group UUID
 
         description : typing.Optional[str]
+            A description of the user group.
+
+        expected_version : typing.Optional[int]
+            The user group's current version, used to detect concurrent updates.
 
         name : typing.Optional[str]
+            The name of the user group.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupResponse
+        UserGroup
             OK
 
         Examples
@@ -402,55 +238,51 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.update(
-            group_uuid="groupUUID",
-            project_id="projectId",
-            expected_version=1,
+            group_uuid="group_uuid",
         )
         """
         _response = self._raw_client.update(
             group_uuid,
-            project_id=project_id,
-            expected_version=expected_version,
             description=description,
+            expected_version=expected_version,
             name=name,
+            idempotency_key=idempotency_key,
             request_options=request_options,
         )
         return _response.data
 
-    def list_members(
+    def list_member_candidates(
         self,
         group_uuid: str,
         *,
-        project_id: str,
-        page_number: int,
-        page_size: int,
-        search: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        search: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembersResponse:
+    ) -> SyncPager[User, UserPage]:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
-        project_id : str
-            Project UUID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        page_number : int
-            Page number
-
-        page_size : int
-            Page size
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
         search : typing.Optional[str]
-            User search
+            Filters results to items matching this free-text search term.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembersResponse
+        SyncPager[User, UserPage]
             OK
 
         Examples
@@ -460,49 +292,46 @@ class UserGroupClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.user_group.list_members(
-            group_uuid="groupUUID",
-            project_id="projectId",
-            page_number=1,
-            page_size=1,
-            search="search",
+        response = client.user_group.list_member_candidates(
+            group_uuid="group_uuid",
         )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list_members(
-            group_uuid,
-            project_id=project_id,
-            page_number=page_number,
-            page_size=page_size,
-            search=search,
-            request_options=request_options,
+        return self._raw_client.list_member_candidates(
+            group_uuid, page_size=page_size, cursor=cursor, search=search, request_options=request_options
         )
-        return _response.data
 
     def add_members(
         self,
         group_uuid: str,
         *,
-        project_id: str,
         user_uuids: typing.Sequence[str],
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembershipResponse:
+    ) -> MembershipMutationResult:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
+            User group UUID
 
         user_uuids : typing.Sequence[str]
+            The UUIDs of the users to add or remove.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembershipResponse
+        MembershipMutationResult
             OK
 
         Examples
@@ -513,41 +342,96 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.add_members(
-            group_uuid="groupUUID",
-            project_id="projectId",
+            group_uuid="group_uuid",
             user_uuids=["user_uuids"],
         )
         """
         _response = self._raw_client.add_members(
-            group_uuid, project_id=project_id, user_uuids=user_uuids, request_options=request_options
+            group_uuid, user_uuids=user_uuids, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
 
-    def remove_members(
+    def list_members(
         self,
         group_uuid: str,
         *,
-        project_id: str,
-        user_uuids: typing.Sequence[str],
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        search: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembershipResponse:
+    ) -> SyncPager[User, UserPage]:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
-        project_id : str
-            Project UUID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        user_uuids : typing.Sequence[str]
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        search : typing.Optional[str]
+            Filters results to items matching this free-text search term.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembershipResponse
+        SyncPager[User, UserPage]
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        response = client.user_group.list_members(
+            group_uuid="group_uuid",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_members(
+            group_uuid, page_size=page_size, cursor=cursor, search=search, request_options=request_options
+        )
+
+    def remove_members(
+        self,
+        group_uuid: str,
+        *,
+        user_uuids: typing.Sequence[str],
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MembershipMutationResult:
+        """
+        Requires attribute-based access control to be enabled for your account.
+
+        Parameters
+        ----------
+        group_uuid : str
+            User group UUID
+
+        user_uuids : typing.Sequence[str]
+            The UUIDs of the users to add or remove.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MembershipMutationResult
             OK
 
         Examples
@@ -558,74 +442,12 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.remove_members(
-            group_uuid="groupUUID",
-            project_id="projectId",
+            group_uuid="group_uuid",
             user_uuids=["user_uuids"],
         )
         """
         _response = self._raw_client.remove_members(
-            group_uuid, project_id=project_id, user_uuids=user_uuids, request_options=request_options
-        )
-        return _response.data
-
-    def list_member_candidates(
-        self,
-        group_uuid: str,
-        *,
-        project_id: str,
-        page_number: int,
-        page_size: int,
-        search: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembersResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        page_number : int
-            Page number
-
-        page_size : int
-            Page size
-
-        search : typing.Optional[str]
-            User search
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserGroupMembersResponse
-            OK
-
-        Examples
-        --------
-        from zep_cloud import Zep
-
-        client = Zep(
-            api_key="YOUR_API_KEY",
-        )
-        client.user_group.list_member_candidates(
-            group_uuid="groupUUID",
-            project_id="projectId",
-            page_number=1,
-            page_size=1,
-            search="search",
-        )
-        """
-        _response = self._raw_client.list_member_candidates(
-            group_uuid,
-            project_id=project_id,
-            page_number=page_number,
-            page_size=page_size,
-            search=search,
-            request_options=request_options,
+            group_uuid, user_uuids=user_uuids, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
 
@@ -634,28 +456,28 @@ class UserGroupClient:
         group_uuid: str,
         user_uuid: str,
         *,
-        project_id: str,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembershipResponse:
+    ) -> None:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
         user_uuid : str
             User UUID
 
-        project_id : str
-            Project UUID
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembershipResponse
-            OK
+        None
 
         Examples
         --------
@@ -665,15 +487,64 @@ class UserGroupClient:
             api_key="YOUR_API_KEY",
         )
         client.user_group.remove_member(
-            group_uuid="groupUUID",
-            user_uuid="userUUID",
-            project_id="projectId",
+            group_uuid="group_uuid",
+            user_uuid="user_uuid",
         )
         """
         _response = self._raw_client.remove_member(
-            group_uuid, user_uuid, project_id=project_id, request_options=request_options
+            group_uuid, user_uuid, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
+
+    def list_for_user(
+        self,
+        user_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[UserGroup, UserGroupPage]:
+        """
+        Requires attribute-based access control to be enabled for your account.
+
+        Parameters
+        ----------
+        user_uuid : str
+            User UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[UserGroup, UserGroupPage]
+            OK
+
+        Examples
+        --------
+        from zep_cloud import Zep
+
+        client = Zep(
+            api_key="YOUR_API_KEY",
+        )
+        response = client.user_group.list_for_user(
+            user_uuid="user_uuid",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.list_for_user(
+            user_uuid, page_size=page_size, cursor=cursor, request_options=request_options
+        )
 
 
 class AsyncUserGroupClient:
@@ -691,245 +562,33 @@ class AsyncUserGroupClient:
         """
         return self._raw_client
 
-    async def list_policy_sets(
-        self, group_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AttachedPolicySetsResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AttachedPolicySetsResponse
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.user_group.list_policy_sets(
-                group_uuid="groupUUID",
-                project_id="projectId",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list_policy_sets(
-            group_uuid, project_id=project_id, request_options=request_options
-        )
-        return _response.data
-
-    async def attach_policy_set(
-        self,
-        group_uuid: str,
-        *,
-        project_id: str,
-        policy_set_uuid: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AttachedPolicySetsResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        policy_set_uuid : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AttachedPolicySetsResponse
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.user_group.attach_policy_set(
-                group_uuid="groupUUID",
-                project_id="projectId",
-                policy_set_uuid="policy_set_uuid",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.attach_policy_set(
-            group_uuid, project_id=project_id, policy_set_uuid=policy_set_uuid, request_options=request_options
-        )
-        return _response.data
-
-    async def detach_policy_set(
-        self,
-        group_uuid: str,
-        policy_set_uuid: str,
-        *,
-        project_id: str,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AttachedPolicySetsResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        policy_set_uuid : str
-            Policy set UUID
-
-        project_id : str
-            Project UUID
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AttachedPolicySetsResponse
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.user_group.detach_policy_set(
-                group_uuid="groupUUID",
-                policy_set_uuid="policySetUUID",
-                project_id="projectId",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.detach_policy_set(
-            group_uuid, policy_set_uuid, project_id=project_id, request_options=request_options
-        )
-        return _response.data
-
-    async def list(
-        self,
-        *,
-        project_id: str,
-        page_number: int,
-        page_size: int,
-        search: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupListResponse:
-        """
-        Parameters
-        ----------
-        project_id : str
-            Project UUID
-
-        page_number : int
-            Page number
-
-        page_size : int
-            Page size
-
-        search : typing.Optional[str]
-            Name search
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserGroupListResponse
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.user_group.list(
-                project_id="projectId",
-                page_number=1,
-                page_size=1,
-                search="search",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list(
-            project_id=project_id,
-            page_number=page_number,
-            page_size=page_size,
-            search=search,
-            request_options=request_options,
-        )
-        return _response.data
-
     async def create(
         self,
         *,
-        project_id: str,
         name: str,
         description: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupResponse:
+    ) -> UserGroup:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
-        project_id : str
-            Project UUID
-
         name : str
+            The name of the user group.
 
         description : typing.Optional[str]
+            A description of the user group.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupResponse
+        UserGroup
             Created
 
         Examples
@@ -945,7 +604,6 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.create(
-                project_id="projectId",
                 name="name",
             )
 
@@ -953,28 +611,38 @@ class AsyncUserGroupClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            project_id=project_id, name=name, description=description, request_options=request_options
+            name=name, description=description, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
 
-    async def list_for_user(
-        self, user_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserMembershipGroupsResponse:
+    async def list(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        search: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[UserGroup, UserGroupPage]:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
-        user_uuid : str
-            User UUID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        project_id : str
-            Project UUID
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        search : typing.Optional[str]
+            Filters results to items matching this free-text search term.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserMembershipGroupsResponse
+        AsyncPager[UserGroup, UserGroupPage]
             OK
 
         Examples
@@ -989,37 +657,36 @@ class AsyncUserGroupClient:
 
 
         async def main() -> None:
-            await client.user_group.list_for_user(
-                user_uuid="userUUID",
-                project_id="projectId",
-            )
+            response = await client.user_group.list()
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_for_user(
-            user_uuid, project_id=project_id, request_options=request_options
+        return await self._raw_client.list(
+            page_size=page_size, cursor=cursor, search=search, request_options=request_options
         )
-        return _response.data
 
-    async def get(
-        self, group_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> UserGroupResponse:
+    async def get(self, group_uuid: str, *, request_options: typing.Optional[RequestOptions] = None) -> UserGroup:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
+            User group UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupResponse
+        UserGroup
             OK
 
         Examples
@@ -1035,27 +702,31 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.get(
-                group_uuid="groupUUID",
-                project_id="projectId",
+                group_uuid="group_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get(group_uuid, project_id=project_id, request_options=request_options)
+        _response = await self._raw_client.get(group_uuid, request_options=request_options)
         return _response.data
 
     async def delete(
-        self, group_uuid: str, *, project_id: str, request_options: typing.Optional[RequestOptions] = None
+        self,
+        group_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
-        project_id : str
-            Project UUID
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1077,47 +748,52 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.delete(
-                group_uuid="groupUUID",
-                project_id="projectId",
+                group_uuid="group_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.delete(group_uuid, project_id=project_id, request_options=request_options)
+        _response = await self._raw_client.delete(
+            group_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     async def update(
         self,
         group_uuid: str,
         *,
-        project_id: str,
-        expected_version: int,
         description: typing.Optional[str] = OMIT,
+        expected_version: typing.Optional[int] = OMIT,
         name: typing.Optional[str] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupResponse:
+    ) -> UserGroup:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        expected_version : int
+            User group UUID
 
         description : typing.Optional[str]
+            A description of the user group.
+
+        expected_version : typing.Optional[int]
+            The user group's current version, used to detect concurrent updates.
 
         name : typing.Optional[str]
+            The name of the user group.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupResponse
+        UserGroup
             OK
 
         Examples
@@ -1133,9 +809,7 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.update(
-                group_uuid="groupUUID",
-                project_id="projectId",
-                expected_version=1,
+                group_uuid="group_uuid",
             )
 
 
@@ -1143,48 +817,46 @@ class AsyncUserGroupClient:
         """
         _response = await self._raw_client.update(
             group_uuid,
-            project_id=project_id,
-            expected_version=expected_version,
             description=description,
+            expected_version=expected_version,
             name=name,
+            idempotency_key=idempotency_key,
             request_options=request_options,
         )
         return _response.data
 
-    async def list_members(
+    async def list_member_candidates(
         self,
         group_uuid: str,
         *,
-        project_id: str,
-        page_number: int,
-        page_size: int,
-        search: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        search: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembersResponse:
+    ) -> AsyncPager[User, UserPage]:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
-        project_id : str
-            Project UUID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        page_number : int
-            Page number
-
-        page_size : int
-            Page size
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
         search : typing.Optional[str]
-            User search
+            Filters results to items matching this free-text search term.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembersResponse
+        AsyncPager[User, UserPage]
             OK
 
         Examples
@@ -1199,52 +871,50 @@ class AsyncUserGroupClient:
 
 
         async def main() -> None:
-            await client.user_group.list_members(
-                group_uuid="groupUUID",
-                project_id="projectId",
-                page_number=1,
-                page_size=1,
-                search="search",
+            response = await client.user_group.list_member_candidates(
+                group_uuid="group_uuid",
             )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_members(
-            group_uuid,
-            project_id=project_id,
-            page_number=page_number,
-            page_size=page_size,
-            search=search,
-            request_options=request_options,
+        return await self._raw_client.list_member_candidates(
+            group_uuid, page_size=page_size, cursor=cursor, search=search, request_options=request_options
         )
-        return _response.data
 
     async def add_members(
         self,
         group_uuid: str,
         *,
-        project_id: str,
         user_uuids: typing.Sequence[str],
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembershipResponse:
+    ) -> MembershipMutationResult:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
+            User group UUID
 
         user_uuids : typing.Sequence[str]
+            The UUIDs of the users to add or remove.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembershipResponse
+        MembershipMutationResult
             OK
 
         Examples
@@ -1260,8 +930,7 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.add_members(
-                group_uuid="groupUUID",
-                project_id="projectId",
+                group_uuid="group_uuid",
                 user_uuids=["user_uuids"],
             )
 
@@ -1269,35 +938,100 @@ class AsyncUserGroupClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.add_members(
-            group_uuid, project_id=project_id, user_uuids=user_uuids, request_options=request_options
+            group_uuid, user_uuids=user_uuids, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
 
-    async def remove_members(
+    async def list_members(
         self,
         group_uuid: str,
         *,
-        project_id: str,
-        user_uuids: typing.Sequence[str],
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        search: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembershipResponse:
+    ) -> AsyncPager[User, UserPage]:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
-        project_id : str
-            Project UUID
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        user_uuids : typing.Sequence[str]
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        search : typing.Optional[str]
+            Filters results to items matching this free-text search term.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembershipResponse
+        AsyncPager[User, UserPage]
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            response = await client.user_group.list_members(
+                group_uuid="group_uuid",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_members(
+            group_uuid, page_size=page_size, cursor=cursor, search=search, request_options=request_options
+        )
+
+    async def remove_members(
+        self,
+        group_uuid: str,
+        *,
+        user_uuids: typing.Sequence[str],
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MembershipMutationResult:
+        """
+        Requires attribute-based access control to be enabled for your account.
+
+        Parameters
+        ----------
+        group_uuid : str
+            User group UUID
+
+        user_uuids : typing.Sequence[str]
+            The UUIDs of the users to add or remove.
+
+        idempotency_key : typing.Optional[str]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        MembershipMutationResult
             OK
 
         Examples
@@ -1313,8 +1047,7 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.remove_members(
-                group_uuid="groupUUID",
-                project_id="projectId",
+                group_uuid="group_uuid",
                 user_uuids=["user_uuids"],
             )
 
@@ -1322,76 +1055,7 @@ class AsyncUserGroupClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.remove_members(
-            group_uuid, project_id=project_id, user_uuids=user_uuids, request_options=request_options
-        )
-        return _response.data
-
-    async def list_member_candidates(
-        self,
-        group_uuid: str,
-        *,
-        project_id: str,
-        page_number: int,
-        page_size: int,
-        search: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembersResponse:
-        """
-        Parameters
-        ----------
-        group_uuid : str
-            UserGroup UUID
-
-        project_id : str
-            Project UUID
-
-        page_number : int
-            Page number
-
-        page_size : int
-            Page size
-
-        search : typing.Optional[str]
-            User search
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        UserGroupMembersResponse
-            OK
-
-        Examples
-        --------
-        import asyncio
-
-        from zep_cloud import AsyncZep
-
-        client = AsyncZep(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.user_group.list_member_candidates(
-                group_uuid="groupUUID",
-                project_id="projectId",
-                page_number=1,
-                page_size=1,
-                search="search",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.list_member_candidates(
-            group_uuid,
-            project_id=project_id,
-            page_number=page_number,
-            page_size=page_size,
-            search=search,
-            request_options=request_options,
+            group_uuid, user_uuids=user_uuids, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
 
@@ -1400,28 +1064,28 @@ class AsyncUserGroupClient:
         group_uuid: str,
         user_uuid: str,
         *,
-        project_id: str,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> UserGroupMembershipResponse:
+    ) -> None:
         """
+        Requires attribute-based access control to be enabled for your account.
+
         Parameters
         ----------
         group_uuid : str
-            UserGroup UUID
+            User group UUID
 
         user_uuid : str
             User UUID
 
-        project_id : str
-            Project UUID
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        UserGroupMembershipResponse
-            OK
+        None
 
         Examples
         --------
@@ -1436,15 +1100,73 @@ class AsyncUserGroupClient:
 
         async def main() -> None:
             await client.user_group.remove_member(
-                group_uuid="groupUUID",
-                user_uuid="userUUID",
-                project_id="projectId",
+                group_uuid="group_uuid",
+                user_uuid="user_uuid",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.remove_member(
-            group_uuid, user_uuid, project_id=project_id, request_options=request_options
+            group_uuid, user_uuid, idempotency_key=idempotency_key, request_options=request_options
         )
         return _response.data
+
+    async def list_for_user(
+        self,
+        user_uuid: str,
+        *,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[UserGroup, UserGroupPage]:
+        """
+        Requires attribute-based access control to be enabled for your account.
+
+        Parameters
+        ----------
+        user_uuid : str
+            User UUID
+
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
+
+        cursor : typing.Optional[str]
+            Opaque page cursor
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[UserGroup, UserGroupPage]
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from zep_cloud import AsyncZep
+
+        client = AsyncZep(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            response = await client.user_group.list_for_user(
+                user_uuid="user_uuid",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.list_for_user(
+            user_uuid, page_size=page_size, cursor=cursor, request_options=request_options
+        )

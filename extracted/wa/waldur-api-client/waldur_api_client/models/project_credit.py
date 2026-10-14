@@ -37,6 +37,7 @@ class ProjectCredit:
             None when that month has no invoice at all — no billing period is not
             the same statement as "drew nothing", and callers should be able to
             tell them apart.
+        creditable_cost_this_month (Union[None, str]):
         spendable_value (str):
         is_limited_by_organization_credit (bool): True when the organization balance, not this allocation, is binding.
         offerings (list['NestedPublicOffering']):
@@ -62,6 +63,7 @@ class ProjectCredit:
     customer_credit: str
     allocated_customer_credit: Union[None, str]
     consumption_last_month: Union[None, float]
+    creditable_cost_this_month: Union[None, str]
     spendable_value: str
     is_limited_by_organization_credit: bool
     offerings: list["NestedPublicOffering"]
@@ -101,6 +103,9 @@ class ProjectCredit:
 
         consumption_last_month: Union[None, float]
         consumption_last_month = self.consumption_last_month
+
+        creditable_cost_this_month: Union[None, str]
+        creditable_cost_this_month = self.creditable_cost_this_month
 
         spendable_value = self.spendable_value
 
@@ -151,6 +156,7 @@ class ProjectCredit:
                 "customer_credit": customer_credit,
                 "allocated_customer_credit": allocated_customer_credit,
                 "consumption_last_month": consumption_last_month,
+                "creditable_cost_this_month": creditable_cost_this_month,
                 "spendable_value": spendable_value,
                 "is_limited_by_organization_credit": is_limited_by_organization_credit,
                 "offerings": offerings,
@@ -215,6 +221,13 @@ class ProjectCredit:
 
         consumption_last_month = _parse_consumption_last_month(d.pop("consumption_last_month"))
 
+        def _parse_creditable_cost_this_month(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        creditable_cost_this_month = _parse_creditable_cost_this_month(d.pop("creditable_cost_this_month"))
+
         spendable_value = d.pop("spendable_value")
 
         is_limited_by_organization_credit = d.pop("is_limited_by_organization_credit")
@@ -277,6 +290,7 @@ class ProjectCredit:
             customer_credit=customer_credit,
             allocated_customer_credit=allocated_customer_credit,
             consumption_last_month=consumption_last_month,
+            creditable_cost_this_month=creditable_cost_this_month,
             spendable_value=spendable_value,
             is_limited_by_organization_credit=is_limited_by_organization_credit,
             offerings=offerings,

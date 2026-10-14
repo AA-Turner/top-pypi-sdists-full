@@ -18,13 +18,17 @@ class ProjectUsageEntry:
     Attributes:
         project_uuid (UUID):
         project_name (str):
+        is_removed (bool):
         usage (float):
+        usage_terminated (float): Part of usage that came from terminated resources.
         buckets (list['UsageTimeseriesBucket']):
     """
 
     project_uuid: UUID
     project_name: str
+    is_removed: bool
     usage: float
+    usage_terminated: float
     buckets: list["UsageTimeseriesBucket"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -33,7 +37,11 @@ class ProjectUsageEntry:
 
         project_name = self.project_name
 
+        is_removed = self.is_removed
+
         usage = self.usage
+
+        usage_terminated = self.usage_terminated
 
         buckets = []
         for buckets_item_data in self.buckets:
@@ -46,7 +54,9 @@ class ProjectUsageEntry:
             {
                 "project_uuid": project_uuid,
                 "project_name": project_name,
+                "is_removed": is_removed,
                 "usage": usage,
+                "usage_terminated": usage_terminated,
                 "buckets": buckets,
             }
         )
@@ -62,7 +72,11 @@ class ProjectUsageEntry:
 
         project_name = d.pop("project_name")
 
+        is_removed = d.pop("is_removed")
+
         usage = d.pop("usage")
+
+        usage_terminated = d.pop("usage_terminated")
 
         buckets = []
         _buckets = d.pop("buckets")
@@ -74,7 +88,9 @@ class ProjectUsageEntry:
         project_usage_entry = cls(
             project_uuid=project_uuid,
             project_name=project_name,
+            is_removed=is_removed,
             usage=usage,
+            usage_terminated=usage_terminated,
             buckets=buckets,
         )
 

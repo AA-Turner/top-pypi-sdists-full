@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal
 
-from pydantic import AnyUrl, ConfigDict, Field, RootModel
+from pydantic import AnyUrl, ConfigDict, Field, RootModel, SecretStr
 
 # defer_build=True base: model validators/serializers are built on first use, not at
 # import time. See plato/_model_base.py (generator must pass base_class=...).
@@ -4698,3 +4698,372 @@ ChainViewResponse.model_rebuild()
 ClickCollectorElementsNodeInput.model_rebuild()
 ClickCollectorElementsNodeOutput.model_rebuild()
 SessionListItem.model_rebuild()
+
+
+# Login vault (/api/login-vault): the classes above it are prod's schema; this
+# slice is plato-gen output for useplato/plato#4424 + #4467
+# (feat/chronos-login-vault-open) at 29a3bb0a45, ahead of their deploy. Reproduce:
+# in openapi/, `uv run plato-gen --path
+# <plato>/services/chronos/frontend/src/api/generated/openapi.json --lang python
+# --prefix plato.chronos --output <tmp>/plato/chronos`, then take every class a
+# /api/login-vault route reaches and api/login_vault/ unchanged. After the deploy,
+# the "Regenerate SDKs" workflow (chronos.plato.so/openapi.json) yields the same
+# classes.
+
+
+class BrowserMode(Enum):
+    chrome = "chrome"
+    browserbase = "browserbase"
+    browserbase_via_vm = "browserbase_via_vm"
+
+
+class ExitProvider(Enum):
+    brightdata = "brightdata"
+    decodo = "decodo"
+    home = "home"
+
+
+class Username(RootModel[str]):
+    root: Annotated[str, Field(max_length=512, title="Username")]
+
+
+class Password(RootModel[SecretStr]):
+    root: Annotated[SecretStr, Field(max_length=1024, title="Password")]
+
+
+class TotpSeed(RootModel[SecretStr]):
+    root: Annotated[SecretStr, Field(max_length=1024, title="Totp Seed")]
+
+
+class Phone(RootModel[SecretStr]):
+    root: Annotated[SecretStr, Field(max_length=64, title="Phone")]
+
+
+class LoginUrl(RootModel[str]):
+    root: Annotated[str, Field(max_length=2048, title="Login Url")]
+
+
+class LoginHint(RootModel[str]):
+    root: Annotated[str, Field(max_length=8000, title="Login Hint")]
+
+
+class ProxyExit(RootModel[str]):
+    root: Annotated[str, Field(max_length=255, title="Proxy Exit")]
+
+
+class MaxSessions(RootModel[int]):
+    root: Annotated[int, Field(ge=1, le=50, title="Max Sessions")]
+
+
+class LoginVaultAccountSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    op_item_id: Annotated[str, Field(title="Op Item Id")]
+    username: Annotated[str | None, Field(title="Username")] = None
+    phone: Annotated[str | None, Field(title="Phone")] = None
+    has_password: Annotated[bool, Field(title="Has Password")]
+    has_totp: Annotated[bool, Field(title="Has Totp")]
+    has_phone: Annotated[bool, Field(title="Has Phone")]
+    has_security_qa: Annotated[bool, Field(title="Has Security Qa")]
+    default_for: Annotated[list[str], Field(title="Default For")]
+    login_url: Annotated[str | None, Field(title="Login Url")] = None
+    browser_mode: BrowserMode | None = None
+    login_hint: Annotated[str | None, Field(title="Login Hint")] = None
+    proxy_exit: Annotated[str | None, Field(title="Proxy Exit")] = None
+    auto_refresh: Annotated[bool, Field(title="Auto Refresh")]
+    max_sessions: Annotated[int, Field(title="Max Sessions")]
+    archived_at: Annotated[datetime | None, Field(title="Archived At")] = None
+    archived_by: Annotated[str | None, Field(title="Archived By")] = None
+    archived_reason: Annotated[str | None, Field(title="Archived Reason")] = None
+    created_by: Annotated[str | None, Field(title="Created By")] = None
+    updated_by: Annotated[str | None, Field(title="Updated By")] = None
+    item_created_at: Annotated[datetime | None, Field(title="Item Created At")] = None
+    item_updated_at: Annotated[datetime | None, Field(title="Item Updated At")] = None
+    last_bake_session_id: Annotated[str | None, Field(title="Last Bake Session Id")] = None
+    last_bake_at: Annotated[datetime | None, Field(title="Last Bake At")] = None
+
+
+class LoginVaultAppHint(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    login_hint: Annotated[str | None, Field(title="Login Hint")] = None
+
+
+class LoginVaultAppHintUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_hint: Annotated[LoginHint | None, Field(title="Login Hint")] = None
+
+
+class LoginVaultArchiveRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    reason: Annotated[str, Field(max_length=200, min_length=1, title="Reason")]
+
+
+class LoginVaultBakeRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    browser_mode: BrowserMode | None = None
+
+
+class LoginVaultBakeResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    session_id: Annotated[str, Field(title="Session Id")]
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    browser_mode: BrowserMode
+    world_package: Annotated[str, Field(title="World Package")]
+
+
+class LoginVaultDefault(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    clone: Annotated[str, Field(title="Clone")]
+    login_key: Annotated[str | None, Field(title="Login Key")] = None
+    account: Annotated[str | None, Field(title="Account")] = None
+
+
+class LoginVaultDefaultTarget(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+
+
+class LoginVaultDefaultUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str | None, Field(title="Login Key")] = None
+    account: Annotated[str | None, Field(title="Account")] = None
+
+
+class LoginVaultDefaults(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    defaults: Annotated[dict[str, LoginVaultDefaultTarget], Field(title="Defaults")]
+
+
+class LoginVaultExitBan(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    reason: Annotated[str | None, Field(title="Reason")] = None
+    by: Annotated[str | None, Field(title="By")] = None
+    at: Annotated[datetime | None, Field(title="At")] = None
+
+
+class Reason(RootModel[str]):
+    root: Annotated[str, Field(max_length=200, title="Reason")]
+
+
+class LoginVaultExitBanRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str | None, Field(title="Login Key")] = None
+    reason: Annotated[Reason | None, Field(title="Reason")] = None
+
+
+class LoginVaultExitUnbanRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str | None, Field(title="Login Key")] = None
+
+
+class LoginVaultExitUpstream(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: Annotated[str, Field(title="Name")]
+    upstream_url: Annotated[str, Field(title="Upstream Url")]
+
+
+class LoginVaultExitUser(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    archived: Annotated[bool, Field(title="Archived")]
+
+
+class LoginVaultImportTableName(Enum):
+    defaults = "defaults"
+    app_hints = "app_hints"
+    exit_bans = "exit_bans"
+
+
+class LoginVaultOpenRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    minutes: Annotated[int | None, Field(ge=1, le=240, title="Minutes")] = 60
+    """
+    How long the browser stays open (the world then ends the session).
+    """
+    save: Annotated[bool | None, Field(title="Save")] = False
+    """
+    When the hold ends, save the browser's login as the account's new snapshot, if an agent finds it still signed in. VM browsers only. It rewrites the saved login, as a bake does, so it is refused while a bake or another saving open of the account is live.
+    """
+
+
+class LoginVaultOpenResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    session_id: Annotated[str, Field(title="Session Id")]
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    minutes: Annotated[int, Field(title="Minutes")]
+    save: Annotated[bool, Field(title="Save")]
+    snapshot_ref: Annotated[str | None, Field(title="Snapshot Ref")] = None
+
+
+class SecurityQA(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    question: Annotated[str, Field(title="Question")]
+    answer: Annotated[str, Field(title="Answer")]
+
+
+class SecurityQAInput(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    question: Annotated[str, Field(title="Question")]
+    answer: Annotated[SecretStr, Field(title="Answer")]
+
+
+class LoginVaultAccount(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    op_item_id: Annotated[str, Field(title="Op Item Id")]
+    username: Annotated[str | None, Field(title="Username")] = None
+    phone: Annotated[str | None, Field(title="Phone")] = None
+    has_password: Annotated[bool, Field(title="Has Password")]
+    has_totp: Annotated[bool, Field(title="Has Totp")]
+    has_phone: Annotated[bool, Field(title="Has Phone")]
+    has_security_qa: Annotated[bool, Field(title="Has Security Qa")]
+    default_for: Annotated[list[str], Field(title="Default For")]
+    login_url: Annotated[str | None, Field(title="Login Url")] = None
+    browser_mode: BrowserMode | None = None
+    login_hint: Annotated[str | None, Field(title="Login Hint")] = None
+    proxy_exit: Annotated[str | None, Field(title="Proxy Exit")] = None
+    auto_refresh: Annotated[bool, Field(title="Auto Refresh")]
+    max_sessions: Annotated[int, Field(title="Max Sessions")]
+    archived_at: Annotated[datetime | None, Field(title="Archived At")] = None
+    archived_by: Annotated[str | None, Field(title="Archived By")] = None
+    archived_reason: Annotated[str | None, Field(title="Archived Reason")] = None
+    created_by: Annotated[str | None, Field(title="Created By")] = None
+    updated_by: Annotated[str | None, Field(title="Updated By")] = None
+    item_created_at: Annotated[datetime | None, Field(title="Item Created At")] = None
+    item_updated_at: Annotated[datetime | None, Field(title="Item Updated At")] = None
+    last_bake_session_id: Annotated[str | None, Field(title="Last Bake Session Id")] = None
+    last_bake_at: Annotated[datetime | None, Field(title="Last Bake At")] = None
+    password: Annotated[str | None, Field(title="Password")] = None
+    totp_seed: Annotated[str | None, Field(title="Totp Seed")] = None
+    security_qa: Annotated[list[SecurityQA], Field(title="Security Qa")]
+
+
+class LoginVaultAccountCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    username: Annotated[Username | None, Field(title="Username")] = None
+    password: Annotated[Password | None, Field(title="Password")] = None
+    totp_seed: Annotated[TotpSeed | None, Field(title="Totp Seed")] = None
+    phone: Annotated[Phone | None, Field(title="Phone")] = None
+    security_qa: Annotated[list[SecurityQAInput] | None, Field(title="Security Qa")] = None
+    login_url: Annotated[LoginUrl | None, Field(title="Login Url")] = None
+    browser_mode: Annotated[BrowserMode | str | None, Field(title="Browser Mode")] = None
+    login_hint: Annotated[LoginHint | None, Field(title="Login Hint")] = None
+    proxy_exit: Annotated[ProxyExit | None, Field(title="Proxy Exit")] = None
+    auto_refresh: Annotated[bool | None, Field(title="Auto Refresh")] = True
+    max_sessions: Annotated[MaxSessions | None, Field(title="Max Sessions")] = None
+    login_key: Annotated[str, Field(min_length=1, title="Login Key")]
+    account: Annotated[str, Field(min_length=1, title="Account")]
+
+
+class LoginVaultAccountList(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    accounts: Annotated[list[LoginVaultAccountSummary], Field(title="Accounts")]
+    vault_error: Annotated[str | None, Field(title="Vault Error")] = None
+
+
+class LoginVaultAccountUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    username: Annotated[Username | None, Field(title="Username")] = None
+    password: Annotated[Password | None, Field(title="Password")] = None
+    totp_seed: Annotated[TotpSeed | None, Field(title="Totp Seed")] = None
+    phone: Annotated[Phone | None, Field(title="Phone")] = None
+    security_qa: Annotated[list[SecurityQAInput] | None, Field(title="Security Qa")] = None
+    login_url: Annotated[LoginUrl | None, Field(title="Login Url")] = None
+    browser_mode: Annotated[BrowserMode | str | None, Field(title="Browser Mode")] = None
+    login_hint: Annotated[LoginHint | None, Field(title="Login Hint")] = None
+    proxy_exit: Annotated[ProxyExit | None, Field(title="Proxy Exit")] = None
+    auto_refresh: Annotated[bool | None, Field(title="Auto Refresh")] = None
+    max_sessions: Annotated[MaxSessions | None, Field(title="Max Sessions")] = None
+
+
+class LoginVaultExit(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: Annotated[str, Field(title="Name")]
+    provider: ExitProvider | None = None
+    in_registry: Annotated[bool, Field(title="In Registry")]
+    static_ip: Annotated[str | None, Field(title="Static Ip")] = None
+    bans: Annotated[list[LoginVaultExitBan], Field(title="Bans")]
+    used_by: Annotated[list[LoginVaultExitUser], Field(title="Used By")]
+
+
+class LoginVaultExitList(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    exits: Annotated[list[LoginVaultExit], Field(title="Exits")]
+
+
+class LoginVaultImportTable(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    table: LoginVaultImportTableName
+    items: Annotated[list[str], Field(title="Items")]
+    found: Annotated[int, Field(title="Found")]
+    imported: Annotated[int, Field(title="Imported")]
+    refused: Annotated[str | None, Field(title="Refused")] = None
+    skipped: Annotated[list[str], Field(title="Skipped")]
+
+
+class LoginVaultImportResult(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    dry_run: Annotated[bool, Field(title="Dry Run")]
+    tables: Annotated[list[LoginVaultImportTable], Field(title="Tables")]

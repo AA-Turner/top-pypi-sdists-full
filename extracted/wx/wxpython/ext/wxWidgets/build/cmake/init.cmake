@@ -242,10 +242,6 @@ if(DEFINED wxSETUP_HEADER_FILE_DEBUG)
     wx_string_append(wxSETUP_HEADER_PATH "$<$<CONFIG:Debug>:d>")
 endif()
 
-if(NOT wxBUILD_DEBUG_LEVEL STREQUAL "Default")
-    add_compile_options("-DwxDEBUG_LEVEL=${wxBUILD_DEBUG_LEVEL}")
-endif()
-
 # Constants for setup.h creation
 if(NOT wxUSE_EXPAT)
     set(wxUSE_XRC OFF)
@@ -436,9 +432,9 @@ if(wxUSE_GUI)
             wx_option_force_value(wxUSE_GRAPHICS_DIRECT2D OFF)
         endif()
     endif()
-     if(MSVC) # match setup.h
+    if(MSVC) # match setup.h
         wx_option_force_value(wxUSE_GRAPHICS_DIRECT2D ${wxUSE_GRAPHICS_CONTEXT})
-     endif()
+    endif()
 
     # WXQT checks
     if(WXQT)
@@ -471,36 +467,52 @@ if(wxUSE_GUI)
                         set(wx_protocols_temp_dir ${wxOUTPUT_DIR}/wx/protocols)
                         set(wx_protocols_output_dir ${wxSETUP_HEADER_PATH}/wx/protocols)
 
-                        # Note that we need multiple execute_process()
-                        # invocations as single one would run commands
-                        # concurrently and not sequentially.
                         execute_process(
                             COMMAND
-                                ${CMAKE_COMMAND} -E make_directory ${wx_protocols_temp_dir}
-                        )
-                        execute_process(
-                            COMMAND
-                                ${WAYLAND_SCANNER} client-header
-                                    ${wx_protocols_input_dir}/pointer-warp-v1.xml
-                                    ${wx_protocols_temp_dir}/pointer-warp-v1-client-protocol.h
-                        )
-                        execute_process(
-                            COMMAND
-                                ${WAYLAND_SCANNER} private-code
-                                    ${wx_protocols_input_dir}/pointer-warp-v1.xml
-                                    ${wx_protocols_temp_dir}/pointer-warp-v1-client-protocol.c
-                        )
-
-                        execute_process(
-                            COMMAND
-                                ${CMAKE_COMMAND} -E make_directory ${wx_protocols_output_dir}
-                        )
-                        execute_process(
-                            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                                    ${wx_protocols_temp_dir}/pointer-warp-v1-client-protocol.h
-                                    ${wx_protocols_temp_dir}/pointer-warp-v1-client-protocol.c
+                                ${CMAKE_COMMAND} -E make_directory
+                                    ${wx_protocols_temp_dir}
                                     ${wx_protocols_output_dir}
                         )
+
+                        # This function takes the protocol name and the directory
+                        # containing the corresponding XML file.
+                        function(wx_generate_wayland_protocol protocol_dir protocol)
+                            execute_process(
+                                COMMAND
+                                    ${WAYLAND_SCANNER} client-header
+                                        ${protocol_dir}/${protocol}.xml
+                                        ${wx_protocols_temp_dir}/${protocol}-client-protocol.h
+                                COMMAND
+                                    ${WAYLAND_SCANNER} private-code
+                                        ${protocol_dir}/${protocol}.xml
+                                        ${wx_protocols_temp_dir}/${protocol}-client-protocol.c
+                            )
+
+                            execute_process(
+                                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                                        ${wx_protocols_temp_dir}/${protocol}-client-protocol.h
+                                        ${wx_protocols_temp_dir}/${protocol}-client-protocol.c
+                                        ${wx_protocols_output_dir}
+                            )
+                        endfunction()
+
+                        wx_generate_wayland_protocol(${wx_protocols_input_dir} pointer-warp-v1)
+
+                        # We also need wayland-protocols as this protocol
+                        # depends on xdg-shell one.
+                        pkg_check_modules(WAYLAND_PROTOCOLS wayland-protocols)
+                        if(WAYLAND_PROTOCOLS_FOUND)
+                            pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
+
+                            wx_generate_wayland_protocol(${wx_protocols_input_dir} xdg-session-management-v1)
+                            wx_generate_wayland_protocol(${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell xdg-shell)
+                            wx_generate_wayland_protocol(${wx_protocols_input_dir} xdg-toplevel-drag-v1)
+
+                            set(wxHAVE_WAYLAND_SESSION_MANAGEMENT ON)
+                            set(wxHAVE_WAYLAND_TOPLEVEL_DRAG ON)
+                        else()
+                            message(WARNING "wayland-protocols package not found, Wayland-specific functionality will be disabled")
+                        endif()
 
                         set(wxHAVE_WAYLAND_CLIENT ON)
                         list(APPEND wxTOOLKIT_INCLUDE_DIRS ${WAYLAND_CLIENT_INCLUDE_DIRS})
@@ -691,12 +703,21 @@ if(wxUSE_GUI)
     endif()
 
     if(wxUSE_SOUND AND wxUSE_LIBSDL AND UNIX AND NOT APPLE)
-        find_package(SDL2)
-        if(NOT SDL2_FOUND)
-            find_package(SDL)
-            mark_as_advanced(SDL_INCLUDE_DIR SDLMAIN_LIBRARY)
+        set(SDL3_DIR_OLD "${SDL3_DIR}")
+        find_package(SDL3 QUIET CONFIG)
+        if(SDL3_FOUND)
+            if(NOT "${SDL3_DIR_OLD}" STREQUAL "${SDL3_DIR}")
+                message(STATUS "Found SDL3: ${SDL3_LIBRARIES} (found version ${SDL3_VERSION})")
+            endif()
+            set(wxUSE_LIBSDL3 ON)
+        else()
+            find_package(SDL2)
+            if(NOT SDL2_FOUND)
+                find_package(SDL)
+                mark_as_advanced(SDL_INCLUDE_DIR SDLMAIN_LIBRARY)
+            endif()
         endif()
-        if(NOT SDL2_FOUND AND NOT SDL_FOUND)
+        if(NOT SDL3_FOUND AND NOT SDL2_FOUND AND NOT SDL_FOUND)
             message(WARNING "SDL not found, SDL Audio back-end won't be available")
             wx_option_force_value(wxUSE_LIBSDL OFF)
         endif()
@@ -717,6 +738,22 @@ if(wxUSE_GUI)
         endif()
     else()
         set(wxUSE_LIBNOTIFY OFF)
+    endif()
+
+    # In principle, we could look for ayatana-appindicator-0.1 when using GTK2,
+    # but for now we don't support it there and only support it with GTK3.
+    if(wxUSE_TASKBARICON AND UNIX AND WXGTK3 AND wxUSE_APPINDICATOR)
+        find_package(PkgConfig)
+        pkg_check_modules(APPINDICATOR IMPORTED_TARGET QUIET ayatana-appindicator3-0.1)
+
+        if(NOT APPINDICATOR_FOUND)
+            message(WARNING "AppIndicator not found; wxTaskBarIcon won't work under Wayland")
+            wx_option_force_value(wxUSE_APPINDICATOR OFF)
+        else()
+            list(APPEND wxTOOLKIT_EXTRA "appindicator")
+        endif()
+    else()
+        set(wxUSE_APPINDICATOR OFF)
     endif()
 
     if(wxUSE_UIACTIONSIMULATOR AND UNIX AND WXGTK)
@@ -811,15 +848,15 @@ if(wxUSE_GUI)
     endif()
 
     if(wxUSE_DETECT_SM)
-        if(APPLE OR WIN32)
-            wx_option_force_value(wxUSE_DETECT_SM OFF)
-        else()
+        if(X11_FOUND)
             find_package(PkgConfig)
             pkg_check_modules(SM sm)
             if(NOT SM_FOUND)
                 message(WARNING "libSM not found; disabling session management detection")
                 wx_option_force_value(wxUSE_DETECT_SM OFF)
             endif()
+        else()
+            wx_option_force_value(wxUSE_DETECT_SM OFF)
         endif()
     endif()
 endif(wxUSE_GUI)

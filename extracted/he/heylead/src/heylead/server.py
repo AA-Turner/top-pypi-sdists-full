@@ -33,6 +33,56 @@ from .ops_log import run_traced
 _CHANGELOG = """\
 # HeyLead Changelog
 
+## v0.10.454 (2026-10-14)
+- #3011 final state in the agentic hand-off
+- programme status and hand-off, 13 Oct (api #3014)
+- S8 plan status and hand-off, 13 Oct (#2836)
+- agents, A3, named agents and send-check scoring, 13 Oct 2026 (api #3013)
+- agentic framework hand-off of 13 Oct and the A3 spec's status (api #2793)
+- Fix: the spent-lookups read tolerates a client built without its constructor (#3006)
+- Rowan O1 inbound plan (api #3014)
+- Fix: a refusal that holds for the day is not retried, and the inbox says why names are missing (#3006)
+- A3-D4 data plan, enrolled signals name their outreach and strangers' replies are stamped (api #2998)
+- Fix: a skip by hand reads 'Skipped by you' (#2922)
+- named agents, Why? button and measure block (api #2946)
+
+## v0.10.453 (2026-10-13)
+- #3011 final state in the agentic hand-off
+- S8 plan status and hand-off, 13 Oct (#2836)
+- agents, A3, named agents and send-check scoring, 13 Oct 2026 (api #3013)
+- agentic framework hand-off of 13 Oct and the A3 spec's status (api #2793)
+- Fix: the spent-lookups read tolerates a client built without its constructor (#3006)
+- Rowan O1 inbound plan (api #3014)
+- Fix: a refusal that holds for the day is not retried, and the inbox says why names are missing (#3006)
+- A3-D4 data plan, enrolled signals name their outreach and strangers' replies are stamped (api #2998)
+- named agents, Why? button and measure block (api #2946)
+
+## v0.10.452 (2026-10-13)
+- Fix: client logs and raises carry ids, never a prospect's name or words (#2964)
+- A3-D3 data plan, posts keep who drafted them and their day-7 reading (api #2969)
+
+## v0.10.451 (2026-10-13)
+- Fix: skipped rows, blocked sends and the comment cap in the api's words (#2922 QA r1 F4)
+
+## v0.10.450 (2026-10-13)
+- Fix: a draft-only workspace is told its draft is ready to launch, not to create one (#2928)
+- New: one wording for an invitation and an acceptance (#2918)
+
+## v0.10.449 (2026-10-13)
+- Fix: Last Action says each code the api's way, and a LinkedIn pause reads in words in the logs (#2922)
+- Fix: the QA report's print returns when the PDF is written and leaves no Chrome behind (#2889)
+- S3, S4, S5, S7 plan (api #2928, #2929)
+- a new production rule is two new files in heylead-api (#2919)
+
+## v0.10.448 (2026-10-12)
+- Fix: a QA report counts when Chrome wrote the PDF, even if Chrome crashes on exit (#2889)
+- A3 spec amendment, internal agents may pool counts across workspaces (api #2879)
+- A3-D5 internal agents plan with the verdict revisions (api #2879)
+- the three QA roles told apart (api #2883)
+- Fix: a PR parked because Vercel was late comes back when Vercel reports (#2875)
+- polish: log published-count failures (#2794)
+- New: hosted accounts read published-post counts from the API (#2794)
+
 ## v0.10.447 (2026-10-12)
 - S8 campaign health plan (H1, H2) + the CSM spec and O0/O1 plan it builds on (api #2836)
 - Fix: the click gate refuses every dashboard write, not a hand list of verbs (#2827)
@@ -4190,7 +4240,7 @@ async def _inbox_impl(
     """
     from .tools.inbox import run_inbox
 
-    logger.info("Running inbox: action=%s, name=%s", action, name)
+    logger.info("Running inbox: action=%s, name=%s", action, bool(name))
     try:
         return await run_traced(
             "inbox",

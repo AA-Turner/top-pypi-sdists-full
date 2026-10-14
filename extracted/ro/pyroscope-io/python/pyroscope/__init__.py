@@ -9,6 +9,7 @@ from contextlib import contextmanager
 LOGGER = logging.getLogger(__name__)
 
 LineNo = lib.LineNo
+ProfilerImplementation = lib.ProfilerImplementation
 
 def configure(
         app_name=None,
@@ -34,6 +35,7 @@ def configure(
         mem_heap_sample_size=512 * 1024,
         mem_enable_mem_domain=True,
         cpu_enabled=True,
+        cpu_implementation=ProfilerImplementation.PySpy,
 ):
     if app_name is not None:
         warnings.warn("app_name is deprecated, use application_name", DeprecationWarning)
@@ -70,6 +72,53 @@ def configure(
         mem_heap_sample_size,
         mem_enable_mem_domain,
         cpu_enabled,
+        cpu_implementation,
+    )
+
+def configure_experimental_stack_profiler(
+        fast_copy=True,
+        fast_copy_warmup=15.0,
+        max_nframe=128,
+        max_threads=25,
+        adaptive_sampling=True,
+        adaptive_target_overhead=0.01,
+        adaptive_max_interval_us=100000,
+        adaptive_baseline=0.0,
+        adaptive_p_stable_window_s=600,
+        adaptive_p_stable_percentile=95.0,
+):
+    """Set the options of the stack CPU profiler, for the whole process.
+
+    Only the first call takes effect. A later call is refused and returns
+    False, including after shutdown(), and so is any call made once a
+    configure() with cpu_implementation=ProfilerImplementation.Stack has
+    started the profiler.
+
+    fast_copy reads the sampled memory with memcpy under SIGSEGV/SIGBUS
+    handlers instead of a syscall, after fast_copy_warmup seconds on the
+    syscall copy.
+
+    max_threads caps how many threads one sampling cycle covers; past the cap
+    the sampler picks a uniform random subset. 0 means no cap.
+
+    adaptive_sampling moves the sampling interval between 100us and
+    adaptive_max_interval_us to keep the sampler near adaptive_target_overhead,
+    a fraction of the process CPU time. adaptive_baseline is an overhead floor
+    in core-percent units (1 = 0.01 core, 0 disables the floor), and
+    adaptive_p_stable_percentile is a percentage between 0 and 100 of the app
+    CPU seen over the last adaptive_p_stable_window_s seconds.
+    """
+    return lib.configure_experimental_stack_profiler(
+        fast_copy,
+        fast_copy_warmup,
+        max_nframe,
+        max_threads,
+        adaptive_sampling,
+        adaptive_target_overhead,
+        adaptive_max_interval_us,
+        adaptive_baseline,
+        adaptive_p_stable_window_s,
+        adaptive_p_stable_percentile,
     )
 
 def shutdown():
@@ -118,3 +167,94 @@ def build_summary():
     warnings.warn("deprecated, no longer applicable", DeprecationWarning)
 def test_logger():
     warnings.warn("deprecated, no longer applicable", DeprecationWarning)
+
+def _install_stack_threads(threading, register, unregister):
+    Thread = threading.Thread
+    orig_set_native_id = Thread._set_native_id
+    orig_bootstrap_inner = Thread._bootstrap_inner
+
+    def _set_native_id(self):
+        orig_set_native_id(self)
+        if self.ident is not None and self.native_id is not None:
+            register(self.ident, self.native_id)
+
+    def _bootstrap_inner(self, *args, **kwargs):
+        orig_bootstrap_inner(self, *args, **kwargs)
+        if self.ident is not None:
+            unregister(self.ident)
+
+    Thread._set_native_id = _set_native_id
+    Thread._bootstrap_inner = _bootstrap_inner
+
+    for tid, thread in list(threading._active.items()):
+        register(tid, getattr(thread, "native_id", None) or tid)
+
+def _install_stack_faulthandler(faulthandler, threading, pause_sampling, resume_sampling, uninstall_segv_handler, reinstall_segv_handler):
+    _original_enable = faulthandler.enable
+    _original_disable = faulthandler.disable
+    _enable_lock = threading.Lock()
+
+    def _patched_enable(*args, **kwargs):
+        with _enable_lock:
+            # None means the sampler is running but did not pause in time:
+            # swapping handlers now would race with safe_memcpy.
+            pause_result = pause_sampling()
+            safe_to_swap = pause_result is not None
+            try:
+                if safe_to_swap:
+                    try:
+                        uninstall_segv_handler()
+                    except Exception:
+                        pass
+
+                    # Without a fresh install, faulthandler can save itself as its
+                    # own previous handler and loop forever on a fault.
+                    try:
+                        _original_disable()
+                    except Exception:
+                        pass
+
+                try:
+                    _original_enable(*args, **kwargs)
+                except Exception:
+                    if safe_to_swap:
+                        try:
+                            reinstall_segv_handler()
+                        except Exception:
+                            pass
+                    raise
+
+                try:
+                    reinstall_segv_handler()
+                except Exception:
+                    pass
+            finally:
+                if pause_result is True:
+                    resume_sampling()
+
+    def _patched_disable():
+        with _enable_lock:
+            pause_result = pause_sampling()
+            safe_to_swap = pause_result is not None
+            try:
+                if not safe_to_swap:
+                    return False
+
+                try:
+                    disabled = _original_disable()
+                except Exception:
+                    disabled = False
+
+                # disable() restores the handler faulthandler saved, which need not be ours.
+                try:
+                    reinstall_segv_handler()
+                except Exception:
+                    pass
+
+                return disabled
+            finally:
+                if pause_result is True:
+                    resume_sampling()
+
+    faulthandler.enable = _patched_enable
+    faulthandler.disable = _patched_disable

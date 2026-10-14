@@ -13,11 +13,13 @@ use nom::{
 	multi::{fold_many_m_n, many0_count},
 };
 
+use derive_where::derive_where;
 use item::Item;
 
 use crate::Input;
 use crate::context::Context;
 use crate::error::ParseError;
+use crate::node::{Node, ParsedNode};
 use crate::span::{Span, Spanned, WithSpan};
 use crate::unparse::Unparse;
 
@@ -88,9 +90,16 @@ pub enum Type {
 }
 
 /// A list element.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct List<'data, S: Span> {
+#[derive_where(Debug, Clone, PartialEq, Eq; N)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(bound(
+		serialize = "N: serde::Serialize",
+		deserialize = "N: serde::Deserialize<'de>"
+	))
+)]
+pub struct List<S: Span, N> {
 	/// The type of the list, either ordered or unordered.
 	///
 	/// Since the type is only stored alongside the list as a whole, only the first ordered value
@@ -99,10 +108,10 @@ pub struct List<'data, S: Span> {
 	#[cfg_attr(feature = "serde", serde(rename = "type", flatten))]
 	pub kind: Type,
 	/// The content of the list, where each item in the `Vec` represents each item in the list.
-	pub items: Spanned<Vec<Item<'data, S>>, S>,
+	pub items: Spanned<Vec<Item<S, N>>, S>,
 }
 
-impl<S> Unparse for List<'_, S>
+impl<S> Unparse for List<S, Node<'_, S>>
 where
 	S: Span,
 {
@@ -212,7 +221,7 @@ where
 pub fn indented<'data, S, E>(
 	context: Context,
 	amount: usize,
-) -> impl Parser<Input<'data>, Output = List<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = List<S, ParsedNode<'data, S>>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -223,8 +232,11 @@ where
 		let context = context.with_deeper_list();
 
 		if context.list_depth > MAX_DEPTH {
-			return with_context("max list depth exceeded", fail::<_, List<'data, S>, E>())
-				.parse(data);
+			return with_context(
+				"max list depth exceeded",
+				fail::<_, List<S, ParsedNode<'data, S>>, E>(),
+			)
+			.parse(data);
 		}
 
 		let (data, (kind, first_item)) =
@@ -261,7 +273,7 @@ where
 #[must_use]
 pub fn list<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = List<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = List<S, ParsedNode<'data, S>>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -278,11 +290,24 @@ mod test {
 	use pretty_assertions::assert_eq;
 
 	use crate::{
-		context::Context, list, list_item, list_items, node::Node, paragraph, span::Span,
-		test_utils::handle_nom_err,
+		context::Context,
+		list, list_item, list_items,
+		node::{Element, Node, ParsedNode},
+		paragraph,
+		range::Content,
+		span::Span,
+		test_utils::{handle_nom_err, resolved_node},
 	};
 
 	use super::{List, MAX_DEPTH, MAX_ORDERED_START_VALUE, Type, item::INDENT_STEP, list};
+
+	/// Resolve the delimiters in a list, as a whole parse would.
+	fn resolved_list(list: List<(), ParsedNode<'_, ()>>) -> List<(), Node<'_, ()>> {
+		match resolved_node(ParsedNode::Element(Element::List(list)), Content::Blocks) {
+			Node::Element(Element::List(list)) => list,
+			other => panic!("expected a list, got {other:?}"),
+		}
+	}
 
 	#[test]
 	fn unordered_item() {
@@ -294,7 +319,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items!(list_item!("foo"))
@@ -312,7 +337,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items!(list_item!("foo"), list_item!("bar"))
@@ -330,7 +355,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items![list_item!(paragraph!("foo"), list!(-[list_item!("bar")]))]
@@ -348,7 +373,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items![list_item!(
@@ -371,7 +396,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items![
@@ -392,7 +417,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Ordered(1.try_into().unwrap()),
 				items: list_items!(list_item!("foo"), list_item!("bar"))
@@ -410,7 +435,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items![
@@ -431,7 +456,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items!(list_item!("foo"), list_item!("bar"), list_item!("baz")),
@@ -452,7 +477,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items!(list_item!("foo"), list_item!("bar"), list_item!("baz")),
@@ -489,7 +514,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Unordered,
 				items: list_items!(
@@ -518,13 +543,13 @@ mod test {
 
 	/// The depth of the most deeply nested list, matching the 1-indexed convention of
 	/// [`MAX_DEPTH`]: `list` itself counts as one level.
-	fn nesting_depth<S: Span>(list: &List<'_, S>) -> u8 {
+	fn nesting_depth<S: Span>(list: &List<S, ParsedNode<'_, S>>) -> u8 {
 		let deepest_child = list
 			.items
 			.iter()
 			.flat_map(|item| item.content.iter())
 			.filter_map(|node| match &node.value {
-				Node::List(nested) => Some(nesting_depth(nested)),
+				ParsedNode::Element(Element::List(nested)) => Some(nesting_depth(nested)),
 				_ => None,
 			})
 			.max()
@@ -561,6 +586,7 @@ mod test {
 		assert_eq!(nesting_depth(&res), MAX_DEPTH);
 
 		// walk down to the deepest list and check its item swallowed the bullet as text
+		let res = resolved_list(res);
 		let mut deepest = &res;
 		for _ in 1..MAX_DEPTH {
 			deepest = deepest
@@ -568,7 +594,7 @@ mod test {
 				.iter()
 				.flat_map(|item| item.content.iter())
 				.find_map(|node| match &node.value {
-					Node::List(nested) => Some(nested),
+					Node::Element(Element::List(nested)) => Some(nested),
 					_ => None,
 				})
 				.expect("expected a nested list");
@@ -589,7 +615,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_list(res),
 			List {
 				kind: Type::Ordered(MAX_ORDERED_START_VALUE),
 				items: list_items!(list_item!("foo"), list_item!("bar")),

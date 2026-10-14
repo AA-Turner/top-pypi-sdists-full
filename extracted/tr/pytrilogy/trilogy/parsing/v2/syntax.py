@@ -151,6 +151,7 @@ class SyntaxNodeKind(str, Enum):
     FFLOOR = "ffloor"
     FCEIL = "fceil"
     FABS = "fabs"
+    FPRIOR = "fprior"
     FSQRT = "fsqrt"
     FRANDOM = "frandom"
     FDATE = "fdate"
@@ -296,6 +297,8 @@ class SyntaxNodeKind(str, Enum):
     DATASOURCE_UPDATE_TRIGGER_CLAUSE = "datasource_update_trigger_clause"
     DATASOURCE_REFRESH_CLAUSE = "datasource_refresh_clause"
     DATASOURCE_LAG_CLAUSE = "datasource_lag_clause"
+    DATASOURCE_ASSERT_CLAUSE = "datasource_assert_clause"
+    DATASOURCE_EXTENDS_CLAUSE = "datasource_extends_clause"
 
 
 class SyntaxTokenKind(str, Enum):
@@ -347,12 +350,14 @@ class SyntaxTokenKind(str, Enum):
     PERSIST_MODE = "persist_mode"
     FILE_PATH = "file_path"
     F_FILE_PATH = "f_file_path"
+    EXEC_PATH = "exec_path"
     F_QUOTED_ADDRESS = "f_quoted_address"
     CHART_TYPE = "chart_type"
     CHART_PLACE_TYPE = "chart_place_type"
     VALIDATE_SCOPE = "validate_scope"
     COPY_TYPE = "copy_type"
     DATASOURCE_ROOT = "datasource_root"
+    DATASOURCE_TEMPLATE = "datasource_template"
     DATASOURCE_UPDATE_TRIGGER = "datasource_update_trigger"
 
 
@@ -500,6 +505,7 @@ LARK_NODE_KIND: dict[str, SyntaxNodeKind] = {
     "ffloor": SyntaxNodeKind.FFLOOR,
     "fceil": SyntaxNodeKind.FCEIL,
     "fabs": SyntaxNodeKind.FABS,
+    "fprior": SyntaxNodeKind.FPRIOR,
     "fsqrt": SyntaxNodeKind.FSQRT,
     "frandom": SyntaxNodeKind.FRANDOM,
     "fdate": SyntaxNodeKind.FDATE,
@@ -644,6 +650,8 @@ LARK_NODE_KIND: dict[str, SyntaxNodeKind] = {
     "datasource_update_trigger_clause": SyntaxNodeKind.DATASOURCE_UPDATE_TRIGGER_CLAUSE,
     "datasource_refresh_clause": SyntaxNodeKind.DATASOURCE_REFRESH_CLAUSE,
     "datasource_lag_clause": SyntaxNodeKind.DATASOURCE_LAG_CLAUSE,
+    "datasource_assert_clause": SyntaxNodeKind.DATASOURCE_ASSERT_CLAUSE,
+    "datasource_extends_clause": SyntaxNodeKind.DATASOURCE_EXTENDS_CLAUSE,
 }
 
 
@@ -694,12 +702,14 @@ LARK_TOKEN_KIND: dict[str, SyntaxTokenKind] = {
     "PERSIST_MODE": SyntaxTokenKind.PERSIST_MODE,
     "FILE_PATH": SyntaxTokenKind.FILE_PATH,
     "F_FILE_PATH": SyntaxTokenKind.F_FILE_PATH,
+    "EXEC_PATH": SyntaxTokenKind.EXEC_PATH,
     "F_QUOTED_ADDRESS": SyntaxTokenKind.F_QUOTED_ADDRESS,
     "CHART_TYPE": SyntaxTokenKind.CHART_TYPE,
     "CHART_PLACE_TYPE": SyntaxTokenKind.CHART_PLACE_TYPE,
     "VALIDATE_SCOPE": SyntaxTokenKind.VALIDATE_SCOPE,
     "COPY_TYPE": SyntaxTokenKind.COPY_TYPE,
     "DATASOURCE_ROOT": SyntaxTokenKind.DATASOURCE_ROOT,
+    "DATASOURCE_TEMPLATE": SyntaxTokenKind.DATASOURCE_TEMPLATE,
     "DATASOURCE_UPDATE_TRIGGER": SyntaxTokenKind.DATASOURCE_UPDATE_TRIGGER,
 }
 

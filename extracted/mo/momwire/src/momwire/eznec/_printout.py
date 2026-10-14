@@ -52,7 +52,9 @@ it now answers.
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
+from typing import NamedTuple
 
 from ..deck._cards import Card, parse_card
 from ..deck._nec5 import Nec5Deck
@@ -150,6 +152,7 @@ _STAMP_NO_VARIANT = "none"
 _STAMP_UNNAMED_BASIS = "-"
 
 
+@functools.cache
 def _momwire_version() -> str:
     """The running release, or ``unknown`` — never an exception.
 
@@ -159,6 +162,11 @@ def _momwire_version() -> str:
     for a source or pip install.  An editable install reports the version
     recorded at ``pip install -e`` time, so a dev box that skipped the
     reinstall after a bump stamps the stale number.
+
+    Read ONCE per process (momwire#1445): the resident server stamps every
+    printout it answers, and the release it is running cannot change under
+    it, while the lookup cost ~5 ms a solve.  Tests that fake the version
+    clear the cache (``_momwire_version.cache_clear()``).
     """
     import momwire_serve_client
 
@@ -637,9 +645,16 @@ class PowerBudget:
     network_loss: float | None = None
 
 
-@dataclass(frozen=True)
-class PatternRow:
+class PatternRow(NamedTuple):
     """One direction's row of ``RADIATION PATTERNS``.
+
+    A named tuple rather than a frozen dataclass since momwire#1448: SimNEC
+    asks for a 1387-direction pattern on every engine call, and a frozen
+    dataclass's ``__init__`` (one ``object.__setattr__`` per field) cost
+    more per row than everything else the row builder does. The fields, their
+    order and their immutability are unchanged, and the field order IS the
+    printed column order, which lets the renderer hand a row straight to its
+    one ``%`` template (``_PATTERN_ROW``).
 
     :attr:`sense` is a STRING, blank included.  The captures print ``LINEAR``
     / ``LEFT`` / ``RIGHT`` in that column and leave it EMPTY on rows whose
@@ -1391,27 +1406,39 @@ def _network_runs(
     return runs
 
 
+# The current and charge rows as one ``%`` template each (momwire#1448), for
+# the reason ``_PATTERN_ROW`` gives: ``{element:7d}{tag:5d}``, then ``_e(v, 13,
+# 5)`` per value cell, then ``{phase:10.4f}``, byte for byte.
+_CURRENT_ROW = "%7d%5d" + "%13.5E" * 7 + "%10.4f"
+_CHARGE_ROW = "%7d%5d" + "%13.5E" * 5 + "%10.4f"
+
+
 def _currents(data: RunData) -> list[str]:
     lines = [_CURRENTS_HEADING, "", _CURRENTS_NOTE, "", *_CURRENTS_COLUMNS]
-    for row in data.currents:
-        cells = (*row.center, row.length, row.real, row.imag, row.magnitude)
-        lines.append(
-            f"{row.element:7d}{row.tag:5d}"
-            + "".join(_e(value, 13, 5) for value in cells)
-            + f"{row.phase_deg:10.4f}"
+    lines += [
+        _CURRENT_ROW
+        % (
+            row.element,
+            row.tag,
+            *row.center,
+            row.length,
+            row.real,
+            row.imag,
+            row.magnitude,
+            row.phase_deg,
         )
+        for row in data.currents
+    ]
     return lines
 
 
 def _charges(data: RunData) -> list[str]:
     lines = [_CHARGES_HEADING, "", _CHARGES_NOTE, "", *_CHARGES_COLUMNS]
-    for row in data.charges:
-        cells = (*row.center, row.length, row.magnitude)
-        lines.append(
-            f"{row.element:7d}{row.tag:5d}"
-            + "".join(_e(value, 13, 5) for value in cells)
-            + f"{row.phase_deg:10.4f}"
-        )
+    lines += [
+        _CHARGE_ROW
+        % (row.element, row.tag, *row.center, row.length, row.magnitude, row.phase_deg)
+        for row in data.charges
+    ]
     return lines
 
 
@@ -1495,6 +1522,21 @@ def _near_field(block: NearFieldBlock) -> list[str]:
     return lines
 
 
+# One pattern row as ONE printf template (momwire#1448): the columns are
+# ``{theta:8.2f}{phi:9.2f}{vert:11.2f}{hor:8.2f}{total:8.2f}{axial:11.5f}
+# {tilt:9.2f}``, two blanks, the sense left-justified to its width, then
+# ``_e(|E_theta|, 15, 5)``, its phase ``9.2f``, and the same for E_phi. Python's
+# ``%`` and ``format`` share one float formatter (``PyOS_double_to_string``),
+# so a ``%8.2f`` cell is the ``{:8.2f}`` cell byte for byte, ``-0.00`` and
+# ``inf`` included, and ``%-6s`` is ``ljust(6)``; formatting a 1387-row table
+# through one template is what makes the RP section cheap on SimNEC's
+# every-call pattern. A :class:`PatternRow` IS the argument tuple: its fields
+# are in exactly this column order.
+_PATTERN_ROW = (
+    f"%8.2f%9.2f%11.2f%8.2f%8.2f%11.5f%9.2f  %-{_SENSE_WIDTH}s%15.5E%9.2f%15.5E%9.2f"
+)
+
+
 def _pattern(block: PatternBlock) -> list[str]:
     """One ``RP`` answer.  The 3-D trailer prints only when it is carried."""
     if block.range_m is None:
@@ -1525,18 +1567,7 @@ def _pattern(block: PatternBlock) -> list[str]:
             *_PATTERN_COLUMNS[:2],
             _PATTERN_RANGE_UNITS,
         ]
-    for row in block.rows:
-        lines.append(
-            f"{row.theta_deg:8.2f}{row.phi_deg:9.2f}"
-            f"{row.vert_db:11.2f}{row.hor_db:8.2f}{row.total_db:8.2f}"
-            f"{row.axial_ratio:11.5f}{row.tilt_deg:9.2f}"
-            + "  "
-            + row.sense.ljust(_SENSE_WIDTH)
-            + _e(row.e_theta_magnitude, 15, 5)
-            + f"{row.e_theta_phase_deg:9.2f}"
-            + _e(row.e_phi_magnitude, 15, 5)
-            + f"{row.e_phi_phase_deg:9.2f}"
-        )
+    lines += [_PATTERN_ROW % row for row in block.rows]
     if block.average_power_gain is not None:
         lines += [
             "",

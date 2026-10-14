@@ -3,6 +3,7 @@
 // Purpose:     wxHtml module for basic paragraphs/layout handling
 // Author:      Vaclav Slavik
 // Copyright:   (c) 1999 Vaclav Slavik
+//              (c) 2026 wxWidgets development team
 // Licence:     wxWindows licence
 /////////////////////////////////////////////////////////////////////////////
 
@@ -12,6 +13,7 @@
 #if wxUSE_HTML && wxUSE_STREAMS
 
 #ifndef WX_PRECOMP
+    #include "wx/brush.h"
     #include "wx/image.h"
 #endif
 
@@ -19,6 +21,11 @@
 #include "wx/html/m_templ.h"
 
 #include "wx/html/htmlwin.h"
+#include "wx/filename.h"
+#include "wx/mstream.h"
+#include "wx/uri.h"
+
+#include "wx/private/htmlsvg.h"
 
 FORCE_LINK_ME(m_layout)
 
@@ -88,7 +95,31 @@ wxHtmlPageBreakCell::AdjustPagebreak(int* pagebreak, int pageHeight) const
     return false;
 }
 
+class wxHtmlLineBreakCell : public wxHtmlCell
+{
+public:
+    wxHtmlLineBreakCell(const wxHtmlTag& tag, int height) : wxHtmlCell(tag)
+        { m_Height = height; }
 
+    void Draw(wxDC& WXUNUSED(dc),
+              int WXUNUSED(x), int WXUNUSED(y),
+              int WXUNUSED(view_y1), int WXUNUSED(view_y2),
+              wxHtmlRenderingInfo& WXUNUSED(info)) override {}
+
+private:
+    wxDECLARE_NO_COPY_CLASS(wxHtmlLineBreakCell);
+};
+
+static bool HasLayoutContent(wxHtmlContainerCell *c)
+{
+    for ( wxHtmlCell *cell = c->GetFirstChild(); cell; cell = cell->GetNext() )
+    {
+        if ( !cell->IsTerminalCell() || !cell->IsFormattingCell() )
+            return true;
+    }
+
+    return false;
+}
 
 TAG_HANDLER_BEGIN(P, "P")
     TAG_HANDLER_CONSTR(P) { }
@@ -117,14 +148,29 @@ TAG_HANDLER_BEGIN(BR, "BR")
     TAG_HANDLER_PROC(tag)
     {
         int al = m_WParser->GetContainer()->GetAlignHor();
-        wxHtmlContainerCell *c;
+        wxHtmlContainerCell *c = m_WParser->GetContainer();
 
-        m_WParser->CloseContainer();
-        c = m_WParser->OpenContainer();
-        c->CopyId(tag);
+        if ( !HasLayoutContent(c) && !c->HasId() )
+        {
+            c->CopyId(tag);
+            c->SetAlignHor(al);
+            c->SetAlign(tag);
+            c->InsertCell(
+                new wxHtmlLineBreakCell(tag, m_WParser->GetCharHeight()));
+
+            m_WParser->CloseContainer();
+            c = m_WParser->OpenContainer();
+        }
+        else
+        {
+            m_WParser->CloseContainer();
+            c = m_WParser->OpenContainer();
+            c->CopyId(tag);
+            c->SetMinHeight(m_WParser->GetCharHeight());
+        }
+
         c->SetAlignHor(al);
         c->SetAlign(tag);
-        c->SetMinHeight(m_WParser->GetCharHeight());
         return false;
     }
 
@@ -273,8 +319,41 @@ TAG_HANDLER_BEGIN(DIV, "DIV")
 
 TAG_HANDLER_END(DIV)
 
+static wxString wxHtmlResolveBaseHref(wxFileSystem *fs, const wxString& href)
+{
+    wxURI hrefUri(href);
+    if ( hrefUri.IsRelative() )
+    {
+        const wxString basepath = fs->GetPath();
+        wxURI base(basepath);
 
+        if ( !base.IsReference() )
+        {
+            hrefUri.Resolve(base);
+            return hrefUri.BuildUnescapedURI();
+        }
 
+        return basepath + href;
+    }
+
+    return href;
+}
+
+TAG_HANDLER_BEGIN(BASE, "BASE")
+    TAG_HANDLER_CONSTR(BASE) { }
+
+    TAG_HANDLER_PROC(tag)
+    {
+        wxString href;
+        wxFileSystem *fs = m_WParser->GetFS();
+
+        if ( fs && tag.GetParamAsString(wxT("HREF"), &href) && !href.empty() )
+            fs->ChangePathTo(wxHtmlResolveBaseHref(fs, href));
+
+        return false;
+    }
+
+TAG_HANDLER_END(BASE)
 
 TAG_HANDLER_BEGIN(TITLE, "TITLE")
     TAG_HANDLER_CONSTR(TITLE) { }
@@ -313,34 +392,51 @@ TAG_HANDLER_BEGIN(BODY, "BODY")
         if (tag.GetParamAsColour(wxT("LINK"), &clr))
             m_WParser->SetLinkColor(clr);
 
-        wxHtmlWindowInterface *winIface = m_WParser->GetWindowInterface();
-        // the rest of this function requires a window:
-        if ( !winIface )
-            return false;
-
-        wxString bg;
-        if (tag.GetParamAsString(wxT("BACKGROUND"), &bg))
+        const bool hasBgColour = tag.GetParamAsColour("BGCOLOR", &clr);
+        if ( hasBgColour )
         {
-            wxFSFile *fileBgImage = m_WParser->OpenURL(wxHTML_URL_IMAGE, bg);
-            if ( fileBgImage )
-            {
-                wxInputStream *is = fileBgImage->GetStream();
-                if ( is )
-                {
-                    wxImage image(*is);
-                    if ( image.IsOk() )
-                        winIface->SetHTMLBackgroundImage(image);
-                }
-
-                delete fileBgImage;
-            }
-        }
-
-        if (tag.GetParamAsColour(wxT("BGCOLOR"), &clr))
-        {
+            m_WParser->SetActualBackgroundColor(clr);
+            m_WParser->SetActualBackgroundMode(wxBRUSHSTYLE_TRANSPARENT);
             m_WParser->GetContainer()->InsertCell(
                 new wxHtmlColourCell(clr, wxHTML_CLR_TRANSPARENT_BACKGROUND));
-            winIface->SetHTMLBackgroundColour(clr);
+        }
+
+        wxHtmlWindowInterface *winIface = m_WParser->GetWindowInterface();
+        if ( winIface )
+        {
+            if ( hasBgColour )
+                winIface->SetHTMLBackgroundColour(clr);
+
+            wxString bg;
+            if (tag.GetParamAsString("BACKGROUND", &bg))
+            {
+                wxFSFile *fileBgImage =
+                    m_WParser->OpenURL(wxHTML_URL_IMAGE, bg);
+                if ( fileBgImage )
+                {
+                    wxInputStream *is = fileBgImage->GetStream();
+                    if ( is )
+                    {
+                        // SVG background image path
+                        const wxString ext = wxFileName(fileBgImage->GetLocation()).GetExt().Lower();
+
+                        wxBitmapBundle svgBundle;
+                        if ( wxHtmlLoadSVGBundle(*is, ext, svgBundle) )
+                        {
+                            if ( svgBundle.IsOk() )
+                                winIface->SetHTMLBackgroundImage(svgBundle);
+                        }
+                        else
+                        {
+                            wxImage image(*is);
+                            if ( image.IsOk() )
+                                winIface->SetHTMLBackgroundImage(image);
+                        }
+                    }
+
+                    delete fileBgImage;
+                }
+            }
         }
 
         return false;
@@ -438,6 +534,7 @@ TAGS_MODULE_BEGIN(Layout)
     TAGS_MODULE_ADD(BR)
     TAGS_MODULE_ADD(CENTER)
     TAGS_MODULE_ADD(DIV)
+    TAGS_MODULE_ADD(BASE)
     TAGS_MODULE_ADD(TITLE)
     TAGS_MODULE_ADD(BODY)
     TAGS_MODULE_ADD(BLOCKQUOTE)

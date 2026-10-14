@@ -59,6 +59,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import urllib.parse
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -1287,6 +1288,42 @@ def setup_steps(base_url: str | None = None) -> list[str]:
         f"     npx skills add {PLUGIN_URL}/skills --agent universal",
         cloud,
     ]
+
+
+#: Capy's link to its Add from GitHub box, prefilled. The URL must be
+#: percent-encoded: Capy 0.4.6 opened no box for a raw one (2026-10-13).
+ADD_PLUGIN_LINK = f"capy://app/settings/mcp?github={urllib.parse.quote(PLUGIN_URL, safe='')}"
+
+#: Seconds to wait for macOS `open` to hand the link to Capy.
+OPEN_TIMEOUT_SECONDS = 10
+
+
+def can_open_add_plugin(base_url: str | None = None) -> bool:
+    """Whether this machine can open Capy on its Add from GitHub box: the
+    plugin is the step (the hosted Probe), the Capy app is here, and the
+    screen is this one (not a session over SSH). Mac only: the link is
+    verified there; Windows delivers deep links differently and is untested."""
+    from . import cloud_agents
+
+    return (
+        sys.platform == "darwin"
+        and not (os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
+        and _plugin_fits(_deployment_mcp(base_url))
+        and cloud_agents.found_here(SOURCE)
+    )
+
+
+def open_add_plugin() -> bool:
+    """Open Capy on its Add from GitHub box, prefilled with Probe's plugin.
+    The researcher asks for it on the last page, after reading the step
+    (Capy's box defaults to Organization; the step says Only me)."""
+    try:
+        done = subprocess.run(
+            ["open", ADD_PLUGIN_LINK], capture_output=True, timeout=OPEN_TIMEOUT_SECONDS, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return done.returncode == 0
 
 
 def setup_summary(base_url: str | None = None) -> list[str]:

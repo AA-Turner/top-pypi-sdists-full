@@ -27,7 +27,7 @@ import weakref
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Annotated, Any
+from typing import Annotated, Any, get_type_hints
 
 import anyio
 import anyio.to_thread
@@ -37,7 +37,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import CallToolResult, TextContent
 from pydantic_core import to_jsonable_python
 from mcp.server.transport_security import TransportSecuritySettings
-from pydantic import BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Field, create_model
 
 from .. import __version__
 from ..client_headers import (
@@ -422,9 +422,7 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
 
 _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
 
-_CURSOR_DOC = (
-    """Continue a read that has a `next_cursor`: pass it back, with the SAME `ref` and `view`."""
-)
+_CURSOR_DOC = """Continue a read that has a `next_cursor`: pass it back with the same `refs`. An argument you leave out is taken from the cursor; one you change is refused."""
 
 # -- metrics(mode="series") parameter documentation (schema channel) ----------
 _MT_RUN_IDS_DOC = """series only: the runs to compare, 1-50 run UUIDs (`run:<uuid>` as browse returns it is accepted; slugs are not)."""
@@ -576,6 +574,39 @@ def _view_default(fn: Callable[..., Any]) -> Any:
     return param.default
 
 
+def _argument_validator(fn: Callable[..., Any]) -> Callable[[dict], dict]:
+    """Re-check a call's arguments against the tool's own signature.
+
+    A continuation may leave out arguments its cursor carries
+    (`continuation.resume`). The carried values are JSON, so they are run
+    through the same annotations FastMCP validated the caller's values with:
+    the source gets `View.TRANSCRIPT`, not the string, and a hand-made cursor
+    cannot carry a value the schema would have refused. Built on first use --
+    most calls never fill an argument from a cursor.
+    """
+    model: type[BaseModel] | None = None
+
+    def validate(arguments: dict) -> dict:
+        nonlocal model
+        if model is None:
+            hints = get_type_hints(fn, include_extras=True)
+            model = create_model(
+                f"{fn.__name__}_arguments",
+                **{
+                    name: (
+                        hints.get(name, Any),
+                        ... if param.default is inspect.Parameter.empty else param.default,
+                    )
+                    for name, param in inspect.signature(fn).parameters.items()
+                },
+            )
+        # Iterating a model yields its fields without reading a deprecated one
+        # through its warning descriptor (entity's `filters`).
+        return {name: value for name, value in model.model_validate(arguments) if name in arguments}
+
+    return validate
+
+
 def _refusal_text(exc: errors.LimitReachedError) -> str:
     """The server's refusal sentence, plus its `hint` when it sent one.
 
@@ -612,6 +643,12 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
 
     view_default = _view_default(fn)
     accepted = inspect.signature(fn).parameters
+    defaults = {
+        name: param.default
+        for name, param in accepted.items()
+        if param.default is not inspect.Parameter.empty
+    }
+    validate = _argument_validator(fn)
 
     # A tool `description` is a BUDGET and a schema is not: Claude Code slices
     # MCP descriptions at 2,048 chars and passes `input_schema` verbatim. Python
@@ -692,10 +729,15 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
                 # be invisible to it. It mutates a dict the wrapper still holds a
                 # reference to. No-op under stdio, where no holder is bound.
                 accounting.note_tool(fn.__name__)
+                # A continuation may leave out the arguments its cursor carries:
+                # FastMCP has already put the defaults in, so this is where the
+                # cursor's values replace them -- before the view is counted and
+                # before the cursor's binding is checked against them.
+                arguments = continuation.resume(kwargs, defaults, validate)
                 # get_entity is two cost shapes under one name -- bounded row views
                 # and complete document reads. Without this they are one
                 # indistinguishable row. None for every tool that takes no `view`.
-                accounting.note_view(kwargs.get("view", view_default))
+                accounting.note_view(arguments.get("view", view_default))
                 with tool_scope(fn.__name__):
 
                     def read(passed: dict) -> dict:
@@ -703,7 +745,11 @@ def _tool(fn: Callable[..., Any]) -> Callable[..., Any]:
                         return to_jsonable_python(value)
 
                     result = continuation.invoke(
-                        fn.__name__, kwargs, read, _token_var.get() or "stdio"
+                        fn.__name__,
+                        arguments,
+                        read,
+                        _token_var.get() or "stdio",
+                        defaults=defaults,
                     )
                     # Explicit content bypasses FastMCP's pretty JSON conversion.
                     return CallToolResult(
@@ -1750,12 +1796,11 @@ def create_server(
         )
 
     # Read-only SQL. The description, both argument docs and the limits are
-    # GENERATED from research-os app/sql/prompt.py, which the dashboard
-    # assistant's ToolSpec reads too: one tool, one set of words. The description
-    # names no argument on purpose -- this surface takes `token_budget` where the
-    # dashboard takes `max_rows`, and each schema describes its own. There is no
-    # `cursor`: paging re-runs the query, so SQL answers in ONE page
-    # (continuation._sql_page).
+    # GENERATED from research-os app/sql/prompt.py: one tool, one set of words,
+    # and the dashboard assistant reads it through this tool too. The description
+    # names `token_budget` (this surface's knob, which both readers have) and
+    # never the route's `max_rows`. There is no `cursor`: paging re-runs the
+    # query, so SQL answers in ONE page (continuation._sql_page).
     @mcp.tool(description=QUERY_SQL_DESCRIPTION)
     @_tool
     def query_sql(

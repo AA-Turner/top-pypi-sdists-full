@@ -1,8 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-A module to create Astropy Tables with deprecated column names.
+Tools for deprecating functions, arguments, attributes, and table
+column names.
 
-It is designed to create new table objects from raw data, rather than
+The table tools create new table objects from raw data, rather than
 modifying existing tables.
 
 The primary function, ``create_deprecated_table_from_data``, handles
@@ -18,13 +19,15 @@ import inspect
 import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 from functools import wraps
 
 from astropy.table import QTable, Table
 from astropy.utils.decorators import deprecated as astropy_deprecated
 from astropy.utils.decorators import (
     deprecated_renamed_argument as astropy_deprecated_renamed_argument)
-from astropy.utils.exceptions import AstropyDeprecationWarning
+
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 _SENTINEL = object()
 _future_column_names_var = ContextVar(
@@ -58,9 +61,9 @@ def use_future_column_names(enabled=True):
     Context manager to temporarily override ``future_column_names``.
 
     Within the ``with`` block, photutils functions will behave as
-    though ``photutils.future_column_names`` is set to enabled,
+    though ``photutils.future_column_names`` were set to ``enabled``,
     without modifying the global flag. This is safe to use in
-    multi-threaded and async code because the override is stored in a
+    multithreaded and async code because the override is stored in a
     `~contextvars.ContextVar`.
 
     Parameters
@@ -129,7 +132,8 @@ def deprecated(since, *, alternative=None, until=None):
     if alternative is not None:
         message += f' Use {alternative} instead.'
 
-    return astropy_deprecated(since, message=message)
+    return astropy_deprecated(since, message=message,
+                              warning_type=PhotutilsDeprecationWarning)
 
 
 def deprecated_renamed_argument(old_name, new_name, since, *, until=None):
@@ -167,7 +171,8 @@ def deprecated_renamed_argument(old_name, new_name, since, *, until=None):
     """
     if until is None:
         return astropy_deprecated_renamed_argument(
-            old_name, new_name, since)
+            old_name, new_name, since,
+            warning_type=PhotutilsDeprecationWarning)
 
     remove_version = 'version ' + str(until)
     message = (f"'{old_name}' was deprecated in version {since} and will "
@@ -175,7 +180,8 @@ def deprecated_renamed_argument(old_name, new_name, since, *, until=None):
     if new_name is not None:
         message += f" Use argument '{new_name}' instead."
     return astropy_deprecated_renamed_argument(
-        old_name, new_name, since, message=message)
+        old_name, new_name, since, message=message,
+        warning_type=PhotutilsDeprecationWarning)
 
 
 def deprecated_getattr(instance, name, deprecated_map, *, since=None,
@@ -229,10 +235,11 @@ def deprecated_getattr(instance, name, deprecated_map, *, since=None,
             remove_str = 'version ' + str(until)
         else:
             remove_str = 'a future version'
-        warn_msg = (f'The {name!r} attribute was deprecated{since_str}; '
-                    f'use {new_name!r} instead. It will be removed in '
+        warn_msg = (f'The {name!r} attribute was deprecated{since_str}. '
+                    f'Use {new_name!r} instead. It will be removed in '
                     f'{remove_str}.')
-        warnings.warn(warn_msg, AstropyDeprecationWarning, stacklevel=3)
+        warnings.warn(warn_msg, PhotutilsDeprecationWarning,
+                      stacklevel=3)
         return getattr(instance, new_name)
 
     msg = f'{type(instance).__name__!r} object has no attribute {name!r}'
@@ -305,7 +312,8 @@ def deprecated_positional_kwargs(since, *, until=None):
                        f'{since_str} and will be removed in {remove_str}. '
                        f'Pass {pronoun} as {kwarg_noun} instead '
                        f'(e.g., {examples_str}).')
-                warnings.warn(msg, AstropyDeprecationWarning, stacklevel=2)
+                warnings.warn(msg, PhotutilsDeprecationWarning,
+                              stacklevel=2)
             return func(*args, **kwargs)
         return wrapper
     return decorator
@@ -318,15 +326,17 @@ class DeprecatedColumnMixin:
     This mixin overrides common table methods to intercept calls
     using old column names. It translates them to new names, issues a
     deprecation warning, and then calls the original parent method via
-    ``super()``. This works correctly because instances are created from
-    this class directly, ensuring a valid method resolution order.
+    ``super()``. This works because instances are created directly
+    from a concrete subclass (``DeprecatedColumnTable`` or
+    ``DeprecatedColumnQTable``) in which this mixin precedes the Astropy
+    table class in the method resolution order.
     """
 
     deprecation_map = None
     _deprecation_since = None
     _deprecation_until = None
 
-    def _warn_deprecated(self, name, new_name, stacklevel=4):
+    def _warn_deprecated(self, name, new_name, *, stacklevel=4):
         """
         Issue a deprecation warning for a column name.
 
@@ -351,13 +361,13 @@ class DeprecatedColumnMixin:
         msg = (f"The column name '{name}' was deprecated{since_str}. Use "
                f"'{new_name}' instead. It will be removed in "
                f'{remove_str}. Once you have updated your code to use '
-               f"'{new_name}', set photutils.future_column_names = True "
-               'to opt into a standard QTable without the deprecated '
-               'column name mapping.')
-        warnings.warn(msg, AstropyDeprecationWarning,
+               f"'{new_name}', you may use the context manager "
+               '``use_future_column_names()`` (recommended) to opt into a '
+               'standard QTable without the deprecated column name mapping.')
+        warnings.warn(msg, PhotutilsDeprecationWarning,
                       stacklevel=stacklevel)
 
-    def _translate_name(self, name, stacklevel=4):
+    def _translate_name(self, name, *, stacklevel=4):
         """
         Translate a single name, issue a warning, and return the new
         name.
@@ -382,7 +392,7 @@ class DeprecatedColumnMixin:
             return new_name
         return name
 
-    def _translate_names(self, names, stacklevel=4):
+    def _translate_names(self, names, *, stacklevel=4):
         """
         Translate a single name or a list/tuple of names.
 
@@ -396,8 +406,10 @@ class DeprecatedColumnMixin:
 
         Returns
         -------
-        str or list or tuple
-            The translated new column name(s).
+        result : str or list
+            The translated new column name(s). A list is returned for
+            both list and tuple input. Any other nonstring input is
+            returned unchanged.
         """
         if isinstance(names, (list, tuple)):
             return [self._translate_name(name, stacklevel=stacklevel)
@@ -454,8 +466,8 @@ class DeprecatedColumnMixin:
 
         Parameters
         ----------
-        names : list or tuple
-            A list or tuple of column names to keep.
+        names : str or list or tuple
+            The name(s) of the column(s) to keep.
         """
         names = self._translate_names(names)
         super().keep_columns(names)
@@ -478,8 +490,8 @@ class DeprecatedColumnMixin:
 
         Parameters
         ----------
-        names : list or tuple
-            A list or tuple of column names to be removed.
+        names : str or list or tuple
+            The name(s) of the column(s) to be removed.
         """
         names = self._translate_names(names)
         super().remove_columns(names)
@@ -550,9 +562,8 @@ class DeprecatedColumnMixin:
 
         Parameters
         ----------
-        names : str or list or tuple
-            The name(s) of the column(s) whose indices are to be
-            removed.
+        names : str
+            The name of the column whose indices are to be removed.
         """
         names = self._translate_names(names)
         super().remove_indices(names)
@@ -588,7 +599,7 @@ class DeprecatedColumnMixin:
         keys = self._translate_names(keys)
         return super().group_by(keys, **kwargs)
 
-    def copy(self, copy_data=True):
+    def copy(self, *, copy_data=True):
         """
         Override to preserve the deprecation map on copy.
 
@@ -609,6 +620,13 @@ class DeprecatedColumnMixin:
         new_table._deprecation_since = self._deprecation_since
         new_table._deprecation_until = self._deprecation_until
         return new_table
+
+    def __deepcopy__(self, memo):
+        out = self.copy(copy_data=False)
+        for name in out.colnames:
+            out.columns.__setitem__(name, deepcopy(self[name]), validated=True)
+        out.meta = deepcopy(self.meta)
+        return out
 
 
 class DeprecatedColumnTable(DeprecatedColumnMixin, Table):
@@ -631,7 +649,9 @@ def create_empty_deprecated_qtable(deprecation_map, *, since=None,
     This is useful when building a table column by column rather than
     from a complete data dictionary.
 
-    If ``photutils.future_column_names`` is `True`, a standard
+    If future column names are enabled (via
+    ``photutils.future_column_names`` or the
+    `~photutils.use_future_column_names` context manager), a standard
     `~astropy.table.QTable` is returned instead, with no deprecation
     behavior.
 
@@ -657,9 +677,8 @@ def create_empty_deprecated_qtable(deprecation_map, *, since=None,
     Returns
     -------
     table : `DeprecatedColumnQTable` or `~astropy.table.QTable`
-        A new empty QTable instance. If
-        ``photutils.future_column_names`` is `True`, a standard
-        `~astropy.table.QTable` is returned.
+        A new empty QTable instance. If future column names are
+        enabled, a standard `~astropy.table.QTable` is returned.
 
     Examples
     --------
@@ -703,7 +722,9 @@ def create_deprecated_table_from_data(data, deprecation_map, *,
     ``QTable`` subclass. All other keywords are passed directly to the
     underlying table constructor.
 
-    If ``photutils.future_column_names`` is `True`, a standard
+    If future column names are enabled (via
+    ``photutils.future_column_names`` or the
+    `~photutils.use_future_column_names` context manager), a standard
     `~astropy.table.QTable` or `~astropy.table.Table` is returned
     instead, with no deprecation behavior.
 
@@ -727,9 +748,9 @@ def create_deprecated_table_from_data(data, deprecation_map, *,
         message.
 
     use_qtable : bool, optional
-        If ``True``, a ``DeprecatedColumnQTable`` (or
-        `~astropy.table.QTable` when ``photutils.future_column_names``
-        is `True`) will be created. Defaults to ``False``.
+        If `True`, a `DeprecatedColumnQTable` (or
+        `~astropy.table.QTable` when future column names are enabled)
+        is created. The default is `False`.
 
     **kwargs : dict, optional
         Any other keywords accepted by the ``astropy.table.Table``
@@ -737,10 +758,11 @@ def create_deprecated_table_from_data(data, deprecation_map, *,
 
     Returns
     -------
-    table : `DeprecatedColumnTable` or `DeprecatedColumnQTable`
-        A new table instance with deprecation behavior. If
-        ``photutils.future_column_names`` is `True`, a standard
-        `~astropy.table.Table` or `~astropy.table.QTable` is returned.
+    table : `DeprecatedColumnTable`, `DeprecatedColumnQTable`, \
+            `~astropy.table.Table`, or `~astropy.table.QTable`
+        A new table instance with deprecation behavior. If future
+        column names are enabled, a standard `~astropy.table.Table` or
+        `~astropy.table.QTable` is returned.
 
     Examples
     --------

@@ -21,13 +21,18 @@ supports Python 3.5 style type annotations in the interface files so we may
 want to add some type info to that version of the file eventually...
 """
 
+import ast
+import builtins
+import json
 import sys, os, re
 from typing import Optional, Union
 import etgtools.extractors as extractors
 import etgtools.generators as generators
-from etgtools.generators import nci, Utf8EncodingStream, textfile_open
-from etgtools.tweaker_tools import FixWxPrefix, magicMethods, \
-                                   guessTypeInt, guessTypeFloat, guessTypeStr
+import etgtools.typeinfo as typeinfo
+from etgtools.generators import nci, Utf8EncodingStream, textfile_open, \
+                                 etgParallelOutputDir, currentEtgScriptId
+from etgtools.tweaker_tools import FixWxPrefix, ParameterType, magicMethods, removeWxPrefix, \
+                                   guessTypeInt, guessTypeFloat, guessTypeStr, isCharString
 
 
 phoenixRoot = os.path.abspath(os.path.split(__file__)[0]+'/..')
@@ -80,15 +85,18 @@ header_pyi = """\
 
 typing_imports = """\
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -100,18 +108,69 @@ _FourFloats: TypeAlias = Tuple[float, float, float, float]
 
 #---------------------------------------------------------------------------
 
+def nciDoc(text, numSpaces=0, stripLeading=True):
+    """
+    Like nci() but for text going into a docstring, where backslashes would
+    otherwise be treated as escape sequences.
+    """
+    return nci(text.replace('\\', '\\\\'), numSpaces, stripLeading)
+
+
+_typingNames = {'Any', 'overload', 'TypeAlias', 'Generic', 'TypeVar', 'Protocol', 'ClassVar', 'final', 'Union',
+                'Optional', 'List', 'Tuple', 'Callable', 'Iterator', 'Sequence', 'ParamSpec'}
+
+
+def isOperatorMethod(name):
+    """Special methods like __eq__, which Python calls with positional arguments"""
+    return (name.startswith('__') and name.endswith('__') and
+            name not in ('__init__', '__new__', '__call__'))
+
+
+def unionMembers(typeHint):
+    """The types in a Union type hint, or just the type hint itself"""
+    if not (typeHint.startswith('Union[') and typeHint.endswith(']')):
+        return [typeHint]
+    members = []
+    depth = 0
+    start = len('Union[')
+    for i, c in enumerate(typeHint[start:-1], start):
+        if c == '[':
+            depth += 1
+        elif c == ']':
+            depth -= 1
+        elif c == ',' and depth == 0:
+            members.append(typeHint[start:i].strip())
+            start = i + 1
+    members.append(typeHint[start:-1].strip())
+    return members
+
+
 def piIgnored(obj):
     return getattr(obj, 'piIgnored', False)
+
+
+def checkAndWriteHeader(destFile, header, docstring):
+    if not os.path.exists(destFile):
+        # create the file and write the header
+        with textfile_open(destFile, 'wt') as f:
+            f.write(header)
+            if docstring:
+                f.write('\n"""\n%s"""\n' % docstring)
 
 #---------------------------------------------------------------------------
 
 class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
+
+    # Turned off while collecting the names a module defines, since stubs for
+    # forward declarations depend on that
+    forwardDeclarations = True
 
     def generate(self, module, destFile=None):
         stream = Utf8EncodingStream()
 
         # process the module object and its child objects
         self.generateModule(module, stream)
+        text = self.addModuleImports(module, stream.getvalue())
 
         # Write the contents of the stream to the destination file
         if not destFile:
@@ -123,23 +182,42 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         destFile_pi = destFile + '.pi'
         destFile_pyi = destFile + '.pyi'
 
-        def _checkAndWriteHeader(destFile, header, docstring):
-            if not os.path.exists(destFile):
-                # create the file and write the header
-                with textfile_open(destFile, 'wt') as f:
-                    f.write(header)
-                    if docstring:
-                        f.write('\n"""\n%s"""\n' % docstring)
-
         if not SKIP_PI_FILE:
-            _checkAndWriteHeader(destFile_pi, header_pi, module.docstring)
+            checkAndWriteHeader(destFile_pi, header_pi, module.docstring)
             self.writeSection(destFile_pi, 'typing-imports', typing_imports, at_end=False)
-            self.writeSection(destFile_pi, module.name, stream.getvalue())
+            self.writeSection(destFile_pi, module.name, text)
 
         if not SKIP_PYI_FILE:
-            _checkAndWriteHeader(destFile_pyi, header_pyi, module.docstring)
-            self.writeSection(destFile_pyi, 'typing-imports', typing_imports, at_end=False)
-            self.writeSection(destFile_pyi, module.name, stream.getvalue())
+            parallelDir = etgParallelOutputDir()
+            if parallelDir:
+                # Multiple etg scripts may be writing sections into the same
+                # .pyi file concurrently. Rather than race on that shared
+                # file, stash this script's section for build.py to merge in
+                # (in the right order) once every script has finished.
+                outDir = os.path.join(parallelDir, 'pyi')
+                os.makedirs(outDir, exist_ok=True)
+                outFile = os.path.join(outDir, currentEtgScriptId() + '.json')
+                payload = dict(module=module.module, docstring=module.docstring,
+                                section=module.name, text=text)
+                with textfile_open(outFile, 'wt') as f:
+                    json.dump(payload, f)
+            else:
+                checkAndWriteHeader(destFile_pyi, header_pyi, module.docstring)
+                self.writeSection(destFile_pyi, 'typing-imports', typing_imports, at_end=False)
+                self.writeSection(destFile_pyi, module.name, text)
+
+
+    def addModuleImports(self, module, text):
+        """
+        Add imports for any other wx modules that names in text are qualified
+        with, other than the ones that the module already imports.
+        """
+        imported = {name.lstrip('_') for name in module.imports}
+        imported.add('core')
+        known = set(typeinfo.load()['names']) | {'siplib'}
+        used = set(re.findall(r'\bwx\.(\w+)\.', text))
+        needed = sorted(m for m in used if m in known and m not in imported)
+        return ''.join('import wx.%s\n' % m for m in needed) + text
 
 
     def writeSection(self, destFile, sectionName, sectionText, at_end = True):
@@ -194,6 +272,10 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         """
         assert isinstance(module, extractors.ModuleDef)
         self.isCore = module.module == '_core'
+        # The classes defined the normal way, rather than just for SIP
+        self.classNames = {item.pyName or removeWxPrefix(item.name) for item in module
+                           if isinstance(item, extractors.ClassDef)}
+        self.pyModule = typeinfo.pyModuleName(module)
 
         for item in module.imports:
             if item.startswith('_'):
@@ -231,7 +313,91 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             if item.ignored or piIgnored(item):
                 continue
             function = methodMap[item.__class__]
-            function(item, stream)
+            if isinstance(item, (extractors.ClassDef, extractors.PyClassDef)):
+                classStream = Utf8EncodingStream()
+                function(item, classStream)
+                stream.write(self.qualifyShadowedNames(classStream.getvalue()))
+            else:
+                function(item, stream)
+
+
+    def qualifyShadowedNames(self, code):
+        """
+        Names in annotations and default values inside a class body are looked
+        up in the class first, so a method or attribute with the same name as
+        a class, like a Window property in a class with methods that take a
+        Window, hides it. Qualify the hidden names in code, which is the code
+        for a class, with the module they come from, like wx.Window.
+        """
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return code
+
+        replacements = []
+        for klass in ast.walk(tree):
+            if not isinstance(klass, ast.ClassDef):
+                continue
+            # Only members that aren't types themselves. Nested classes and
+            # type aliases are types that annotations can mean to refer to.
+            hiding = set()
+            for item in klass.body:
+                if isinstance(item, ast.FunctionDef):
+                    hiding.add(item.name)
+                elif isinstance(item, ast.Assign):
+                    hiding.update(t.id for t in item.targets if isinstance(t, ast.Name))
+                elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                    if not (isinstance(item.annotation, ast.Name) and item.annotation.id == 'TypeAlias'):
+                        hiding.add(item.target.id)
+
+            # The expressions in the class body that are looked up in it
+            expressions = []
+            for item in klass.body:
+                if isinstance(item, ast.FunctionDef):
+                    args = item.args
+                    for arg in args.posonlyargs + args.args + args.kwonlyargs + [args.vararg, args.kwarg]:
+                        if arg is not None and arg.annotation is not None:
+                            expressions.append(arg.annotation)
+                    expressions += [d for d in args.defaults + args.kw_defaults if d is not None]
+                    if item.returns is not None:
+                        expressions.append(item.returns)
+                elif isinstance(item, ast.AnnAssign):
+                    expressions.append(item.annotation)
+                    if item.value is not None and isinstance(item.annotation, ast.Name) \
+                            and item.annotation.id == 'TypeAlias':
+                        expressions.append(item.value)
+
+            for expression in expressions:
+                for node in ast.walk(expression):
+                    if isinstance(node, ast.Name) and node.id in hiding:
+                        qualified = self._qualifiedName(node.id)
+                        if qualified:
+                            replacements.append((node.lineno, node.col_offset,
+                                                 node.end_col_offset, qualified))
+
+        if not replacements:
+            return code
+        # Positions are byte offsets within each line. Replace from the end, so
+        # the earlier positions stay valid.
+        lines = code.split('\n')
+        for lineno, start, end, qualified in sorted(replacements, reverse=True):
+            line = lines[lineno - 1].encode('utf-8')
+            lines[lineno - 1] = (line[:start] + qualified.encode('utf-8') + line[end:]).decode('utf-8')
+        return '\n'.join(lines)
+
+
+    def _qualifiedName(self, name):
+        """How to refer to a name from the top level of this module, from anywhere"""
+        if name in _typingNames:
+            return 'typing.' + name
+        if hasattr(builtins, name):
+            return 'builtins.' + name
+        module = typeinfo.moduleOf(name, self.pyModule)
+        if module == 'core':
+            return 'wx.' + name
+        if module:
+            return 'wx.%s.%s' % (module, name)
+        return None
 
 
     #-----------------------------------------------------------------------
@@ -239,42 +405,43 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         assert isinstance(enum, extractors.EnumDef)
         if enum.ignored or piIgnored(enum):
             return
-        # These enum classes aren't actually accessible from the real wx
-        # module, o we need to prepend _. But we want to make a type alias to
-        # the non-prefixed name, so method signatures can reference it without
-        # any special code, and also allow bare ints as inputs.
+        members = [v.pyName or v.name for v in enum.items if not (v.ignored or piIgnored(v))]
         if '@' in enum.name or not enum.name:
-            # Anonymous enum
-            enum_name = f"_enum_{enum.name.replace('@', '').strip()}"
-            alias = ''
-        else:
-            alias = self.fixWxPrefix(enum.name)
-            enum_name = f'_{alias}'
-        if 'Flags' in enum_name:
-            enum_type = 'IntFlag'
-        else:
-            enum_type = 'IntEnum'
-        # Create the enum definition
-        stream.write(f'\n{indent}class {enum_name}({enum_type}):\n')
-        for v in enum.items:
-            if v.ignored or piIgnored(v):
-                continue
-            name = v.pyName or v.name
-            stream.write(f'{indent}    {name} = auto()\n')
-        # Create the alias if needed
-        if alias:
-            stream.write(f'{indent}{alias}: TypeAlias = Union[{enum_name}, int]\n')
-        # And bring the enum members into global scope.  We can't use
-        # enum.global_enum for this because:
-        #  1. It's only available on Python 3.11+
-        #  2. FixWxPrefix wouldn't be able to pick up the names, since it's
-        #     detecting based on AST parsing, not runtime changes (which
-        #     enum.global_enum performs).
-        for v in enum.items:
-            if v.ignored or piIgnored(v):
-                continue
-            name = v.pyName or v.name
-            stream.write(f'{indent}{name} = {enum_name}.{name}\n')
+            # The values of anonymous enums are just ints
+            for name in members:
+                stream.write(f'{indent}{name}: int\n')
+            return
+
+        name = self.fixWxPrefix(enum.name)
+        if enum.isScoped:
+            # SIP makes scoped enums IntEnums, whose members are only in the class
+            stream.write(f'\n{indent}class {name}(IntEnum):\n')
+            for member in members:
+                stream.write(f'{indent}    {member} = auto()\n')
+            if not members:
+                stream.write(f'{indent}    pass\n')
+            return
+
+        # Other enums are classes derived from int, with sip's metaclass for
+        # enums, which can't be subclassed. Their members are in the class,
+        # and in the enclosing scope.
+        stream.write(f'\n{indent}@final\n')
+        stream.write(f'{indent}class {name}(int, metaclass=wx.siplib.enumtype):\n')
+        # A nested class's name isn't in scope in its own body
+        qualifiedName = name
+        klass = getattr(enum, 'klass', None)
+        while klass is not None:
+            qualifiedName = f'{klass.pyName or removeWxPrefix(klass.name)}.{qualifiedName}'
+            klass = klass.klass if getattr(klass, 'isInner', False) else None
+        for member in members:
+            stream.write(f'{indent}    {member}: ClassVar[{qualifiedName}]\n')
+        if not members:
+            stream.write(f'{indent}    pass\n')
+        for member in members:
+            if indent:
+                stream.write(f'{indent}{member}: ClassVar[{name}]\n')
+            else:
+                stream.write(f'{member}: {name}\n')
 
     #-----------------------------------------------------------------------
     def generateGlobalVar(self, globalVar, stream):
@@ -283,7 +450,9 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             return
         name = globalVar.pyName or globalVar.name
         valTyp = 'Any'
-        if guessTypeInt(globalVar):
+        if globalVar.type and isCharString(globalVar.type):
+            valTyp = 'bytes'
+        elif guessTypeInt(globalVar):
             valTyp = 'int'
         elif guessTypeFloat(globalVar):
             valTyp = 'float'
@@ -340,7 +509,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         indent2 = indent + ' '*4
         if typedef.briefDoc:
             stream.write('%s"""\n' % indent2)
-            stream.write(nci(typedef.briefDoc, len(indent2)))
+            stream.write(nciDoc(typedef.briefDoc, len(indent2)))
             stream.write('%s"""\n' % indent2)
         else:
             stream.write('%spass\n\n' % indent2)
@@ -349,7 +518,50 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
     #-----------------------------------------------------------------------
     def generateWigCode(self, wig, stream, indent=''):
         assert isinstance(wig, extractors.WigCode)
-        # write nothing for this one
+        # The code itself is for SIP, but some of it creates Python classes
+        # and methods
+        if hasattr(wig, 'piSequence'):
+            self.generateSequenceClass(wig.piSequence, stream, indent)
+        for line in getattr(wig, 'piCode', '').splitlines():
+            stream.write(f'{indent}{line}\n')
+        if not indent and not hasattr(wig, 'piSequence'):
+            # Classes that are only defined for SIP
+            for m in re.finditer(r'^\s*class\s+(\w+)\s*(?::\s*(?:public\s+)?(\w+))?[^;{]*\{',
+                                 wig.code, re.MULTILINE):
+                name = removeWxPrefix(m.group(1))
+                if name not in self.classNames:
+                    base = self.fixWxPrefix(m.group(2), True) if m.group(2) else 'wx.siplib.wrapper'
+                    stream.write(f'\nclass {name}({base}):\n    pass\n')
+        if not indent and self.forwardDeclarations:
+            # SIP creates an empty class for a forward declaration of a class
+            # that isn't wrapped anywhere
+            for name in re.findall(r'^\s*class\s+(\w+)\s*;', wig.code, re.MULTILINE):
+                name = removeWxPrefix(name)
+                if typeinfo.moduleOf(name, self.pyModule) is None:
+                    stream.write(f'\nclass {name}(wx.siplib.wrapper):\n    pass\n')
+
+
+    def generateSequenceClass(self, seq, stream, indent):
+        """
+        A class made by one of the list or array wrapper templates in
+        tweaker_tools, which act like Python sequences.
+        """
+        item = self.cleanType(seq['item'])
+        itemIn = self.cleanType(seq['item'], is_input=True)
+        methods = [
+            'def __len__(self) -> int: ...',
+            f'def __getitem__(self, index: int, /) -> {item}: ...',
+            f'def __contains__(self, obj: {itemIn}, /) -> bool: ...',
+            # The array classes are iterated with __getitem__, but not all
+            # type checkers understand that
+            f'def __iter__(self) -> Iterator[{item}]: ...',
+            f'def index(self, obj: {itemIn}) -> int: ...',
+        ]
+        if not seq['isList']:
+            methods.append(f'def append(self, obj: {itemIn}) -> None: ...')
+        stream.write(f'\n{indent}class {seq["name"]}(wx.siplib.wrapper):\n')
+        for method in methods:
+            stream.write(f'{indent}    {method}\n')
 
 
     #-----------------------------------------------------------------------
@@ -358,8 +570,78 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         code = pc.code
         if hasattr(pc, 'klass'):
             code = code.replace(pc.klass.pyName+'.', '')
+        elif self.isCore:
+            code = self.fixCoreAssignments(code)
+        code = nci(code, len(indent))
+        if not indent:
+            code = self.declareEventBinders(code)
         stream.write('\n')
-        stream.write(nci(code, len(indent)))
+        stream.write(code)
+
+
+    def declareEventBinders(self, code):
+        """
+        Event binders are made with code like EVT_SIZE = wx.PyEventBinder(wxEVT_SIZE).
+        Declare them like EVT_SIZE: PyEventBinder[SizeEvent] instead, using the
+        event class that the wxWidgets headers declare for the event type, so
+        type checkers can check the handlers bound to them.
+        """
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return code
+        lines = code.split('\n')
+        binder = self.fixWxPrefix('PyEventBinder', True)
+        for node in reversed(tree.body):
+            if not (isinstance(node, ast.Assign) and len(node.targets) == 1
+                    and isinstance(node.targets[0], ast.Name)
+                    and isinstance(node.value, ast.Call) and node.value.args
+                    and ast.unparse(node.value.func).split('.')[-1] == 'PyEventBinder'):
+                continue
+            # The event type, or a list of them
+            arg = node.value.args[0]
+            eventTypes = arg.elts if isinstance(arg, (ast.List, ast.Tuple)) else [arg]
+            classes = {typeinfo.eventClasses().get(ast.unparse(t).split('.')[-1])
+                       for t in eventTypes}
+            eventClass = 'Any'
+            if len(classes) == 1 and None not in classes:
+                eventClass = self.cleanType(classes.pop())
+            lines[node.lineno-1:node.end_lineno] = [
+                f'{node.targets[0].id}: {binder}[{eventClass}]']
+        return '\n'.join(lines)
+
+    @staticmethod
+    def fixCoreAssignments(code):
+        """
+        Some core PyCode injects names with statements like ``wx.BOLD = int(...)``.
+        In core.pyi that would be seen as an attribute assignment on the
+        imported wx module rather than as a declaration of a name in the
+        module itself, so turn those into proper module-level declarations.
+        """
+        declared = set()
+        lines = []
+        for line in code.splitlines(keepends=True):
+            # core_ex.py makes wx refer to the module itself, which type
+            # checkers can't follow, but the package works the same way here
+            if re.match(r'^wx\s*=\s*_sys\.modules\[__name__\]\s*$', line):
+                lines.append('import wx\n')
+                continue
+            # wx._core is the extension module, which has no stub, so type
+            # checkers don't know what this would make wx
+            if re.match(r'^\s*import wx\._core\s*$', line):
+                continue
+            m = re.match(r'^(\s*)wx\.(\w+)\s*=\s*(.*?)\s*$', line)
+            if m:
+                indent, name, value = m.groups()
+                if name in declared:
+                    continue
+                declared.add(name)
+                if re.match(r'^int\(.*\)$', value):
+                    line = f'{indent}{name}: int\n'
+                else:
+                    line = f'{indent}{name} = {value}\n'
+            lines.append(line)
+        return ''.join(lines)
 
     #-----------------------------------------------------------------------
     def generatePyFunction(self, pf, stream, indent=''):
@@ -369,11 +651,11 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             stream.write('%s@wx.deprecated\n' % indent)
         if pf.isStatic:
             stream.write('%s@staticmethod\n' % indent)
-        stream.write('%sdef %s%s:\n' % (indent, pf.name, pf.argsString))
+        stream.write('%sdef %s%s:\n' % (indent, pf.name, getattr(pf, 'piArgsString', pf.argsString)))
         indent2 = indent + ' '*4
         if pf.briefDoc:
             stream.write('%s"""\n' % indent2)
-            stream.write(nci(pf.briefDoc, len(indent2)))
+            stream.write(nciDoc(pf.briefDoc, len(indent2)))
             stream.write('%s"""\n' % indent2)
         stream.write('%spass\n' % indent2)
 
@@ -385,14 +667,15 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         if pc.deprecated:
             stream.write('%s@wx.deprecated\n' % indent)
         stream.write('%sclass %s' % (indent, pc.name))
-        if pc.bases:
-            stream.write('(%s):\n' % ', '.join(pc.bases))
+        bases = getattr(pc, 'piBases', pc.bases)
+        if bases:
+            stream.write('(%s):\n' % ', '.join(bases))
         else:
             stream.write(':\n')
         indent2 = indent + ' '*4
         if pc.briefDoc:
             stream.write('%s"""\n' % indent2)
-            stream.write(nci(pc.briefDoc, len(indent2)))
+            stream.write(nciDoc(pc.briefDoc, len(indent2)))
             stream.write('%s"""\n' % indent2)
 
         # these are the only kinds of items allowed to be items in a PyClass
@@ -423,14 +706,34 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         if not function.signature:
             function.makePyArgsString()
         assert function.signature is not None
-        for line in function.signature.definition_lines():
+        for line in self.definitionLines(function.signature):
             stream.write(f'\n{line}')
         if is_overload:
             stream.write('    ...\n')
         else:
             stream.write('    """\n')
-            stream.write(nci(function.pyDocstring, 4))
+            stream.write(nciDoc(function.pyDocstring, 4))
             stream.write('    """\n')
+
+
+    def definitionLines(self, signature):
+        """
+        The lines for a function or method definition. Parameters with a bytes
+        constant for their default value are typed str, since they accept
+        either, so those defaults are left out of the stub, where they would
+        look like the wrong type.
+        """
+        bytesDefaults = []
+        for param in signature:
+            default = (param.default or '').split('.')[-1]
+            if (default in typeinfo.load()['bytesConstants'] and
+                    'bytes' not in (param.type_hint or '')):
+                bytesDefaults.append((param, param.default))
+                param.default = '...'
+        lines = signature.definition_lines()
+        for param, default in bytesDefaults:
+            param.default = default
+        return lines
 
 
     def generateParameters(self, parameters, stream, indent):
@@ -468,6 +771,9 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             for tp in klass.templateParams:
                 if tp in bases:
                     bases.remove(tp)
+            if not bases:
+                # Like at runtime, so the stubs have sip's metaclass too
+                bases = ['wx.siplib.wrapper']
 
         # write class declaration
         klassName = klass.pyName or klass.name
@@ -482,7 +788,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
 
         # docstring
         stream.write('%s"""\n' % indent2)
-        stream.write(nci(klass.pyDocstring, len(indent2)))
+        stream.write(nciDoc(klass.pyDocstring, len(indent2)))
         stream.write('%s"""\n' % indent2)
 
         # generate nested classes
@@ -568,35 +874,70 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         assert isinstance(prop, extractors.PyPropertyDef)
         self._generateProperty(klass, prop, stream, indent)
 
+    def _signatures(self, method):
+        """The signatures of the overloads of method that are in the .pyi file"""
+        signatures = []
+        for m in method.all():
+            if m.ignored or piIgnored(m):
+                continue
+            if not m.signature:
+                m.makePyArgsString()
+            signatures.append(m.signature)
+        return signatures
+
+    def _propertyTypes(self, klass, prop):
+        """
+        The type a property returns, and the type it can be set to. These can
+        differ, since the setter may have overloads, or accept other types
+        that are converted automatically.
+        """
+        getType = setType = None
+        getter = self.find_method(klass, prop.getter) if prop.getter else None
+        if getter:
+            # Use the overload that the property can call, with no arguments
+            for sig in self._signatures(getter):
+                if all(p.default for p in sig):
+                    getType = sig.return_type
+                    break
+        setter = self.find_method(klass, prop.setter) if prop.setter else None
+        if setter:
+            # and the overloads that it can call with one argument
+            types = []
+            for sig in self._signatures(setter):
+                params = list(sig)
+                if (params and params[0].type_hint and
+                        params[0].position_type is ParameterType.DEFAULT and
+                        all(p.default for p in params[1:])):
+                    for t in unionMembers(params[0].type_hint):
+                        if t not in types:
+                            types.append(t)
+            if len(types) == 1:
+                setType = types[0]
+            elif types:
+                setType = 'Union[%s]' % ', '.join(types)
+        return getType, setType
+
     def _generateProperty(self, klass: extractors.ClassDef, prop: Union[extractors.PyPropertyDef, extractors.PropertyDef], stream, indent: str):
         if prop.ignored or piIgnored(prop):
             return
-        value_type = ''
-        if prop.getter:
-            getter = self.find_method(klass, prop.getter)
-            if getter and getter.signature:
-                value_type = getter.signature.return_type
-        if prop.setter:
-            setter = self.find_method(klass, prop.setter)
-            if setter and setter.signature:
-                value_type = setter.signature[0].type_hint
+        getType, setType = self._propertyTypes(klass, prop)
         if prop.setter and prop.getter:
-            if value_type:
+            if getType or setType:
                 stream.write(f'{indent}@property\n')
-                stream.write(f'{indent}def {prop.name}(self) -> {value_type}: ...\n')
+                stream.write(f'{indent}def {prop.name}(self) -> {getType or setType}: ...\n')
                 stream.write(f'{indent}@{prop.name}.setter\n')
-                stream.write(f'{indent}def {prop.name}(self, value: {value_type}, /) -> None: ...\n')
+                stream.write(f'{indent}def {prop.name}(self, value: {setType or getType}, /) -> None: ...\n')
             else:
                 stream.write(f'{indent}{prop.name} = property({prop.getter}, {prop.setter})\n')
         elif prop.getter:
-            if value_type:
+            if getType:
                 stream.write(f'{indent}@property\n')
-                stream.write(f'{indent}def {prop.name}(self) -> {value_type}: ...\n')
+                stream.write(f'{indent}def {prop.name}(self) -> {getType}: ...\n')
             else:
                 stream.write(f'{indent}{prop.name} = property({prop.getter})\n')
         elif prop.setter:
             # Can't use the decorator syntax in this situation
-            stream.write(f'{indent}{prop.name} = property(fset={prop.setter})\n') 
+            stream.write(f'{indent}{prop.name} = property(fset={prop.setter})\n')
 
 
     def generateMethod(self, method, stream, indent, name=None, docstring=None, is_overload=False, is_top_level_init=False):
@@ -635,7 +976,12 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             method.signature.method_name = name
         if is_top_level_init and 'parent' in method.signature:
             method.signature['parent'].make_optional()
-        for line in method.signature.definition_lines():
+        if isOperatorMethod(method.signature.method_name):
+            # SIP only accepts these arguments by position
+            for param in method.signature:
+                if param.position_type is ParameterType.DEFAULT:
+                    param.position_type = ParameterType.POSITIONAL_ONLY
+        for line in self.definitionLines(method.signature):
             stream.write(f'\n{indent}{line}')
         stream.write('\n')
         indent2 = indent + ' '*4
@@ -651,7 +997,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
                     docstring = ""
             stream.write('%s"""\n' % indent2)
             if docstring.strip():
-                stream.write(nci(docstring, len(indent2)))
+                stream.write(nciDoc(docstring, len(indent2)))
             stream.write('%s"""\n' % indent2)
 
 
@@ -678,7 +1024,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
         indent2 = indent + ' '*4
 
         stream.write('%s"""\n' % indent2)
-        stream.write(nci(pm.pyDocstring, len(indent2)))
+        stream.write(nciDoc(pm.pyDocstring, len(indent2)))
         stream.write('%s"""\n' % indent2)
 
 

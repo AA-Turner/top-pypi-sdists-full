@@ -4,6 +4,7 @@
 # -*- coding: utf-8 -*-
 """Module containing classes for VCC - Supplier signal interface."""
 
+from powertrain_build import build_defs
 from powertrain_build.types import byte_size_string, get_bitmask
 from powertrain_build.a2l import A2l
 from powertrain_build.problem_logger import ProblemLogger
@@ -34,36 +35,48 @@ class ExtVarBase(ProblemLogger):
         "Bool": "1",
     }
 
-    def __init__(self, variable_dict, prj_cfg, unit_cfg, user_defined_types, integrity_level, polyspace_comments):
+    def __init__(self, variable_dict, prj_cfg, unit_cfg, user_defined_types, variable_type, polyspace_comments):
         """Constructor.
 
         Args:
             variable_dict (dict): dictionary with signal information.
             prj_cfg (BuildProjConfig): Build project class holding where files should be stored.
+            unit_cfg (UnitConfig): Object with unit configurations.
             user_defined_types (UserDefinedTypes): Class holding user defined data types.
-            integrity_level (dict): integrity level of the unit from 'A' to 'D' or 'QM'.
-            polyspace_comments (dict): Whether to insert polyspace comments for the variable definitions.
+            variable_type (str): Type of the variable (e.g., "normal", "dependability", "secure").
+            polyspace_comments (bool): Whether to insert polyspace comments for the variable definitions.
         """
         super().__init__()
-        self.set_integrity_level(integrity_level)
         self._var_dict = variable_dict
         self._ext_vars = {}
         self._prj_cfg = prj_cfg
         self._unit_cfg = unit_cfg
         self._enumerations = user_defined_types.get_enumerations()
         self._common_header_files = user_defined_types.common_header_files
+        self._variable_type = variable_type
         self._polyspace_comments = polyspace_comments
+        self._set_integrity_level()
 
-    def set_integrity_level(self, integrity_level):
-        """Set integrity level of code generation.
+    def _set_integrity_level(self):
+        """Set integrity level of code generation."""
+        asil_level = self._prj_cfg.get_code_generation_config('generalAsilLevelDependability')
+        use_specific_cvc_definitions = self._prj_cfg.get_code_generation_config('useSpecificCvcDefinitions')
+        if self._variable_type == "normal":
+            integrity_level = build_defs.ASIL_QM
+        elif self._variable_type == "dependability":
+            integrity_level = build_defs.ASIL_LEVEL_MAP[asil_level]
+        elif self._variable_type == "secure":
+            integrity_level = build_defs.SECURE
+            asil_level = "C"
+        else:
+            self.critical(f'Unknown variable type "{self._variable_type}"')
+            integrity_level = build_defs.ASIL_QM
 
-        Args:
-            integrity_level (dict): integrity level of the unit from 'A' to 'D' or 'QM'
-        """
         self._disp_start = integrity_level["CVC"]["DISP"]["START"]
         self._disp_end = integrity_level["CVC"]["DISP"]["END"]
         self._decl_start = integrity_level["PREDECL"]["DISP"]["START"]
         self._decl_end = integrity_level["PREDECL"]["DISP"]["END"]
+        self._cvc_type = f'CVC_DISP_ASIL_{asil_level}' if use_specific_cvc_definitions else 'CVC_DISP'
 
     def _get_byte_size_string(self, data_type):
         """Get byte size of a data type as string.
@@ -127,7 +140,7 @@ class ExtVarBase(ProblemLogger):
                     resv.setdefault(var, {})["a2l_data"] = self.get_a2l_format(data)
                     resv[var]["array"] = []
                     resv[var]["function"] = ["VcEc"]
-                    resv[var]["var"] = {"cvc_type": "CVC_DISP", "type": data_type, "var": var}
+                    resv[var]["var"] = {"cvc_type": self._cvc_type, "type": data_type, "var": var}
         return res
 
     def _get_array_declaration(self, var, width):
@@ -171,7 +184,7 @@ class ExtVarBase(ProblemLogger):
                             init_value = data["init"] if data["init"] != 0 else "{0}"
                         else:
                             init_value = data["init"]
-                        fh_c.write(f"CVC_DISP {data[self.TYPE_NAME]} {var}{array} = {init_value};\n")
+                        fh_c.write(f"{self._cvc_type} {data[self.TYPE_NAME]} {var}{array} = {init_value};\n")
                         var_set.add(var)
                 fh_c.write("\n")
             if self._polyspace_comments:
@@ -187,7 +200,7 @@ class ExtVarBase(ProblemLogger):
         with path.open("w") as fh_c:
             fh_c.write(f"#ifndef {guard}\n")
             fh_c.write(f"#define {guard}\n")
-            fh_c.write("#define CVC_DISP\n")
+            fh_c.write(f"#define {self._cvc_type}\n")
             fh_c.write(self._unit_cfg.base_types_headers)
 
             for common_header_file in self._common_header_files:
@@ -202,7 +215,7 @@ class ExtVarBase(ProblemLogger):
                     if var not in var_set:
                         data = ext_vars[var]
                         array = self._get_array_declaration(var, data.get("width", 1))
-                        fh_c.write(f"extern CVC_DISP {data[self.TYPE_NAME]} {var}{array};\n")
+                        fh_c.write(f"extern {self._cvc_type} {data[self.TYPE_NAME]} {var}{array};\n")
                         var_set.add(var)
                 fh_c.write("\n")
 
@@ -213,7 +226,7 @@ class ExtVarBase(ProblemLogger):
                     if var not in var_set:
                         data = ext_vars[var]
                         array = self._get_array_declaration(var, data.get("width", 1))
-                        fh_c.write(f"extern CVC_DISP {data[self.TYPE_NAME]} {var}{array};\n")
+                        fh_c.write(f"extern {self._cvc_type} {data[self.TYPE_NAME]} {var}{array};\n")
                         var_set.add(var)
                 fh_c.write("\n")
             fh_c.write(f'#include "{self._decl_end}"\n')
@@ -264,8 +277,8 @@ class ExtVarCsv(ExtVarBase):
         }
     """
 
-    EXTERNAL_INPORT_TYPES = ["EMS-Input", "CAN-Input", "Private CAN-Input", "LIN-Input"]
-    EXTERNAL_OUTPORT_TYPES = ["EMS-Output", "CAN-Output", "Private CAN-Output", "LIN-Output"]
+    EXTERNAL_INPORT_TYPES = ["EMS-Input", "CAN-Input", "Private CAN-Input", "LIN-Input", "RX"]
+    EXTERNAL_OUTPORT_TYPES = ["EMS-Output", "CAN-Output", "Private CAN-Output", "LIN-Output", "TX"]
     TYPE_NAME = "type"
 
     def get_a2l_format(self, data):
@@ -287,6 +300,25 @@ class ExtVarCsv(ExtVarBase):
             "x_axis": None,
             "y_axis": None,
         }
+
+
+class ExtVarCsvAsil(ExtVarCsv):
+    """Handles variable dicts for ASIL variables."""
+    def _set_integrity_level(self):
+        """Set integrity level of code generation."""
+        if self._variable_type not in build_defs.ASIL_LEVEL_MAP:
+            self.critical(f'Unknown ASIL level "{self._variable_type}".')
+            integrity_level = build_defs.ASIL_LEVEL_MAP["QM"]
+            self._cvc_type = 'CVC_DISP'
+        else:
+            integrity_level = build_defs.ASIL_LEVEL_MAP[self._variable_type]
+            use_specific_cvc_definitions = self._prj_cfg.get_code_generation_config('useSpecificCvcDefinitions')
+            self._cvc_type = f'CVC_DISP_ASIL_{self._variable_type}' if use_specific_cvc_definitions else 'CVC_DISP'
+
+        self._disp_start = integrity_level["CVC"]["DISP"]["START"]
+        self._disp_end = integrity_level["CVC"]["DISP"]["END"]
+        self._decl_start = integrity_level["PREDECL"]["DISP"]["START"]
+        self._decl_end = integrity_level["PREDECL"]["DISP"]["END"]
 
 
 class ExtVarYaml(ExtVarBase):

@@ -81,13 +81,12 @@ from cozy_runtime.author import (
 from .adaln_pruned import AdaLNPrunedMiniMaxH3Transformer
 from .conditioner import FinalHiddenState, PresentationLength, build_text_conditioner
 from .continuation import (
-    CONTEXT_FRAMES,
     AVContext,
-    CompletedTail,
     ContextReferenceLayout,
     ContinuationPlan,
+    DeliveredFrames,
     align_context_rows,
-    audio_sample_range,
+    export_context,
 )
 from .table_layout import TableLayout
 from .turbo import ATTENTION_KWARG, OVERLAY_KWARG, TURBO_BANK, TurboOverlay, TurboSchedule
@@ -1207,15 +1206,15 @@ class OfficialH3Pipeline:
         packed order; the official setup step resizes each image to its own."""
         if context is not None:
             context.validate()
-            if delivery is None or delivery.prefix_frames != context.frame_count:
+            if delivery is None or delivery.carried != context.carry:
                 raise InvalidRequest("context and delivery plan disagree", code="h3_continuation")
             if expected_context_provenance != context.provenance:
                 raise InvalidRequest(
                     "continuation renderer provenance differs", code="h3_continuation"
                 )
-        elif delivery is not None and delivery.prefix_frames:
+        elif delivery is not None and delivery.carried:
             raise InvalidRequest(
-                "delivery prefix requires a completed context", code="h3_continuation"
+                "a carried picture or sound requires a completed context", code="h3_continuation"
             )
         if delivery is not None and frames != delivery.sample_frames:
             raise InvalidRequest("sample frames differ from delivery plan", code="h3_continuation")
@@ -1228,7 +1227,7 @@ class OfficialH3Pipeline:
             references=list(references),
             image_short_edges=tuple(reference_image_short_edges),
         )
-        if context is not None and (context.height, context.width) != (state.height, state.width):
+        if context is not None and context.canvas not in (None, (state.height, state.width)):
             raise InvalidRequest(
                 "continuation canvas differs from this render", code="h3_continuation"
             )
@@ -1328,10 +1327,10 @@ class OfficialH3Pipeline:
                 )
             context = scratch.get("continuation_context")
             if context is not None:
-                # `condition_media` appends the completed tail after the public references.
-                video.append(context.video_latents)
-                audio.append(context.audio_latents)
-                references.append(ContextReferenceLayout())
+                # `condition_media` appends the carried latents after the public references.
+                video.extend(t for t in (context.video,) if t is not None)
+                audio.extend(t for t in (context.audio,) if t is not None)
+                references.append(ContextReferenceLayout.of(context))
             scratch.set("normalized_references", references)
             scratch.set("condition_latents", video)
             scratch.set("audio_condition_latents", audio)
@@ -1408,8 +1407,8 @@ class OfficialH3Pipeline:
     ) -> tuple[int, int]:
         """Encode the request's keyframes or references. For `ref2va`, the (hits, encoded)
         count of reference latents (`_encode_references`)."""
-        # Encode public references first; private context never reaches Qwen or a VAE
-        # on the receiving segment. Its tensors already use the native normalization.
+        # Encode public references first; the carried latents never reach Qwen or a VAE.
+        # They are the predecessor's own denoised latents, in the native normalization.
         counts = (0, 0)
         if _TRUNK[task] == "ref2va":
             with _audio_weight_norm_scope(self.components["audio_vae"]):
@@ -1418,12 +1417,14 @@ class OfficialH3Pipeline:
             self._run(task, "vae_encoder", state, component="video_vae")
         context = state.get("continuation_context")
         if context is not None:
-            state.set("condition_latents", [*state.condition_latents, context.video_latents])
+            if context.video is not None:
+                state.set("condition_latents", [*state.condition_latents, context.video])
+            if context.audio is not None:
+                audio = [*state.audio_condition_latents, context.audio]
+                state.set("audio_condition_latents", audio)
             state.set(
-                "audio_condition_latents", [*state.audio_condition_latents, context.audio_latents]
-            )
-            state.set(
-                "normalized_references", [*state.normalized_references, ContextReferenceLayout()]
+                "normalized_references",
+                [*state.normalized_references, ContextReferenceLayout.of(context)],
             )
         if checks is not None:
             checks.outputs(
@@ -1486,7 +1487,6 @@ class OfficialH3Pipeline:
                     pixels = reference.frames[:count].copy()
                 else:
                     continue
-                # A context window has no memo: hashing its 170 MB of pixels buys nothing.
                 key = () if memo is None else (*identity, *reference_digest(pixels))
                 visual[index] = (pixels, key)
             latents: dict[int, Any] = {}
@@ -1611,7 +1611,6 @@ class OfficialH3Pipeline:
         cancel: Callable[[], None],
         checks: NumericalChecks | None = None,
         sol_dense_steps: int = 10,
-        refine_steps: int | None = None,
     ) -> ScheduleFacts:
         _validate_sol_dense_steps(sol_dense_steps)
         _settle_intake(state)
@@ -1625,10 +1624,6 @@ class OfficialH3Pipeline:
                 "max_duration": _CEILING_S,
             },
         )
-        if refine_steps is not None:
-            # Artifact tensors land on CPU. Upstream moves latent/layout inputs, but
-            # expects text embeddings to have been produced on the DiT device already.
-            state.set("prompt_embeds", state.prompt_embeds.to(scoped._execution_device))
         # The selected upstream workflow owns the ordered preparation steps.
         # Text-only requests have no keyframe tensors to encode or concatenate.
         for name in blocks:
@@ -1660,45 +1655,12 @@ class OfficialH3Pipeline:
         facts = ScheduleFacts.of(plan, schedule)
         loop = blocks["denoise.denoise"]
         block_state = loop.get_block_state(state)
-        start = 0
-        locked_audio = None
-        if refine_steps is not None:
-            from diffusers.modular_pipelines.minimax_h3.before_denoise import MiniMaxH3SetTimestepsStep
-            from diffusers.utils.torch_utils import randn_tensor
-
-            if _BANK[task] is not None or schedule.transformer_evaluations != 30 or type(refine_steps) is not int or not 1 <= refine_steps <= 10:
-                raise InvalidRequest("H3 refinement uses 1..10 final evaluations of the standard 30-step plan", code="h3_refinement")
-            start = schedule.transformer_evaluations - refine_steps
-            target = block_state.latents[block_state.num_condition_video_rows:]
-            noise = randn_tensor(target.shape, generator=state.generator, device=target.device, dtype=target.dtype)
-            target.copy_(scoped.scheduler.scale_noise(target, block_state.timesteps[start], noise))
-            scoped.scheduler.set_begin_index(start)
-            scoped.audio_scheduler.set_begin_index(start)
-            # Original generated audio is now clean conditioning. Keep its rows at t=1
-            # and restore them after each upstream joint update; final decode reuses PCM.
-            locked_audio = block_state.audio_latents.clone()
-            block_state.row_timestep_plan = [
-                tuple(t.to(target.device) for t in MiniMaxH3SetTimestepsStep.build_row_timesteps(
-                    block_state.denoiser_input_fields["video_indices"],
-                    block_state.denoiser_input_fields["audio_indices"],
-                    block_state.num_condition_video_rows, block_state.num_condition_audio_rows,
-                    block_state.denoiser_input_fields["text_indices"].numel(),
-                    float(timestep), 1.0, max(float(timestep), scoped.keyframe_noise_aug), 1.0,
-                )) for timestep in block_state.timesteps
-            ]
-            video_sigmas = schedule.video_sigmas[start:]
-            facts = ScheduleFacts(plan.digest, refine_steps, refine_steps + 1,
-                _float32_digest(video_sigmas), _float32_digest((0.0,) * (refine_steps + 1)),
-                _float32_digest(schedule.video_timesteps[start:]), _float32_digest((1.0,) * refine_steps))
-        for index in range(start, len(block_state.timesteps)):
-            timestep = block_state.timesteps[index]
+        for index, timestep in enumerate(block_state.timesteps):
             cancel()
             with attention_scope(
                 _attention_layout(block_state, index, sol_dense_steps=sol_dense_steps)
             ):
                 _, block_state = loop.loop_step(scoped, block_state, i=index, t=timestep)
-            if locked_audio is not None:
-                block_state.audio_latents.copy_(locked_audio)
             if checks is not None:
                 checks.tensors(
                     f"{_DIT_COMPONENT[_TRUNK[task]]}.updated.{index}",
@@ -1709,7 +1671,7 @@ class OfficialH3Pipeline:
                     required=True,
                     defer=True,
                 )
-            on_step(index - start)
+            on_step(index)
         if checks is not None:
             # One read for every step's inputs, predictions and updates, before any decode.
             # Waiting loses nothing: the official update is an affine blend of the current
@@ -1721,9 +1683,6 @@ class OfficialH3Pipeline:
         return facts
 
     def decode_audio(self, task: Task, state: Any) -> Any:
-        if state.get("preserved_audio") is not None:
-            state.set("audio", state.preserved_audio)
-            return state.audio
         # Repeated BigVGAN decodes can differ on the same input even
         # with benchmarking disabled. Scope only algorithm determinism to this
         # serial component call; preserve TF32, dtype and every other backend setting.
@@ -1736,12 +1695,12 @@ class OfficialH3Pipeline:
         delivery = state.get("continuation_delivery")
         if delivery is None:
             return state.audio
-        start, end = audio_sample_range(
-            delivery.delivery_start, delivery.delivery_end, int(state.sampling_rate)
-        )
-        if state.audio.shape[-1] < end:
-            raise OutputError("decoded audio does not cover the continuation delivery window")
-        return state.audio[..., start:end]
+        context = state.get("continuation_context")
+        entry = context.audio_offset if context is not None else Fraction(0)
+        start, end = delivery.audio_samples(entry, int(state.sampling_rate))
+        delivered = state.audio[..., start:end]
+        # Only a picture end the grid rounds the sound short of: at most a third of a tick.
+        return torch.nn.functional.pad(delivered, (0, end - start - delivered.shape[-1]))
 
     def decode_video(self, task: Task, state: Any) -> Any:
         if state.get("continuation_delivery") is not None:
@@ -1771,7 +1730,7 @@ class OfficialH3Pipeline:
         pixel_std = torch.tensor(components.pixel_std, device=device).view(1, -1, 1, 1, 1)
         frames = 0
         delivery = state.get("continuation_delivery")
-        tail = CompletedTail(delivery) if delivery is not None else None
+        tail = DeliveredFrames(delivery) if delivery is not None else None
         with torch.no_grad():
             chunks = vae.decode_chunks(state.latents * latents_std + latents_mean)
             while True:
@@ -1780,11 +1739,7 @@ class OfficialH3Pipeline:
                 ):
                     chunk = next(chunks, None)
                 if chunk is None:
-                    if tail is not None:
-                        tail.finish()
-                        state.set("completed_av_tail", tail)
-                        return tail.delivered
-                    return frames
+                    return frames if tail is None else tail.finish()
                 video = chunk.float() * pixel_std + pixel_mean
                 frames += int(video.shape[2])
                 selected = video[0].permute(1, 0, 2, 3)
@@ -1793,50 +1748,11 @@ class OfficialH3Pipeline:
                 if selected.shape[0]:
                     on_chunk(selected)
 
-    def export_completed_av_tail(
-        self, state: Any, *, frames: Any, windows: Sequence[int], provenance: str
-    ) -> AVContext:
-        tail = state.get("completed_av_tail")
-        if not isinstance(tail, CompletedTail) or state.get("audio") is None:
-            raise OutputError("continuation requires completed video and audio decode")
-        if not windows or not set(windows) <= set(CONTEXT_FRAMES):
-            raise InvalidRequest(
-                "continuation windows are 22, 39 or 56 frames",
-                code="h3_continuation",
-                fields=["context"],
-            )
-        raw = tail.export(frames, state.audio[0], int(state.sampling_rate), provenance)
-        encoded = {}
-        # Run exactly the native reference encoder (`_encode_references`, its clips spread
-        # as uint8), separately for each requested window. Do not slice latent suffixes:
-        # both VAEs have window-local grids.
-        for count in sorted(set(windows)):
-            selected = raw.select(count)
-            encoding = PipelineState(
-                values={
-                    "normalized_references": [
-                        MiniMaxH3VideoReference(
-                            frames=selected.frames,
-                            fps=float(FPS),
-                            audio=selected.audio,
-                            sample_rate=selected.sample_rate,
-                        )
-                    ],
-                }
-            )
-            with _audio_weight_norm_scope(self.components["audio_vae"]):
-                self._encode_references("ref2va", encoding, None)
-            encoded[count] = (
-                encoding.condition_latents[0].detach().float().cpu().contiguous(),
-                encoding.audio_condition_latents[0].detach().float().cpu().contiguous(),
-            )
-        return AVContext(
-            encoded,
-            int(raw.frames.shape[1]),
-            int(raw.frames.shape[2]),
-            raw.source_end_frame,
-            provenance,
-            max(encoded),
+    def export_context(self, state: Any, *, provenance: str) -> AVContext | None:
+        """The successor's carry from this request's denoised latents; None if it carries
+        nothing."""
+        return export_context(
+            state.latents, state.audio_latents, state.continuation_delivery, provenance
         )
 
     def _run(self, task: Task, name: str, state: Any, *, component: str | None = None) -> None:
@@ -1847,7 +1763,6 @@ class OfficialH3Pipeline:
             else _ScopedPipeline(self._pipes[workflow], self.components[component])
         )
         if name in {"vae_encoder", "decode.audio"}:
-            # Both reference conditioning and continuation export encode audio.
             # Legacy WeightNorm leaves computed CUDA weights outside parameters
             # and buffers; release them on success or failure before stage eviction.
             # The unchanged pre-hook recomputes from weight_g/weight_v next time.

@@ -666,13 +666,13 @@ class CksCluster(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  additional_server_sans: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  audit_policy: pulumi.Input[Optional[_builtins.str]] = None,
-                 authn_webhook: pulumi.Input[Optional[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict']]] = None,
-                 authz_webhook: pulumi.Input[Optional[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict']]] = None,
+                 authn_webhook: pulumi.Input[Optional[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict', 'outputs.CksClusterAuthnWebhook']]] = None,
+                 authz_webhook: pulumi.Input[Optional[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict', 'outputs.CksClusterAuthzWebhook']]] = None,
                  internal_lb_cidr_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  internal_lb_cidr_names_v6s: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 node_port_range: pulumi.Input[Optional[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict']]] = None,
-                 oidc: pulumi.Input[Optional[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict']]] = None,
+                 node_port_range: pulumi.Input[Optional[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict', 'outputs.CksClusterNodePortRange']]] = None,
+                 oidc: pulumi.Input[Optional[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict', 'outputs.CksClusterOidc']]] = None,
                  pod_cidr_name: pulumi.Input[Optional[_builtins.str]] = None,
                  pod_cidr_name_v6: pulumi.Input[Optional[_builtins.str]] = None,
                  public: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -697,14 +697,14 @@ class CksCluster(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] additional_server_sans: Additional Subject Alternative Names (SANs) to include in the Kubernetes API server TLS certificate. Maximum 10 entries.
         :param pulumi.Input[_builtins.str] audit_policy: Audit policy for the cluster. Must be provided as a base64-encoded JSON/YAML string.
-        :param pulumi.Input[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict']] authn_webhook: Authentication webhook configuration for the cluster.
-        :param pulumi.Input[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict']] authz_webhook: Authorization webhook configuration for the cluster.
+        :param pulumi.Input[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict', 'outputs.CksClusterAuthnWebhook']] authn_webhook: Authentication webhook configuration for the cluster.
+        :param pulumi.Input[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict', 'outputs.CksClusterAuthzWebhook']] authz_webhook: Authorization webhook configuration for the cluster.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] internal_lb_cidr_names: The names of the vpc prefixes to use as internal load balancer CIDR ranges. Internal load balancers are reachable within the VPC but not accessible from the internet.
                The prefixes must exist in the cluster's VPC. This field is append-only.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] internal_lb_cidr_names_v6s: IPv6 Internal Load Balancer CIDR names. If any IPv6 field is set, then ALL IPv6 fields must be set.
         :param pulumi.Input[_builtins.str] name: The name of the cluster. Must not be longer than 30 characters.
-        :param pulumi.Input[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict']] node_port_range: Kubernetes Service NodePort range. NodePort range can be expanded in existing clusters but not shrunk. Updating the NodePort range to a smaller range will require a replacement of the cluster.
-        :param pulumi.Input[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict']] oidc: OpenID Connect (OIDC) configuration for authentication to the api-server.
+        :param pulumi.Input[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict', 'outputs.CksClusterNodePortRange']] node_port_range: Kubernetes Service NodePort range. NodePort range can be expanded in existing clusters but not shrunk. Updating the NodePort range to a smaller range will require a replacement of the cluster.
+        :param pulumi.Input[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict', 'outputs.CksClusterOidc']] oidc: OpenID Connect (OIDC) configuration for authentication to the api-server.
         :param pulumi.Input[_builtins.str] pod_cidr_name: The name of the vpc prefix to use as the pod CIDR range. The prefix must exist in the cluster's VPC.
         :param pulumi.Input[_builtins.str] pod_cidr_name_v6: IPv6 Pod CIDR name. If any IPv6 field is set, then ALL IPv6 fields must be set.
         :param pulumi.Input[_builtins.bool] public: Whether the cluster's api-server is publicly accessible from the internet.
@@ -748,13 +748,13 @@ class CksCluster(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  additional_server_sans: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  audit_policy: pulumi.Input[Optional[_builtins.str]] = None,
-                 authn_webhook: pulumi.Input[Optional[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict']]] = None,
-                 authz_webhook: pulumi.Input[Optional[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict']]] = None,
+                 authn_webhook: pulumi.Input[Optional[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict', 'outputs.CksClusterAuthnWebhook']]] = None,
+                 authz_webhook: pulumi.Input[Optional[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict', 'outputs.CksClusterAuthzWebhook']]] = None,
                  internal_lb_cidr_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  internal_lb_cidr_names_v6s: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 node_port_range: pulumi.Input[Optional[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict']]] = None,
-                 oidc: pulumi.Input[Optional[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict']]] = None,
+                 node_port_range: pulumi.Input[Optional[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict', 'outputs.CksClusterNodePortRange']]] = None,
+                 oidc: pulumi.Input[Optional[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict', 'outputs.CksClusterOidc']]] = None,
                  pod_cidr_name: pulumi.Input[Optional[_builtins.str]] = None,
                  pod_cidr_name_v6: pulumi.Input[Optional[_builtins.str]] = None,
                  public: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -819,13 +819,13 @@ class CksCluster(pulumi.CustomResource):
             additional_server_sans: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             api_server_endpoint: pulumi.Input[Optional[_builtins.str]] = None,
             audit_policy: pulumi.Input[Optional[_builtins.str]] = None,
-            authn_webhook: pulumi.Input[Optional[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict']]] = None,
-            authz_webhook: pulumi.Input[Optional[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict']]] = None,
+            authn_webhook: pulumi.Input[Optional[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict', 'outputs.CksClusterAuthnWebhook']]] = None,
+            authz_webhook: pulumi.Input[Optional[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict', 'outputs.CksClusterAuthzWebhook']]] = None,
             internal_lb_cidr_names: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             internal_lb_cidr_names_v6s: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
-            node_port_range: pulumi.Input[Optional[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict']]] = None,
-            oidc: pulumi.Input[Optional[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict']]] = None,
+            node_port_range: pulumi.Input[Optional[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict', 'outputs.CksClusterNodePortRange']]] = None,
+            oidc: pulumi.Input[Optional[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict', 'outputs.CksClusterOidc']]] = None,
             pod_cidr_name: pulumi.Input[Optional[_builtins.str]] = None,
             pod_cidr_name_v6: pulumi.Input[Optional[_builtins.str]] = None,
             public: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -847,14 +847,14 @@ class CksCluster(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] additional_server_sans: Additional Subject Alternative Names (SANs) to include in the Kubernetes API server TLS certificate. Maximum 10 entries.
         :param pulumi.Input[_builtins.str] api_server_endpoint: The endpoint for the cluster's api-server.
         :param pulumi.Input[_builtins.str] audit_policy: Audit policy for the cluster. Must be provided as a base64-encoded JSON/YAML string.
-        :param pulumi.Input[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict']] authn_webhook: Authentication webhook configuration for the cluster.
-        :param pulumi.Input[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict']] authz_webhook: Authorization webhook configuration for the cluster.
+        :param pulumi.Input[Union['CksClusterAuthnWebhookArgs', 'CksClusterAuthnWebhookArgsDict', 'outputs.CksClusterAuthnWebhook']] authn_webhook: Authentication webhook configuration for the cluster.
+        :param pulumi.Input[Union['CksClusterAuthzWebhookArgs', 'CksClusterAuthzWebhookArgsDict', 'outputs.CksClusterAuthzWebhook']] authz_webhook: Authorization webhook configuration for the cluster.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] internal_lb_cidr_names: The names of the vpc prefixes to use as internal load balancer CIDR ranges. Internal load balancers are reachable within the VPC but not accessible from the internet.
                The prefixes must exist in the cluster's VPC. This field is append-only.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] internal_lb_cidr_names_v6s: IPv6 Internal Load Balancer CIDR names. If any IPv6 field is set, then ALL IPv6 fields must be set.
         :param pulumi.Input[_builtins.str] name: The name of the cluster. Must not be longer than 30 characters.
-        :param pulumi.Input[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict']] node_port_range: Kubernetes Service NodePort range. NodePort range can be expanded in existing clusters but not shrunk. Updating the NodePort range to a smaller range will require a replacement of the cluster.
-        :param pulumi.Input[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict']] oidc: OpenID Connect (OIDC) configuration for authentication to the api-server.
+        :param pulumi.Input[Union['CksClusterNodePortRangeArgs', 'CksClusterNodePortRangeArgsDict', 'outputs.CksClusterNodePortRange']] node_port_range: Kubernetes Service NodePort range. NodePort range can be expanded in existing clusters but not shrunk. Updating the NodePort range to a smaller range will require a replacement of the cluster.
+        :param pulumi.Input[Union['CksClusterOidcArgs', 'CksClusterOidcArgsDict', 'outputs.CksClusterOidc']] oidc: OpenID Connect (OIDC) configuration for authentication to the api-server.
         :param pulumi.Input[_builtins.str] pod_cidr_name: The name of the vpc prefix to use as the pod CIDR range. The prefix must exist in the cluster's VPC.
         :param pulumi.Input[_builtins.str] pod_cidr_name_v6: IPv6 Pod CIDR name. If any IPv6 field is set, then ALL IPv6 fields must be set.
         :param pulumi.Input[_builtins.bool] public: Whether the cluster's api-server is publicly accessible from the internet.

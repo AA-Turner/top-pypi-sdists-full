@@ -47,7 +47,8 @@ def sync_detailed(
 ) -> Response[Status]:
     """Disconnect subnet from router
 
-     Disconnect the subnet from the default tenant router.
+     Disconnect the subnet from its router. The router is remembered, so connecting again returns the
+    subnet to it.
 
     Args:
         uuid (UUID):
@@ -78,7 +79,8 @@ def sync(
 ) -> Status:
     """Disconnect subnet from router
 
-     Disconnect the subnet from the default tenant router.
+     Disconnect the subnet from its router. The router is remembered, so connecting again returns the
+    subnet to it.
 
     Args:
         uuid (UUID):
@@ -104,7 +106,8 @@ async def asyncio_detailed(
 ) -> Response[Status]:
     """Disconnect subnet from router
 
-     Disconnect the subnet from the default tenant router.
+     Disconnect the subnet from its router. The router is remembered, so connecting again returns the
+    subnet to it.
 
     Args:
         uuid (UUID):
@@ -133,7 +136,8 @@ async def asyncio(
 ) -> Status:
     """Disconnect subnet from router
 
-     Disconnect the subnet from the default tenant router.
+     Disconnect the subnet from its router. The router is remembered, so connecting again returns the
+    subnet to it.
 
     Args:
         uuid (UUID):

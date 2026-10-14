@@ -106,7 +106,7 @@ class ObjectStorageBucketLifecycleConfiguration(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  bucket: pulumi.Input[Optional[_builtins.str]] = None,
-                 rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict']]]]] = None,
+                 rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict', 'outputs.ObjectStorageBucketLifecycleConfigurationRule']]]]] = None,
                  __props__=None):
         """
         Lifecycle configurations automate object management by defining actions applied to objects over time, such as expiring objects after a specified period or transitioning them to different storage tiers. This helps optimize storage costs and maintain data hygiene. Lifecycle configurations automate object management by defining actions applied to objects over time, such as expiring objects after a specified period or transitioning them to different storage tiers. This helps optimize storage costs and maintain data hygiene. [Learn more about S3-compatible lifecycle bucket configurations](https://docs.coreweave.com/products/storage/object-storage/reference/object-storage-s3#bucket-lifecycles).
@@ -173,7 +173,7 @@ class ObjectStorageBucketLifecycleConfiguration(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to apply lifecycle configuration to
-        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict']]]] rules: One or more lifecycle rule blocks
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict', 'outputs.ObjectStorageBucketLifecycleConfigurationRule']]]] rules: One or more lifecycle rule blocks
         """
         ...
     @overload
@@ -259,7 +259,7 @@ class ObjectStorageBucketLifecycleConfiguration(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  bucket: pulumi.Input[Optional[_builtins.str]] = None,
-                 rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict']]]]] = None,
+                 rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict', 'outputs.ObjectStorageBucketLifecycleConfigurationRule']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -284,7 +284,7 @@ class ObjectStorageBucketLifecycleConfiguration(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             bucket: pulumi.Input[Optional[_builtins.str]] = None,
-            rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict']]]]] = None) -> 'ObjectStorageBucketLifecycleConfiguration':
+            rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict', 'outputs.ObjectStorageBucketLifecycleConfigurationRule']]]]] = None) -> 'ObjectStorageBucketLifecycleConfiguration':
         """
         Get an existing ObjectStorageBucketLifecycleConfiguration resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -293,7 +293,7 @@ class ObjectStorageBucketLifecycleConfiguration(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to apply lifecycle configuration to
-        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict']]]] rules: One or more lifecycle rule blocks
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageBucketLifecycleConfigurationRuleArgs', 'ObjectStorageBucketLifecycleConfigurationRuleArgsDict', 'outputs.ObjectStorageBucketLifecycleConfigurationRule']]]] rules: One or more lifecycle rule blocks
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 

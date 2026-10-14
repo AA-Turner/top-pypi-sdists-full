@@ -188,6 +188,9 @@ def _no_ambient_cloud_app(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cloud_agents, "found_here", lambda source: False)
     # Never start a real, detached `probe capy sync` from a test.
     monkeypatch.setattr(capy_cli, "start_background_sync", lambda: "The first sync runs in the background.")
+    # Never open the real Capy app (`/Applications/Capy.app` is absolute, so
+    # a test HOME does not hide it); tests of the opener patch `open` itself.
+    monkeypatch.setattr(capy_cli, "can_open_add_plugin", lambda base_url=None: False)
 
 
 @pytest.fixture(autouse=True)

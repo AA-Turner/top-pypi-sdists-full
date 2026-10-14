@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 from astropy.modeling.fitting import TRFLSQFitter
 from astropy.modeling.models import Gaussian2D
-from astropy.utils.exceptions import AstropyDeprecationWarning
 from numpy.testing import assert_allclose
 
 from photutils.psf_matching.fourier import (create_matching_kernel,
@@ -15,6 +14,7 @@ from photutils.psf_matching.fourier import (create_matching_kernel,
 from photutils.psf_matching.tests.conftest import (
     _make_gaussian_psf, _make_gaussian_psf_noncentered)
 from photutils.psf_matching.windows import SplitCosineBellWindow
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 
 class TestMakeKernel:
@@ -33,6 +33,24 @@ class TestMakeKernel:
         gfit = fitter(gm1, xx, yy, kernel)
         assert_allclose(gfit.x_stddev, gfit.y_stddev)
         assert_allclose(gfit.x_stddev, np.sqrt(25 - 9), atol=0.06)
+
+    def test_window_nonsquare(self):
+        """
+        Test that a window gives a kernel with the same width along both
+        axes for nonsquare circular Gaussian PSFs.
+        """
+        shape = (51, 101)
+        yy, xx = np.mgrid[:shape[0], :shape[1]]
+        y0, x0 = shape[0] // 2, shape[1] // 2
+        rr2 = (xx - x0) ** 2 + (yy - y0) ** 2
+        psf1 = np.exp(-rr2 / (2 * 2.0**2))
+        psf2 = np.exp(-rr2 / (2 * 3.0**2))
+
+        window = SplitCosineBellWindow(alpha=0.3, beta=0.1)
+        kernel = make_kernel(psf1, psf2, window=window)
+        x_sigma = np.sqrt(np.sum(kernel * (xx - x0) ** 2))
+        y_sigma = np.sqrt(np.sum(kernel * (yy - y0) ** 2))
+        assert_allclose(x_sigma, y_sigma, rtol=0.01)
 
     def test_without_window(self, psf1, psf2):
         """
@@ -79,7 +97,7 @@ class TestMakeKernel:
 
     def test_non_callable_window(self, psf1, psf2):
         """
-        Test that non-callable window raises TypeError.
+        Test that noncallable window raises TypeError.
         """
         match = 'window must be a callable'
         with pytest.raises(TypeError, match=match):
@@ -285,7 +303,7 @@ class TestMakeKernelWiener:
 
     def test_non_callable_window(self, psf1, psf2):
         """
-        Test that non-callable window raises TypeError.
+        Test that noncallable window raises TypeError.
         """
         match = 'window must be a callable'
         with pytest.raises(TypeError, match=match):
@@ -306,6 +324,14 @@ class TestMakeKernelWiener:
         match = 'regularization must be a positive number'
         with pytest.raises(ValueError, match=match):
             make_wiener_kernel(psf1, psf2, regularization=0.0)
+
+    def test_nan_regularization(self, psf1, psf2):
+        """
+        Test that NaN regularization raises ValueError.
+        """
+        match = 'regularization must be a positive number'
+        with pytest.raises(ValueError, match=match):
+            make_wiener_kernel(psf1, psf2, regularization=np.nan)
 
     def test_penalty_string_equals_array(self, psf1, psf2):
         """
@@ -345,19 +371,81 @@ class TestMakeKernelWiener:
 
     def test_penalty_invalid_type(self, psf1, psf2):
         """
-        Test that an invalid penalty type raises ValueError.
+        Test that a penalty that cannot be converted to a numeric
+        array raises ValueError.
         """
         match = 'penalty must be None'
         with pytest.raises(ValueError, match=match):
-            make_wiener_kernel(psf1, psf2, penalty=42)
+            make_wiener_kernel(psf1, psf2, penalty={'bad': 1})
 
-    def test_penalty_non_2d_array(self, psf1, psf2):
+    @pytest.mark.parametrize('penalty', [42, np.ones(5), [1.0, 2.0, 3.0]])
+    def test_penalty_non_2d_array(self, psf1, psf2, penalty):
         """
         Test that a non-2D penalty array raises ValueError.
         """
         match = 'penalty array must be 2D'
         with pytest.raises(ValueError, match=match):
-            make_wiener_kernel(psf1, psf2, penalty=np.ones(5))
+            make_wiener_kernel(psf1, psf2, penalty=penalty)
+
+    def test_penalty_even_dimensions(self, psf1, psf2):
+        """
+        Test that a penalty array with even dimensions raises
+        ValueError.
+        """
+        match = 'penalty array must have odd dimensions'
+        with pytest.raises(ValueError, match=match):
+            make_wiener_kernel(psf1, psf2, penalty=np.ones((2, 2)))
+
+    def test_penalty_non_finite(self, psf1, psf2):
+        """
+        Test that a penalty array with NaN or Inf values raises
+        ValueError.
+        """
+        penalty = np.zeros((3, 3))
+        penalty[1, 1] = np.nan
+        match = 'penalty array contains NaN or Inf values'
+        with pytest.raises(ValueError, match=match):
+            make_wiener_kernel(psf1, psf2, penalty=penalty)
+
+        penalty[1, 1] = np.inf
+        with pytest.raises(ValueError, match=match):
+            make_wiener_kernel(psf1, psf2, penalty=penalty)
+
+    def test_penalty_all_zeros(self, psf1, psf2):
+        """
+        Test that an all-zero penalty array raises ValueError because
+        it would apply no regularization.
+        """
+        match = 'penalty array must not be all zeros'
+        with pytest.raises(ValueError, match=match):
+            make_wiener_kernel(psf1, psf2, penalty=np.zeros((3, 3)))
+
+    def test_penalty_array_like(self, psf1, psf2):
+        """
+        Test that an array-like penalty gives the same result as the
+        equivalent ndarray penalty.
+        """
+        laplacian = [[0, -1, 0], [-1, 4, -1], [0, -1, 0]]
+        kernel_list = make_wiener_kernel(psf1, psf2, penalty=laplacian)
+        kernel_arr = make_wiener_kernel(psf1, psf2,
+                                        penalty=np.array(laplacian))
+        assert_allclose(kernel_list, kernel_arr)
+
+    def test_non_finite_kernel_raises(self):
+        """
+        Test that a degenerate Fourier-space denominator raises
+        ValueError instead of silently returning a nonfinite kernel.
+
+        A uniform source PSF and a uniform penalty operator both have
+        OTFs that are zero away from the DC frequency, so the Wiener
+        denominator is zero where the numerator is also zero (0/0).
+        """
+        source_psf = np.ones((3, 3)) / 9.0
+        target_psf = _make_gaussian_psf(3, 1.0)
+        penalty = np.ones((3, 3))
+        match = 'The computed kernel contains nonfinite values'
+        with pytest.raises(ValueError, match=match):
+            make_wiener_kernel(source_psf, target_psf, penalty=penalty)
 
     def test_penalty_psf_too_small_for_laplacian(self):
         """
@@ -589,7 +677,7 @@ class TestCreateMatchingKernelDeprecated:
         """
         Test that create_matching_kernel raises a deprecation warning.
         """
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             kernel = create_matching_kernel(psf1, psf2)
         assert_allclose(kernel.sum(), 1.0)
 
@@ -598,7 +686,7 @@ class TestCreateMatchingKernelDeprecated:
         Test that create_matching_kernel returns the same result as
         make_kernel.
         """
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             kernel_old = create_matching_kernel(psf1, psf2)
         kernel_new = make_kernel(psf1, psf2)
         assert_allclose(kernel_old, kernel_new)

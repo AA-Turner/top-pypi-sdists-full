@@ -21,7 +21,6 @@ import asyncio
 import contextlib
 import enum
 import logging
-import sys
 from collections.abc import AsyncIterator
 from typing import cast
 
@@ -163,23 +162,29 @@ async def continuous_watch(
         operator_pause_waiter: aiotasks.Future,
 ) -> AsyncIterator[Bookmark | bodies.RawEvent]:
 
-    # First, list the resources regularly, and get the list's resource version.
+    # NB: it must remain None for the server-side initial streaming.
+    resource_version: str | None = None
+    in_initial_streaming: bool = settings.watching.initial_streaming
+
+    # First, list the resources in chunks, and get the list's resource version.
     # Simulate the events with type "None" event - used in detection of causes.
-    try:
-        objs, resource_version = await fetching.list_objs(
-            logger=logger,
-            settings=settings,
-            resource=resource,
-            namespace=namespace,
-        )
-        for obj in objs:
-            yield {'type': None, 'object': obj}
+    if not settings.watching.initial_streaming:
+        try:
+            async for chunk, resource_version in fetching.fetch_objs(
+                logger=logger,
+                settings=settings,
+                resource=resource,
+                namespace=namespace,
+            ):
+                for obj in chunk:
+                    yield {'type': None, 'object': obj}
+                del chunk  # optional optimization: keep only one chunk in memory
 
-    except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, asyncio.TimeoutError):
-        return
+        except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, TimeoutError):
+            return
 
-    # Notify the watcher that the initial listing is over, even if there was nothing yielded.
-    yield Bookmark.LISTED
+        # Notify the watcher that the initial listing is over, even if there was nothing yielded.
+        yield Bookmark.LISTED
 
     # Repeat through disconnects of the watch as long as the resource version is valid (no errors).
     # The individual watching API calls are disconnected by timeout even if the stream is fine.
@@ -214,6 +219,16 @@ async def continuous_watch(
                 logger.warning(f"Ignoring an unsupported event type: {raw_input!r}")
                 continue
 
+            # While in the initial streaming, enforce Kopf's convention for type=None:
+            # this is used for skipping such initial events (process_discovered_resource_event()).
+            # The very first bookmark ends the initial streaming (see K8s docs).
+            if in_initial_streaming:
+                if raw_type == 'ADDED':
+                    raw_input['type'] = None
+                if raw_type == 'BOOKMARK':
+                    in_initial_streaming = False
+                    yield Bookmark.LISTED  # before the raw event itself; as if after fetch_objs().
+
             # Keep the latest seen resource version for continuation of the stream on disconnects.
             body = cast(bodies.RawBody, raw_object)
             resource_version = body.get('metadata', {}).get('resourceVersion', resource_version)
@@ -242,13 +257,30 @@ async def watch_objs(
 
     * The resource is namespace-scoped AND operator is namespaced-restricted.
     """
+    # Deduplicate, then sort it to make it somewhat predictable, just for the beauty of logs.
+    # NB1: this also applies to namespaces & CRDs in the watch-streams of the root observer.
+    # NB2: it is mirrored by the same logic & query filters in the listing operation.
+    label_selector = ','.join(sorted(set(settings.watching.label_selectors.collect(resource))))
+    field_selector = ','.join(sorted(set(settings.watching.field_selectors.collect(resource))))
+    shard_selector, *_ = settings.watching.shard_selectors.collect(resource) or ['']
+
     params: dict[str, str] = {}
     params['watch'] = 'true'
     params['allowWatchBookmarks'] = 'true'
+    if label_selector:
+        params['labelSelector'] = label_selector
+    if field_selector:
+        params['fieldSelector'] = field_selector
+    if shard_selector:
+        params['shardSelector'] = shard_selector
     if since is not None:
         params['resourceVersion'] = since
     if settings.watching.server_timeout is not None:
         params['timeoutSeconds'] = str(settings.watching.server_timeout)
+    if since is None and settings.watching.initial_streaming:
+        # NB: strictly in initial watch-streams, not in continuations/reconnections.
+        params['sendInitialEvents'] = 'true'
+        params['resourceVersionMatch'] = 'NotOlderThan'
 
     connect_timeout = (
         settings.watching.connect_timeout if settings.watching.connect_timeout is not None else
@@ -261,12 +293,7 @@ async def watch_objs(
     # The inactivity timeout is reset after each received event; if no event arrives
     # within the window, asyncio.timeout() cancels the outer task and we log & return.
     try:
-        # Python 3.10 does not have asyncio.timeout(); fall back to the unprotected version.
-        # TODO: Remove when Python 3.10 is deprecated in Oct'26 (and the "if timeout_cm…" below).
-        if sys.version_info < (3, 11):  # 3.10 only
-            timeout = contextlib.nullcontext(None)
-        else:
-            timeout = asyncio.timeout(settings.watching.inactivity_timeout)
+        timeout = asyncio.timeout(settings.watching.inactivity_timeout)
         async with timeout as timeout_cm:
             async for raw_input in api.stream(
                 url=resource.get_url(namespace=namespace, params=params),
@@ -285,5 +312,5 @@ async def watch_objs(
     except TimeoutError:
         where = f'in {namespace!r}' if namespace is not None else 'cluster-wide'
         logger.debug(f"Watch-stream for {resource} {where} is inactive, reconnecting.")
-    except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, asyncio.TimeoutError):
+    except (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, TimeoutError):
         pass

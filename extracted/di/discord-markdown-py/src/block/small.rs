@@ -6,21 +6,36 @@ use nom::{
 	sequence::{pair, preceded},
 };
 
+use derive_where::derive_where;
+
 use crate::{
-	Input, block::inline_block, context::Context, error::ParseError, grammar::Grammar,
-	node::SpannedNodes, span::Span, unparse::Unparse,
+	Input,
+	block::inline_block,
+	context::Context,
+	error::ParseError,
+	grammar::Grammar,
+	node::{Node, ParsedNode, Sequence, SpannedNodes},
+	span::Span,
+	unparse::Unparse,
 };
 
 pub const PREFIX: &str = "-#";
 
 /// Small content.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Small<'data, S: Span> {
-	pub content: SpannedNodes<'data, S>,
+#[derive_where(Debug, Clone, PartialEq, Eq; N)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(bound(
+		serialize = "N: serde::Serialize",
+		deserialize = "N: serde::Deserialize<'de>"
+	))
+)]
+pub struct Small<S: Span, N> {
+	pub content: Sequence<S, N>,
 }
 
-impl<S> Unparse for Small<'_, S>
+impl<S> Unparse for Small<S, Node<'_, S>>
 where
 	S: Span,
 {
@@ -43,7 +58,7 @@ pub fn unparse<S: Span>(
 /// Parse small content.
 pub fn small<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = Small<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = Small<S, ParsedNode<'data, S>>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -61,7 +76,14 @@ where
 mod test {
 	use nom::{Finish, Parser};
 
-	use crate::{context::Context, spanned_vec, test_utils::handle_nom_err, text};
+	use crate::{
+		context::Context,
+		node::{Element, Node, ParsedNode},
+		range::Content,
+		spanned_vec,
+		test_utils::{handle_nom_err, resolved_node},
+		text,
+	};
 
 	use super::{Small, small};
 
@@ -76,10 +98,10 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
-			Small {
+			resolved_node(ParsedNode::Element(Element::Small(res)), Content::Blocks),
+			Node::Element(Element::Small(Small {
 				content: spanned_vec![text!("foo")]
-			}
+			}))
 		);
 	}
 }

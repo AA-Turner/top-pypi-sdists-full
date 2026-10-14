@@ -48,7 +48,8 @@ class Capabilities:
     #: mid-turn (not only at the next prompt).
     inject_tool: bool = False
     #: Daemon reads: a hook can wake the agent after its turn ended, to hand it
-    #: the answer to an open ask (Claude Code's Stop hook with `asyncRewake`).
+    #: the answer to an open ask or a run alert (Claude Code's Stop hook with
+    #: `asyncRewake`).
     wake: bool = False
 
 

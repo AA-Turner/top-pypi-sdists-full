@@ -1108,9 +1108,11 @@ class binance(ccxt.async_support.binance):
         # handle list of symbols
         for i in range(0, len(symbols)):
             symbol = symbols[i]
-            if symbol in self.orderbooks:
-                del self.orderbooks[symbol]
-            self.orderbooks[symbol] = self.order_book({}, limit)
+            if not (symbol in self.orderbooks):
+                self.orderbooks[symbol] = self.order_book({}, limit)
+            orderbook = self.orderbooks[symbol]
+            orderbook['nonce'] = None
+            orderbook.cache = []
             symbolSubscription = self.extend(subscription, {'symbol': symbol})
             # fetch the snapshot in a separate async call
             self.spawn(self.fetch_order_book_snapshot, client, message, symbolSubscription)
@@ -2645,8 +2647,6 @@ class binance(ccxt.async_support.binance):
             # another caller is already subscribing, wait for it instead of subscribing again
             await client.future(messageHash)
             return
-        client.future(messageHash)  # created ahead of the request below, so concurrent callers can find it
-        client.subscriptions[marketType] = True
         requestId = self.request_id(url)
         requestHash = str(requestId)
         message = {
@@ -2659,6 +2659,10 @@ class binance(ccxt.async_support.binance):
             'method': self.handle_user_data_stream_subscribe,
             'subscription': marketType,
         }
+        # created right before the request, after the signing above: concurrent callers find it, and in
+        # the threaded ports the ack can not arrive between this future and the request one watch () adds
+        client.future(messageHash)
+        client.subscriptions[marketType] = True
         try:
             await self.watch(url, requestHash, message, requestHash, subscription)
             client.resolve(marketType, messageHash)
@@ -3767,7 +3771,7 @@ class binance(ccxt.async_support.binance):
         }
         isConditional = self.safe_bool_n(paramsReturnRateLimits, ['stop', 'trigger', 'conditional'])
         clientOrderId = self.safe_string_n(paramsReturnRateLimits, ['clientAlgoId', 'origClientOrderId', 'clientOrderId'])
-        shouldUseAlgoOrder = (market['linear'] is True) and (market['swap'] is True) and (isConditional is True)
+        shouldUseAlgoOrder = (market['linear'] is True) and ((market['swap'] is True) or (market['future'] is True)) and (isConditional is True)
         if clientOrderId is not None:
             if shouldUseAlgoOrder is True:
                 payload['clientAlgoId'] = clientOrderId
@@ -4297,6 +4301,7 @@ class binance(ccxt.async_support.binance):
         if timeInForce == 'GTX':
             # GTX means "Good Till Crossing" and is an equivalent way of saying Post Only
             timeInForce = 'PO'
+        postOnly = (orderType == 'limit_maker') or (timeInForce == 'PO')
         return self.safe_order({
             'info': order,
             'symbol': symbol,
@@ -4308,7 +4313,7 @@ class binance(ccxt.async_support.binance):
             'lastUpdateTimestamp': lastUpdateTimestamp,
             'type': self.parseOrderTypeByMarket(orderType, marketType),
             'timeInForce': timeInForce,
-            'postOnly': None,
+            'postOnly': postOnly,
             'reduceOnly': self.safe_bool(order, 'R'),
             'side': self.safe_string_lower(order, 'S'),
             'price': self.safe_string(order, 'p'),

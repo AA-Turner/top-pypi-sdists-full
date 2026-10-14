@@ -45,7 +45,8 @@ public:
             size_t concurrency,
             size_t io_depth,
             Backend backend,
-            const vector<pair<size_t, size_t>>& tensor_offsets)
+            const vector<pair<size_t, size_t>>& tensor_offsets,
+            const vector<bool>& tensor_keep)
     {
         this->device_idx = device_idx;
 
@@ -76,7 +77,7 @@ public:
             NCCL_CHECK(ncclCommCount(nccl_group_communicator, &world_size));
         }
 
-        int req_id = this->call(loader_handle, OPEN, std::make_any<OpenArgs>(filenames, device_idx, nccl_group_communicator, rank, world_size, buffer_size, chunk_size, concurrency, io_depth, backend, tensor_offsets));
+        int req_id = this->call(loader_handle, OPEN, std::make_any<OpenArgs>(filenames, device_idx, nccl_group_communicator, rank, world_size, buffer_size, chunk_size, concurrency, io_depth, backend, tensor_offsets, tensor_keep));
         this->get_result(loader_handle, req_id);
         return loader_handle;
     }
@@ -110,13 +111,14 @@ int open(const vector<string> &filenames,
         size_t concurrency,
         size_t io_depth,
         int backend,
-        const vector<pair<size_t, size_t>>& tensor_offsets)
+        const vector<pair<size_t, size_t>>& tensor_offsets,
+        const vector<bool>& tensor_keep)
 {
     if(!manager) {
         manager = std::make_unique<LoaderManager>();
     }
     Backend backend_enum = static_cast<Backend>(backend);
-    return manager->open(filenames, device_idx, process_group, buffer_size, chunk_size, concurrency, io_depth, backend_enum, tensor_offsets);
+    return manager->open(filenames, device_idx, process_group, buffer_size, chunk_size, concurrency, io_depth, backend_enum, tensor_offsets, tensor_keep);
 }
 
 void close(int loader_handle) {
@@ -208,7 +210,8 @@ PYBIND11_MODULE(_C, m) {
           pybind11::arg("concurrency"),
           pybind11::arg("io_depth"),
           pybind11::arg("backend"),
-          pybind11::arg("tensor_offsets"));
+          pybind11::arg("tensor_offsets"),
+          pybind11::arg("tensor_keep") = std::vector<bool>{});
 
     m.def("close", &instanttensor::close,
           "Close the loader handle and cleanup resources",

@@ -496,8 +496,8 @@ bool wxTextCtrl::Create(wxWindow *parent,
 // returns true if the platform should explicitly apply a theme border
 bool wxTextCtrl::CanApplyThemeBorder() const
 {
-    // Standard text control already handles theming
-    return ((GetWindowStyle() & (wxTE_RICH|wxTE_RICH2)) != 0);
+    // Standard text control already handles theming.
+    return IsRich();
 }
 
 bool wxTextCtrl::MSWCreateText(const wxString& value,
@@ -1784,6 +1784,8 @@ wxPoint wxTextCtrl::DoPositionToCoords(long pos) const
         LRESULT rc = ::SendMessage(GetHwnd(), EM_POSFROMCHAR, (WPARAM)&pt, pos);
         if ( rc != -1 )
             return wxPoint(pt.x, pt.y);
+
+        return wxDefaultPosition;
     }
     else
 #endif // wxUSE_RICHEDIT
@@ -1852,8 +1854,6 @@ wxPoint wxTextCtrl::DoPositionToCoords(long pos) const
         return wxPoint(static_cast<short>(LOWORD(rc)),
                         static_cast<short>(HIWORD(rc)));
     }
-
-    return wxDefaultPosition;
 }
 
 
@@ -2120,9 +2120,8 @@ bool wxTextCtrl::MSWShouldPreProcessMessage(WXMSG* msg)
         }
     }
 
-    // Delegate all the other checks to the base classes.
-    return wxTextEntry::MSWShouldPreProcessMessage(msg) &&
-                wxControl::MSWShouldPreProcessMessage(msg);
+    // Delegate all the other checks to the base class.
+    return wxControl::MSWShouldPreProcessMessage(msg);
 }
 
 void wxTextCtrl::OnChar(wxKeyEvent& event)
@@ -2684,7 +2683,8 @@ bool wxTextCtrl::AcceptsFocusFromKeyboard() const
     // we don't want focus if we can't be edited unless we're a multiline
     // control because then it might be still nice to get focus from keyboard
     // to be able to scroll it without mouse
-    return (IsEditable() || IsMultiLine()) && wxControl::AcceptsFocus();
+    return (IsEditable() || IsMultiLine() || m_enableFocusFromKbd) &&
+            wxControl::AcceptsFocus();
 }
 
 wxSize wxTextCtrl::DoGetBestSize() const
@@ -2857,6 +2857,69 @@ void wxTextCtrl::OnSetFocus(wxFocusEvent& event)
     event.Skip();
 }
 
+bool wxTextCtrl::MSWShouldDrawDarkThemeBorder() const
+{
+    // We need to draw the border for rich edit and when we are not using
+    // DarkMode_DarkTheme. The non-rich control draws a good themed border
+    // with DarkMode_DarkTheme.
+    return IsRich() || !wxMSWDarkMode::HasDarkTheme();
+}
+
+void wxTextCtrl::MSWDrawThemeBorder(WXHDC hdc)
+{
+    if ( IsRich() )
+    {
+        // Always draw a simple border.
+        wxTextCtrlBase::MSWDrawThemeBorder(hdc);
+    }
+    else
+    {
+        // Draw a dark mode border similar to how the control looks in light
+        // mode. If the control has the focus, a blue line appears along the
+        // bottom otherwise a light gray line.
+        RECT rect;
+        wxCopyRectToRECT(GetSize(), rect);
+
+        // Colors taken from the Edit control rendered with
+        // DarkMode_DarkTheme, as can be seen with wxFindReplaceDialog.
+        const COLORREF colOuter = 0x383838;
+        const COLORREF colInnerFocus = 0x212121;
+        const COLORREF colInnerNoFocus = 0x2c2c2c;
+        const COLORREF colBottomFocus = 0xffc24c;
+        const COLORREF colBottomNoFocus = 0xa4a4a4;
+        COLORREF colInner;
+        COLORREF colBottom;
+        int thicknessBot;
+        if ( HasFocus() )
+        {
+            colInner = colInnerFocus;
+            colBottom = colBottomFocus;
+            thicknessBot = 2;
+        }
+        else
+        {
+            colInner = colInnerNoFocus;
+            colBottom = colBottomNoFocus;
+            thicknessBot = 1;
+        }
+
+        // Draw outer 1 pixel thick border with a rectangle. The bottom will be
+        // drawn over later.
+        AutoHBRUSH brushBorder(colOuter);
+        ::FrameRect(hdc, &rect, brushBorder);
+        // Draw inner 1 pixel thick rectangle.
+        AutoHBRUSH brushBg(colInner);
+        RECT rcInner = rect;
+        ::InflateRect(&rcInner, -1, -1);
+        ::FrameRect(hdc, &rcInner, brushBg);
+        // Draw 1 or 2 pixel thick bottom line.
+        AutoHBRUSH brushBottom(colBottom);
+        RECT rcBottom = rect;
+        rcBottom.top = rect.bottom - thicknessBot;
+        ::FillRect(hdc, &rcBottom, brushBottom);
+    }
+}
+
 // the rest of the file only deals with the rich edit controls
 #if wxUSE_RICHEDIT
 
@@ -2922,9 +2985,19 @@ void wxTextCtrl::MSWSetRichZoom()
     ::SendMessage(GetHWND(), EM_SETZOOM, (WPARAM)num, (LPARAM)denom);
 }
 
-void wxTextCtrl::MSWSetDarkOrLightMode(SetMode setmode)
+#endif // wxUSE_RICHEDIT
+
+void wxTextCtrl::MSWGetDarkModeSupport(MSWDarkModeSupport& support) const
 {
-    wxTextCtrlBase::MSWSetDarkOrLightMode(setmode);
+    if ( wxMSWDarkMode::HasDarkTheme() )
+        support.themeName = L"DarkMode_DarkTheme";
+    else
+        wxTextCtrlBase::MSWGetDarkModeSupport(support);
+}
+
+void wxTextCtrl::MSWSetDarkOrLightMode()
+{
+    wxTextCtrlBase::MSWSetDarkOrLightMode();
 
     // Update the background for non-rich read-only multiline, unless there
     // are custom colours. The foreground is updated by
@@ -2946,7 +3019,7 @@ void wxTextCtrl::MSWSetDarkOrLightMode(SetMode setmode)
         // True if we need to update the background colour.
         bool setBackground = false;
 
-        if ( setmode == SetMode::Change )
+        if ( wxMSWDarkMode::HasChanged() )
         {
             // Get formatting info for all the text.
             long sel1, sel2;
@@ -2997,6 +3070,8 @@ void wxTextCtrl::MSWSetDarkOrLightMode(SetMode setmode)
     }
 #endif
 }
+
+#if wxUSE_RICHEDIT
 
 void wxTextCtrl::MSWUpdateFontOnDPIChange(const wxSize& newDPI)
 {

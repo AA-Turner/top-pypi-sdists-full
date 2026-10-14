@@ -6,13 +6,11 @@ import importlib.metadata
 
 from . import constants
 
-from .colors import MessageColors
 from .exceptions import DefinitionError
 from .main import AnsibleBuilder
 from .policies import PolicyChoices
 from ._target_scripts.introspect import create_introspect_parser, run_introspect
-from .utils import configure_logger
-
+from .utils import configure_logger, deprecation_notice
 
 logger = logging.getLogger(__name__)
 
@@ -40,19 +38,62 @@ class CustomVerbosityAction(argparse.Action):
         setattr(namespace, self.dest, self.count)
 
 
+def _should_disable_colors() -> bool:
+    """
+    Check the environment to decide if text colorization should be disabled.
+
+    This follows the no-color.org standard and related conventions:
+    - NO_COLOR: Disable colors (no-color.org standard)
+    - CLICOLOR: Enable/disable colors (0 = disabled)
+    - TERM=dumb: Disable colors
+    - TTY detection: Disable colors when not outputting to terminal
+    - CI detection: Disable colors in common CI environments
+
+    :returns: True if colors are disabled, False if enabled.
+    """
+
+    if os.environ.get('NO_COLOR', None):
+        return True
+
+    if os.environ.get('TERM', '') == 'dumb':
+        return True
+
+    # CLICOLOR=0 explicitly disables colors
+    if os.environ.get('CLICOLOR', '1') == '0':
+        return True
+
+    # Common CI environments (usually want plain output)
+    ci_vars = ['CI', 'CONTINUOUS_INTEGRATION', 'BUILD_NUMBER', 'GITHUB_ACTIONS']
+    if any(os.environ.get(var) for var in ci_vars):
+        return True
+
+    # TTY detection - disable if not outputting to terminal
+    if not sys.stdout.isatty():
+        return True
+
+    # Default: colors enabled
+    return False
+
+
 def run():
     args = parse_args()
-    configure_logger(args.verbosity)
+
+    disable_colors = _should_disable_colors()
+
+    configure_logger(args.verbosity, disable_colors)
 
     if args.action in ['create', 'build']:
         ab = AnsibleBuilder(**vars(args))
+
+        if ab.version in (1, 2):
+            deprecation_notice(f'Execution environment schema version {ab.version} is deprecated and will be '
+                               'removed in a future release. Version 3 will be the minimum version supported.')
+
         action = getattr(ab, ab.action)
         try:
             if action():
-                print(
-                    f"{MessageColors.OKGREEN}Complete! The build context can be found at: "
-                    f"{os.path.abspath(ab.build_context)}{MessageColors.ENDC}"
-                )
+                logger.log(constants.SUCCESS_LOGLEVEL,
+                           "Complete! The build context can be found at: %s", os.path.abspath(ab.build_context))
                 sys.exit(0)
         except DefinitionError as e:
             logger.error(e.args[0])
@@ -227,6 +268,15 @@ def parse_args(args=None):
 
 
 class BuildArgAction(argparse.Action):
+    """
+    Custom argparse.Action for handling build arguments.
+
+    The BuildArgAction class is designed to parse and handle build arguments
+    provided as key-value pairs via a command-line interface. This is often used
+    in container build tools like Docker or Podman. The class ensures that build
+    arguments are properly processed and stored within the argparse.Namespace for
+    further use.
+    """
     def __call__(self, parser, namespace, values, option_string=None):
         key, sep, value = values.partition("=")
         attr = getattr(namespace, self.dest)

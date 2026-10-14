@@ -707,23 +707,39 @@ def _readme_note(state: Any, reason: Any) -> str | None:
 #: next hundred: room for the re-read to come back a little longer.
 _SERIES_BUDGET_HEADROOM = 1.1
 
-#: A delivery cursor of representative size. A read that fits its own rows to
-#: the budget must leave room for the continuation token delivery puts in
-#: `next_cursor` -- a bound, compressed state roughly this long, not the short
-#: native cursor the service writes there.
-_DELIVERY_CURSOR_STAND_IN = _encode_delivery_cursor(
-    {
-        "native": "9999",
-        # A page cursor carries the read's identity snapshot (a 64-hex hash,
-        # which does not compress) -- see `_check_series_identity`.
-        "source_snapshot": {
-            "source": "series",
-            "end": 0,
-            "sha256": hashlib.sha256(b"series-identity-stand-in").hexdigest(),
-        },
+#: The state of a delivery cursor of representative size. A read that fits its
+#: own rows to the budget must leave room for the continuation token delivery
+#: puts in `next_cursor` -- a bound, compressed state roughly this long, not the
+#: short native cursor the service writes there.
+_DELIVERY_CURSOR_STAND_IN_STATE = {
+    "native": "9999",
+    # A page cursor carries the read's identity snapshot (a 64-hex hash,
+    # which does not compress) -- see `_check_series_identity`.
+    "source_snapshot": {
+        "source": "series",
+        "end": 0,
+        "sha256": hashlib.sha256(b"series-identity-stand-in").hexdigest(),
     },
-    hashlib.sha256(b"delivery-cursor-stand-in").hexdigest()[:32],
-)
+}
+
+
+def _stand_in_request(fallback: str) -> Any:
+    """What a stand-in cursor is encoded for: the request delivery will bind
+    the real one to, when this read runs under delivery. A cursor also carries
+    the call's optional arguments (`continuation.Request`), and a stand-in
+    without them undercounts the real one by exactly those tokens -- the page
+    then overflows and goes out as fragments. Outside delivery, `fallback`."""
+    context = current_delivery()
+    request = context.request if context is not None else None
+    return fallback if request is None else request
+
+
+def _delivery_cursor_stand_in() -> str:
+    return _encode_delivery_cursor(
+        _DELIVERY_CURSOR_STAND_IN_STATE,
+        _stand_in_request(hashlib.sha256(b"delivery-cursor-stand-in").hexdigest()[:32]),
+    )
+
 
 # `limit` at 200; the token budget trims below this anyway.
 
@@ -3471,7 +3487,7 @@ class ResearchReadService:
         for 60 entries of 250-character paths where an offset cursor took 22.
         One row is always sent; one too big alone is fragmented by delivery."""
         budget = Budget(token_budget)
-        request_id = hashlib.sha256(b"resume-cursor-stand-in").hexdigest()[:32]
+        request_id = _stand_in_request(hashlib.sha256(b"resume-cursor-stand-in").hexdigest()[:32])
 
         def page(count: int) -> dict:
             rows = window[:count]
@@ -5216,7 +5232,7 @@ class ResearchReadService:
         # native one: delivery wraps `next_cursor` in a bound, compressed token of
         # about this size, and a fit computed without it overflows by exactly
         # that much.
-        stand_in = _DELIVERY_CURSOR_STAND_IN
+        stand_in = _delivery_cursor_stand_in()
         low, high, kept = 1, remaining, 0
         while low <= high:
             mid = (low + high) // 2

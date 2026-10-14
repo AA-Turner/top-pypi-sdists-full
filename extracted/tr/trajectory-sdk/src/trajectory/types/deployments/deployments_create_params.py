@@ -14,7 +14,7 @@ class ModelEndpointConfigParam(TypedDict, total=False):
   max_turns_per_trajectory: int
   temperature_override: float | None
   disable_thinking: bool
-  reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None
+  reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None
   tokenizer_path: str | None
 
 

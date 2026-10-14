@@ -15,9 +15,13 @@ exactly:
   ``fnid``, so the join needs no name matching and is insensitive to
   which admin level the extraction ran at.
 
-Only **extended-term** forecasts are produced: a combination is forecast
-only while its next season has not started. ``in_season`` combinations
-belong to the in-season CID system and are excluded with that reason.
+The forecast window opens 4 months before planting and, since the cutoff
+at planting was removed, stays open after planting until the end of the
+harvest month or the end of S2S coverage of the season, whichever is
+earlier (``s2s_eligibility.window_state``). After planting the forecast
+comes from an init issued after planting (offset < 1), which forecasts
+only the season months still ahead of it; the elapsed months are observed
+weather, which this model never sees.
 
 Usage::
 
@@ -36,7 +40,7 @@ import pandas as pd
 
 from geocif.experiments.s2s_eligibility import window_state
 from geocif.experiments.s2s_pooled_model import (
-    REAL_INIT_YEARS, init_calendar, lead_map, season_months)
+    MIN_OFFSET, REAL_INIT_YEARS, init_calendar, lead_map, season_months)
 from geocif.experiments.s2s_simple_model import (
     FEATURES, _fold_bins, _to_class, fit_ols, predict_ols)
 from geocif.utils import PRIMARY_SEASON_NAMES, SECONDARY_SEASON_NAMES
@@ -54,6 +58,10 @@ EWCM_STEM = {"maize": "maize"}
 MIN_YEARS = 12          # usable harvest years needed to fit + score
 MIN_UNITS = 5           # admin units needed for within-year ranking
 MAX_OFFSET = 4          # months before planting (1..4); 4 loses grain-fill
+# Offsets run MIN_OFFSET..MAX_OFFSET: 0 is an init issued in the planting
+# month, -2 one issued two months after planting (MIN_OFFSET, the last whose
+# lead 1 reaches the season's final month).
+OFFSETS = list(range(MIN_OFFSET, MAX_OFFSET + 1))
 OOS_TOLERANCE = 1.0     # sd beyond the training range still called in-support
 N_PERM = 300            # year-block permutations behind the skill test
 PERM_ALPHA = 0.05       # one-sided; NOT corrected for the 17-combination sweep
@@ -317,6 +325,20 @@ def load_s2s_fnid(country_root, var):
     return df.drop_duplicates(["fnid", "year", "month"])
 
 
+def reference_harvest_years(planting, offset, wraps):
+    """Harvest years whose init at ``offset`` is a real 1993-2016 hindcast.
+
+    These anchor the z-scores. A fixed 1994-2017 list only fits inits
+    issued in the year before harvest; an init in the harvest year itself
+    (unwrapped seasons, and post-planting inits that cross New Year) put a
+    climatology-filled 2017 init into the reference and left real 1993 out.
+    """
+    return [y for y in range(REAL_INIT_YEARS[0] - 1, REAL_INIT_YEARS[1] + 3)
+            if REAL_INIT_YEARS[0]
+            <= init_calendar(planting, offset, y, wraps)[0]
+            <= REAL_INIT_YEARS[1]]
+
+
 def build_features(tp, t2, planting, wraps, offset, years, fnids):
     """z-scored S2S features per (fnid, harvest year) for one init offset."""
     lm = lead_map(planting, offset)
@@ -324,7 +346,7 @@ def build_features(tp, t2, planting, wraps, offset, years, fnids):
     gf = [m for m in season_months(planting)[2:4] if m in lm]
     if not smon:
         return pd.DataFrame()
-    real = list(range(REAL_INIT_YEARS[0] + 1, REAL_INIT_YEARS[1] + 2))
+    real = reference_harvest_years(planting, offset, wraps)
     tp_i = tp.set_index(["fnid", "year", "month"]).sort_index()
     t2_i = t2.set_index(["fnid", "year", "month"]).sort_index()
 
@@ -418,10 +440,12 @@ def features_for_offset(offset, feature_set=DEFAULT_FEATURE_SET):
     """The feature list an init at ``offset`` can actually construct.
 
     Offsets beyond 3 lose grain-fill rainfall: the window would sit past
-    lead 6, the edge of the S2S horizon.
+    lead 6, the edge of the S2S horizon. Offsets below 0 (two or more months
+    after planting) see only grain-fill months, so P_GF would duplicate
+    PRCPTOT and make the fit singular.
     """
     feats = FEATURE_SETS.get(feature_set, FEATURE_SETS[DEFAULT_FEATURE_SET])
-    if offset > 3:
+    if offset > 3 or offset < 0:
         feats = [f for f in feats if f != "z_P_GF"]
     return list(feats)
 
@@ -449,6 +473,36 @@ def real_harvest_years(planting, offset, wraps, years):
     return [y for y in years
             if init_calendar(planting, offset, int(y), wraps)[0]
             <= REAL_INIT_YEARS[1]]
+
+
+def is_climatology_fill(tp, init_year, init_month, fnids):
+    """True when an init's rows are geoprepare's climatology fill.
+
+    geoprepare writes every init between the 2016 hindcast end and the year
+    the CSVs were built as a copy of the hindcast mean, replacing the REAL
+    forecasts of earlier calendar years. A run in January after a rebuild
+    would otherwise forecast from December's "init" and issue climatology.
+    2017 is always a fill year, so an init is fill when it equals 2017's
+    rows for the same month.
+    """
+    ref = REAL_INIT_YEARS[1] + 1
+    if init_year <= REAL_INIT_YEARS[1]:
+        return False
+    if init_year == ref:
+        return True
+    cols = [c for c in tp.columns if c.startswith("s2s_tprate_lead")]
+
+    def rows(y):
+        r = tp[(tp["year"] == y) & (tp["month"] == init_month)
+               & tp["fnid"].isin(fnids)]
+        return r.set_index("fnid")[cols].sort_index()
+
+    a, b = rows(init_year), rows(ref)
+    a, b = a.align(b, join="inner")
+    if a.empty:
+        return False
+    return bool(np.allclose(a.to_numpy(dtype=float), b.to_numpy(dtype=float),
+                            equal_nan=True))
 
 
 def clip_to_support(fx, train, feats):
@@ -1065,10 +1119,11 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
     """Enumerate, score and forecast every eligible HarvestStat combination.
 
     ``forecast_offset`` pins the init used for the forecast to that many
-    months before planting, instead of taking the freshest usable one.
+    months before planting (0 = the planting month, negative = after
+    planting), instead of taking the freshest usable one.
     """
-    if forecast_offset is not None and not 1 <= forecast_offset <= MAX_OFFSET:
-        raise ValueError(f"forecast_offset must be 1..{MAX_OFFSET}, "
+    if forecast_offset is not None and forecast_offset not in OFFSETS:
+        raise ValueError(f"forecast_offset must be {MIN_OFFSET}..{MAX_OFFSET}, "
                          f"got {forecast_offset}")
     if parser is None:
         from geocif import logger as log
@@ -1103,10 +1158,10 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         # Region goes in the directory name: two regional runs launched in
         # the same minute would otherwise land in the same timestamped dir.
         suffix += "_" + re.sub(r"\W+", "_", region_label.lower()).strip("_")
-    if forecast_offset:
+    if forecast_offset is not None:
         # A pinned-offset run must not land on the free-running run's path:
         # the two differ only in the forecast, and the maps look identical
-        # at a glance.
+        # at a glance. ("is not None": offset 0, the planting month, is valid.)
         suffix += f"_off{forecast_offset}"
     out = Path(out_dir) if out_dir else (
         root / "ml" / "analysis" / ts / "explore" / f"s2s_africa{suffix}")
@@ -1155,14 +1210,15 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             continue
         rec.update(cal)
 
-        # --- eligibility (extended-term only) ---
-        st = window_state(cal["planting_month"], cal["wraps"], today=today)
-        rec.update({k: st[k] for k in ("status", "planting", "harvest_year",
-                                       "usable_from")})
+        # --- eligibility: open from 4 months before planting until the
+        # end of the harvest month or of S2S coverage, whichever is earlier
+        st = window_state(cal["planting_month"], cal["wraps"], today=today,
+                          harvest_month=cal.get("harvest_month"))
+        rec.update({k: st[k] for k in ("status", "phase", "planting",
+                                       "harvest_year", "usable_from",
+                                       "closes")})
         if st["status"] != "open":
-            rec["reason"] = ("season already under way — in-season system owns it"
-                             if st["status"] == "in_season"
-                             else f"pre-season window opens {st['usable_from']}")
+            rec["reason"] = f"forecast window opens {st['usable_from']}"
             combos.append(rec)
             excluded.append(rec)
             continue
@@ -1215,7 +1271,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         skill_by_offset = {}
         edges = edge_table(anoms)
         train_by_offset = {}
-        for off in range(1, MAX_OFFSET + 1):
+        for off in OFFSETS:
             fl = features_for_offset(off, feature_set)
             fx = build_features(tp, t2, cal["planting_month"], cal["wraps"],
                                 off, sorted(anoms.year.unique()), fnids)
@@ -1254,10 +1310,18 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         # hindcast offset against the issued one is a routine question.
         # Pinning is DIAGNOSTIC — the offset is chosen on the same years the
         # skill is measured on, so a pinned run is not an honest forecast.
-        cand_offsets = ([forecast_offset] if forecast_offset
-                        else range(1, MAX_OFFSET + 1))
+        # OFFSETS ascends, so the freshest init (latest issued, smallest
+        # offset) is tried first; an init not yet published builds nothing.
+        cand_offsets = ([forecast_offset] if forecast_offset is not None
+                        else OFFSETS)
         fx_f = None
         for off in cand_offsets:
+            iy, im = init_calendar(cal["planting_month"], off, hy, cal["wraps"])
+            if is_climatology_fill(tp, iy, im, fnids):
+                logger.warning(f"{country} {crop} {season_name}: init "
+                               f"{iy}-{im:02d} (offset {off}) is climatology "
+                               f"fill, not a forecast; skipped")
+                continue
             cand = build_features(tp, t2, cal["planting_month"], cal["wraps"],
                                   off, [hy], fnids)
             if not cand.empty:
@@ -1266,13 +1330,17 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         if fx_f is None:
             rec.update(status="no_init",
                        reason=(f"offset {forecast_offset} builds no features "
-                               f"for the pending season" if forecast_offset
+                               f"for the pending season"
+                               if forecast_offset is not None
                                else "no published init covers the pending "
                                     "season"))
             combos.append(rec)
             excluded.append(rec)
             continue
 
+        iy_u, im_u = init_calendar(cal["planting_month"], off_used, hy,
+                                   cal["wraps"])
+        init_used = f"{iy_u}-{im_u:02d}"
         fl = features_for_offset(off_used, feature_set)
         fx_h = build_features(tp, t2, cal["planting_month"], cal["wraps"],
                               off_used, sorted(anoms.year.unique()), fnids)
@@ -1372,7 +1440,8 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             forecasts.append({
                 "country": country, "crop": crop, "season_name": season_name,
                 "harvest_year": hy, "fnid": r.fnid,
-                "offset_used": off_used, "planting_month": cal["planting_month"],
+                "offset_used": off_used, "init_used": init_used,
+                "phase": st["phase"], "planting_month": cal["planting_month"],
                 "calendar_source": cal["calendar_source"],
                 "ahat": round(float(r["ahat"]), 3), **pr,
                 "feature_set": feature_set,
@@ -1424,7 +1493,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                 # best lead, kept separate so the two are never conflated
                 "best_offset": best["offset"], "best_auc": skb.get("auc")})
         rec.update(status="forecast", offset_used=off_used,
-                   feature_set=feature_set,
+                   init_used=init_used, feature_set=feature_set,
                    best_offset=best["offset"], best_auc=skb.get("auc"),
                    has_skill=has_skill, in_support=in_support,
                    has_national_skill=has_national_skill,

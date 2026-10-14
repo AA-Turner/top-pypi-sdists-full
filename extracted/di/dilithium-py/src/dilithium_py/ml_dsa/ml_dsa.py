@@ -1,4 +1,5 @@
 import os
+
 from ..modules.modules import Matrix, Module, Vector
 
 try:
@@ -22,7 +23,7 @@ class ML_DSA:
 
         self.M = Module()
         self.R = self.M.ring
-        self.oid = parameter_set["oid"] if "oid" in parameter_set else None
+        self.oid = parameter_set.get("oid")
 
         # Use system randomness by default, for deterministic randomness
         # use the method `set_drbg_seed()`
@@ -218,7 +219,7 @@ class ML_DSA:
         for poly_non_zero in non_zero_positions:
             coeffs = [0 for _ in range(256)]
             for i, non_zero in enumerate(poly_non_zero):
-                if i > 0 and non_zero < poly_non_zero[i - 1]:
+                if i > 0 and non_zero <= poly_non_zero[i - 1]:
                     raise ValueError(
                         "non-zero positions in h_bytes are not monotonically increasing"
                     )

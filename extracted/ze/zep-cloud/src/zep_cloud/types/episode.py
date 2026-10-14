@@ -6,59 +6,111 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .episode_content_policy import EpisodeContentPolicy
 from .graph_data_type import GraphDataType
 from .role_type import RoleType
 
 
 class Episode(UniversalBaseModel):
-    content: str
-    created_at: str
+    content: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The raw content of the episode.
+    """
+
+    content_policy: typing.Optional[EpisodeContentPolicy] = pydantic.Field(default=None)
+    """
+    The content policy state of the episode, present only on a graph with a
+    bound content policy rule.
+    """
+
+    created_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The time Zep received the episode.
+    """
+
     document_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Optional document ID, will be present if the episode is part of a document
+    The developer-assigned identifier of the document this episode belongs to,
+    present only for episodes added to a document.
     """
 
-    metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
-    processed: typing.Optional[bool] = None
+    graph_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the graph this episode belongs to.
+    """
+
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Custom metadata associated with the episode.
+    """
+
+    processed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the episode has finished graph extraction and indexing.
+    """
+
+    reference_time: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The episode's reference time, used for temporal reasoning: the time that
+    the developer supplied on add, or the ingestion time when the developer
+    supplied no time.
+    """
+
     relevance: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Relevance is an experimental rank-aligned score in [0,1] derived from Score via logit transformation.
-    Only populated when using cross_encoder reranker; omitted for other reranker types (e.g., RRF).
+    A cross-encoder-derived relevance score, present only when the
+    cross-encoder reranker scored this result; like score, it is omitted from
+    plain list results.
     """
 
-    role: typing.Optional[str] = pydantic.Field(default=None)
+    role: typing.Optional[RoleType] = pydantic.Field(default=None)
     """
-    Optional role, will only be present if the episode was created using memory.add API
+    The role of the episode's sender, present only when the episode was added
+    as a message.
     """
 
-    role_type: typing.Optional[RoleType] = pydantic.Field(default=None)
+    role_name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Optional role_type, will only be present if the episode was created using memory.add API
+    The free-form display name of the episode's sender, present only when the
+    episode was added as a message.
     """
 
     score: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Score is the reranker output: sigmoid-distributed logits [0,1] when using cross_encoder reranker, or RRF ordinal rank when using rrf reranker
+    The ranking score returned with every search result; omitted when the
+    episode appears in a plain list rather than a search result.
     """
 
-    selection_rank: typing.Optional[int] = pydantic.Field(default=None)
+    source: typing.Optional[GraphDataType] = pydantic.Field(default=None)
     """
-    SelectionRank is the global cross-scope rank assigned by auto scope selection.
-    """
-
-    source: typing.Optional[GraphDataType] = None
-    source_description: typing.Optional[str] = None
-    task_id: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Optional task ID to poll episode processing status. Currently only available for batch ingestion.
+    The format of the episode's content: text, json, or message.
     """
 
-    thread_id: typing.Optional[str] = pydantic.Field(default=None)
+    source_description: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Optional thread ID, will be present if the episode is part of a thread
+    A free-form description of where the episode's content came from.
     """
 
-    uuid_: typing_extensions.Annotated[str, FieldMetadata(alias="uuid")]
+    thread_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The thread this episode belongs to, present only for episodes added to a
+    thread.
+    """
+
+    user_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the user that owns the graph. Present only when
+    the graph is a user graph.
+    """
+
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the episode."),
+    ] = None
+    """
+    The unique identifier of the episode.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import base64
+import inspect
 import math
 import time
+import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from importlib.metadata import version
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -20,7 +23,8 @@ from mpp.errors import (
     PaymentExpiredError,
     VerificationFailedError,
 )
-from mpp.methods.stripe import ChargeIntent, stripe
+from mpp.methods.stripe import ChargeIntent, StripeMethod, spt, stripe
+from mpp.methods.stripe._defaults import MACHINE_PAYMENTS_API_VERSION
 from mpp.methods.stripe.client import OnChallengeParameters
 from mpp.methods.stripe.intents import _resolve_payment_intents
 from mpp.methods.stripe.schemas import ChargeRequest, StripeCredentialPayload
@@ -106,6 +110,17 @@ def _make_challenge(**overrides: Any) -> Challenge:
     return Challenge(**defaults)
 
 
+def test_stripe_is_deprecated_signature_preserving_alias():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        spt(intents={})
+    with pytest.warns(DeprecationWarning, match=r"use spt\(\)"):
+        method = stripe(intents={})
+    assert spt.__name__ == "spt"
+    assert isinstance(method, StripeMethod)
+    assert inspect.signature(stripe) == inspect.signature(spt)
+
+
 class TestStripeMethod:
     @pytest.mark.asyncio
     async def test_create_credential(self):
@@ -118,7 +133,7 @@ class TestStripeMethod:
             assert params.payment_method == "pm_card_visa"
             return "spt_test_abc"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -137,7 +152,7 @@ class TestStripeMethod:
             assert params.external_id == "order-42"
             return "spt_test_abc"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -161,7 +176,7 @@ class TestStripeMethod:
 
     @pytest.mark.asyncio
     async def test_create_credential_no_create_token_raises(self):
-        method = stripe(
+        method = spt(
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
         )
@@ -175,7 +190,7 @@ class TestStripeMethod:
         async def fake_create_token(params: OnChallengeParameters) -> str:
             return "spt_test_abc"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
         )
@@ -191,7 +206,7 @@ class TestStripeMethod:
         async def fake_create_token(params: OnChallengeParameters) -> str:
             return "spt_test_abc"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -214,7 +229,7 @@ class TestStripeMethod:
         async def fake_create_token(params: OnChallengeParameters) -> str:
             return "spt_test_abc"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -240,7 +255,7 @@ class TestStripeMethod:
         async def fake_create_token(params: OnChallengeParameters) -> str:
             return "spt_test_abc"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -261,7 +276,7 @@ class TestStripeMethod:
             await method.create_credential(challenge)
 
     def test_transform_request(self):
-        method = stripe(
+        method = spt(
             external_id="order-42",
             network_id="bn_test",
             payment_method_types=["card"],
@@ -276,7 +291,7 @@ class TestStripeMethod:
         assert result["methodDetails"]["paymentMethodTypes"] == ["card"]
 
     def test_transform_request_rejects_network_id_override(self):
-        method = stripe(
+        method = spt(
             network_id="bn_default",
             payment_method_types=["card"],
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -292,7 +307,7 @@ class TestStripeMethod:
             method.transform_request(request, None)
 
     def test_transform_request_rejects_payment_method_types_override(self):
-        method = stripe(
+        method = spt(
             network_id="bn_test",
             payment_method_types=["card"],
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -308,14 +323,14 @@ class TestStripeMethod:
             method.transform_request(request, None)
 
     def test_method_name(self):
-        method = stripe(
+        method = spt(
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
         )
         assert method.name == "stripe"
 
     def test_intents(self):
         intent = ChargeIntent(secret_key="sk_test_123")
-        method = stripe(intents={"charge": intent})
+        method = spt(intents={"charge": intent})
         assert method.intents["charge"] is intent
 
     @pytest.mark.asyncio
@@ -327,7 +342,7 @@ class TestStripeMethod:
             recorded_params.append(params)
             return "spt_test"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -349,7 +364,7 @@ class TestStripeMethod:
             recorded_params.append(params)
             return "spt_test"
 
-        method = stripe(
+        method = spt(
             create_token=fake_create_token,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_test_123")},
@@ -612,18 +627,21 @@ class TestChargeIntent:
             ChargeIntent()
 
     @pytest.mark.asyncio
-    async def test_accepts_replayed_credential_client(self):
-        """Stripe idempotent retries still return the original successful receipt."""
-        replayed_pi = FakePaymentIntent(
-            last_response=FakeLastResponse(headers={"idempotent-replayed": "true"})
-        )
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            {"idempotent-replayed": "true"},
+            {"Idempotent-Replayed": "TRUE"},
+            {"IDEMPOTENT-REPLAYED": "true"},
+        ],
+    )
+    async def test_rejects_replayed_credential_client(self, headers: dict[str, str]):
+        replayed_pi = FakePaymentIntent(last_response=FakeLastResponse(headers=headers))
         intent = ChargeIntent(client=FakeStripeClient(result=replayed_pi))
         credential = _make_credential()
 
-        receipt = await intent.verify(credential, SAMPLE_REQUEST)
-
-        assert receipt.status == "success"
-        assert receipt.reference == "pi_test_123"
+        with pytest.raises(VerificationFailedError, match="already been processed"):
+            await intent.verify(credential, SAMPLE_REQUEST)
 
     @pytest.mark.asyncio
     async def test_analytics_metadata(self):
@@ -644,12 +662,12 @@ class TestChargeIntent:
 
         params = captured[0][0][0]
         metadata = params["metadata"]
-        assert metadata["mpp_version"] == "1"
-        assert metadata["mpp_is_mpp"] == "true"
-        assert metadata["mpp_intent"] == "charge"
-        assert metadata["mpp_challenge_id"] == "test-challenge-id"
-        assert metadata["mpp_server_id"] == "api.example.com"
-        assert metadata["mpp_client_id"] == "stripe:test"
+        assert metadata == {
+            "machine_payment": "true",
+            "mpp_sdk": f"pympp/{version('pympp')}",
+            "mpp_challenge_id": "test-challenge-id",
+            "mpp_intent": "charge",
+        }
 
     @pytest.mark.asyncio
     async def test_idempotency_key(self):
@@ -670,6 +688,11 @@ class TestChargeIntent:
 
         options = captured[0][1]["options"]
         assert options["idempotency_key"] == "mpp_test-challenge-id_spt_test_xyz"
+        assert options["max_network_retries"] == 0
+        assert options["headers"] == {
+            "X-Request-Source": 'service="pympp"; project="machine_payments"'
+        }
+        assert options["stripe_version"] == MACHINE_PAYMENTS_API_VERSION
 
     @pytest.mark.asyncio
     async def test_client_request_body_is_first_positional_arg(self):
@@ -716,12 +739,16 @@ class TestChargeIntent:
             **SAMPLE_REQUEST,
             "methodDetails": {
                 **SAMPLE_REQUEST["methodDetails"],
-                "metadata": {"mpp_version": "custom", "user_key": "user_val"},
+                "metadata": {
+                    "mpp_version": "custom",
+                    "user_key": "user_val",
+                },
             },
         }
         await intent.verify(credential, request_with_metadata)
 
         metadata = captured[0][0][0]["metadata"]
+        assert metadata["machine_payment"] == "true"
         assert metadata["mpp_version"] == "custom"
         assert metadata["user_key"] == "user_val"
 
@@ -758,6 +785,8 @@ class TestChargeIntentRawHttp:
         expected_auth = base64.b64encode(b"sk_test_raw:").decode()
         assert headers["Authorization"] == f"Basic {expected_auth}"
         assert headers["Idempotency-Key"] == "mpp_test-challenge-id_spt_test_abc"
+        assert headers["Stripe-Version"] == MACHINE_PAYMENTS_API_VERSION
+        assert headers["X-Request-Source"] == 'service="pympp"; project="machine_payments"'
 
         data = call_kwargs.kwargs["data"]
         assert data["amount"] == "150"
@@ -800,8 +829,7 @@ class TestChargeIntentRawHttp:
             await intent.verify(credential, SAMPLE_REQUEST)
 
     @pytest.mark.asyncio
-    async def test_accepts_replayed_credential_raw_http(self):
-        """Stripe idempotent retries still return the original successful receipt."""
+    async def test_rejects_replayed_credential_raw_http(self):
         mock_response = httpx.Response(
             200,
             json={"id": "pi_replayed", "status": "succeeded"},
@@ -814,10 +842,8 @@ class TestChargeIntentRawHttp:
         intent = ChargeIntent(secret_key="sk_test_raw", http_client=mock_client)
         credential = _make_credential()
 
-        receipt = await intent.verify(credential, SAMPLE_REQUEST)
-
-        assert receipt.status == "success"
-        assert receipt.reference == "pi_replayed"
+        with pytest.raises(VerificationFailedError, match="already been processed"):
+            await intent.verify(credential, SAMPLE_REQUEST)
 
     @pytest.mark.asyncio
     async def test_verify_with_secret_key_metadata_in_form(self):
@@ -835,8 +861,8 @@ class TestChargeIntentRawHttp:
         await intent.verify(credential, SAMPLE_REQUEST)
 
         data = mock_client.post.call_args.kwargs["data"]
-        assert data["metadata[mpp_is_mpp]"] == "true"
-        assert data["metadata[mpp_version]"] == "1"
+        assert data["metadata[machine_payment]"] == "true"
+        assert data["metadata[mpp_intent]"] == "charge"
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -883,13 +909,13 @@ class TestChargeIntentLifecycle:
 
 
 # ──────────────────────────────────────────────────────────────────
-# Integration: stripe() factory
+# Integration: spt() factory
 # ──────────────────────────────────────────────────────────────────
 
 
 class TestStripeFactory:
     def test_defaults(self):
-        method = stripe(
+        method = spt(
             intents={"charge": ChargeIntent(secret_key="sk_test")},
         )
         assert method.name == "stripe"
@@ -898,7 +924,7 @@ class TestStripeFactory:
         assert method.currency is None
 
     def test_custom_params(self):
-        method = stripe(
+        method = spt(
             intents={"charge": ChargeIntent(secret_key="sk_test")},
             currency="eur",
             decimals=0,
@@ -915,7 +941,7 @@ class TestStripeFactory:
     def test_no_secret_key_param(self):
         """Factory no longer accepts secret_key (removed per review)."""
         with pytest.raises(TypeError):
-            stripe(
+            spt(
                 intents={"charge": ChargeIntent(secret_key="sk_test")},
                 secret_key="sk_test",  # type: ignore[call-arg]
             )

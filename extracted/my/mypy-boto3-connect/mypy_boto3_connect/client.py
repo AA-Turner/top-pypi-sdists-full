@@ -35,6 +35,7 @@ from .paginator import (
     ListBotsPaginator,
     ListChildHoursOfOperationsPaginator,
     ListContactEvaluationsPaginator,
+    ListContactFlowAliasesPaginator,
     ListContactFlowModuleAliasesPaginator,
     ListContactFlowModulesPaginator,
     ListContactFlowModuleVersionsPaginator,
@@ -169,6 +170,8 @@ from .type_defs import (
     CreateAttachedFileResponseTypeDef,
     CreateAuthCodeRequestTypeDef,
     CreateAuthCodeResponseTypeDef,
+    CreateContactFlowAliasRequestTypeDef,
+    CreateContactFlowAliasResponseTypeDef,
     CreateContactFlowModuleAliasRequestTypeDef,
     CreateContactFlowModuleAliasResponseTypeDef,
     CreateContactFlowModuleRequestTypeDef,
@@ -248,6 +251,7 @@ from .type_defs import (
     DeleteAttachedFileRequestTypeDef,
     DeleteContactDataRequestTypeDef,
     DeleteContactEvaluationRequestTypeDef,
+    DeleteContactFlowAliasRequestTypeDef,
     DeleteContactFlowModuleAliasRequestTypeDef,
     DeleteContactFlowModuleRequestTypeDef,
     DeleteContactFlowModuleVersionRequestTypeDef,
@@ -295,6 +299,8 @@ from .type_defs import (
     DescribeAuthenticationProfileResponseTypeDef,
     DescribeContactEvaluationRequestTypeDef,
     DescribeContactEvaluationResponseTypeDef,
+    DescribeContactFlowAliasRequestTypeDef,
+    DescribeContactFlowAliasResponseTypeDef,
     DescribeContactFlowModuleAliasRequestTypeDef,
     DescribeContactFlowModuleAliasResponseTypeDef,
     DescribeContactFlowModuleRequestTypeDef,
@@ -437,6 +443,8 @@ from .type_defs import (
     ListChildHoursOfOperationsResponseTypeDef,
     ListContactEvaluationsRequestTypeDef,
     ListContactEvaluationsResponseTypeDef,
+    ListContactFlowAliasesRequestTypeDef,
+    ListContactFlowAliasesResponseTypeDef,
     ListContactFlowModuleAliasesRequestTypeDef,
     ListContactFlowModuleAliasesResponseTypeDef,
     ListContactFlowModulesRequestTypeDef,
@@ -684,6 +692,7 @@ from .type_defs import (
     UpdateContactAttributesRequestTypeDef,
     UpdateContactEvaluationRequestTypeDef,
     UpdateContactEvaluationResponseTypeDef,
+    UpdateContactFlowAliasRequestTypeDef,
     UpdateContactFlowContentRequestTypeDef,
     UpdateContactFlowMetadataRequestTypeDef,
     UpdateContactFlowModuleAliasRequestTypeDef,
@@ -1217,6 +1226,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_contact_flow)
         """
 
+    def create_contact_flow_alias(
+        self, **kwargs: Unpack[CreateContactFlowAliasRequestTypeDef]
+    ) -> CreateContactFlowAliasResponseTypeDef:
+        """
+        Creates a named alias that points to a specific version of a flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_contact_flow_alias)
+        """
+
     def create_contact_flow_module(
         self, **kwargs: Unpack[CreateContactFlowModuleRequestTypeDef]
     ) -> CreateContactFlowModuleResponseTypeDef:
@@ -1632,6 +1651,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_flow)
         """
 
+    def delete_contact_flow_alias(
+        self, **kwargs: Unpack[DeleteContactFlowAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an alias from a flow without deleting the version that the alias points
+        to.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_flow_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_flow_alias)
+        """
+
     def delete_contact_flow_module(
         self, **kwargs: Unpack[DeleteContactFlowModuleRequestTypeDef]
     ) -> dict[str, Any]:
@@ -2044,6 +2074,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_flow.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_contact_flow)
+        """
+
+    def describe_contact_flow_alias(
+        self, **kwargs: Unpack[DescribeContactFlowAliasRequestTypeDef]
+    ) -> DescribeContactFlowAliasResponseTypeDef:
+        """
+        Returns information about a specific flow alias, including the version that it
+        points to.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_flow_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_contact_flow_alias)
         """
 
     def describe_contact_flow_module(
@@ -2844,6 +2885,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_evaluations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_contact_evaluations)
+        """
+
+    def list_contact_flow_aliases(
+        self, **kwargs: Unpack[ListContactFlowAliasesRequestTypeDef]
+    ) -> ListContactFlowAliasesResponseTypeDef:
+        """
+        Lists the aliases associated with a flow, including the version that each alias
+        points to.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_aliases.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_contact_flow_aliases)
         """
 
     def list_contact_flow_module_aliases(
@@ -4244,6 +4296,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_evaluation)
         """
 
+    def update_contact_flow_alias(
+        self, **kwargs: Unpack[UpdateContactFlowAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the name, description, or flow version associated with an alias.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_flow_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_flow_alias)
+        """
+
     def update_contact_flow_content(
         self, **kwargs: Unpack[UpdateContactFlowContentRequestTypeDef]
     ) -> dict[str, Any]:
@@ -4976,6 +5038,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_contact_evaluations"]
     ) -> ListContactEvaluationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contact_flow_aliases"]
+    ) -> ListContactFlowAliasesPaginator:
         """
         Create a paginator for an operation.
 

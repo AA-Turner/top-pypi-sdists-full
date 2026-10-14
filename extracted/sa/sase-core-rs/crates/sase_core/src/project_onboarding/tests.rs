@@ -272,6 +272,77 @@ fn numbered_copy_and_third_party_local_are_hidden() {
 }
 
 #[test]
+fn all_numbered_local_set_stays_hidden_as_numbered_copy() {
+    let mut input = classify_input();
+    let mut first = local("github.com/sase-org/sase", "sase-org", "sase");
+    first.numbered_copy = true;
+    first.path = "/tmp/sase_2".into();
+    let mut second = local("github.com/sase-org/sase", "sase-org", "sase");
+    second.numbered_copy = true;
+    second.path = "/tmp/sase_3".into();
+    input.local.extend([first, second]);
+    let result = classify_project_candidates(&input).unwrap();
+    assert_eq!(hidden_reason(&result, "sase"), HIDDEN_NUMBERED_COPY);
+    assert!(result.groups.is_empty());
+}
+
+#[test]
+fn primary_checkout_plus_numbered_sibling_stays_local_in_both_orders() {
+    for primary_first in [true, false] {
+        let mut input = classify_input();
+        let mut primary = local("github.com/sase-org/sase", "sase-org", "sase");
+        primary.path = "/tmp/sase-org/sase".into();
+        let mut sibling = local("github.com/sase-org/sase", "sase-org", "sase");
+        sibling.numbered_copy = true;
+        sibling.path = "/tmp/sase-org/sase_2".into();
+        if primary_first {
+            input.local.extend([primary, sibling]);
+        } else {
+            input.local.extend([sibling, primary]);
+        }
+        let result = classify_project_candidates(&input).unwrap();
+        let row = row_by_name(&result, "sase");
+        assert!(
+            row.hidden_reason.is_empty(),
+            "primary_first={primary_first}: hidden as {}",
+            row.hidden_reason
+        );
+        assert_eq!(row.group, GROUP_LOCAL);
+        assert_eq!(row.local_path, "/tmp/sase-org/sase");
+    }
+}
+
+#[test]
+fn inventory_only_identity_seeds_no_selectable_row() {
+    for kind in [INVENTORY_EXTERNAL, INVENTORY_LINKED, INVENTORY_SIDECAR] {
+        let mut input = classify_input();
+        input.inventory.push(ProjectCandidateInventoryWire {
+            identity_key: "github.com/steveyegge/beads".into(),
+            kind: kind.into(),
+            open_count: 4,
+            last_open_at: "2026-10-01T00:00:00Z".into(),
+            ..ProjectCandidateInventoryWire::default()
+        });
+        let result = classify_project_candidates(&input).unwrap();
+        assert!(
+            result.groups.is_empty(),
+            "kind {kind} seeded a group: {:?}",
+            result.groups
+        );
+        assert!(
+            result.search_only.is_empty(),
+            "kind {kind} seeded search_only: {:?}",
+            result.search_only
+        );
+        assert!(
+            result.hidden.is_empty(),
+            "kind {kind} seeded hidden: {:?}",
+            result.hidden
+        );
+    }
+}
+
+#[test]
 fn enabled_project_is_search_only_and_disabled_gets_a_group() {
     let mut input = classify_input();
     input
@@ -638,9 +709,124 @@ fn defaults_fill_effective_options_and_bools_normalize() {
     );
     assert_eq!(state.effective_options.get("add_readme").unwrap(), "true");
     assert_eq!(state.effective_options.get("issues").unwrap(), "true");
-    assert!(!state.effective_options.contains_key("wiki"));
+    // An explicitly-off bool is a real setting, not an absence.
+    assert_eq!(state.effective_options.get("wiki").unwrap(), "false");
     assert!(!field_state(&state, "wiki").is_set);
     assert_eq!(field_state(&state, "wiki").value, "false");
+}
+
+#[test]
+fn explicit_false_on_default_true_bool_is_kept_in_both_modes() {
+    for mode in [FORM_MODE_LENIENT, FORM_MODE_STRICT] {
+        let state = evaluate(vec![("issues", "false")], mode);
+        assert!(state.valid, "mode {mode}: {:?}", state.errors);
+        assert_eq!(state.effective_options.get("issues").unwrap(), "false");
+        assert!(!field_state(&state, "issues").is_set);
+    }
+}
+
+#[test]
+fn strict_ignores_off_values_of_excluded_fields_but_keeps_conflicts() {
+    // add_readme=false requests nothing, so template plus an off bool is
+    // harmless even in strict mode.
+    let harmless = evaluate(
+        vec![("template", "sase-org/template"), ("add_readme", "false")],
+        FORM_MODE_STRICT,
+    );
+    assert!(harmless.valid, "{:?}", harmless.errors);
+    assert!(!harmless.effective_options.contains_key("add_readme"));
+    assert!(!field_state(&harmless, "add_readme").available);
+
+    // gitignore=Python requests the excluded behavior, so it stays an error.
+    let conflict = evaluate(
+        vec![("template", "sase-org/template"), ("gitignore", "Python")],
+        FORM_MODE_STRICT,
+    );
+    assert!(!conflict.valid);
+    assert!(conflict.errors.iter().any(|error| {
+        error.field == "gitignore" && error.code == ERROR_CONFLICT
+    }));
+}
+
+#[test]
+fn strict_template_plus_excluded_field_table() {
+    struct Case {
+        label: &'static str,
+        values: Vec<(&'static str, &'static str)>,
+        expect_valid: bool,
+        conflict_field: Option<&'static str>,
+    }
+    let cases = [
+        Case {
+            label: "add_readme=true equals the default and still conflicts",
+            values: vec![
+                ("template", "sase-org/template"),
+                ("add_readme", "true"),
+            ],
+            expect_valid: false,
+            conflict_field: Some("add_readme"),
+        },
+        Case {
+            label: "add_readme=false is omitted and valid",
+            values: vec![
+                ("template", "sase-org/template"),
+                ("add_readme", "false"),
+            ],
+            expect_valid: true,
+            conflict_field: None,
+        },
+        Case {
+            label: "empty add_readme is not a request",
+            values: vec![("template", "sase-org/template"), ("add_readme", "")],
+            expect_valid: true,
+            conflict_field: None,
+        },
+        Case {
+            label: "non-empty gitignore still conflicts",
+            values: vec![
+                ("template", "sase-org/template"),
+                ("gitignore", "Python"),
+            ],
+            expect_valid: false,
+            conflict_field: Some("gitignore"),
+        },
+    ];
+    for case in cases {
+        let state = evaluate(case.values.clone(), FORM_MODE_STRICT);
+        assert_eq!(
+            state.valid, case.expect_valid,
+            "{}: errors {:?}",
+            case.label, state.errors
+        );
+        if let Some(field) = case.conflict_field {
+            assert!(
+                state.errors.iter().any(|error| {
+                    error.field == field && error.code == ERROR_CONFLICT
+                }),
+                "{}: missing conflict on {field}: {:?}",
+                case.label,
+                state.errors
+            );
+            assert!(
+                !state.effective_options.contains_key(field),
+                "{}",
+                case.label
+            );
+        } else {
+            assert!(
+                !state.effective_options.contains_key("add_readme"),
+                "{}",
+                case.label
+            );
+            assert!(
+                !field_state(&state, "add_readme").available,
+                "{}",
+                case.label
+            );
+        }
+        let lenient = evaluate(case.values, FORM_MODE_LENIENT);
+        assert!(lenient.valid, "lenient stayed valid for {}", case.label);
+    }
 }
 
 #[test]

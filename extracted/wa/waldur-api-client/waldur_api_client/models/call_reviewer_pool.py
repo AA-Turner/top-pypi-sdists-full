@@ -39,7 +39,8 @@ class CallReviewerPool:
         invitation_status_display (str):
         response_date (Union[None, datetime.datetime]):
         decline_reason (str):
-        current_assignments (int):
+        current_assignments (int): Number of the reviewer's open assignments in this call: pending or accepted
+            assignment items whose review is not finished, plus reviews in progress created without an assignment item.
         invited_by_name (str):
         invitation_link (Union[None, str]):
         invitation_expires_at (Union[None, datetime.datetime]):

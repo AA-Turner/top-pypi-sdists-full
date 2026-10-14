@@ -325,6 +325,10 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     # sweep, and this row makes a skipped or absent conclusion fail closed too.
     # Unconditional in ci.yml (no needs/if), so a skip is anomalous.
     "Release Staleness (OMN-18010)",  # release-staleness
+    # OMN-20844: the customer-chooses-the-OpenRouter-model tests, named so a
+    # change to the generic test job's selection cannot drop them. Registered
+    # on the same terms as the rows above; unconditional in ci.yml.
+    "BYOK Customer Chooses Model (OMN-20844)",  # byok-customer-chooses-model
 )
 
 # Skippable aggregate gates: present + completed + success OR skipped.
@@ -602,6 +606,11 @@ EXPECTED_EXTERNAL_CONTEXTS: tuple[str, ...] = (
     # Summary umbrella IS the enforcement surface, so a context missing from
     # this tuple is silently unenforced.
     "public-repo-hygiene / public-repo-hygiene",
+    # OMN-20940 (public-repo-hygiene.yml): the deployment-config job of the same
+    # reusable. No deployment or lab configuration lives in a shipped repository;
+    # the job reads no vocabulary and no secret, so it runs on a fork, and it is a
+    # required context on dev. Same single-job-over-reusable naming as above.
+    "public-repo-hygiene / deployment-config",
     "receipt-honesty",
     # OMN-17888 (contract-topic-closure.yml): a routing entry may not declare one input
     # model for two message categories. Same workflow file and same L4 reasoning as
@@ -1758,7 +1767,10 @@ EXTERNAL_CONTEXT_PRODUCERS: dict[str, ExternalContextProducer] = {
             "public-repo-hygiene.yml",
             ("pull_request",),
             (),
-            ("public-repo-hygiene / public-repo-hygiene",),
+            (
+                "public-repo-hygiene / public-repo-hygiene",
+                "public-repo-hygiene / deployment-config",
+            ),
         ),
         (
             "receipt-honesty.yml",

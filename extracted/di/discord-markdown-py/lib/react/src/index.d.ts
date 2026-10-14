@@ -35,7 +35,8 @@ export type BoldProps = NodeRenderPropsWithChildren<Bold>;
 export type ItalicProps = NodeRenderPropsWithChildren<Italic>;
 export type UnderlineProps = NodeRenderPropsWithChildren<Underline>;
 export type StrikethroughProps = NodeRenderPropsWithChildren<Strikethrough>;
-export type SpoilerProps = NodeRenderPropsWithChildren<Spoiler>;
+/** `id` is shared by the fragments of one spoiler split across blocks; reveal them together. */
+export type SpoilerProps = NodeRenderPropsWithChildren<Spoiler, { id: number }>;
 export type EmojiProps = NodeRenderProps<Emoji, Emoji["value"]>;
 export type TimestampProps = NodeRenderProps<Timestamp, Timestamp["value"]>;
 export type MentionProps = NodeRenderProps<Mention, Mention["value"]>;

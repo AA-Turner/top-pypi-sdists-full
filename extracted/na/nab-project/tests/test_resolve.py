@@ -91,6 +91,7 @@ from nab_resolver.errors import (
     ResolutionTerminatedError,
 )
 from nab_resolver.ranges import Range
+from nab_resolver.resolver import Resolver
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
 
 if TYPE_CHECKING:
@@ -237,16 +238,6 @@ def _build_constraints(
     ).ranges
 
 
-def _constraints_pyproject(tmp_path: Path, entries: str) -> Path:
-    """A minimal project whose ``[tool.nab].constraints`` holds ``entries``."""
-    pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text(
-        '[project]\nname = "x"\nversion = "0"\ndependencies = []\n'
-        f"[tool.nab]\nconstraints = [{entries}]\n"
-    )
-    return pyproject
-
-
 def _malformed_group_pyproject(tmp_path: Path) -> Path:
     """A project with conflicting ``cpu`` and ``gpu`` extras, plus a
     ``docs`` group whose value is an integer instead of a list."""
@@ -276,6 +267,41 @@ def conflict_fetch_port() -> Iterator[FakeFetchPort]:
         "nab_project.resolve.FetchCoordinator", return_value=nullcontext(coordinator)
     ):
         yield coordinator
+
+
+def test_umbrella_extra_retains_dependency_on_prerelease_python(tmp_path: Path) -> None:
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        "[project]\n"
+        'name = "project-demo"\n'
+        'version = "1.0"\n'
+        "dependencies = []\n"
+        "[project.optional-dependencies]\n"
+        'all = [\'project-demo[leaf]; "3.10+local" == python_version and '
+        '"3.10+local" > python_full_version\']\n'
+        "leaf = ['demo==1.0']\n",
+        encoding="utf-8",
+    )
+    target = ResolveTarget.for_declared(
+        python_version="3.10",
+        python_full_version="3.10.0.dev0",
+        spec=PlatformSpec("linux_x86_64"),
+    )
+    coordinator = make_coordinator(
+        listings={"demo": _index_wheels("demo", "1.0")}, auto_metadata=True
+    )
+    with patch(
+        "nab_project.resolve.FetchCoordinator", return_value=nullcontext(coordinator)
+    ):
+        result = _resolved(path, extras=("all",), targets=(target,))
+
+    assert _pins(result) == {"demo": V("1.0")}
+
+    lock = build_pylock(build_lock_input(result, extras=("all",)))
+    selected = lock.select(
+        environment=target.marker_env, extras={"all"}, dependency_groups=()
+    )
+    assert {str(pkg.name): str(pkg.version) for pkg, _ in selected} == {"demo": "1.0"}
 
 
 class TestSpecificModeConflictValidation:
@@ -999,38 +1025,38 @@ class TestResolvePyproject:
 
         assert _pins(result) == {}
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
-    def test_passes_constraints_to_resolver(
-        self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Constraints from [tool.nab] are passed to resolver.resolve()."""
+    def test_passes_constraints_to_resolver(self, tmp_path: Path) -> None:
+        """Caller constraints narrow dependencies without adding unused packages."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\ndependencies = ["foo>=1.0"]\n'
             '[tool.nab]\nconstraints = ["bar<2.0", "skip===custom"]\n',
         )
 
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver = mock_resolver_cls.return_value
-        mock_resolver.resolve.return_value = {"foo": V("2.0")}
-
-        _resolved(
-            pyproject,
-            _FAKE_TRANSPORT,
-            python_version="3.12.0",
-            inputs=ResolveInputs(constraints=("bar<2.0", "skip===custom")),
+        coordinator = graph_port(
+            (
+                ("foo", "2.0", False, ("bar>=1.0",)),
+                ("bar", "1.0", False, ()),
+                ("bar", "2.0", False, ()),
+            )
         )
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(coordinator),
+            ),
+            patch.object(
+                Resolver, "resolve", autospec=True, side_effect=Resolver.resolve
+            ) as solver_resolve,
+        ):
+            result = _resolved(
+                pyproject,
+                _FAKE_TRANSPORT,
+                python_version="3.12.0",
+                inputs=ResolveInputs(constraints=("bar<2.0", "skip===custom")),
+            )
 
-        call_kwargs = mock_resolver.resolve.call_args
+        call_kwargs = solver_resolve.call_args
         assert "constraints" in call_kwargs.kwargs
         constraints = call_kwargs.kwargs["constraints"]
         assert "bar" in constraints
@@ -1038,37 +1064,73 @@ class TestResolvePyproject:
         assert "custom" in constraints["skip"]
         assert V("1.0") not in constraints["skip"]
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
-    def test_extras_create_proxy_packages(
-        self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Requirements with extras create proxy package entries."""
+        assert _pins(result) == {"foo": V("2.0"), "bar": V("1.0")}
+
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "2.0",
+            "bar": "1.0",
+        }
+
+    def test_extras_create_proxy_packages(self, tmp_path: Path) -> None:
+        """Extra proxy roots retain base and selected-extra dependencies."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\ndependencies = ["requests[security]>=2.0"]\n',
         )
 
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver = mock_resolver_cls.return_value
-        mock_resolver.resolve.return_value = {"requests": V("2.0")}
+        coordinator = graph_port(
+            (
+                (
+                    "requests",
+                    "2.0",
+                    False,
+                    (
+                        "base-dep>=1",
+                        'extra-dep>=1; extra == "security"',
+                        'other-dep; extra == "other"',
+                    ),
+                ),
+                ("base-dep", "1.0", False, ()),
+                ("extra-dep", "1.0", False, ()),
+                ("other-dep", "1.0", False, ()),
+            ),
+            {("requests", "2.0", False): ("security", "other")},
+        )
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(coordinator),
+            ),
+            patch.object(
+                Resolver, "resolve", autospec=True, side_effect=Resolver.resolve
+            ) as solver_resolve,
+            patch(
+                "nab_project._resolve.engine.Provider", wraps=Provider
+            ) as provider_cls,
+        ):
+            result = _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
 
-        _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
-
-        requirements = _root_ranges(mock_resolver)
+        requirements = {root.package for root in solver_resolve.call_args.args[1]}
         assert "requests" in requirements
         assert "requests[security]" in requirements
-        # root_extras passed to provider
-        provider_kwargs = mock_provider_cls.call_args.kwargs
+        provider_kwargs = provider_cls.call_args.kwargs
         assert ("requests", "security") in provider_kwargs["root_extras"]
+
+        assert _pins(result) == {
+            "requests": V("2.0"),
+            "base-dep": V("1.0"),
+            "extra-dep": V("1.0"),
+        }
+
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "requests": "2.0",
+            "base-dep": "1.0",
+            "extra-dep": "1.0",
+        }
 
     @patch("nab_project._resolve.engine.build_target_lock")
     @patch("nab_project._resolve.engine.Resolver")
@@ -1265,37 +1327,45 @@ class TestResolvePyproject:
         target = mock_provider_cls.call_args.kwargs["target"]
         assert target.python_full_version == "3.12.4"
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
-    def test_the_constraints_reach_the_resolver(
-        self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """``inputs`` carries the constraints the search runs under."""
+    def test_the_constraints_reach_the_resolver(self, tmp_path: Path) -> None:
+        """Caller constraints apply without [tool.nab] configuration."""
         pyproject = tmp_path / "pyproject.toml"
-        # No [tool.nab] on disk, so the constraint can only be the caller's.
         pyproject.write_text('[project]\ndependencies = ["foo"]\n')
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver_cls.return_value.resolve.return_value = {}
 
-        _resolved(
-            pyproject,
-            _FAKE_TRANSPORT,
-            inputs=ResolveInputs(constraints=("urllib3<2",)),
-            python_version="3.12.0",
+        coordinator = graph_port(
+            (
+                ("foo", "2.0", False, ("urllib3>=1.0",)),
+                ("urllib3", "1.0", False, ()),
+                ("urllib3", "2.0", False, ()),
+            )
         )
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(coordinator),
+            ),
+            patch.object(
+                Resolver, "resolve", autospec=True, side_effect=Resolver.resolve
+            ) as solver_resolve,
+        ):
+            result = _resolved(
+                pyproject,
+                _FAKE_TRANSPORT,
+                inputs=ResolveInputs(constraints=("urllib3<2",)),
+                python_version="3.12.0",
+            )
 
-        forwarded = mock_resolver_cls.return_value.resolve.call_args.kwargs[
-            "constraints"
-        ]
+        forwarded = solver_resolve.call_args.kwargs["constraints"]
         assert "urllib3" in forwarded
+
+        assert _pins(result) == {"foo": V("2.0"), "urllib3": V("1.0")}
+
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "2.0",
+            "urllib3": "1.0",
+        }
 
     @patch("nab_project._resolve.engine.build_target_lock")
     @patch("nab_project._resolve.engine.Resolver")

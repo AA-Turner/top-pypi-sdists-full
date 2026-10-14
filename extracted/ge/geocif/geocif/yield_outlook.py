@@ -1036,7 +1036,7 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
     os.makedirs(dir_maps, exist_ok=True)
     os.makedirs(dir_csvs, exist_ok=True)
 
-    title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} — {model}"
+    title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} — {_display_model_name(model)}"
     if stage_name:
         title += f" ({diag.friendly_stage_label(stage_name)})"
 
@@ -2305,7 +2305,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
     dir_progression = dir_outlook / "plots" / model / country / crop / "progression"
     dir_csvs_prog = dir_outlook / "csvs" / model / country / crop / "progression"
     os.makedirs(dir_csvs_prog, exist_ok=True)
-    base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})"
+    base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({_display_model_name(model)})"
 
     # MAPE
     _plot_metric_progression(
@@ -2570,7 +2570,7 @@ def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outl
     os.makedirs(dir_plots, exist_ok=True)
     os.makedirs(dir_csvs, exist_ok=True)
 
-    base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})"
+    base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({_display_model_name(model)})"
 
     with plt.style.context(["science", "no-latex"]):
         # --- Heatmap ---
@@ -2979,7 +2979,7 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
             confusion_df = diag.trigger_eval_plot(
                 df,
                 title=f"Trigger Evaluation — {country.title().replace('_', ' ')} "
-                      f"{crop.title().replace('_', ' ')} ({model})",
+                      f"{crop.title().replace('_', ' ')} ({_display_model_name(model)})",
                 dir_out=dir_plots_tr,
                 fname=f"{stem}.png",
                 threshold=trigger_threshold,
@@ -2991,7 +2991,7 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
                 diag.trigger_eval_table_image(
                     confusion_df,
                     title=f"Trigger Evaluation — {country.title().replace('_', ' ')} "
-                          f"{crop.title().replace('_', ' ')} ({model}) "
+                          f"{crop.title().replace('_', ' ')} ({_display_model_name(model)}) "
                           f"— confusion summary (threshold = {trigger_threshold:g} {yield_units})",
                     dir_out=dir_plots_tr,
                     fname=f"{stem}_table.png",
@@ -3367,7 +3367,7 @@ def _generate_cross_country_comparison(df_pred_store, dir_outlook):
                 ax.set_xlabel("Per-region Mean Absolute Percentage Error (%)")
                 ax.set_ylabel("Density")
                 ax.set_title(
-                    f"MAPE distribution by country — {crop} ({model})",
+                    f"MAPE distribution by country — {crop} ({_display_model_name(model)})",
                     fontsize=11, fontweight="bold",
                 )
                 ax.legend(title="Country", fontsize=8, frameon=False)
@@ -3401,7 +3401,7 @@ def _generate_cross_country_comparison(df_pred_store, dir_outlook):
                 ax.set_xlabel("Harvest Year")
                 ax.set_ylabel("National Mean Absolute Percentage Error (%, area-weighted)")
                 ax.set_title(
-                    f"National MAPE over time — {crop} ({model})",
+                    f"National MAPE over time — {crop} ({_display_model_name(model)})",
                     fontsize=11, fontweight="bold",
                 )
                 ax.legend(title="Country", fontsize=8, frameon=False)
@@ -5490,7 +5490,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_plot,
                     predicted_col="Predicted Yield (tn per ha)",
                     out_path=plot_dir / f"yield_ci_{country_lower}_{crop}_{model}.png",
-                    title=f"Predicted Yield with CI \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
+                    title=f"Predicted Yield with CI \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({_display_model_name(model)})",
                     reference_df=df_obs_last5,
                     reference_value_col="Observed Yield (tn per ha)",
                     reference_label=obs_label,
@@ -5650,7 +5650,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     title=(
                         f"MAPE Distribution by Region \u2014 "
                         f"{country.title().replace('_', ' ')} "
-                        f"{crop.title().replace('_', ' ')} ({model})"
+                        f"{crop.title().replace('_', ' ')} ({_display_model_name(model)})"
                     ),
                     dir_out=plot_dir,
                     fname=f"mape_box_region_{country_lower}_{crop}_{model}.png",
@@ -5661,14 +5661,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     title=(
                         f"MAPE Distribution by Year \u2014 "
                         f"{country.title().replace('_', ' ')} "
-                        f"{crop.title().replace('_', ' ')} ({model})"
+                        f"{crop.title().replace('_', ' ')} ({_display_model_name(model)})"
                     ),
                     dir_out=plot_dir,
                     fname=f"mape_box_year_{country_lower}_{crop}_{model}.png",
                 )
                 diag.mape_by_year(
                     df_mape,
-                    title=f"MAPE by Year \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
+                    title=f"MAPE by Year \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({_display_model_name(model)})",
                     dir_out=plot_dir,
                     fname=f"mape_year_{country_lower}_{crop}_{model}.png",
                     obs_col="Observed Yield (tn per ha)",
@@ -5685,7 +5685,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     title=(
                         f"RMSE Distribution by Region \u2014 "
                         f"{country.title().replace('_', ' ')} "
-                        f"{crop.title().replace('_', ' ')} ({model})"
+                        f"{crop.title().replace('_', ' ')} ({_display_model_name(model)})"
                     ),
                     dir_out=plot_dir,
                     fname=f"rmse_box_region_{country_lower}_{crop}_{model}.png",
@@ -5697,7 +5697,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     title=(
                         f"RMSE Distribution by Year \u2014 "
                         f"{country.title().replace('_', ' ')} "
-                        f"{crop.title().replace('_', ' ')} ({model})"
+                        f"{crop.title().replace('_', ' ')} ({_display_model_name(model)})"
                     ),
                     dir_out=plot_dir,
                     fname=f"rmse_box_year_{country_lower}_{crop}_{model}.png",
@@ -5705,7 +5705,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 )
                 diag.rmse_by_year(
                     df_mape,
-                    title=f"RMSE by Year \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
+                    title=f"RMSE by Year \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({_display_model_name(model)})",
                     dir_out=plot_dir,
                     fname=f"rmse_year_{country_lower}_{crop}_{model}.png",
                     obs_col="Observed Yield (tn per ha)",

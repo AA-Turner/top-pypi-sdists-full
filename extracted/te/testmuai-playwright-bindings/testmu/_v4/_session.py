@@ -27,6 +27,7 @@ from testmu._v4._capability import (
     resolve_custom_headers,
 )
 from testmu._v4._downloads_path import _resolve_downloads_dir
+from testmu._v4._vars import _variable_store
 from testmu._v4._reporter import reporter
 
 _log = logging.getLogger("testmu")
@@ -210,20 +211,40 @@ async def _download_files(files):
         for f in files:
             url = f.get("media_url", "")
             name = f.get("name", "")
+            alias = f.get("alias", "")
+            if alias and not alias.startswith("local."):
+                resolved = await _resolve_test_file(session, auth_headers, alias)
+                url = resolved.get("media_url") or url
+                name = name or resolved.get("file_name", "")
             if not url or not name:
                 continue
             if not url.startswith("http"):
                 url = f"https://{url}"
+            dest = os.path.join(dl_dir, name)
             try:
                 async with session.get(url, headers=auth_headers) as resp:
                     resp.raise_for_status()
-                    dest = os.path.join(dl_dir, name)
                     with open(dest, "wb") as out:
                         async for chunk in resp.content.iter_chunked(8192):
                             out.write(chunk)
                     _log.info(f"Downloaded: {name} -> {dest}")
             except Exception as e:
                 _log.warning(f"Failed to download {name}: {e}")
+                continue
+            if alias:
+                _variable_store[f"file.{alias}"] = os.path.abspath(dest)
+
+
+async def _resolve_test_file(session, auth_headers, alias):
+    """Current media-store copy of a File; {} on failure (caller keeps the entry's media_url)."""
+    atms_url = os.getenv("ATMS_URL", "https://test-manager-api.lambdatest.com").rstrip("/")
+    try:
+        async with session.get(f"{atms_url}/api/v1/files/resolve", params={"alias": alias}, headers=auth_headers) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+    except Exception as e:
+        _log.warning(f"Failed to resolve file {alias}: {e}")
+        return {}
 
 
 async def _settle_before_teardown(page) -> None:

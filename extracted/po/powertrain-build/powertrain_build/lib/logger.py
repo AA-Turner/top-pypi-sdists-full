@@ -23,6 +23,33 @@ LEVELS = {
 }
 
 
+class CustomFormatting(logging.Formatter):
+
+    GREY = "\x1b[38m"
+    YELLOW = "\x1b[33m"
+    RED = "\x1b[31m"
+    GREEN = "\x1b[38;5;41m"
+    RESET = "\x1b[0m"
+
+    FORMATS = {
+        logging.NOTSET: GREY,
+        logging.DEBUG: GREY,
+        logging.INFO: GREEN,
+        logging.WARNING: YELLOW,
+        logging.ERROR: RED,
+        logging.CRITICAL: RED
+    }
+
+    def colorize(self, log_level):
+        return '%(asctime)s - %(name)s - ' + self.FORMATS.get(log_level) + \
+               '%(levelname)s' + self.RESET + ' - %(message)s'
+
+    def format(self, record):
+        log_format = self.colorize(record.levelno)
+        formatter = logging.Formatter(log_format)
+        return formatter.format(record)
+
+
 def parse_log_level(log_level_name):
     """Convert textual log_level_name to numerical ones defined in logging module."""
     level = log_level_name.upper()
@@ -49,7 +76,9 @@ def create_logger(name, handler=None, log_format=None):
     if handler is None:
         handler = logging.StreamHandler(sys.stdout)
     if log_format is None:
-        log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    handler.setFormatter(logging.Formatter(log_format))
+        log_format = CustomFormatting()
+    else:
+        log_format = logging.Formatter(log_format)
+    handler.setFormatter(log_format)
     new_logger.addHandler(handler)
     return new_logger

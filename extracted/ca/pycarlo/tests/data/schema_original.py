@@ -2677,12 +2677,13 @@ class CustomerMcpAuthenticationMethod(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `API_KEY`None
+    * `AWS_IAM_AGENT`None
     * `NONE`None
     * `OAUTH2`None
     """
 
     __schema__ = schema
-    __choices__ = ("API_KEY", "NONE", "OAUTH2")
+    __choices__ = ("API_KEY", "AWS_IAM_AGENT", "NONE", "OAUTH2")
 
 
 class CustomerMcpAuthorizationStatus(sgqlc.types.Enum):
@@ -2728,6 +2729,20 @@ class CustomerMcpOAuthGrantType(sgqlc.types.Enum):
     __choices__ = ("AUTHORIZATION_CODE_PKCE", "CLIENT_CREDENTIALS")
 
 
+class CustomerMcpServerProfile(sgqlc.types.Enum):
+    """Server-specific rules applied to a customer MCP server's tool
+    calls.
+
+    Enumeration Choices:
+
+    * `AWS_MCP`None
+    * `GENERIC`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AWS_MCP", "GENERIC")
+
+
 class CustomerMcpServerStatus(sgqlc.types.Enum):
     """Status of a customer MCP server.
 
@@ -2754,6 +2769,20 @@ class CustomerMcpTokenEndpointAuthMethod(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST")
+
+
+class CustomerMcpTransport(sgqlc.types.Enum):
+    """Who calls a customer MCP server: Monte Carlo directly, or the
+    customer's collection agent.
+
+    Enumeration Choices:
+
+    * `COLLECTION_AGENT`None
+    * `DIRECT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COLLECTION_AGENT", "DIRECT")
 
 
 class CustomerMcpUserIdFieldType(sgqlc.types.Enum):
@@ -7635,11 +7664,12 @@ class ReinforcementLoopV2EmptyReason(sgqlc.types.Enum):
 
 
 class ReinforcementLoopV2IssueOrder(sgqlc.types.Enum):
-    """A sort key of getReinforcementLoopV2Issues.  PRIORITY = CRITICAL,
-    HIGH, MEDIUM, LOW, then HIDDEN (only with includeHidden), then
-    issues with no report. CONVERSATION_COUNT = most conversations
-    first. It is the conversationCount the node reports, so a workflow
-    filter narrows it. LAST_SEEN_AT = newest first.
+    """A sort key of getReinforcementLoopV2Issues.  PRIORITY = the served
+    priority: CRITICAL, HIGH, MEDIUM, LOW, then HIDDEN (only with
+    includeHidden), then issues with no report. CONVERSATION_COUNT =
+    most conversations first. It is the conversationCount the node
+    reports, so a workflow filter narrows it. LAST_SEEN_AT = newest
+    first.
 
     Enumeration Choices:
 
@@ -13219,9 +13249,9 @@ class CreateOrUpdateCustomConversationClusterInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("space_uuid", "cluster_uuid", "name", "description")
     space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="spaceUuid")
-    """The cluster's intent-facet space. On create, the space to add the
-    cluster to; on update, it must match the target cluster's space —
-    a mismatch reads as an unknown cluster.
+    """The cluster's clustering space, of either facet. On create, the
+    space to add the cluster to; on update, it must match the target
+    cluster's space — a mismatch reads as an unknown cluster.
     """
 
     cluster_uuid = sgqlc.types.Field(UUID, graphql_name="clusterUuid")
@@ -17795,6 +17825,30 @@ class RedshiftUpdateConnectionDetails(sgqlc.types.Input):
     """Optional SSL options."""
 
 
+class ReinforcementLoopAgentGithubCodeRepoInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("installation_uuid", "repo", "path_prefix", "branch")
+    installation_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="installationUuid"
+    )
+    """One of the account's GitHub App installations."""
+
+    repo = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repo")
+    """Repository name within the installation's org, as
+    getReinforcementLoopGithubRepos lists it.
+    """
+
+    path_prefix = sgqlc.types.Field(String, graphql_name="pathPrefix")
+    """Directory holding the agent. Omitted, null or empty: the whole
+    repo.
+    """
+
+    branch = sgqlc.types.Field(String, graphql_name="branch")
+    """Branch the agent runs from. Omitted, null or empty: the repo's
+    default branch.
+    """
+
+
 class ReportArgumentsUnionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("alert_id", "monitor_id", "type")
@@ -20266,7 +20320,7 @@ class UpdateGoldenSetInput(sgqlc.types.Input):
 
 class UpdateReinforcementLoopAgentInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("agent_name", "trace_table_mcon", "is_paused")
+    __field_names__ = ("agent_name", "trace_table_mcon", "is_paused", "github_code_repos")
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Observability agent name."""
 
@@ -20277,6 +20331,14 @@ class UpdateReinforcementLoopAgentInput(sgqlc.types.Input):
 
     is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
     """Pause or resume the loop for the agent. Omit or null: unchanged."""
+
+    github_code_repos = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopAgentGithubCodeRepoInput)),
+        graphql_name="githubCodeRepos",
+    )
+    """Replaces the agent's code repos, in order. Omit or null:
+    unchanged. An empty list removes every repo.
+    """
 
 
 class UpdateReinforcementLoopSelectorInput(sgqlc.types.Input):
@@ -35029,6 +35091,11 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
         "created_by",
         "last_update_user",
         "user_authorization_status",
+        "transport",
+        "profile",
+        "data_collector_uuid",
+        "agent_credentials_configured",
+        "cached_tools_refreshed_at",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier"""
@@ -35157,6 +35224,33 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
     )
     """Current user's authorization status for this server. Null where
     per-user consent does not apply (client-credentials servers).
+    """
+
+    transport = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomerMcpTransport), graphql_name="transport"
+    )
+    """Who calls the server"""
+
+    profile = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomerMcpServerProfile), graphql_name="profile"
+    )
+    """Server-specific rules applied to tool calls"""
+
+    data_collector_uuid = sgqlc.types.Field(UUID, graphql_name="dataCollectorUuid")
+    """Data collector whose agent calls the server (COLLECTION_AGENT
+    only)
+    """
+
+    agent_credentials_configured = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="agentCredentialsConfigured"
+    )
+    """Whether the collection agent's credentials, such as its IAM role,
+    are stored. They are never exposed.
+    """
+
+    cached_tools_refreshed_at = sgqlc.types.Field(DateTime, graphql_name="cachedToolsRefreshedAt")
+    """When the server's tool list was last read through the collection
+    agent
     """
 
 
@@ -50219,6 +50313,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="apiKeyHeaderName", default=None),
                 ),
                 (
+                    "assumable_role_arn",
+                    sgqlc.types.Arg(String, graphql_name="assumableRoleArn", default=None),
+                ),
+                (
                     "auth_headers",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthHeaderInput)),
@@ -50232,12 +50330,14 @@ class Mutation(sgqlc.types.Type):
                         CustomerMcpAuthenticationMethod, graphql_name="authType", default="NONE"
                     ),
                 ),
+                (
+                    "data_collector_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="dataCollectorUuid", default=None),
+                ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 (
                     "mcp_server_url",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcpServerUrl", default=None
-                    ),
+                    sgqlc.types.Arg(String, graphql_name="mcpServerUrl", default=None),
                 ),
                 (
                     "name",
@@ -50286,6 +50386,18 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "profile",
+                    sgqlc.types.Arg(
+                        CustomerMcpServerProfile, graphql_name="profile", default="generic"
+                    ),
+                ),
+                (
+                    "transport",
+                    sgqlc.types.Arg(
+                        CustomerMcpTransport, graphql_name="transport", default="direct"
+                    ),
+                ),
+                (
                     "user_id_field_type",
                     sgqlc.types.Arg(
                         CustomerMcpUserIdFieldType, graphql_name="userIdFieldType", default=None
@@ -50307,13 +50419,21 @@ class Mutation(sgqlc.types.Type):
     * `api_key_header_name` (`String`): HTTP header name for the API
       key (default: 'Authorization'). When 'Authorization', value is
       sent as 'Bearer <key>'.
+    * `assumable_role_arn` (`String`): IAM role the agent assumes to
+      call the server (COLLECTION_AGENT only). Stored in Vault, never
+      exposed.
     * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
       headers (API_KEY only), sent literally. May be combined with
       api_key; names must not collide with it.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): Authentication
       type (default: `"NONE"`)
+    * `data_collector_uuid` (`UUID`): Data collector whose remote
+      agent calls the server (COLLECTION_AGENT only). Inferred when
+      the account has exactly one data collector with a remote agent.
     * `description` (`String`): Optional description
-    * `mcp_server_url` (`String!`): URL of the customer's MCP server
+    * `mcp_server_url` (`String`): URL of the customer's MCP server.
+      Required unless transport is COLLECTION_AGENT, where it defaults
+      to the AWS MCP Server in the agent's region.
     * `name` (`String!`): Display name for the server
     * `oauth_audience` (`String`): Provider-specific audience for the
       token request
@@ -50337,6 +50457,10 @@ class Mutation(sgqlc.types.Type):
     * `oauth_token_endpoint_auth_method`
       (`CustomerMcpTokenEndpointAuthMethod`): Client authentication
       method for the token endpoint (default: CLIENT_SECRET_BASIC)
+    * `profile` (`CustomerMcpServerProfile`): Server-specific rules
+      applied to tool calls (default: `"generic"`)
+    * `transport` (`CustomerMcpTransport`): Who calls the server
+      (default: `"direct"`)
     * `user_id_field_type` (`CustomerMcpUserIdFieldType`): Field type
       for user identity: EMAIL or USER_ID
     * `user_id_header_name` (`String`): HTTP header name for user
@@ -50354,6 +50478,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="apiKeyHeaderName", default=None),
                 ),
                 (
+                    "assumable_role_arn",
+                    sgqlc.types.Arg(String, graphql_name="assumableRoleArn", default=None),
+                ),
+                (
                     "auth_headers",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthHeaderInput)),
@@ -50366,6 +50494,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(
                         CustomerMcpAuthenticationMethod, graphql_name="authType", default=None
                     ),
+                ),
+                (
+                    "data_collector_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="dataCollectorUuid", default=None),
                 ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 (
@@ -50445,11 +50577,17 @@ class Mutation(sgqlc.types.Type):
     * `api_key` (`String`): New API key (required when changing to
       API_KEY auth)
     * `api_key_header_name` (`String`): New header name for API key
+    * `assumable_role_arn` (`String`): IAM role the agent assumes to
+      call the server (COLLECTION_AGENT only). Replaces the stored
+      role; never exposed.
     * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
       headers to add or replace (API_KEY only). An entry without a
       value keeps the stored value; omitted names are preserved.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): New
       authentication type
+    * `data_collector_uuid` (`UUID`): Data collector whose remote
+      agent calls the server (COLLECTION_AGENT only). Changing it
+      resets the connection check.
     * `description` (`String`): New description
     * `mcp_server_url` (`String`): New MCP server URL
     * `name` (`String`): New display name
@@ -51659,10 +51797,13 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Pause or resume the reinforcement loop for an
-    agent. While paused, the loop diagnoses nothing for any Issue
-    space of the agent; unpausing resumes from where it stopped.
-    Omitted fields are unchanged. Creates the agent's settings if
-    absent.
+    agent, or set its GitHub code repos. While paused, the loop
+    diagnoses nothing for any Issue space of the agent; unpausing
+    resumes from where it stopped. A custom agent is diagnosed only
+    once it has a code repo. Each branch must exist on its repo, and
+    each path prefix must be on the repo's branch, or its default
+    branch when none is set. Omitted fields are unchanged. Creates the
+    agent's settings if absent.
 
     Arguments:
 
@@ -79878,6 +80019,7 @@ class Query(sgqlc.types.Type):
         "get_reinforcement_loop_issues",
         "get_reinforcement_loop_reports",
         "get_reinforcement_loop_agent",
+        "get_reinforcement_loop_github_repos",
         "get_reinforcement_loop_selectors",
         "get_reinforcement_loop_diagnosis_triggers",
         "get_reinforcement_loop_v2_issues",
@@ -81490,6 +81632,30 @@ class Query(sgqlc.types.Type):
       — same value passed as `traceTableMcon` on getAgentGraph.
     """
 
+    get_reinforcement_loop_github_repos = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="getReinforcementLoopGithubRepos",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "installation_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The names of the repos a GitHub App installation
+    can read, sorted. The values `repo` on
+    updateReinforcementLoopAgent's `githubCodeRepos` accepts.
+
+    Arguments:
+
+    * `installation_uuid` (`UUID!`): One of the account's GitHub App
+      installations.
+    """
+
     get_reinforcement_loop_selectors = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopSelector"))
@@ -81651,11 +81817,11 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Issues the reinforcement loop diagnosed for one
     agent, each with the conversations it was found in: one node per
-    issue with its current title, description, recommendation and
-    priority, and one entry per conversation carrying the cited turns
-    and the rendering of how the issue shows up there. Sorted by
-    orderBy, priority then conversationCount by default; forward-
-    paginated.
+    issue with its current title, description and recommendation, its
+    computed priority, and one entry per conversation carrying the
+    cited turns and the rendering of how the issue shows up there.
+    Sorted by orderBy, priority then conversationCount by default;
+    forward-paginated.
 
     Arguments:
 
@@ -81675,7 +81841,7 @@ class Query(sgqlc.types.Type):
       NO_WORKFLOW narrows to conversations whose workflow is null and
       must be sent without a workflowName; NAMED requires one.
     * `priorities` (`[AgentHealthPriority!]`): Keep issues whose
-      current priority is one of these. Omit or pass an empty list to
+      served priority is one of these. Omit or pass an empty list to
       span every priority. HIDDEN requires includeHidden.
     * `include_hidden` (`Boolean`): Also return issues whose newest
       report has priority HIDDEN. False by default: hidden issues are
@@ -106505,7 +106671,8 @@ class RegisterGitlabApp(sgqlc.types.Type):
 
 class ReinforcementLoopAgent(sgqlc.types.Type):
     """The reinforcement loop's state for one agent. An agent with no
-    saved settings reports the defaults: not paused, no error.
+    saved settings reports the defaults: not paused, no error, no code
+    repos.
     """
 
     __schema__ = schema
@@ -106517,6 +106684,8 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
         "warning_state",
         "is_running",
         "last_checked_at",
+        "requires_code_repo",
+        "github_code_repos",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
 
@@ -106544,11 +106713,31 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
     """
 
     is_running = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRunning")
-    """True when the agent is not paused and has no error."""
+    """True when the agent is not paused, has no error, and has a code
+    repo if it requires one.
+    """
 
     last_checked_at = sgqlc.types.Field(DateTime, graphql_name="lastCheckedAt")
     """When the loop last checked it can read the agent's resources; null
     for agents it hasn't checked or whose platform has no check.
+    """
+
+    requires_code_repo = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="requiresCodeRepo"
+    )
+    """True for a custom agent, one with Monte Carlo-hosted traces. The
+    loop diagnoses it only once it has a code repo. Platform agents
+    such as Cortex and Genie take no code repos.
+    """
+
+    github_code_repos = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopAgentGithubCodeRepo"))
+        ),
+        graphql_name="githubCodeRepos",
+    )
+    """Where the agent's code lives, in order; empty until set. Diagnosis
+    reads every repo. The first is the agent's primary repo.
     """
 
 
@@ -106582,6 +106771,35 @@ class ReinforcementLoopAgentErrorState(sgqlc.types.Type):
 
     since = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="since")
     """When the problem was first seen."""
+
+
+class ReinforcementLoopAgentGithubCodeRepo(sgqlc.types.Type):
+    """One GitHub code location of an agent: a repo, and optionally a
+    directory and a branch.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("installation_uuid", "owner", "repo", "path_prefix", "branch")
+    installation_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="installationUuid"
+    )
+    """The GitHub App installation that reads the repo."""
+
+    owner = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="owner")
+    """The installation's GitHub org."""
+
+    repo = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repo")
+    """Repository name within the org."""
+
+    path_prefix = sgqlc.types.Field(String, graphql_name="pathPrefix")
+    """Directory holding the agent; null when the whole repo is the
+    agent.
+    """
+
+    branch = sgqlc.types.Field(String, graphql_name="branch")
+    """Branch the reinforcement loop reads; null for the repo's default
+    branch.
+    """
 
 
 class ReinforcementLoopAgentObject(sgqlc.types.Type):
@@ -107139,6 +107357,7 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "description",
         "recommendation",
         "priority",
+        "reported_priority",
         "grouping_metadata",
         "first_detected_at",
         "last_seen_at",
@@ -107186,7 +107405,16 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     """
 
     priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
-    """Current impact bucket: the newest report's. Not subject to
+    """Impact bucket, computed at read time from reportedPriority and the
+    issue's and the agent's conversations in the last 7 days. It can
+    be lower than reportedPriority, never higher. An issue with no
+    conversations in that window is LOW. HIDDEN when the newest report
+    is hidden. Not subject to redaction.
+    """
+
+    reported_priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="reportedPriority")
+    """The highest priority the agent has reported for the issue, before
+    the 7-day window is applied. Never HIDDEN. Not subject to
     redaction.
     """
 

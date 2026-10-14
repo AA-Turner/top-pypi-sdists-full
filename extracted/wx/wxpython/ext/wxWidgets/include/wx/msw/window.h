@@ -439,6 +439,11 @@ public:
     // dispatched normally
     virtual bool MSWShouldPreProcessMessage(WXMSG* pMsg);
 
+    // return false if the accelerators shouldn't be used for this message
+    // because this window prefers to handle this key itself, this is
+    // determined by sending wxEVT_ACCELERATOR_KEY event
+    bool MSWShouldUseAcceleratorForKey(const WXMSG* pMsg);
+
     // return true if the message was preprocessed and shouldn't be dispatched
     virtual bool MSWProcessMessage(WXMSG* pMsg);
 
@@ -544,8 +549,7 @@ public:
                            wxShowEffect effect,
                            unsigned timeout);
 
-    // Responds to colour changes: passes event on to children.
-    void OnSysColourChanged(wxSysColourChangedEvent& event);
+    virtual void SendSysColourChangedEvents() override;
 
     // initialize various fields of wxMouseEvent (common part of MSWOnMouseXXX)
     void InitMouseEvent(wxMouseEvent& event, int x, int y, WXUINT flags);
@@ -628,28 +632,26 @@ protected:
         // The theme IDs to use. If neither this field nor the theme name is
         // set, no theme is applied to the window.
         const wchar_t* themeId = nullptr;
+
+        // True if we should apply theme L"Explorer" when switching to light
+        // mode. Otherwise, nullptr is used.
+        bool isLightModeThemed = true;
     };
 
     virtual void MSWGetDarkModeSupport(MSWDarkModeSupport& support) const;
 
-    // The reason for calling MSWSetDarkOrLightMode below.
-    enum class SetMode
-    {
-        // Set dark mode for a newly created window.
-        Initial,
-
-        // Set dark mode or light mode for an existing window.
-        Change
-    };
-
     // Configure a window for dark mode settings immediately after creation or
     // upon switching into or out of dark mode. This function is not called
     // unless dark mode was enabled, or is being enabled.
-    virtual void MSWSetDarkOrLightMode(SetMode setmode);
+    virtual void MSWSetDarkOrLightMode();
 
     // Translate wxBORDER_THEME to a standard border style or return it as is
     // if themed border should be used, depending on CanApplyThemeBorder().
     wxBorder DoTranslateBorder(wxBorder border) const;
+
+    // Returns true if the window does not draw a good dark mode themed
+    // border and therefore we should explicitly draw it.
+    virtual bool MSWShouldDrawDarkThemeBorder() const { return true; }
 
 #if wxUSE_MENUS_NATIVE
     virtual bool DoPopupMenu( wxMenu *menu, int x, int y ) override;
@@ -691,6 +693,7 @@ protected:
     virtual void DoReleaseMouse() override;
 
     virtual void DoEnable(bool enable) override;
+    virtual void DoEnableInputMethod(bool enable) override;
 
     virtual void DoFreeze() override;
     virtual void DoThaw() override;
@@ -739,9 +742,14 @@ protected:
     //
     // The wParam and lParam here must come from WM_CHAR event parameters, i.e.
     // wParam must be a character and not a virtual code.
+    //
+    // Also note that wParam must not be a high surrogate, see the code.
     wxKeyEvent CreateCharEvent(wxEventType evType,
                                WXWPARAM wParam,
                                WXLPARAM lParam) const;
+
+    // Helper for sending wxEVT_AFTER_CHAR.
+    void SendAfterCharEvent(WXWPARAM wParam, WXLPARAM lParam);
 
 
     // default OnEraseBackground() implementation, return true if we did erase
@@ -816,6 +824,8 @@ protected:
     void MSWMoveWindowToAnyPosition(WXHWND hwnd, int x, int y,
                                     int width, int height, bool bRepaint);
 
+    virtual void MSWDrawThemeBorder(WXHDC hdc);
+
 #if wxUSE_DEFERRED_SIZING
     // this function is called after the window was resized to its new size
     virtual void MSWEndDeferWindowPos()
@@ -837,7 +847,6 @@ protected:
 private:
     wxDECLARE_DYNAMIC_CLASS(wxWindowMSW);
     wxDECLARE_NO_COPY_CLASS(wxWindowMSW);
-    wxDECLARE_EVENT_TABLE();
 };
 
 // window creation helper class: before creating a new HWND, instantiate an

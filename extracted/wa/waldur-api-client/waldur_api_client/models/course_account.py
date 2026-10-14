@@ -27,8 +27,8 @@ class CourseAccount:
         project_slug (str):
         project_start_date (Union[None, datetime.date]):
         project_end_date (Union[None, datetime.date]):
-        user_uuid (UUID):
-        username (str):
+        user_uuid (Union[None, UUID]):
+        username (Union[None, str]):
         customer_uuid (UUID):
         customer_name (str):
         state (CourseAccountStateEnum):
@@ -48,8 +48,8 @@ class CourseAccount:
     project_slug: str
     project_start_date: Union[None, datetime.date]
     project_end_date: Union[None, datetime.date]
-    user_uuid: UUID
-    username: str
+    user_uuid: Union[None, UUID]
+    username: Union[None, str]
     customer_uuid: UUID
     customer_name: str
     state: CourseAccountStateEnum
@@ -88,8 +88,13 @@ class CourseAccount:
         else:
             project_end_date = self.project_end_date
 
-        user_uuid = str(self.user_uuid)
+        user_uuid: Union[None, str]
+        if isinstance(self.user_uuid, UUID):
+            user_uuid = str(self.user_uuid)
+        else:
+            user_uuid = self.user_uuid
 
+        username: Union[None, str]
         username = self.username
 
         customer_uuid = str(self.customer_uuid)
@@ -185,9 +190,27 @@ class CourseAccount:
 
         project_end_date = _parse_project_end_date(d.pop("project_end_date"))
 
-        user_uuid = UUID(d.pop("user_uuid"))
+        def _parse_user_uuid(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                user_uuid_type_0 = UUID(data)
 
-        username = d.pop("username")
+                return user_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        user_uuid = _parse_user_uuid(d.pop("user_uuid"))
+
+        def _parse_username(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        username = _parse_username(d.pop("username"))
 
         customer_uuid = UUID(d.pop("customer_uuid"))
 

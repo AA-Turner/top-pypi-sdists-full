@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from ..models.open_stack_create_floating_ip_request import OpenStackCreateFloatingIPRequest
     from ..models.open_stack_create_instance_port_request import OpenStackCreateInstancePortRequest
     from ..models.open_stack_data_volume_request import OpenStackDataVolumeRequest
+    from ..models.open_stack_instance_create_order_attributes_metadata import (
+        OpenStackInstanceCreateOrderAttributesMetadata,
+    )
     from ..models.open_stack_security_group_hyperlink_request import OpenStackSecurityGroupHyperlinkRequest
     from ..models.open_stack_server_group_hyperlink_request import OpenStackServerGroupHyperlinkRequest
 
@@ -47,6 +50,8 @@ class OpenStackInstanceCreateOrderAttributes:
             wide default from service settings is used.
         data_volumes (Union[Unset, list['OpenStackDataVolumeRequest']]): Additional data volumes to attach to the
             instance
+        metadata (Union[Unset, OpenStackInstanceCreateOrderAttributesMetadata]): Nova instance metadata as string-to-
+            string pairs. At most 128 entries; keys and values up to 255 characters.
     """
 
     name: str
@@ -67,6 +72,7 @@ class OpenStackInstanceCreateOrderAttributes:
     connect_directly_to_external_network: Union[Unset, bool] = UNSET
     config_drive: Union[None, Unset, bool] = UNSET
     data_volumes: Union[Unset, list["OpenStackDataVolumeRequest"]] = UNSET
+    metadata: Union[Unset, "OpenStackInstanceCreateOrderAttributesMetadata"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -142,6 +148,10 @@ class OpenStackInstanceCreateOrderAttributes:
                 data_volumes_item = data_volumes_item_data.to_dict()
                 data_volumes.append(data_volumes_item)
 
+        metadata: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.metadata, Unset):
+            metadata = self.metadata.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -179,6 +189,8 @@ class OpenStackInstanceCreateOrderAttributes:
             field_dict["config_drive"] = config_drive
         if data_volumes is not UNSET:
             field_dict["data_volumes"] = data_volumes
+        if metadata is not UNSET:
+            field_dict["metadata"] = metadata
 
         return field_dict
 
@@ -187,6 +199,9 @@ class OpenStackInstanceCreateOrderAttributes:
         from ..models.open_stack_create_floating_ip_request import OpenStackCreateFloatingIPRequest
         from ..models.open_stack_create_instance_port_request import OpenStackCreateInstancePortRequest
         from ..models.open_stack_data_volume_request import OpenStackDataVolumeRequest
+        from ..models.open_stack_instance_create_order_attributes_metadata import (
+            OpenStackInstanceCreateOrderAttributesMetadata,
+        )
         from ..models.open_stack_security_group_hyperlink_request import OpenStackSecurityGroupHyperlinkRequest
         from ..models.open_stack_server_group_hyperlink_request import OpenStackServerGroupHyperlinkRequest
 
@@ -280,6 +295,13 @@ class OpenStackInstanceCreateOrderAttributes:
 
             data_volumes.append(data_volumes_item)
 
+        _metadata = d.pop("metadata", UNSET)
+        metadata: Union[Unset, OpenStackInstanceCreateOrderAttributesMetadata]
+        if isinstance(_metadata, Unset):
+            metadata = UNSET
+        else:
+            metadata = OpenStackInstanceCreateOrderAttributesMetadata.from_dict(_metadata)
+
         open_stack_instance_create_order_attributes = cls(
             name=name,
             flavor=flavor,
@@ -299,6 +321,7 @@ class OpenStackInstanceCreateOrderAttributes:
             connect_directly_to_external_network=connect_directly_to_external_network,
             config_drive=config_drive,
             data_volumes=data_volumes,
+            metadata=metadata,
         )
 
         open_stack_instance_create_order_attributes.additional_properties = d

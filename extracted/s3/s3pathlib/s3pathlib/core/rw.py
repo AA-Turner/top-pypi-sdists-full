@@ -3,29 +3,56 @@
 """
 Read and write related API.
 
-.. _bsm: https://github.com/aws-samples/boto-session-manager-project
-.. _get_object: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_object
-.. _put_object: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.put_object
-.. _decode: https://docs.python.org/3/library/stdtypes.html#bytes.decode
-.. _encode: https://docs.python.org/3/library/stdtypes.html#str.encode
+The methods read or write one S3 object: a file, or a folder marker object
+(e.g. ``folder/``, which ``mkdir`` writes). A bucket, a relative path or the
+void path raise ``S3PathTypeError`` before calling AWS.
+
+Writing returns a new ``S3Path`` with the metadata snapshot of the written
+object, and leaves this one as it was (see :mod:`s3pathlib.core.metadata`).
+Without ``version_id``, reading reads the latest version.
+
+Errors of the AWS calls are raised as is (``botocore.exceptions.ClientError``,
+check ``e.response["Error"]["Code"]``), e.g. ``NoSuchKey``, ``NoSuchBucket``,
+``PreconditionFailed`` (``if_match`` / ``if_none_match`` not met when writing,
+``if_match`` not met when reading), ``304`` (``if_none_match`` met when
+reading).
+
+**Design notes**
+
+*``touch`` and ``mkdir`` are conditional writes.* They write with
+``IfNoneMatch="*"``: one atomic call that never replaces an existing object.
+A ``head_object`` followed by a ``put_object`` could replace an object that
+someone else wrote in between.
+
+*Writing returns a new path.* The snapshot of the written object is a partial
+one built from the ``put_object`` response, so ``size`` and ``metadata`` need
+no extra call, and this ``S3Path`` keeps describing what it described.
+
+.. _get_object: https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/get_object.html
+.. _put_object: https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/put_object.html
+.. _decode: https://docs.python.org/3/builtins/stdtypes.html#bytes.decode
+.. _encode: https://docs.python.org/3/builtins/stdtypes.html#str.encode
 """
+
+from __future__ import annotations
 
 import typing as T
 from datetime import datetime
 
-from func_args import NOTHING, resolve_kwargs
+import botocore.exceptions
 
+from .._arg import OPT
+from .._arg import remove_optional
 from .. import exc
 from ..metadata import warn_upper_case_in_metadata_key
 from ..type import TagType, MetadataType
 from ..tag import encode_url_query
-from ..aws import context
+from ..aws import s3_context
 
 from .resolve_s3_client import resolve_s3_client
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from .s3path import S3Path
-    from boto_session_manager import BotoSesManager
     from mypy_boto3_s3 import S3Client
 
 
@@ -33,39 +60,45 @@ class ReadAndWriteAPIMixin:
     """
     A mixin class that implements the Text / Bytes, Read / Write methods.
     """
+
+    __slots__ = ()
+
     def read_bytes(
-        self: "S3Path",
-        version_id: str = NOTHING,
-        if_match: str = NOTHING,
-        if_modified_since: datetime = NOTHING,
-        if_none_match: str = NOTHING,
-        if_unmodified_since: datetime = NOTHING,
-        range: str = NOTHING,
-        response_cache_control: str = NOTHING,
-        response_content_disposition: str = NOTHING,
-        response_content_encoding: str = NOTHING,
-        response_content_language: str = NOTHING,
-        response_content_type: str = NOTHING,
-        response_expires: str = NOTHING,
-        sse_customer_algorithm: str = NOTHING,
-        sse_customer_key: str = NOTHING,
-        request_payer: str = NOTHING,
-        part_number: int = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        checksum_mode: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
+        self: S3Path,
+        version_id: str = OPT,
+        if_match: str = OPT,
+        if_modified_since: datetime = OPT,
+        if_none_match: str = OPT,
+        if_unmodified_since: datetime = OPT,
+        range: str = OPT,
+        response_cache_control: str = OPT,
+        response_content_disposition: str = OPT,
+        response_content_encoding: str = OPT,
+        response_content_language: str = OPT,
+        response_content_type: str = OPT,
+        response_expires: str = OPT,
+        sse_customer_algorithm: str = OPT,
+        sse_customer_key: str = OPT,
+        request_payer: str = OPT,
+        part_number: int = OPT,
+        expected_bucket_owner: str = OPT,
+        checksum_mode: str = OPT,
+        s3_client: S3Client | None = None,
     ) -> bytes:
         """
-        Read binary data from s3 object.
-        A simple wrapper around get_object_.
+        Read the content of the object, a wrapper of get_object_.
 
-        It also updates this ``S3Path`` object's metadata and attributes like
-        ``etag``, ``size``, ``version_id``, etc with the get_object_ response.
+        If this ``S3Path`` has no metadata snapshot yet, the get_object_
+        response becomes its snapshot (``etag``, ``size``, ``version_id``,
+        ...), unless ``range``, ``part_number`` or a ``response_*`` argument
+        is given (the response then describes a part, or has overridden
+        headers). An existing snapshot is never replaced, see
+        :mod:`s3pathlib.core.metadata`.
 
-        Example:
+        Example::
 
-            >>> s3path = S3Path.from_s3_uri("s3://my-bucket/my-file.txt")
-            >>> s3path.write_bytes(b"hello", metadata={"creator": "me"})
+            >>> s3path = S3Path("s3://my-bucket/read-bytes.txt")
+            >>> _ = s3path.write_bytes(b"hello", metadata={"creator": "me"})
             >>> s3path.read_bytes()
             b'hello'
             >>> s3path.size
@@ -73,42 +106,16 @@ class ReadAndWriteAPIMixin:
             >>> s3path.metadata
             {'creator': 'me'}
 
-        :param version_id: See get_object_.
-        :param if_match: See get_object_.
-        :param if_modified_since: See get_object_.
-        :param if_none_match: See get_object_.
-        :param if_unmodified_since: See get_object_.
-        :param range: See get_object_.
-        :param response_cache_control: See get_object_.
-        :param response_content_disposition: See get_object_.
-        :param response_content_encoding: See get_object_.
-        :param response_content_language: See get_object_.
-        :param response_content_type: See get_object_.
-        :param response_expires: See get_object_.
-        :param sse_customer_algorithm: See get_object_.
-        :param sse_customer_key: See get_object_.
-        :param request_payer: See get_object_.
-        :param part_number: See get_object_.
-        :param expected_bucket_owner: See get_object_.
-        :param checksum_mode: See get_object_.
-        :param bsm: See bsm_.
 
         :return: the binary data.
 
-        .. versionadded:: 1.0.3
-
-        .. versionchanged:: 1.1.2
-
-            automatically store metadata in cache.
-            
-        .. versionchanged:: 2.0.1
-        
-            add ``version_id`` parameter, and now support full list of get_object_
-            arguments.
+        :raises S3PathTypeError: for a bucket, a relative path or the void
+            path.
         """
-        s3_client = resolve_s3_client(context, bsm)
-        response = s3_client.get_object(
-            **resolve_kwargs(
+        self._ensure_has_object()
+        client = resolve_s3_client(s3_context, s3_client)
+        response = client.get_object(
+            **remove_optional(
                 Bucket=self.bucket,
                 Key=self.key,
                 VersionId=version_id,
@@ -131,90 +138,71 @@ class ReadAndWriteAPIMixin:
                 ChecksumMode=checksum_mode,
             ),
         )
-        # print("--- get_object response ---")
-        # pprint(response)
         data = response["Body"].read()
-        del response["Body"]
-        del response["ResponseMetadata"]
-        self._meta = response
+        # only fill an empty snapshot with a full response, see core.metadata;
+        # a response_* argument replaces a header of this response only
+        is_full_response = (
+            (range is OPT)
+            and (part_number is OPT)
+            and (response_cache_control is OPT)
+            and (response_content_disposition is OPT)
+            and (response_content_encoding is OPT)
+            and (response_content_language is OPT)
+            and (response_content_type is OPT)
+            and (response_expires is OPT)
+        )
+        if (self._meta is None) and is_full_response:
+            del response["Body"]
+            response.pop("ResponseMetadata", None)
+            self._set_meta(
+                response,
+                complete=True,
+                s3_client=s3_client,
+            )
         return data
 
     def read_text(
-        self: "S3Path",
+        self: S3Path,
         encoding="utf-8",
         errors="strict",
-        version_id: str = NOTHING,
-        if_match: str = NOTHING,
-        if_modified_since: datetime = NOTHING,
-        if_none_match: str = NOTHING,
-        if_unmodified_since: datetime = NOTHING,
-        range: str = NOTHING,
-        response_cache_control: str = NOTHING,
-        response_content_disposition: str = NOTHING,
-        response_content_encoding: str = NOTHING,
-        response_content_language: str = NOTHING,
-        response_content_type: str = NOTHING,
-        response_expires: str = NOTHING,
-        sse_customer_algorithm: str = NOTHING,
-        sse_customer_key: str = NOTHING,
-        request_payer: str = NOTHING,
-        part_number: int = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        checksum_mode: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
+        version_id: str = OPT,
+        if_match: str = OPT,
+        if_modified_since: datetime = OPT,
+        if_none_match: str = OPT,
+        if_unmodified_since: datetime = OPT,
+        range: str = OPT,
+        response_cache_control: str = OPT,
+        response_content_disposition: str = OPT,
+        response_content_encoding: str = OPT,
+        response_content_language: str = OPT,
+        response_content_type: str = OPT,
+        response_expires: str = OPT,
+        sse_customer_algorithm: str = OPT,
+        sse_customer_key: str = OPT,
+        request_payer: str = OPT,
+        part_number: int = OPT,
+        expected_bucket_owner: str = OPT,
+        checksum_mode: str = OPT,
+        s3_client: S3Client | None = None,
     ) -> str:
         """
-        Read text data from s3 object.
-        A simple wrapper around get_object_.
+        Read the content of the object as text, see :meth:`read_bytes`, which
+        also tells when the metadata snapshot is filled.
 
-        It also updates this ``S3Path`` object's metadata and attributes like
-        ``etag``, ``size``, ``version_id``, etc with the get_object_ response.
+        Example::
 
-        Example:
-
-            >>> s3path = S3Path("s3://my-bucket/my-file.txt")
-            >>> s3path.write_text("hello", metadata={"creator": "me"})
+            >>> s3path = S3Path("s3://my-bucket/read-text.txt")
+            >>> _ = s3path.write_text("hello")
             >>> s3path.read_text()
             'hello'
-            >>> s3path.size
-            5
-            >>> s3path.metadata
-            {'creator': 'me'}
 
         :param encoding: See decode_.
         :param errors: See decode_.
-        :param version_id: See get_object_.
-        :param if_match: See get_object_.
-        :param if_modified_since: See get_object_.
-        :param if_none_match: See get_object_.
-        :param if_unmodified_since: See get_object_.
-        :param range: See get_object_.
-        :param response_cache_control: See get_object_.
-        :param response_content_disposition: See get_object_.
-        :param response_content_encoding: See get_object_.
-        :param response_content_language: See get_object_.
-        :param response_content_type: See get_object_.
-        :param response_expires: See get_object_.
-        :param sse_customer_algorithm: See get_object_.
-        :param sse_customer_key: See get_object_.
-        :param request_payer: See get_object_.
-        :param part_number: See get_object_.
-        :param expected_bucket_owner: See get_object_.
-        :param checksum_mode: See get_object_.
-        :param bsm: See bsm_.
 
         :return: the string data.
 
-        .. versionadded:: 1.0.3
-
-        .. versionchanged:: 1.1.2
-
-            automatically store metadata in cache.
-
-        .. versionchanged:: 2.0.1
-
-            add ``version_id`` parameter, and now support full list of get_object_
-            arguments.
+        :raises S3PathTypeError: for a bucket, a relative path or the void
+            path.
         """
         data = self.read_bytes(
             version_id=version_id,
@@ -235,117 +223,90 @@ class ReadAndWriteAPIMixin:
             part_number=part_number,
             expected_bucket_owner=expected_bucket_owner,
             checksum_mode=checksum_mode,
-            bsm=bsm,
+            s3_client=s3_client,
         )
         return data.decode(encoding, errors=errors)
 
     def write_bytes(
-        self: "S3Path",
+        self: S3Path,
         data: bytes,
-        metadata: MetadataType = NOTHING,
-        tags: TagType = NOTHING,
-        acl: str = NOTHING,
-        cache_control: str = NOTHING,
-        content_disposition: str = NOTHING,
-        content_encoding: str = NOTHING,
-        content_language: str = NOTHING,
-        content_length: int = NOTHING,
-        content_md5: str = NOTHING,
-        content_type: str = NOTHING,
-        checksum_algorithm: str = NOTHING,
-        checksum_crc32: str = NOTHING,
-        checksum_crc32c: str = NOTHING,
-        checksum_sha1: str = NOTHING,
-        checksum_sha256: str = NOTHING,
-        expires_datetime: datetime = NOTHING,
-        grant_full_control: str = NOTHING,
-        grant_read: str = NOTHING,
-        grant_read_acp: str = NOTHING,
-        grant_write_acp: str = NOTHING,
-        server_side_encryption: str = NOTHING,
-        storage_class: str = NOTHING,
-        website_redirect_location: str = NOTHING,
-        sse_customer_algorithm: str = NOTHING,
-        sse_customer_key: str = NOTHING,
-        sse_kms_key_id: str = NOTHING,
-        sse_kms_encryption_context: str = NOTHING,
-        bucket_key_enabled: bool = NOTHING,
-        request_payer: str = NOTHING,
-        object_lock_mode: str = NOTHING,
-        object_lock_retain_until_datetime: datetime = NOTHING,
-        object_lock_legal_hold_status: str = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ) -> "S3Path":
+        metadata: MetadataType = OPT,
+        tags: TagType = OPT,
+        acl: str = OPT,
+        cache_control: str = OPT,
+        content_disposition: str = OPT,
+        content_encoding: str = OPT,
+        content_language: str = OPT,
+        content_length: int = OPT,
+        content_md5: str = OPT,
+        content_type: str = OPT,
+        checksum_algorithm: str = OPT,
+        checksum_crc32: str = OPT,
+        checksum_crc32c: str = OPT,
+        checksum_sha1: str = OPT,
+        checksum_sha256: str = OPT,
+        expires_datetime: datetime = OPT,
+        grant_full_control: str = OPT,
+        grant_read: str = OPT,
+        grant_read_acp: str = OPT,
+        grant_write_acp: str = OPT,
+        server_side_encryption: str = OPT,
+        storage_class: str = OPT,
+        website_redirect_location: str = OPT,
+        sse_customer_algorithm: str = OPT,
+        sse_customer_key: str = OPT,
+        sse_kms_key_id: str = OPT,
+        sse_kms_encryption_context: str = OPT,
+        bucket_key_enabled: bool = OPT,
+        request_payer: str = OPT,
+        object_lock_mode: str = OPT,
+        object_lock_retain_until_datetime: datetime = OPT,
+        object_lock_legal_hold_status: str = OPT,
+        expected_bucket_owner: str = OPT,
+        if_match: str = OPT,
+        if_none_match: str = OPT,
+        s3_client: S3Client | None = None,
+    ) -> S3Path:
         """
-        Write binary data to s3 object.
-        A simple wrapper around put_object_.
+        Write ``data`` to the object (replacing it if it exists), a wrapper of
+        put_object_.
 
-        Example:
+        Example::
 
-            >>> s3path = S3Path("s3://my-bucket/my-file.txt")
-            >>> s3path.write_bytes(b"hello", metadata={"creator": "me"})
-            >>> s3path.size
+            >>> s3path = S3Path("s3://my-bucket/write-bytes.txt")
+            >>> s3path_new = s3path.write_bytes(b"hello", metadata={"creator": "me"})
+            >>> s3path_new.size
             5
-            >>> s3path.metadata
+            >>> s3path_new.metadata
             {'creator': 'me'}
 
-        :param data: the text you want to write.
-        :param metadata: the s3 object metadata in string key value pair dict.
-        :param tags: the s3 object tags in string key value pair dict.
-        :param acl: See put_object_.
-        :param cache_control: See put_object_.
-        :param content_disposition: See put_object_.
-        :param content_encoding: See put_object_.
-        :param content_language: See put_object_.
-        :param content_length: See put_object_.
-        :param content_md5: See put_object_.
-        :param content_type: See put_object_.
-        :param checksum_algorithm: See put_object_.
-        :param checksum_crc32: See put_object_.
-        :param checksum_crc32c: See put_object_.
-        :param checksum_sha1: See put_object_.
-        :param checksum_sha256: See put_object_.
-        :param expires_datetime: See put_object_.
-        :param grant_full_control: See put_object_.
-        :param grant_read: See put_object_.
-        :param grant_read_acp: See put_object_.
-        :param grant_write_acp: See put_object_.
-        :param server_side_encryption: See put_object_.
-        :param storage_class: See put_object_.
-        :param website_redirect_location: See put_object_.
-        :param sse_customer_algorithm: See put_object_.
-        :param sse_customer_key: See put_object_.
-        :param sse_kms_key_id: See put_object_.
-        :param sse_kms_encryption_context: See put_object_.
-        :param bucket_key_enabled: See put_object_.
-        :param request_payer: See put_object_.
-        :param object_lock_mode: See put_object_.
-        :param object_lock_retain_until_datetime: See put_object_.
-        :param object_lock_legal_hold_status: See put_object_.
-        :param expected_bucket_owner: See put_object_.
-        :param bsm: See bsm_.
+        :param data: the content to write.
+        :param metadata: the user metadata, a dict of str. S3 stores the keys
+            in lower case.
+        :param tags: the object tags, a dict of str.
+        :param if_match: only write if the ETag of the object is this one
+            (nobody changed it since you read it).
+        :param if_none_match: ``"*"`` only writes if the object does not exist
+            (a delete marker as the latest version counts as not existing).
 
-        :return: A new :class:`~s3pathlib.core.s3path.S3Path` object with the
-            same bucket and key, but the new metadata representing the object
-            you just put.
+        :return: a new :class:`~s3pathlib.core.s3path.S3Path` with the metadata
+            snapshot of the written object (``size``, ``etag``, ``metadata``,
+            ``version_id``, ...); this ``S3Path`` is not changed.
 
-        .. versionadded:: 1.0.3
-
-        .. versionchanged:: 1.1.1
-
-            add ``metadata`` and ``tags`` parameters.
+        :raises S3PathTypeError: for a bucket, a relative path or the void
+            path.
         """
-        s3_client = resolve_s3_client(context, bsm)
-        if metadata is not NOTHING:
+        self._ensure_has_object()
+        client = resolve_s3_client(s3_context, s3_client)
+        if metadata is not OPT:
             warn_upper_case_in_metadata_key(metadata)
-        response = s3_client.put_object(
-            **resolve_kwargs(
+        response = client.put_object(
+            **remove_optional(
                 Bucket=self.bucket,
                 Key=self.key,
                 Body=data,
                 Metadata=metadata,
-                Tagging=tags if tags is NOTHING else encode_url_query(tags),
+                Tagging=tags if tags is OPT else encode_url_query(tags),
                 ACL=acl,
                 CacheControl=cache_control,
                 ContentDisposition=content_disposition,
@@ -377,125 +338,101 @@ class ReadAndWriteAPIMixin:
                 ObjectLockRetainUntilDate=object_lock_retain_until_datetime,
                 ObjectLockLegalHoldStatus=object_lock_legal_hold_status,
                 ExpectedBucketOwner=expected_bucket_owner,
+                IfMatch=if_match,
+                IfNoneMatch=if_none_match,
             )
         )
-        # print("--- put_object response ---")
-        # pprint(response)
-        del response["ResponseMetadata"]
+        response.pop("ResponseMetadata", None)
         response["ContentLength"] = len(data)
-        if metadata is not NOTHING:
-            response["Metadata"] = metadata
+        # the user metadata the object has, as S3 stores it
+        stored_metadata = dict()
+        if metadata is not OPT:
+            for key, value in metadata.items():
+                stored_metadata[key.lower()] = value
+        response["Metadata"] = stored_metadata
         s3path = self.copy()
-        s3path._meta = response
+        s3path._set_meta(
+            response,
+            complete=False,
+            s3_client=s3_client,
+        )
         return s3path
 
     def write_text(
-        self: "S3Path",
+        self: S3Path,
         data: str,
         encoding: str = "utf-8",
         errors: str = "strict",
-        metadata: MetadataType = NOTHING,
-        tags: TagType = NOTHING,
-        acl: str = NOTHING,
-        cache_control: str = NOTHING,
-        content_disposition: str = NOTHING,
-        content_encoding: str = NOTHING,
-        content_language: str = NOTHING,
-        content_length: int = NOTHING,
-        content_md5: str = NOTHING,
-        content_type: str = NOTHING,
-        checksum_algorithm: str = NOTHING,
-        checksum_crc32: str = NOTHING,
-        checksum_crc32c: str = NOTHING,
-        checksum_sha1: str = NOTHING,
-        checksum_sha256: str = NOTHING,
-        expires_datetime: datetime = NOTHING,
-        grant_full_control: str = NOTHING,
-        grant_read: str = NOTHING,
-        grant_read_acp: str = NOTHING,
-        grant_write_acp: str = NOTHING,
-        server_side_encryption: str = NOTHING,
-        storage_class: str = NOTHING,
-        website_redirect_location: str = NOTHING,
-        sse_customer_algorithm: str = NOTHING,
-        sse_customer_key: str = NOTHING,
-        sse_kms_key_id: str = NOTHING,
-        sse_kms_encryption_context: str = NOTHING,
-        bucket_key_enabled: bool = NOTHING,
-        request_payer: str = NOTHING,
-        object_lock_mode: str = NOTHING,
-        object_lock_retain_until_datetime: datetime = NOTHING,
-        object_lock_legal_hold_status: str = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ) -> "S3Path":
+        metadata: MetadataType = OPT,
+        tags: TagType = OPT,
+        acl: str = OPT,
+        cache_control: str = OPT,
+        content_disposition: str = OPT,
+        content_encoding: str = OPT,
+        content_language: str = OPT,
+        content_length: int = OPT,
+        content_md5: str = OPT,
+        content_type: str = OPT,
+        checksum_algorithm: str = OPT,
+        checksum_crc32: str = OPT,
+        checksum_crc32c: str = OPT,
+        checksum_sha1: str = OPT,
+        checksum_sha256: str = OPT,
+        expires_datetime: datetime = OPT,
+        grant_full_control: str = OPT,
+        grant_read: str = OPT,
+        grant_read_acp: str = OPT,
+        grant_write_acp: str = OPT,
+        server_side_encryption: str = OPT,
+        storage_class: str = OPT,
+        website_redirect_location: str = OPT,
+        sse_customer_algorithm: str = OPT,
+        sse_customer_key: str = OPT,
+        sse_kms_key_id: str = OPT,
+        sse_kms_encryption_context: str = OPT,
+        bucket_key_enabled: bool = OPT,
+        request_payer: str = OPT,
+        object_lock_mode: str = OPT,
+        object_lock_retain_until_datetime: datetime = OPT,
+        object_lock_legal_hold_status: str = OPT,
+        expected_bucket_owner: str = OPT,
+        if_match: str = OPT,
+        if_none_match: str = OPT,
+        s3_client: S3Client | None = None,
+    ) -> S3Path:
         """
-        Write text to s3 object.
-        A simple wrapper around put_object_.
+        Write the text ``data`` to the object, see :meth:`write_bytes`.
 
-        Example:
+        Example::
 
-            >>> s3path = S3Path("s3://my-bucket/my-file.txt")
-            >>> s3path.write_text("hello", metadata={"creator": "me"})
-            >>> s3path.size
+            >>> s3path_new = S3Path("s3://my-bucket/write-text.txt").write_text("hello")
+            >>> s3path_new.size
             5
-            >>> s3path.metadata
-            {'creator': 'me'}
 
-        :param data: the text you want to write.
+        :param data: the text to write.
         :param encoding: See encode_.
         :param errors: See encode_.
-        :param metadata: the s3 object metadata in string key value pair dict.
-        :param tags: the s3 object tags in string key value pair dict.
-        :param acl: See put_object_.
-        :param cache_control: See put_object_.
-        :param content_disposition: See put_object_.
-        :param content_encoding: See put_object_.
-        :param content_language: See put_object_.
-        :param content_length: See put_object_.
-        :param content_md5: See put_object_.
-        :param content_type: See put_object_.
-        :param checksum_algorithm: See put_object_.
-        :param checksum_crc32: See put_object_.
-        :param checksum_crc32c: See put_object_.
-        :param checksum_sha1: See put_object_.
-        :param checksum_sha256: See put_object_.
-        :param expires_datetime: See put_object_.
-        :param grant_full_control: See put_object_.
-        :param grant_read: See put_object_.
-        :param grant_read_acp: See put_object_.
-        :param grant_write_acp: See put_object_.
-        :param server_side_encryption: See put_object_.
-        :param storage_class: See put_object_.
-        :param website_redirect_location: See put_object_.
-        :param sse_customer_algorithm: See put_object_.
-        :param sse_customer_key: See put_object_.
-        :param sse_kms_key_id: See put_object_.
-        :param sse_kms_encryption_context: See put_object_.
-        :param bucket_key_enabled: See put_object_.
-        :param request_payer: See put_object_.
-        :param object_lock_mode: See put_object_.
-        :param object_lock_retain_until_datetime: See put_object_.
-        :param object_lock_legal_hold_status: See put_object_.
-        :param expected_bucket_owner: See put_object_.
-        :param bsm: See bsm_.
+        :param metadata: the user metadata, a dict of str. S3 stores the keys
+            in lower case.
+        :param tags: the object tags, a dict of str.
+        :param if_match: only write if the ETag of the object is this one
+            (nobody changed it since you read it).
+        :param if_none_match: ``"*"`` only writes if the object does not exist
+            (a delete marker as the latest version counts as not existing).
 
-        :return: A new :class:`~s3pathlib.core.s3path.S3Path` object with the
-            same bucket and key, but the new metadata representing the object
-            you just put.
+        :return: a new :class:`~s3pathlib.core.s3path.S3Path` with the metadata
+            snapshot of the written object (``size``, ``etag``, ``metadata``,
+            ``version_id``, ...); this ``S3Path`` is not changed.
 
-        .. versionadded:: 1.0.3
-
-        .. versionchanged:: 1.1.1
-
-            add ``metadata`` and ``tags`` parameters.
+        :raises S3PathTypeError: for a bucket, a relative path or the void
+            path.
         """
         body = data.encode(encoding, errors=errors)
         return self.write_bytes(
             data=body,
             metadata=metadata,
             tags=tags,
-            bsm=bsm,
+            s3_client=s3_client,
             acl=acl,
             cache_control=cache_control,
             content_disposition=content_disposition,
@@ -527,180 +464,191 @@ class ReadAndWriteAPIMixin:
             object_lock_retain_until_datetime=object_lock_retain_until_datetime,
             object_lock_legal_hold_status=object_lock_legal_hold_status,
             expected_bucket_owner=expected_bucket_owner,
+            if_match=if_match,
+            if_none_match=if_none_match,
         )
 
     def touch(
-        self: "S3Path",
+        self: S3Path,
         exist_ok: bool = False,
-        metadata: MetadataType = NOTHING,
-        tags: TagType = NOTHING,
-        acl: str = NOTHING,
-        cache_control: str = NOTHING,
-        content_disposition: str = NOTHING,
-        content_encoding: str = NOTHING,
-        content_language: str = NOTHING,
-        content_length: int = NOTHING,
-        content_md5: str = NOTHING,
-        content_type: str = NOTHING,
-        checksum_algorithm: str = NOTHING,
-        checksum_crc32: str = NOTHING,
-        checksum_crc32c: str = NOTHING,
-        checksum_sha1: str = NOTHING,
-        checksum_sha256: str = NOTHING,
-        expires_datetime: datetime = NOTHING,
-        grant_full_control: str = NOTHING,
-        grant_read: str = NOTHING,
-        grant_read_acp: str = NOTHING,
-        grant_write_acp: str = NOTHING,
-        server_side_encryption: str = NOTHING,
-        storage_class: str = NOTHING,
-        website_redirect_location: str = NOTHING,
-        sse_customer_algorithm: str = NOTHING,
-        sse_customer_key: str = NOTHING,
-        sse_kms_key_id: str = NOTHING,
-        sse_kms_encryption_context: str = NOTHING,
-        bucket_key_enabled: bool = NOTHING,
-        request_payer: str = NOTHING,
-        object_lock_mode: str = NOTHING,
-        object_lock_retain_until_datetime: datetime = NOTHING,
-        object_lock_legal_hold_status: str = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ):
+        metadata: MetadataType = OPT,
+        tags: TagType = OPT,
+        acl: str = OPT,
+        cache_control: str = OPT,
+        content_disposition: str = OPT,
+        content_encoding: str = OPT,
+        content_language: str = OPT,
+        content_length: int = OPT,
+        content_md5: str = OPT,
+        content_type: str = OPT,
+        checksum_algorithm: str = OPT,
+        checksum_crc32: str = OPT,
+        checksum_crc32c: str = OPT,
+        checksum_sha1: str = OPT,
+        checksum_sha256: str = OPT,
+        expires_datetime: datetime = OPT,
+        grant_full_control: str = OPT,
+        grant_read: str = OPT,
+        grant_read_acp: str = OPT,
+        grant_write_acp: str = OPT,
+        server_side_encryption: str = OPT,
+        storage_class: str = OPT,
+        website_redirect_location: str = OPT,
+        sse_customer_algorithm: str = OPT,
+        sse_customer_key: str = OPT,
+        sse_kms_key_id: str = OPT,
+        sse_kms_encryption_context: str = OPT,
+        bucket_key_enabled: bool = OPT,
+        request_payer: str = OPT,
+        object_lock_mode: str = OPT,
+        object_lock_retain_until_datetime: datetime = OPT,
+        object_lock_legal_hold_status: str = OPT,
+        expected_bucket_owner: str = OPT,
+        s3_client: S3Client | None = None,
+    ) -> None:
         """
-        Create an empty S3 object at the S3 location if the S3 object not exists.
-        Do nothing if already exists.
+        Create an empty object if it does not exist, with one conditional
+        put_object_ (``IfNoneMatch="*"``), so it is atomic: an object written
+        by someone else in between is never replaced. An existing object is
+        never changed.
 
-        Example:
+        Example::
 
-            >>> s3path = S3Path("s3://my-bucket/my-file.txt")
-            >>> s3path.write_text("hello", metadata={"creator": "me"})
-            >>> s3path.size
-            5
-            >>> s3path.metadata
-            {'creator': 'me'}
+            >>> s3path = S3Path("s3://my-bucket/touch.txt")
+            >>> s3path.touch()
+            >>> s3path.read_text()
+            ''
+            >>> s3path.touch(exist_ok=True)
 
-        :param exist_ok: if True, it won't raise error when the S3 object
-            already exists.
+        :param exist_ok: if ``False`` (default), raise ``S3FileAlreadyExist``
+            when the object exists; if ``True``, do nothing then.
+        :param metadata: the user metadata of the new object.
+        :param tags: the tags of the new object.
 
-        :param data: the text you want to write.
-        :param metadata: the s3 object metadata in string key value pair dict.
-        :param tags: the s3 object tags in string key value pair dict.
-        :param acl: See put_object_.
-        :param cache_control: See put_object_.
-        :param content_disposition: See put_object_.
-        :param content_encoding: See put_object_.
-        :param content_language: See put_object_.
-        :param content_length: See put_object_.
-        :param content_md5: See put_object_.
-        :param content_type: See put_object_.
-        :param checksum_algorithm: See put_object_.
-        :param checksum_crc32: See put_object_.
-        :param checksum_crc32c: See put_object_.
-        :param checksum_sha1: See put_object_.
-        :param checksum_sha256: See put_object_.
-        :param expires_datetime: See put_object_.
-        :param grant_full_control: See put_object_.
-        :param grant_read: See put_object_.
-        :param grant_read_acp: See put_object_.
-        :param grant_write_acp: See put_object_.
-        :param server_side_encryption: See put_object_.
-        :param storage_class: See put_object_.
-        :param website_redirect_location: See put_object_.
-        :param sse_customer_algorithm: See put_object_.
-        :param sse_customer_key: See put_object_.
-        :param sse_kms_key_id: See put_object_.
-        :param sse_kms_encryption_context: See put_object_.
-        :param bucket_key_enabled: See put_object_.
-        :param request_payer: See put_object_.
-        :param object_lock_mode: See put_object_.
-        :param object_lock_retain_until_datetime: See put_object_.
-        :param object_lock_legal_hold_status: See put_object_.
-        :param expected_bucket_owner: See put_object_.
-        :param bsm: See bsm_.
+        The other arguments are the ones of :meth:`write_bytes`.
 
-        .. versionadded:: 1.0.6
-
-        .. versionchanged:: 1.2.1
-
-            add ``metadata`` and ``tags`` parameters.
+        :raises S3PathTypeError: for a relative path or the void path.
+        :raises S3PathIsNotFileError: for a folder or a bucket.
+        :raises S3FileAlreadyExist: if the object exists and ``exist_ok`` is
+            ``False``.
         """
+        self.ensure_not_relpath()
         self.ensure_object()
-        kwargs = dict(
-            data="",
-            metadata=metadata,
-            tags=tags,
-            acl=acl,
-            cache_control=cache_control,
-            content_disposition=content_disposition,
-            content_encoding=content_encoding,
-            content_language=content_language,
-            content_length=content_length,
-            content_md5=content_md5,
-            content_type=content_type,
-            checksum_algorithm=checksum_algorithm,
-            checksum_crc32=checksum_crc32,
-            checksum_crc32c=checksum_crc32c,
-            checksum_sha1=checksum_sha1,
-            checksum_sha256=checksum_sha256,
-            expires_datetime=expires_datetime,
-            grant_full_control=grant_full_control,
-            grant_read=grant_read,
-            grant_read_acp=grant_read_acp,
-            grant_write_acp=grant_write_acp,
-            server_side_encryption=server_side_encryption,
-            storage_class=storage_class,
-            website_redirect_location=website_redirect_location,
-            sse_customer_algorithm=sse_customer_algorithm,
-            sse_customer_key=sse_customer_key,
-            sse_kms_key_id=sse_kms_key_id,
-            sse_kms_encryption_context=sse_kms_encryption_context,
-            bucket_key_enabled=bucket_key_enabled,
-            request_payer=request_payer,
-            object_lock_mode=object_lock_mode,
-            object_lock_retain_until_datetime=object_lock_retain_until_datetime,
-            object_lock_legal_hold_status=object_lock_legal_hold_status,
-            expected_bucket_owner=expected_bucket_owner,
-            bsm=bsm,
-        )
+        try:
+            self.write_bytes(
+                data=b"",
+                metadata=metadata,
+                tags=tags,
+                acl=acl,
+                cache_control=cache_control,
+                content_disposition=content_disposition,
+                content_encoding=content_encoding,
+                content_language=content_language,
+                content_length=content_length,
+                content_md5=content_md5,
+                content_type=content_type,
+                checksum_algorithm=checksum_algorithm,
+                checksum_crc32=checksum_crc32,
+                checksum_crc32c=checksum_crc32c,
+                checksum_sha1=checksum_sha1,
+                checksum_sha256=checksum_sha256,
+                expires_datetime=expires_datetime,
+                grant_full_control=grant_full_control,
+                grant_read=grant_read,
+                grant_read_acp=grant_read_acp,
+                grant_write_acp=grant_write_acp,
+                server_side_encryption=server_side_encryption,
+                storage_class=storage_class,
+                website_redirect_location=website_redirect_location,
+                sse_customer_algorithm=sse_customer_algorithm,
+                sse_customer_key=sse_customer_key,
+                sse_kms_key_id=sse_kms_key_id,
+                sse_kms_encryption_context=sse_kms_encryption_context,
+                bucket_key_enabled=bucket_key_enabled,
+                request_payer=request_payer,
+                object_lock_mode=object_lock_mode,
+                object_lock_retain_until_datetime=object_lock_retain_until_datetime,
+                object_lock_legal_hold_status=object_lock_legal_hold_status,
+                expected_bucket_owner=expected_bucket_owner,
+                if_none_match="*",
+                s3_client=s3_client,
+            )
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "PreconditionFailed":
+                if exist_ok:
+                    return
+                else:
+                    raise exc.S3FileAlreadyExist.make(self.uri) from e
+            else:
+                raise
 
-        if exist_ok:
-            self.write_text(**kwargs)
-        elif self.exists(bsm=bsm) is False:
-            self.write_text(**kwargs)
-        else:
-            raise exc.S3FileAlreadyExist.make(self.uri)
+    def _write_folder_marker(
+        self: S3Path,
+        s3_client: S3Client | None,
+    ) -> bool:
+        """
+        Write the folder marker object of this folder, unless it exists.
+
+        :return: ``True`` if it was written.
+        """
+        try:
+            self.write_bytes(data=b"", if_none_match="*", s3_client=s3_client)
+            return True
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "PreconditionFailed":
+                return False
+            else:
+                raise
 
     def mkdir(
-        self: "S3Path",
+        self: S3Path,
         exist_ok: bool = False,
         parents: bool = False,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ):
+        s3_client: S3Client | None = None,
+    ) -> None:
         """
-        Make an S3 folder (empty "/" file)
+        Create the folder marker object of this folder (an empty object whose
+        key ends with ``/``, what "Create folder" does in the S3 console), and
+        of each parent folder with ``parents=True``. A marker that exists is
+        never replaced (conditional put_object_ with ``IfNoneMatch="*"``).
 
-        Example:
+        A folder exists in S3 as soon as an object key starts with it, even
+        without marker ("soft folder"), see ``exists()``.
 
-            >>> s3dir = S3Path("s3://my-bucket/my-folder/").to_dir()
-            >>> s3dir.to_dir(exist_ok=True)
+        Example::
 
-        :param exist_ok: If True, it won't raise error when the S3 folder already exists.
-        :param parents: If True, all parent folders will be created.
-        :param bsm: See bsm_.
+            >>> s3dir = S3Path("s3://my-bucket/mkdir/sub/")
+            >>> s3dir.mkdir(parents=True)
+            >>> S3Path("s3://my-bucket/mkdir/").read_text()
+            ''
+            >>> s3dir.mkdir(exist_ok=True)
 
-        .. versionadded:: 1.0.6
+        :param exist_ok: if ``False`` (default), raise
+            ``S3FolderAlreadyExist`` when the folder exists (with or without
+            marker); if ``True``, only write the markers that do not exist.
+        :param parents: if ``True``, also write the markers of the parent
+            folders (up to the bucket).
+
+        :raises S3PathTypeError: for a relative path, the void path, or a
+            bucket (use ``create_bucket()``).
+        :raises S3PathIsNotFolderError: for a file.
+        :raises S3FolderAlreadyExist: if the folder exists and ``exist_ok`` is
+            ``False``.
         """
+        self.ensure_not_relpath()
         self.ensure_dir()
-
-        if exist_ok:
-            self.write_text("", bsm=bsm)
-        elif self.exists(bsm=bsm) is False:
-            self.write_text("", bsm=bsm)
-        else:
+        if self.is_bucket():
+            raise exc.S3PathTypeError(
+                f"{self._error_label()} is a bucket, use create_bucket() to create it"
+            )
+        if exist_ok is False:
+            if self.exists(s3_client=s3_client):
+                raise exc.S3FolderAlreadyExist.make(self.uri)
+        written = self._write_folder_marker(s3_client=s3_client)
+        # a marker written by someone else after the exists() check
+        if (written is False) and (exist_ok is False):
             raise exc.S3FolderAlreadyExist.make(self.uri)
-
         if parents:
             for p in self.parents:
                 if p.is_bucket() is False:
-                    p.mkdir(exist_ok=True, parents=False, bsm=bsm)
+                    p._write_folder_marker(s3_client=s3_client)

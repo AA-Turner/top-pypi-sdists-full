@@ -560,14 +560,7 @@ def test_the_capy_folder_is_one_plugin_with_probes_mcp_server_and_version(tmp_pa
     assert manifest["version"] == "1.2.3"
     assert manifest["skills"] == "./skills/"
     # probe-capy tells the agent to call `probe__search`.
-    server = {
-        "probe": {
-            "type": "http",
-            "url": "https://mcp.example/mcp",
-            "auth": "oauth",
-            "connection": "member",
-        }
-    }
+    server = {"probe": {"type": "http", "url": "https://mcp.example/mcp", "auth": "oauth"}}
     assert manifest["mcpServers"] == server
     assert json.loads((mirror / "capy" / ".mcp.json").read_text()) == {"mcpServers": server}
 

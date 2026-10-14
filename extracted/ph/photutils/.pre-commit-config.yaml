@@ -34,10 +34,10 @@ repos:
         # Replace double-quoted strings with single-quoted strings.
       - id: end-of-file-fixer
         # Makes sure files end in a newline and only a newline.
-        exclude: ".*(svg.*|extern.*)$"
+        exclude: '.*(svg.*|extern.*)$'
       - id: trailing-whitespace
         # Trims trailing whitespace.
-        exclude: ".*(data.*|extern.*)$"
+        exclude: '.*(data.*|extern.*)$'
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
@@ -55,18 +55,18 @@ repos:
         # Enforce that all noqa annotations always occur with specific codes.
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.15.9"
+    rev: 'v0.16.10'
     hooks:
       - id: ruff-check
-        args: ["--fix", "--show-fixes"]
+        args: ['--fix', '--show-fixes']
 
   - repo: https://github.com/scientific-python/cookie
-    rev: 2026.04.04
+    rev: 2026.08.14
     hooks:
       - id: sp-repo-review
 
   - repo: https://github.com/pycqa/isort
-    rev: 8.0.1
+    rev: 9.0.2
     hooks:
       - id: isort
         name: isort (python)
@@ -77,24 +77,61 @@ repos:
         additional_dependencies: [toml]
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.4.1
     hooks:
       - id: flake8
-        args: ["--ignore", "E501,W503"]
+        args: ['--ignore', 'E501,W503']
+
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.21.1
+    hooks:
+      - id: cython-lint
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.30.1
+    hooks:
+      - id: zizmor
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.9.9
+    hooks:
+      - id: prettier
+        types_or: [css, rst, json, yaml, toml, markdown]
+        args: ['--single-quote']
+        # Exclude codeql.yml and dependabot.yml
+        exclude: |
+          (?x)^(
+            (.*\/)?(codeql\.yml|dependabot\.yml)$
+          )
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        name: yamllint (ASDF resources)
+        # Prettier does not reach inside the block scalars that hold the
+        # schema examples, so the line length is enforced here. The tag
+        # and schema URIs cannot be wrapped, so a value that is a single
+        # long word is exempt.
+        files: ^photutils/resources/.*\.yaml$
+        args:
+          - '-d'
+          - '{rules: {line-length: {max: 79,
+            allow-non-breakable-inline-mappings: true}}}'
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
-        args: ["--write-changes"]
+        args: ['--write-changes']
         additional_dependencies:
           - tomli
 
   - repo: https://github.com/numpy/numpydoc
-    rev: v1.10.0
+    rev: v1.11.0
     hooks:
       - id: numpydoc-validation
-        exclude: "extern/"
+        exclude: 'extern/'
 
   # TMP: disabled until new release (Python 3.14 support and without
   #      requiring untokenize) and various regressions are fixed
@@ -106,13 +143,8 @@ repos:
   #       args: [--in-place, --config, ./pyproject.toml]
   #       exclude: "extern/"
 
-  - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: v1.23.1
-    hooks:
-    - id: zizmor
-
   - repo: https://github.com/sphinx-contrib/sphinx-lint
     rev: v1.0.2
     hooks:
       - id: sphinx-lint
-        exclude: "(docs/_build/|photutils/extern/)"
+        exclude: '(docs/_build/|photutils/extern/)'

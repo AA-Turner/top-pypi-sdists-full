@@ -11,6 +11,7 @@ TODO: Check if all IO parameters in SPMEMSInterfaceRequirements.xlsx defined as 
 import os
 import re
 
+from powertrain_build import build_defs
 from powertrain_build.types import byte_size_string, get_bitmask, a2l_range
 from powertrain_build.a2l import A2l
 from powertrain_build.problem_logger import ProblemLogger
@@ -26,7 +27,7 @@ class ExtDbg(ProblemLogger):
                         'UInt16': '2', 'Int16': '2',
                         'UInt8': '1', 'Int8': '1', 'Bool': '1'}
 
-    def __init__(self, variable_dict, prj_cfg, unit_cfg, integrity_level, polyspace_comments):
+    def __init__(self, variable_dict, prj_cfg, unit_cfg, is_asil, polyspace_comments):
         """Constructor.
 
         Args:
@@ -63,11 +64,12 @@ class ExtDbg(ProblemLogger):
         directives to use.
         """
         super().__init__()
-        self.set_integrity_level(integrity_level)
         self._prj_cfg = prj_cfg
         self._unit_cfg = unit_cfg
-        self._use_volatile_globals = prj_cfg.get_use_volatile_globals()
+        self._use_volatile_globals = self._prj_cfg.get_use_volatile_globals()
+        self._is_asil = is_asil
         self._polyspace_comments = polyspace_comments
+        self._set_integrity_level()
         self.dbg_dict = self._restruct_data(variable_dict)
 
     @staticmethod
@@ -78,7 +80,7 @@ class ExtDbg(ProblemLogger):
         """
         data = {'outputs': {}, 'inputs': {}}
         for inp in variable_dict.keys():
-            if re.match(r'.*Output$', inp) is not None:
+            if re.match(r'.*(Output|TX)$', inp) is not None:
                 iotype = 'outputs'
             else:
                 iotype = 'inputs'
@@ -87,18 +89,19 @@ class ExtDbg(ProblemLogger):
                 data[iotype].setdefault(data_type_size, {})[var] = var_data
         return data
 
-    def set_integrity_level(self, integrity_level):
-        """Set integrity level of code generation.
+    def _set_integrity_level(self):
+        """Set integrity level of code generation."""
+        asil_level = self._prj_cfg.get_code_generation_config('generalAsilLevelDebug')
+        use_specific_cvc_definitions = self._prj_cfg.get_code_generation_config('useSpecificCvcDefinitions')
+        integrity_level = build_defs.CVC_ASIL_LEVEL_MAP[asil_level] if self._is_asil else build_defs.CVC_ASIL_QM
 
-        Args:
-            integrity_level (str): integrity level of the unit from 'A' to 'D' or 'QM'
-        """
         self._disp_start = integrity_level['DISP']['START']
         self._disp_end = integrity_level['DISP']['END']
         self._cal_start = integrity_level['CAL']['START']
         self._cal_end = integrity_level['CAL']['END']
         self._code_start = integrity_level['CODE']['START']
         self._code_end = integrity_level['CODE']['END']
+        self._cvc_type = f'CVC_CAL_ASIL_{asil_level}' if use_specific_cvc_definitions else 'CVC_CAL'
 
     def _a2l_dict(self, var_dict, function):
         """Generate dict defining parameters for a2l-generation."""
@@ -149,10 +152,10 @@ class ExtDbg(ProblemLogger):
             resv[var_sw]['array'] = []
             resv[var_db]['function'] = [function]
             resv[var_sw]['function'] = [function]
-            resv[var_db]['var'] = {'cvc_type': 'CVC_CAL',
+            resv[var_db]['var'] = {'cvc_type': self._cvc_type,
                                    'type': data['type'],
                                    'var': var}
-            resv[var_sw]['var'] = {'cvc_type': 'CVC_CAL',
+            resv[var_sw]['var'] = {'cvc_type': self._cvc_type,
                                    'type': 'Bool',
                                    'var': var}
         return res
@@ -170,11 +173,58 @@ class ExtDbg(ProblemLogger):
     def _type_order_iterator(var_items):
         """Get iterator over all variables.
 
-        In data type size order, and then in alphabetical order.
+        In data type size order and then in alphabetical order.
         """
         for _, typ_data in var_items.items():
             for var in sorted(typ_data.keys()):
                 yield (var, typ_data[var])
+
+    @staticmethod
+    def _type_order_level_iterator(var_items):
+        """Get iterator over all variables.
+
+        In data type size order, then in alphabetical order and then in ASIL level order.
+        """
+        for _, typ_data in var_items.items():
+            for var in sorted(typ_data.keys()):
+                yield (var, typ_data[var], typ_data[var]['asil_level'])
+
+    def _get_external_variable_declarations(self, data):
+        """Get the external variable declarations for the c-file."""
+        disp_cvc_type = self._cvc_type.replace('_CAL', '_DISP')
+        declaration_content = (
+            f'#define {disp_cvc_type}\n'
+            f'#include "{self._disp_start}"\n'
+        )
+        for var, var_data in self._type_order_iterator(data):
+            declaration_content += f'extern {disp_cvc_type} {var_data["type"]} {var};\n'
+        declaration_content += f'#include "{self._disp_end}"\n\n'
+        return declaration_content
+
+    def _get_external_variable_declarations_asil(self, data):
+        """Get the external variable declarations, divided by ASIL level, for the c-file."""
+        definitions = {
+            'QM': [],
+            'A': [],
+            'B': [],
+            'C': []
+        }
+        for var, var_data, asil_type in self._type_order_level_iterator(data):
+            definitions[asil_type.replace('ASIL_', '')].append([var, var_data])
+
+        declaration_content = ''
+        for asil_level, declarations in definitions.items():
+            if not declarations:
+                continue
+            integrity_level = build_defs.CVC_ASIL_LEVEL_MAP[asil_level]
+            cvc_type = f'CVC_DISP_ASIL_{asil_level}'
+            start_header = integrity_level['DISP']['START']
+            end_header = integrity_level['DISP']['END']
+            declaration_content += f'#include "{start_header}"\n'
+            for var, var_data in declarations:
+                declaration_content += f'extern {cvc_type} {var_data["type"]} {var};\n'
+            declaration_content += f'#include "{end_header}"\n\n'
+        return declaration_content
 
     def _gen_dbg_c_file(self, data, filename):
         """Generate debug c-files.
@@ -183,15 +233,16 @@ class ExtDbg(ProblemLogger):
         the supplier input and output signals.
         """
         polyspace_variable_comment = "Used in project but possibly not in current polyspace set up"
-        with open(filename, 'w', encoding="utf-8") as fh_c:
+        volatile_string = 'volatile ' if self._use_volatile_globals else ''
+        with open(filename, 'w', encoding='utf-8') as fh_c:
             fh_c.write(self._unit_cfg.base_types_headers)
-            fh_c.write('#define CVC_DISP\n')
 
             # define extrern variable references
-            fh_c.write(f'#include "{self._disp_start}"\n')
-            for var, var_data in self._type_order_iterator(data):
-                fh_c.write(f"extern CVC_DISP {var_data['type']} {var};\n")
-            fh_c.write(f'#include "{self._disp_end}"\n\n')
+            use_external_asil_config = self._prj_cfg.get_code_generation_config('useExternalAsilConfig')
+            if use_external_asil_config:
+                fh_c.write(self._get_external_variable_declarations_asil(data))
+            else:
+                fh_c.write(self._get_external_variable_declarations(data))
 
             # define debug calibration constants
             fh_c.write(f'#include "{self._cal_start}"\n\n')
@@ -199,19 +250,13 @@ class ExtDbg(ProblemLogger):
                 fh_c.write(f'/* polyspace-begin VARIABLE:* [Justified: Low] "{polyspace_variable_comment}" */\n\n')
             fh_c.write('/* Debug values */\n\n')
             for var, var_data in self._type_order_iterator(data):
-                initial_value = var_data['min'] if var_data['min'] != "-" and float(var_data['min']) > 0 else "0"
-                if self._use_volatile_globals:
-                    fh_c.write(f"volatile {var_data['type']} c{var[1:]}_db = {initial_value};\n")
-                else:
-                    fh_c.write(f"{var_data['type']} c{var[1:]}_db = {initial_value};\n")
+                initial_value = var_data['min'] if var_data['min'] != '-' and float(var_data['min']) > 0 else '0'
+                fh_c.write(f'{volatile_string}{self._cvc_type} {var_data["type"]} c{var[1:]}_db = {initial_value};\n')
 
             fh_c.write('\n/* Debug switches */\n\n')
             for var, var_data in self._type_order_iterator(data):
                 sw_name = self._var_name_to_dbgsw_name(var)
-                if self._use_volatile_globals:
-                    fh_c.write(f"volatile Bool {sw_name} = 0;\n")
-                else:
-                    fh_c.write(f"Bool {sw_name} = 0;\n")
+                fh_c.write(f'{volatile_string}{self._cvc_type} Bool {sw_name} = 0;\n')
             if self._polyspace_comments:
                 fh_c.write(f'/* polyspace-end VARIABLE:* [Justified: Low] "{polyspace_variable_comment}" */\n')
             fh_c.write(f'#include "{self._cal_end}"\n\n')
@@ -244,7 +289,7 @@ class ExtDbg(ProblemLogger):
         _, file_name_outputs = os.path.split(file_path_outputs)
 
         if not self.dbg_dict['inputs']:
-            self.info(f"Skipping {file_name_inputs} as there were no corresponding vars.")
+            self.info(f'Skipping {file_name_inputs} as there were no corresponding vars.')
         else:
             self._gen_dbg_c_file(self.dbg_dict['inputs'], file_path_inputs + '.c')
             a2l_dict_in = self._a2l_dict(self.dbg_dict['inputs'], file_name_inputs)
@@ -252,7 +297,7 @@ class ExtDbg(ProblemLogger):
             a2l.gen_a2l(file_path_inputs + '.a2l')
 
         if not self.dbg_dict['outputs']:
-            self.info(f"Skipping {file_name_outputs} as there were no corresponding vars.")
+            self.info(f'Skipping {file_name_outputs} as there were no corresponding vars.')
         else:
             self._gen_dbg_c_file(self.dbg_dict['outputs'], file_path_outputs + '.c')
             a2l_dict_out = self._a2l_dict(self.dbg_dict['outputs'], file_name_outputs)

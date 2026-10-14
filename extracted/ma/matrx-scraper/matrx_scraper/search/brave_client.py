@@ -264,6 +264,16 @@ class BraveSearchParams:
     #: Asks for the summarizer key (AI plan). The answer itself is a second call.
     summary: bool | None = None
     device: Literal["desktop", "mobile"] = "desktop"
+    #: The searcher's own point. Brave takes it as the `X-Loc-Lat` / `X-Loc-Long`
+    #: request HEADERS (not query parameters) and ranks local intent around it.
+    latitude: float | None = None
+    longitude: float | None = None
+
+    @property
+    def location_headers(self) -> dict[str, str]:
+        if self.latitude is None or self.longitude is None:
+            return {}
+        return {"X-Loc-Lat": f"{self.latitude:.5f}", "X-Loc-Long": f"{self.longitude:.5f}"}
 
     def to_dict(self) -> dict[str, Any]:
         spec = BRAVE_ENDPOINTS[self.endpoint]
@@ -476,6 +486,7 @@ class BraveSearchClient:
             "X-Subscription-Token": key,
             "Accept": "application/json",
             "User-Agent": params.user_agent,
+            **params.location_headers,
         }
 
         if client is not None:
@@ -626,6 +637,8 @@ class BraveSearchClient:
         goggles: str | None = None,
         summary: bool | None = None,
         device: Literal["desktop", "mobile"] = "desktop",
+        latitude: float | None = None,
+        longitude: float | None = None,
         api_key: str | None = None,
     ) -> dict[str, Any] | None:
         """Payload-only convenience over `search_response`. Raises
@@ -647,6 +660,8 @@ class BraveSearchClient:
                 goggles=goggles,
                 summary=summary,
                 device=device,
+                latitude=latitude,
+                longitude=longitude,
             ),
             api_key=api_key,
             timeout=timeout,

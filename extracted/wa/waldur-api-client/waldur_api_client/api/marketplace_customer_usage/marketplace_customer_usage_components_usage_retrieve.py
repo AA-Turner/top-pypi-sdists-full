@@ -7,15 +7,24 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.components_usage_stats_per_offering import ComponentsUsageStatsPerOffering
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     uuid: UUID,
+    *,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+
+    params["include_terminated"] = include_terminated
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": f"/api/marketplace-customer-usage/{uuid}/components-usage/",
+        "params": params,
     }
 
     return _kwargs
@@ -48,15 +57,17 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> Response[ComponentsUsageStatsPerOffering]:
     """Get resource usage statistics broken down per offering
 
      Returns one row per (offering, component type, billing type) for all non-terminated resources within
-    the scope. Each row's `usage` and `limit_usage` are aggregated using the offering's own
-    `limit_period`.
+    the scope (or all resources when `include_terminated` is true). Each row's `usage` and `limit_usage`
+    are aggregated using the offering's own `limit_period`.
 
     Args:
         uuid (UUID):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -68,6 +79,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        include_terminated=include_terminated,
     )
 
     response = client.get_httpx_client().request(
@@ -81,15 +93,17 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> ComponentsUsageStatsPerOffering:
     """Get resource usage statistics broken down per offering
 
      Returns one row per (offering, component type, billing type) for all non-terminated resources within
-    the scope. Each row's `usage` and `limit_usage` are aggregated using the offering's own
-    `limit_period`.
+    the scope (or all resources when `include_terminated` is true). Each row's `usage` and `limit_usage`
+    are aggregated using the offering's own `limit_period`.
 
     Args:
         uuid (UUID):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -102,6 +116,7 @@ def sync(
     return sync_detailed(
         uuid=uuid,
         client=client,
+        include_terminated=include_terminated,
     ).parsed
 
 
@@ -109,15 +124,17 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> Response[ComponentsUsageStatsPerOffering]:
     """Get resource usage statistics broken down per offering
 
      Returns one row per (offering, component type, billing type) for all non-terminated resources within
-    the scope. Each row's `usage` and `limit_usage` are aggregated using the offering's own
-    `limit_period`.
+    the scope (or all resources when `include_terminated` is true). Each row's `usage` and `limit_usage`
+    are aggregated using the offering's own `limit_period`.
 
     Args:
         uuid (UUID):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -129,6 +146,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        include_terminated=include_terminated,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -140,15 +158,17 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    include_terminated: Union[Unset, bool] = UNSET,
 ) -> ComponentsUsageStatsPerOffering:
     """Get resource usage statistics broken down per offering
 
      Returns one row per (offering, component type, billing type) for all non-terminated resources within
-    the scope. Each row's `usage` and `limit_usage` are aggregated using the offering's own
-    `limit_period`.
+    the scope (or all resources when `include_terminated` is true). Each row's `usage` and `limit_usage`
+    are aggregated using the offering's own `limit_period`.
 
     Args:
         uuid (UUID):
+        include_terminated (Union[Unset, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -162,5 +182,6 @@ async def asyncio(
         await asyncio_detailed(
             uuid=uuid,
             client=client,
+            include_terminated=include_terminated,
         )
     ).parsed

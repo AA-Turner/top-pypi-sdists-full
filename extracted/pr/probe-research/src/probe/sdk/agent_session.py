@@ -411,6 +411,9 @@ def agent_session_headers(env: Mapping[str, str] | None = None) -> dict[str, str
 AUTHORSHIP_AGENT = "agent"
 AUTHORSHIP_HUMAN = "human"
 
+#: Set on every `probe` call the Probe daemon makes (`daemon/worker.py::probe_env`).
+DAEMON_SESSION_ENV = "PROBE_DAEMON_SESSION"
+
 
 def default_authorship(env: Mapping[str, str] | None = None) -> str | None:
     """``"agent"`` when a coding agent is driving this process, else ``None``.
@@ -435,5 +438,14 @@ def default_authorship(env: Mapping[str, str] | None = None) -> str | None:
     (captured transcripts, a paired Codex tap) exist for ATTRIBUTION, and an
     agent whose session is not attributed (an unpaired Codex) is still a program
     composing a name.
+
+    THE PROBE DAEMON COUNTS TOO. Its `probe` calls run with a stripped
+    environment (`daemon/tools.py::_base_env`) that carries no coding-agent
+    marker, only `PROBE_DAEMON_SESSION`. Without this check every name and
+    description the daemon wrote arrived undeclared and was locked as a
+    person's choice -- the generated title could never replace it.
     """
-    return AUTHORSHIP_AGENT if detect_agent(env) is not None else None
+    e = _env(env)
+    if e.get(DAEMON_SESSION_ENV):
+        return AUTHORSHIP_AGENT
+    return AUTHORSHIP_AGENT if detect_agent(e) is not None else None

@@ -6,13 +6,10 @@
 
 import sys
 import re
-import logging
 from string import Template
 from pprint import pformat
 from powertrain_build.problem_logger import ProblemLogger
 from powertrain_build.types import a2l_type, a2l_range
-
-LOG = logging.getLogger()
 
 
 class A2l(ProblemLogger):
@@ -348,10 +345,10 @@ class A2l(ProblemLogger):
             if a2d.get('symbol'):
                 if use_symbol_links:
                     opt_data += '\n' + ' ' * 8 + 'SYMBOL_LINK "%s" %s' % (a2d['symbol'], a2d.get('symbol_offset'))
-                    LOG.debug('This a2l is using SYMBOL_LINK for %s', opt_data)
+                    self.debug('This a2l is using SYMBOL_LINK for %s', opt_data)
                 else:
                     var_name = a2d['symbol'] + '._' + var_name
-                    LOG.debug('This a2l is not using SYMBOL_LINK for %s', var_name)
+                    self.debug('This a2l is not using SYMBOL_LINK for %s', var_name)
 
             dtype = a2l_type(c_type)
             minlim, maxlim = self._get_a2d_minmax(a2d, c_type)

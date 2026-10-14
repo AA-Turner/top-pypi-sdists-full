@@ -1,10 +1,12 @@
 import json
+import logging
 import os
 import uuid
 from collections.abc import Iterator
 from typing import cast
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 
 from bluesky import RunEngine
 import bluesky.plan_stubs as bps
@@ -264,6 +266,123 @@ def test_stream_datum_readable_counts(RE, client, tmp_path):
     assert stream[keys[2]].read() is not None
 
 
+@pytest.mark.parametrize(
+    ("frames_per_event", "frames_per_file", "descriptor_shape", "extra_params"),
+    [
+        (3, 1, [3, 5, 7], {"chunk_shape": [1, 5, 7]}),
+        (6, 2, [6, 5, 7], {"chunk_shape": [2, 5, 7]}),
+        (3, 1, [5, 7], {"chunk_shape": [1], "multiplier": 3}),
+    ],
+    ids=["single-frame-files", "multi-frame-files", "legacy-multiplier"],
+)
+def test_stacked_tiff_multiple_files_per_datum(
+    client, tmp_path, frames_per_event, frames_per_file, descriptor_shape, extra_params
+):
+    data = np.arange(2 * frames_per_event * 5 * 7, dtype=np.uint16).reshape(
+        2, frames_per_event, 5, 7
+    )
+    files = data.reshape(-1, frames_per_file, 5, 7)
+    for index, frames in enumerate(files):
+        image = frames[0] if frames_per_file == 1 else frames
+        tf.imwrite(tmp_path / f"{index}.tif", image, photometric="minisblack")
+
+    run_uid = uuid.uuid4().hex
+    descriptor_uid = uuid.uuid4().hex
+    resource_uid = uuid.uuid4().hex
+    documents = [
+        ("start", {"uid": run_uid, "time": 0.0}),
+        (
+            "descriptor",
+            {
+                "uid": descriptor_uid,
+                "run_start": run_uid,
+                "time": 0.0,
+                "name": "primary",
+                "data_keys": {
+                    "image": {
+                        "source": "file",
+                        "dtype": "array",
+                        "dtype_numpy": data.dtype.str,
+                        "shape": descriptor_shape,
+                        "external": "STREAM:",
+                        "object_name": "detector",
+                    }
+                },
+                "object_keys": {"detector": ["image"]},
+                "configuration": {},
+                "hints": {},
+            },
+        ),
+        (
+            "stream_resource",
+            {
+                "uid": resource_uid,
+                "run_start": run_uid,
+                "data_key": "image",
+                "mimetype": "multipart/related;type=image/tiff",
+                "uri": f"{tmp_path.as_uri()}/",
+                "parameters": {
+                    "template": "{:d}.tif",
+                    **extra_params,
+                },
+            },
+        ),
+        (
+            "stream_datum",
+            {
+                "uid": f"{resource_uid}/0",
+                "stream_resource": resource_uid,
+                "descriptor": descriptor_uid,
+                "indices": {"start": 0, "stop": 1},
+                "seq_nums": {"start": 1, "stop": 2},
+            },
+        ),
+        (
+            "stream_datum",
+            {
+                "uid": f"{resource_uid}/1",
+                "stream_resource": resource_uid,
+                "descriptor": descriptor_uid,
+                "indices": {"start": 1, "stop": 2},
+                "seq_nums": {"start": 2, "stop": 3},
+            },
+        ),
+        (
+            "stop",
+            {
+                "uid": uuid.uuid4().hex,
+                "run_start": run_uid,
+                "time": 1.0,
+                "exit_status": "success",
+                "reason": "",
+                "num_events": {"primary": 2},
+            },
+        ),
+    ]
+
+    writer = TiledWriter(client)
+    for name, document in documents:
+        writer(name=name, doc=document)
+
+    array = client[run_uid]["primary"]["image"]
+    data_source = array.data_sources()[0]
+    assert [
+        os.path.basename(urlparse(asset.data_uri).path) for asset in data_source.assets
+    ] == [f"{index}.tif" for index in range(len(files))]
+
+    actual = array.read()
+    assert actual.shape == (2, frames_per_event, 5, 7)
+    np.testing.assert_array_equal(actual, data)
+
+    actual = array.read(0)
+    assert actual.shape == (frames_per_event, 5, 7)
+    np.testing.assert_array_equal(actual, data[0])
+
+    actual = array.read((0, 1))
+    assert actual.shape == (5, 7)
+    np.testing.assert_array_equal(actual, data[0, 1])
+
+
 def test_stream_datum_readable_with_two_detectors(RE, client, tmp_path):
     det1 = StreamDatumReadableCollectable(name="det1", root=str(tmp_path))
     det2 = StreamDatumReadableCollectable(name="det2", root=str(tmp_path))
@@ -402,6 +521,34 @@ def test_dims_names(client, external_assets_folder):
     assert run["primary"]["det-key2"].structure().dims == ("time", "dim_x", "dim_y")
 
 
+def test_stack_consolidation_with_named_dimensions(client, tmp_path):
+    expected = np.arange(3 * 4096, dtype="<i8").reshape(3, 1, 4096)
+    with h5py.File(tmp_path / "dataset.h5", "w") as file:
+        file.create_group("entry").create_group("data").create_dataset(
+            "data_2", data=expected
+        )
+
+    tw = TiledWriter(client)
+    for item in render_templated_documents(
+        "external_assets_single_key.json", tmp_path.as_posix()
+    ):
+        name, doc = item["name"], item["doc"]
+        if name == "start":
+            uid = doc["uid"]
+        elif name == "descriptor":
+            doc["data_keys"]["det-key2"]["shape"] = [1, 4096]
+            doc["data_keys"]["det-key2"]["dims"] = ["frame", "bin_count"]
+        elif name == "stream_resource":
+            doc["parameters"]["chunk_shape"] = [1, 1, 4096]
+        tw(name, doc)
+
+    stream = client[uid]["primary"]
+    assert stream["det-key2"].shape == (3, 1, 4096)
+    actual = stream.read()["det-key2"]
+    assert actual.dims == ("time", "frame", "bin_count")
+    np.testing.assert_array_equal(actual.values, expected)
+
+
 @pytest.mark.parametrize(
     "batch_size, expected_patch_shapes, expected_patch_offsets",
     [(1, (1, 1, 1), (0, 1, 2)), (2, (2, 1), (0, 2)), (5, (3,), (0,))],
@@ -492,10 +639,7 @@ def test_validate_external_data(client, external_assets_folder, error_type, vali
                 "int32"
             ).str  # should be "int64"
         elif (error_type == "dims") and (name == "descriptor"):
-            item["doc"]["data_keys"]["det-key2"]["dims"] = [
-                "dim_2",
-                "dim_3",
-            ]  # Missing time dim
+            doc["data_keys"]["det-key2"]["dims"] = ["dim_2", "dim_3", "extra"]
 
         # Check that the warning is issued when data changes during the validation
         if name == "stop" and validate:
@@ -830,7 +974,10 @@ def test_json_backup(client, tmpdir, monkeypatch):
     )  # The Descriptor was processed and the primary stream was created
     assert run["primary"].read() is not None  # The stream can be read
     assert len(run["primary"].read()) == 0  # No events were processed due to the error
-    assert "stop" in run.metadata  # The TiledWriter did not crash
+    # Once the primary callback has failed, it is abandoned for the rest of the
+    # run: the failed (partial) run must NOT receive a stop document, so it can
+    # not masquerade as a complete run. The full run lives in the backup.
+    assert "stop" not in run.metadata
 
     # Check that the backup file was created
     filepath = tmpdir / f"{uid[:8]}.jsonl"
@@ -842,6 +989,57 @@ def test_json_backup(client, tmpdir, monkeypatch):
     assert lines[1]["name"] == "descriptor"
     assert lines[2]["name"].startswith("event")
     assert lines[6]["name"] == "stop"
+
+
+class _LoseAppendResponseOnce(httpx.BaseTransport):
+    """Forward the first PATCH /table/partition request to the wrapped transport
+    -- so the server fully processes the append -- but raise ReadTimeout to the
+    caller, simulating a lost response for an append that actually succeeded."""
+
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+        self.tripped = False
+
+    def handle_request(self, request):
+        response = self._wrapped.handle_request(request)
+        if (
+            not self.tripped
+            and request.method == "PATCH"
+            and "/table/partition/" in str(request.url)
+        ):
+            self.tripped = True
+            raise httpx.ReadTimeout("Simulated lost response", request=request)
+        return response
+
+
+def test_event_append_retried_with_possible_duplication(
+    RE, client, monkeypatch, caplog
+):
+    """A failed internal-table append (e.g. a lost response) must not kill the
+    scan: TiledWriter warns, records a note in the run metadata, and forces a
+    retry -- accepting possibly duplicated rows (at-least-once semantics for
+    event data; the Tiled client itself deliberately does not retry appends
+    whose request may have been processed)."""
+    transport = _LoseAppendResponseOnce(client.context.http_client._transport)
+    monkeypatch.setattr(client.context.http_client, "_transport", transport)
+
+    tw = TiledWriter(client)
+    with caplog.at_level(logging.WARNING):
+        RE(bp.count([ophyd.sim.det], 3), tw)
+
+    assert transport.tripped
+    run = client.values().last()
+    assert "stop" in run.metadata  # The run completed normally
+
+    # The first (lost-response) append landed server-side and the forced retry
+    # appended the same batch again: rows are duplicated, none are lost.
+    internal_table = run["primary"].base["internal"].read()
+    assert sorted(internal_table["seq_num"]) == [1, 1, 2, 2, 3, 3]
+
+    # The possible duplication is discoverable: a warning was logged and a note
+    # was recorded in the run metadata.
+    assert any("forcing a retry" in record.getMessage() for record in caplog.records)
+    assert any("may be duplicated" in note for note in run.metadata.get("notes", []))
 
 
 @pytest.mark.parametrize(

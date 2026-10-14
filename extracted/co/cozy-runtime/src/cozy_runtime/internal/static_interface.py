@@ -4,7 +4,7 @@ INVARIANT (decision #713 — package code is UNTRUSTED): this module never impor
 compiles or evaluates a package module. No `importlib`, no `sys.path`, no `exec`/`eval`/
 `compile`, no annotation evaluation, no module top level. It reads text, parses it with
 `ast`, follows the package's own module-scope import graph (plus cozy-runtime's own source
-for `cozy_runtime.derive.*` and `cozy_runtime.models.*`), folds constants with its own
+for `cozy_runtime.derive.*` and `cozy_runtime.models.*`), folds constants with a shared
 evaluator over literal and arithmetic nodes and values of the package's committed JSON assets
 (`author.data_values`), and translates every interface-bearing declaration into real types built
 from the CLOSED author vocabulary — `msgspec.defstruct`, `enum.Enum`, `typing.Literal`/
@@ -56,8 +56,14 @@ from cozy_runtime.author._model_defaults import (
     model_components,
     model_defaults,
 )
-from cozy_runtime.author._script_metadata import byte_parameter, declarations, main_definition
-from cozy_runtime.author._services import SERVICES
+from cozy_runtime.author._script_metadata import (
+    Unfolded,
+    byte_parameter,
+    declarations,
+    fold_constant,
+    main_definition,
+)
+from cozy_runtime.author._services import JOB_ONLY, SERVICES
 from cozy_runtime.author._signature import AssetsBinding, _classify, assets_binding, assets_payload
 from cozy_runtime.author._walker import is_struct
 from cozy_runtime.internal.bindings import read_table
@@ -565,32 +571,14 @@ class Reader:
 
         `scope` carries a comprehension's own target and nothing else is ever local.
         """
-        if isinstance(node, ast.Constant):
-            return node.value
-        if isinstance(node, (ast.Tuple, ast.List)):
-            items = [self.fold(module, item, scope) for item in node.elts]
-            return tuple(items) if isinstance(node, ast.Tuple) else items
-        if isinstance(node, ast.Dict):
-            if any(key is None for key in node.keys):
-                self.refuse(module, node, "a dict splat", "static_computed")
-            return {
-                self.fold(module, key, scope): self.fold(module, value, scope)
-                for key, value in zip(node.keys, node.values, strict=True)
-                if key is not None
-            }
+        try:
+            return fold_constant(node, lambda inner: self._named(module, inner, scope))
+        except Unfolded as exc:
+            self.refuse(module, exc.node, str(exc), "static_computed")
+
+    def _named(self, module: Module, node: ast.expr, scope: Mapping[str, object]) -> object:
         if isinstance(node, (ast.GeneratorExp, ast.ListComp)):
             return self._comprehension(module, node, scope)
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd, ast.Invert)):
-            operand = self.fold(module, node.operand, scope)
-            if isinstance(operand, bool) or not isinstance(operand, (int, float)):
-                self.refuse(module, node, "unary arithmetic on a non-number", "static_computed")
-            if isinstance(node.op, ast.USub):
-                return -operand
-            if isinstance(node.op, ast.UAdd):
-                return +operand
-            return ~int(operand)
-        if isinstance(node, ast.BinOp):
-            return self._arithmetic(module, node, scope)
         if isinstance(node, ast.Name) and node.id in scope:
             return scope[node.id]
         if isinstance(node, ast.Name) and node.id == "__file__":
@@ -696,47 +684,6 @@ class Reader:
             )
         folded = [self.fold(module, node.elt, {**scope, clause.target.id: item}) for item in items]
         return folded if isinstance(node, ast.ListComp) else tuple(folded)
-
-    def _arithmetic(self, module: Module, node: ast.BinOp, scope: Mapping[str, object]) -> object:
-        left = self.fold(module, node.left, scope)
-        right = self.fold(module, node.right, scope)
-        ints = (
-            isinstance(left, int)
-            and isinstance(right, int)
-            and not isinstance(left, bool)
-            and not isinstance(right, bool)
-        )
-        numbers = ints or all(
-            isinstance(v, (int, float)) and not isinstance(v, bool) for v in (left, right)
-        )
-        if isinstance(node.op, ast.Add) and isinstance(left, str) and isinstance(right, str):
-            return left + right
-        if not numbers:
-            self.refuse(module, node, "arithmetic on non-numbers", "static_computed")
-        assert isinstance(left, (int, float)) and isinstance(right, (int, float))
-        ops: dict[type[ast.operator], Callable[[int | float, int | float], object]] = {
-            ast.Add: lambda a, b: a + b,
-            ast.Sub: lambda a, b: a - b,
-            ast.Mult: lambda a, b: a * b,
-            ast.Div: lambda a, b: a / b,
-            ast.FloorDiv: lambda a, b: a // b,
-            ast.Mod: lambda a, b: a % b,
-            ast.Pow: lambda a, b: a**b,
-        }
-        int_ops: dict[type[ast.operator], Callable[[int, int], int]] = {
-            ast.LShift: lambda a, b: a << b,
-            ast.RShift: lambda a, b: a >> b,
-            ast.BitOr: lambda a, b: a | b,
-            ast.BitAnd: lambda a, b: a & b,
-            ast.BitXor: lambda a, b: a ^ b,
-        }
-        if (op := ops.get(type(node.op))) is not None:
-            return op(left, right)
-        if ints and (int_op := int_ops.get(type(node.op))) is not None:
-            return int_op(int(left), int(right))
-        self.refuse(
-            module, node, "an operator the constant folder does not evaluate", "static_computed"
-        )
 
     # ----------------------------------------------------------------- types
 
@@ -1326,7 +1273,7 @@ def _build(
     app = reader.lookup(entry, attribute, entry.tree)
     if isinstance(app, Assigned) and _is_script_call(reader, app):
         return package_interface.assemble(
-            application, [("job", _script_doc(reader, app))], bindings, installed=installed
+            application, [_script_doc(reader, app)], bindings, installed=installed
         )
     if not (isinstance(app, Assigned) and _is_app_call(reader, app)):
         raise StaticRefusal(
@@ -1901,7 +1848,7 @@ def _script_annotation(reader: Reader, module: Module, node: ast.expr) -> ast.ex
     return node
 
 
-def _script_doc(reader: Reader, app: Assigned) -> dict[str, Json]:
+def _script_doc(reader: Reader, app: Assigned) -> tuple[package_interface.Kind, dict[str, Json]]:
     call = app.value
     assert isinstance(call, ast.Call)
     if (
@@ -1920,13 +1867,15 @@ def _script_doc(reader: Reader, app: Assigned) -> dict[str, Json]:
     except author.ConformanceError as exc:
         reader.refuse(module, module.tree.body[0] if module.tree.body else call, str(exc))
     try:
-        defaults, weights, accelerator = declarations(module.source.encode())
-    except (ValueError, TypeError) as exc:
+        declared, weights, accelerator = declarations(module.source.encode())
+        defaults = model_defaults(declared)
+    except (ValueError, TypeError, author.ConformanceError) as exc:
         reader.refuse(module, fn, f"invalid script metadata: {exc}")
     models: list[dict[str, Json]] = []
     payload_fields: list[tuple[str, type]] = []
     model_names: set[str] = set()
     services: set[str] = set()
+    sources = False
     native_context = False
     for arg in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]:
         if arg.arg == "ctx":
@@ -1949,6 +1898,7 @@ def _script_doc(reader: Reader, app: Assigned) -> dict[str, Json]:
                 if isinstance(node, ast.Subscript):
                     reader.translate(module, node.slice)
                 spec = ModelSpec("_ScriptSource", "refuse", "refuse", (), {})
+                sources = True
             else:
                 service = next(
                     (key for key, cls in SERVICES.items() if found.key == "author." + cls.__name__),
@@ -1988,10 +1938,10 @@ def _script_doc(reader: Reader, app: Assigned) -> dict[str, Json]:
                 spec.fusion,
                 spec.components,
                 spec.sequence_parallel,
+                defaults=defaults.get(arg.arg, ()),
             )
         )
-    if set(defaults) - model_names:
-        reader.refuse(module, fn, "script model default names an undeclared model")
+    check_model_arguments(defaults, sorted(model_names))
     if "weights_read" in services and not models:
         reader.refuse(module, fn, "script WeightsReader requires a model input")
     if weights and not native_context:
@@ -2008,14 +1958,27 @@ def _script_doc(reader: Reader, app: Assigned) -> dict[str, Json]:
         if returned is not type(None)
         else msgspec.defstruct("_ScriptCompleted", [])
     )
-    return package_interface.callable_doc(
+    # The adapter's choice, read the same way: Model slots it runs are served.
+    job = bool(weights) or sources or bool(services & JOB_ONLY) or not models
+    payload = msgspec.defstruct("_ScriptRequest", payload_fields)
+    doc = package_interface.callable_doc(
         name="main",
-        kind="job",
-        payload_type=msgspec.defstruct("_ScriptRequest", payload_fields),
+        kind="job" if job else "entrypoint",
+        payload_type=payload,
         result_type=result,
         models=models,
         assets=None,
         publishes=False,
         weights_outputs=weights,
-        accelerator=accelerator,
+        accelerator=accelerator if job else None,
     )
+    if not job:
+        doc["invocable"] = invocable_interface.serving_metadata(
+            payload,
+            result,
+            module=module.name,
+            export="main",
+            context="_script_context",
+            capabilities=sorted(services | {"telemetry"}),
+        )
+    return ("job" if job else "entrypoint"), doc

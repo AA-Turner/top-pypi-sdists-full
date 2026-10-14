@@ -40,20 +40,15 @@ macro_rules! heading {
         heading!(__private $level, $crate::spanned_vec![$crate::text!($text_content)])
     };
     ($level: literal, [$($children: expr),+ $(,)?]) => {
-        $crate::Block::Heading(
-            $crate::block::rule::heading::Heading {
-                level: $level,
-                content: $crate::spanned_vec![$($children),*]
-            }
-        )
+        heading!(__private $level, $crate::spanned_vec![$($children),*])
     };
     (__private $level: literal, $children: expr) => {
-        $crate::node::Node::Heading(
+        $crate::node::Node::Element($crate::node::Element::Heading(
             $crate::block::heading::Heading {
                 level: $level,
                 content: $children,
             }
-        )
+        ))
     }
 }
 
@@ -73,20 +68,22 @@ macro_rules! heading {
 #[macro_export]
 macro_rules! list {
     (- [$($list_item: expr),+ $(,)?]) => {
-        $crate::node::Node::List(
+        $crate::node::Node::Element($crate::node::Element::List(
             $crate::block::list::List {
                 kind: $crate::block::list::Type::Unordered,
                 items: $crate::list_items!($($list_item),*)
             }
-        )
+        ))
     };
     ($bullet_number: literal: [$($list_item: expr),+ $(,)?]) => {
-        $crate::Block::List(
-            $crate::block::rule::list::List {
-                kind: $crate::block::rule::list::Type::Ordered($bullet_number),
+        $crate::node::Node::Element($crate::node::Element::List(
+            $crate::block::list::List {
+                kind: $crate::block::list::Type::Ordered(
+                    ::std::num::NonZero::new($bullet_number).unwrap()
+                ),
                 items: $crate::list_items!($($list_item),*)
             }
-        )
+        ))
     };
 }
 
@@ -143,7 +140,9 @@ macro_rules! paragraph {
         $crate::paragraph!($crate::text!($text_content))
     };
     ($($children: expr),* $(,)?) => {
-        $crate::node::Node::Paragraph($crate::spanned_vec![$($children),*])
+        $crate::node::Node::Element(
+            $crate::node::Element::Paragraph($crate::spanned_vec![$($children),*])
+        )
     };
 }
 
@@ -153,62 +152,73 @@ macro_rules! paragraph {
 #[macro_export]
 macro_rules! text {
 	( $text_content: literal ) => {
-		$crate::node::Node::Text($text_content.into())
+		$crate::node::Node::Element($crate::node::Element::Text($text_content.into()))
 	};
+}
+
+// ======= Modifier =======
+
+/// Create a modifier node of the given [`crate::node::modifier::ModifierKind`].
+#[macro_export]
+macro_rules! modifier {
+    ( $kind: ident, $text_content: literal ) => {
+        $crate::modifier!($kind, $crate::text!($text_content))
+    };
+    ( $kind: ident, $($children: expr),+ $(,)? ) => {
+        $crate::node::Node::Modifier(
+            $crate::node::Modifier::$kind($crate::spanned_vec![$($children),*])
+        )
+    };
 }
 
 /// Create bold.
 #[macro_export]
 macro_rules! bold {
-    ( $text_content: literal ) => {
-        bold!($crate::text!($text_content))
-    };
-    ( $($children: expr),+ $(,)? ) => {
-        $crate::node::Node::Bold($crate::spanned_vec![$($children),*])
+    ( $($tokens: tt)+ ) => {
+        $crate::modifier!(Bold, $($tokens)+)
     };
 }
 
 /// Create italic.
 #[macro_export]
 macro_rules! italic {
-    ( $text_content: literal ) => {
-        italic!($crate::text!($text_content))
-    };
-    ( $($children: expr),+ $(,)? ) => {
-        $crate::node::Node::Italic($crate::spanned_vec![$($children),*])
+    ( $($tokens: tt)+ ) => {
+        $crate::modifier!(Italic, $($tokens)+)
     };
 }
 
 /// Create underline.
 #[macro_export]
 macro_rules! underline {
-    ( $text_content: literal ) => {
-        underline!($crate::text!($text_content))
-    };
-    ( $($children: expr),+ $(,)? ) => {
-        $crate::node::Node::Underline($crate::spanned_vec![$($children),*])
+    ( $($tokens: tt)+ ) => {
+        $crate::modifier!(Underline, $($tokens)+)
     };
 }
 
 /// Create strikethrough.
 #[macro_export]
 macro_rules! strikethrough {
-    ( $text_content: literal ) => {
-        strikethrough!($crate::text!($text_content))
-    };
-    ( $($children: expr),+ $(,)? ) => {
-        $crate::Inline::Strikethrough($crate::spanned_vec![$($children),*])
+    ( $($tokens: tt)+ ) => {
+        $crate::modifier!(Strikethrough, $($tokens)+)
     };
 }
 
-/// Create spoiler.
+/// Create spoiler, with id zero unless given as `id = …;` first.
 #[macro_export]
 macro_rules! spoiler {
-    ( $text_content: literal ) => {
-        spoiler!($crate::text!($text_content))
+    ( id = $id: expr; $text_content: literal ) => {
+        $crate::spoiler!(id = $id; $crate::text!($text_content))
     };
-    ( $($children: expr),+ $(,)? ) => {
-        $crate::node::Node::Spoiler($crate::spanned_vec![$($children),*])
+    ( id = $id: expr; $($children: expr),+ $(,)? ) => {
+        $crate::node::Node::Modifier($crate::node::Modifier::Spoiler(
+            $crate::node::modifier::spoiler::Spoiler {
+                id: $crate::node::Id($id),
+                content: $crate::spanned_vec![$($children),*],
+            }
+        ))
+    };
+    ( $($tokens: tt)+ ) => {
+        $crate::spoiler!(id = 0; $($tokens)+)
     };
 }
 
@@ -216,7 +226,7 @@ macro_rules! spoiler {
 #[macro_export]
 macro_rules! code {
 	( $text_content: literal ) => {
-		$crate::node::Node::Code($text_content.into())
+		$crate::node::Node::Element($crate::node::Element::Code($text_content.into()))
 	};
 }
 
@@ -230,10 +240,12 @@ macro_rules! code_block {
          code_block!(__private $text_content, Some($language.into()))
     };
     (__private $text_content: literal, $language: expr) => {
-        $crate::node::Node::CodeBlock($crate::inline::code_block::CodeBlock {
-            language: $language,
-            content: $text_content.to_string()
-        })
+        $crate::node::Node::Element($crate::node::Element::CodeBlock(
+            $crate::inline::code_block::CodeBlock {
+                language: $language,
+                content: $text_content.to_string()
+            }
+        ))
     };
 }
 
@@ -242,8 +254,8 @@ macro_rules! code_block {
 macro_rules! emoji {
     // Unicode
     ($unicode: literal) => {
-       $crate::node::Node::Emoji($crate::inline::emoji::Emoji::Unicode(
-           $unicode.into()
+       $crate::node::Node::Element($crate::node::Element::Emoji(
+           $crate::inline::emoji::Emoji::Unicode($unicode.into())
        ))
     };
 
@@ -255,7 +267,7 @@ macro_rules! emoji {
        emoji!(__private $id, $name, true)
     };
     (__private $id: literal, $name: literal, $animated: expr) => {
-       $crate::node::Node::Emoji(
+       $crate::node::Node::Element($crate::node::Element::Emoji(
            $crate::inline::emoji::Emoji::Custom(
                $crate::inline::emoji::custom::Custom {
                    id: $id,
@@ -263,7 +275,7 @@ macro_rules! emoji {
                    animated: $animated
                }
            )
-       )
+       ))
     };
 }
 
@@ -284,10 +296,10 @@ macro_rules! link {
     };
 
     (__private $target: literal, $title: expr, $children: expr) => {
-        $crate::node::Node::Link($crate::inline::link::Link {
+        $crate::node::Node::Element($crate::node::Element::Link($crate::inline::link::Link {
             url: $target.parse().unwrap(),
             text: $children,
             title: $title
-        })
+        }))
     };
 }

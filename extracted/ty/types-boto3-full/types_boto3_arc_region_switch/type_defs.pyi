@@ -192,6 +192,16 @@ __all__ = (
     "S3ReportOutputTypeDef",
     "ServiceQuotaWarningSummaryTypeDef",
     "ServiceTypeDef",
+    "SsmDocumentConfigOutputTypeDef",
+    "SsmDocumentConfigTypeDef",
+    "SsmDocumentConfigUnionTypeDef",
+    "SsmSendCommandConfigurationOutputTypeDef",
+    "SsmSendCommandConfigurationTypeDef",
+    "SsmSendCommandConfigurationUnionTypeDef",
+    "SsmSendCommandUngracefulTypeDef",
+    "SsmTargetOutputTypeDef",
+    "SsmTargetTypeDef",
+    "SsmTargetUnionTypeDef",
     "StartPlanExecutionRequestTypeDef",
     "StartPlanExecutionResponseTypeDef",
     "StepOutputTypeDef",
@@ -544,6 +554,17 @@ class Route53ResourceRecordSetTypeDef(TypedDict):
     recordSetIdentifier: NotRequired[str]
     region: NotRequired[str]
 
+class SsmTargetOutputTypeDef(TypedDict):
+    key: str
+    values: list[str]
+
+class SsmSendCommandUngracefulTypeDef(TypedDict):
+    behavior: NotRequired[Literal["skip"]]
+
+class SsmTargetTypeDef(TypedDict):
+    key: str
+    values: Sequence[str]
+
 class StartPlanExecutionRequestTypeDef(TypedDict):
     planArn: str
     targetRegion: str
@@ -889,6 +910,16 @@ class Route53HealthCheckConfigurationTypeDef(TypedDict):
     externalId: NotRequired[str]
     recordSets: NotRequired[Sequence[Route53ResourceRecordSetTypeDef]]
 
+class SsmDocumentConfigOutputTypeDef(TypedDict):
+    documentArn: str
+    targets: list[SsmTargetOutputTypeDef]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    parameters: NotRequired[dict[str, list[str]]]
+    documentVersion: NotRequired[str]
+
+SsmTargetUnionTypeDef = Union[SsmTargetTypeDef, SsmTargetOutputTypeDef]
+
 class TriggerOutputTypeDef(TypedDict):
     targetRegion: str
     action: WorkflowTargetActionType
@@ -955,6 +986,29 @@ class GeneratedReportTypeDef(TypedDict):
     reportGenerationTime: NotRequired[datetime]
     reportOutput: NotRequired[ReportOutputTypeDef]
 
+Route53HealthCheckConfigurationUnionTypeDef = Union[
+    Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
+]
+
+class SsmSendCommandConfigurationOutputTypeDef(TypedDict):
+    regionDocuments: dict[str, SsmDocumentConfigOutputTypeDef]
+    retryIntervalMinutes: float
+    timeoutMinutes: NotRequired[int]
+    ungraceful: NotRequired[SsmSendCommandUngracefulTypeDef]
+
+class SsmDocumentConfigTypeDef(TypedDict):
+    documentArn: str
+    targets: Sequence[SsmTargetUnionTypeDef]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    parameters: NotRequired[Mapping[str, Sequence[str]]]
+    documentVersion: NotRequired[str]
+
+TriggerUnionTypeDef = Union[TriggerTypeDef, TriggerOutputTypeDef]
+ReportConfigurationUnionTypeDef = Union[
+    ReportConfigurationTypeDef, ReportConfigurationOutputTypeDef
+]
+
 class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
     ec2AsgCapacityIncreaseConfig: NotRequired[Ec2AsgCapacityIncreaseConfigurationOutputTypeDef]
@@ -976,6 +1030,7 @@ class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationOutputTypeDef]
     neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationOutputTypeDef]
     rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationOutputTypeDef]
+    ssmSendCommandConfig: NotRequired[SsmSendCommandConfigurationOutputTypeDef]
 
 class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -998,14 +1053,9 @@ class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationOutputTypeDef]
     neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationOutputTypeDef]
     rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationOutputTypeDef]
+    ssmSendCommandConfig: NotRequired[SsmSendCommandConfigurationOutputTypeDef]
 
-Route53HealthCheckConfigurationUnionTypeDef = Union[
-    Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
-]
-TriggerUnionTypeDef = Union[TriggerTypeDef, TriggerOutputTypeDef]
-ReportConfigurationUnionTypeDef = Union[
-    ReportConfigurationTypeDef, ReportConfigurationOutputTypeDef
-]
+SsmDocumentConfigUnionTypeDef = Union[SsmDocumentConfigTypeDef, SsmDocumentConfigOutputTypeDef]
 
 class StepOutputTypeDef(TypedDict):
     name: str
@@ -1019,27 +1069,11 @@ class StepPaginatorTypeDef(TypedDict):
     executionBlockType: ExecutionBlockTypeType
     description: NotRequired[str]
 
-class ExecutionBlockConfigurationTypeDef(TypedDict):
-    customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationUnionTypeDef]
-    ec2AsgCapacityIncreaseConfig: NotRequired[Ec2AsgCapacityIncreaseConfigurationUnionTypeDef]
-    executionApprovalConfig: NotRequired[ExecutionApprovalConfigurationTypeDef]
-    arcRoutingControlConfig: NotRequired[ArcRoutingControlConfigurationUnionTypeDef]
-    globalAuroraConfig: NotRequired[GlobalAuroraConfigurationUnionTypeDef]
-    parallelConfig: NotRequired[ParallelExecutionBlockConfigurationUnionTypeDef]
-    regionSwitchPlanConfig: NotRequired[RegionSwitchPlanConfigurationTypeDef]
-    ecsCapacityIncreaseConfig: NotRequired[EcsCapacityIncreaseConfigurationUnionTypeDef]
-    eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationUnionTypeDef]
-    route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationUnionTypeDef]
-    documentDbConfig: NotRequired[DocumentDbConfigurationUnionTypeDef]
-    rdsPromoteReadReplicaConfig: NotRequired[RdsPromoteReadReplicaConfigurationUnionTypeDef]
-    rdsCreateCrossRegionReadReplicaConfig: NotRequired[
-        RdsCreateCrossRegionReplicaConfigurationUnionTypeDef
-    ]
-    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationUnionTypeDef]
-    auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationUnionTypeDef]
-    auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationUnionTypeDef]
-    neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationUnionTypeDef]
-    rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationUnionTypeDef]
+class SsmSendCommandConfigurationTypeDef(TypedDict):
+    regionDocuments: Mapping[str, SsmDocumentConfigUnionTypeDef]
+    retryIntervalMinutes: float
+    timeoutMinutes: NotRequired[int]
+    ungraceful: NotRequired[SsmSendCommandUngracefulTypeDef]
 
 class WorkflowOutputTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType
@@ -1053,8 +1087,8 @@ class WorkflowPaginatorTypeDef(TypedDict):
     workflowTargetRegion: NotRequired[str]
     workflowDescription: NotRequired[str]
 
-ExecutionBlockConfigurationUnionTypeDef = Union[
-    ExecutionBlockConfigurationTypeDef, ExecutionBlockConfigurationOutputTypeDef
+SsmSendCommandConfigurationUnionTypeDef = Union[
+    SsmSendCommandConfigurationTypeDef, SsmSendCommandConfigurationOutputTypeDef
 ]
 
 class PlanTypeDef(TypedDict):
@@ -1093,11 +1127,28 @@ class PlanPaginatorTypeDef(TypedDict):
     version: NotRequired[str]
     updatedAt: NotRequired[datetime]
 
-class StepTypeDef(TypedDict):
-    name: str
-    executionBlockConfiguration: ExecutionBlockConfigurationUnionTypeDef
-    executionBlockType: ExecutionBlockTypeType
-    description: NotRequired[str]
+class ExecutionBlockConfigurationTypeDef(TypedDict):
+    customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationUnionTypeDef]
+    ec2AsgCapacityIncreaseConfig: NotRequired[Ec2AsgCapacityIncreaseConfigurationUnionTypeDef]
+    executionApprovalConfig: NotRequired[ExecutionApprovalConfigurationTypeDef]
+    arcRoutingControlConfig: NotRequired[ArcRoutingControlConfigurationUnionTypeDef]
+    globalAuroraConfig: NotRequired[GlobalAuroraConfigurationUnionTypeDef]
+    parallelConfig: NotRequired[ParallelExecutionBlockConfigurationUnionTypeDef]
+    regionSwitchPlanConfig: NotRequired[RegionSwitchPlanConfigurationTypeDef]
+    ecsCapacityIncreaseConfig: NotRequired[EcsCapacityIncreaseConfigurationUnionTypeDef]
+    eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationUnionTypeDef]
+    route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationUnionTypeDef]
+    documentDbConfig: NotRequired[DocumentDbConfigurationUnionTypeDef]
+    rdsPromoteReadReplicaConfig: NotRequired[RdsPromoteReadReplicaConfigurationUnionTypeDef]
+    rdsCreateCrossRegionReadReplicaConfig: NotRequired[
+        RdsCreateCrossRegionReplicaConfigurationUnionTypeDef
+    ]
+    lambdaEventSourceMappingConfig: NotRequired[LambdaEventSourceMappingConfigurationUnionTypeDef]
+    auroraServerlessScalingConfig: NotRequired[AuroraServerlessScalingConfigurationUnionTypeDef]
+    auroraProvisionedScalingConfig: NotRequired[AuroraProvisionedScalingConfigurationUnionTypeDef]
+    neptuneGlobalDatabaseConfig: NotRequired[NeptuneGlobalDatabaseConfigurationUnionTypeDef]
+    rdsSwitchoverReadReplicaConfig: NotRequired[RdsSwitchoverReadReplicaConfigurationUnionTypeDef]
+    ssmSendCommandConfig: NotRequired[SsmSendCommandConfigurationUnionTypeDef]
 
 class CreatePlanResponseTypeDef(TypedDict):
     plan: PlanTypeDef
@@ -1154,6 +1205,16 @@ class GetPlanExecutionResponsePaginatorTypeDef(TypedDict):
     generatedReportDetails: list[GeneratedReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+ExecutionBlockConfigurationUnionTypeDef = Union[
+    ExecutionBlockConfigurationTypeDef, ExecutionBlockConfigurationOutputTypeDef
+]
+
+class StepTypeDef(TypedDict):
+    name: str
+    executionBlockConfiguration: ExecutionBlockConfigurationUnionTypeDef
+    executionBlockType: ExecutionBlockTypeType
+    description: NotRequired[str]
 
 StepUnionTypeDef = Union[StepTypeDef, StepOutputTypeDef]
 

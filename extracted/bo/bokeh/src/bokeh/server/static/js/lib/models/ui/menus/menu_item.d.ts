@@ -10,9 +10,9 @@ export declare namespace MenuItem {
     type Attrs = p.AttrsOf<Props>;
     type Props = Model.Props & {
         checked: p.Property<(() => boolean) | boolean | null>;
-        icon: p.Property<IconLike | null>;
+        icon: p.Property<(() => IconLike | null) | IconLike | null>;
         label: p.Property<string>;
-        tooltip: p.Property<string | null>;
+        tooltip: p.Property<(() => string | null) | string | null>;
         shortcut: p.Property<string | null>;
         menu: p.Property<Menu | null>;
         disabled: p.Property<(() => boolean) | boolean>;

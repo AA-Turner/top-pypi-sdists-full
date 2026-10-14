@@ -40,6 +40,7 @@ file is missing or fewer than 50% of parent names match the shapefile's
 ADM1_NAME, the maps are skipped with a logged warning — never a crash.
 """
 
+from geocif.utils import display_model_name
 import logging
 from pathlib import Path
 
@@ -545,7 +546,7 @@ def render_parent_aggregations(df, country, crop, model, dir_outlook,
 
     country_display = _display_name(country)
     crop_display = _display_name(crop)
-    title_base = f"{country_display} {crop_display} — {model}"
+    title_base = f"{country_display} {crop_display} — {display_model_name(model)}"
 
     for level in levels:
         level_map = build_level_map(

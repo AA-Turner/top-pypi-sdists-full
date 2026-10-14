@@ -29,6 +29,7 @@ from probe.sdk.agent_session import (
     AGENTS,
     AUTHORSHIP_AGENT,
     AUTHORSHIP_HUMAN,
+    DAEMON_SESSION_ENV,
     default_authorship,
     resolve_agent_session,
 )
@@ -45,6 +46,7 @@ def no_agent(monkeypatch):
     negative cases pass for the wrong reason -- or fail on someone else's box."""
     for _, var in _DETECT_VARS:
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.delenv(DAEMON_SESSION_ENV, raising=False)
     return monkeypatch
 
 
@@ -64,6 +66,12 @@ class TestTheDefaultReadsTheEnvironmentAndNothingElse:
         no_agent.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(tmp_path / "unpaired"))  # no .token
         no_agent.setenv("CODEX_THREAD_ID", "th_9911223344")
         assert resolve_agent_session() is None
+        assert default_authorship() == AUTHORSHIP_AGENT
+
+    def test_the_probe_daemon_declares_agent(self, no_agent):
+        """The daemon's `probe` calls carry no coding-agent marker, only its
+        session. Undeclared, every run title it wrote was locked for good."""
+        no_agent.setenv(DAEMON_SESSION_ENV, "d6a1c0de-0000-4000-8000-000000000001")
         assert default_authorship() == AUTHORSHIP_AGENT
 
     def test_a_bare_terminal_declares_nothing(self, no_agent):

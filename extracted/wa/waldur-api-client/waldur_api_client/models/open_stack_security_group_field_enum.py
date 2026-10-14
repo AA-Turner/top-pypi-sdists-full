@@ -13,6 +13,7 @@ class OpenStackSecurityGroupFieldEnum(str, Enum):
     DESCRIPTION = "description"
     ERROR_MESSAGE = "error_message"
     ERROR_TRACEBACK = "error_traceback"
+    INSTANCE_COUNT = "instance_count"
     IS_LIMIT_BASED = "is_limit_based"
     IS_USAGE_BASED = "is_usage_based"
     MARKETPLACE_CATEGORY_NAME = "marketplace_category_name"

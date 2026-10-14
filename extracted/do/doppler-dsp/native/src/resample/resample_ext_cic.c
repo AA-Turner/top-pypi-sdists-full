@@ -41,11 +41,18 @@ CICObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 CICObj_init (CICObject *self, PyObject *args, PyObject *kwds)
 {
-  static char  *kwlist[] = { "R", NULL };
-  unsigned long R_raw    = 16;
+  static char *kwlist[] = { "R", NULL };
+  long long    R_raw    = 16;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|k", kwlist, &R_raw))
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|L", kwlist, &R_raw))
     return -1;
+  if (R_raw < 0 || R_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "R: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)R_raw, (long long)0, (long long)UINT32_MAX);
+      return -1;
+    }
   uint32_t R   = (uint32_t)R_raw;
   self->handle = dp_cic_create (R);
   if (!self->handle)
@@ -76,10 +83,17 @@ CICObj_reconfigure (CICObject *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char  *_kwlist[] = { "R", NULL };
-  unsigned long R_raw     = 0UL;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "k", _kwlist, &R_raw))
+  static char *_kwlist[] = { "R", NULL };
+  long long    R_raw     = 0LL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "L", _kwlist, &R_raw))
     return NULL;
+  if (R_raw < 0 || R_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "R: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)R_raw, (long long)0, (long long)UINT32_MAX);
+      return NULL;
+    }
   uint32_t R = (uint32_t)R_raw;
   dp_cic_reconfigure (self->handle, R);
   Py_RETURN_NONE;
@@ -466,9 +480,11 @@ static PyMethodDef CICObj_methods[] = {
   { "get_state", (PyCFunction)CICObj_get_state, METH_NOARGS,
     "Serialize this object's mutable state to bytes.\n"
     "\n"
-    "Captures exactly the state that evolves as the object runs, so a blob\n"
-    "taken now and restored later resumes from this point. Construction\n"
-    "parameters are not included: restore into an object built the same way.\n"
+    "Captures the state that evolves as the object runs, including any value\n"
+    "a setter changed after construction, so a blob taken now and restored\n"
+    "later resumes from this point. Construction parameters are not\n"
+    "restored: restore into an object built the same way. A core may check\n"
+    "some of them and refuse a blob built differently.\n"
     "\n"
     "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
     "implementation detail of the C core and is not a stable format across\n"
@@ -483,10 +499,12 @@ static PyMethodDef CICObj_methods[] = {
   { "set_state", (PyCFunction)CICObj_set_state, METH_O,
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
-    "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()`\n"
-    "before the blob is handed to the C core, and the core may reject it as\n"
-    "well.\n"
+    "Overwrites the live state in place, including any value a setter\n"
+    "changed after construction. Construction parameters are not restored:\n"
+    "restore into an object built the same way. Length is validated against\n"
+    "`state_bytes()` before the blob is handed to the C core, which may\n"
+    "reject it too: a core may check some construction parameters and refuse\n"
+    "a blob built differently.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"

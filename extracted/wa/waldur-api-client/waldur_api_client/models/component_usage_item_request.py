@@ -1,9 +1,10 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.missing_usage_policy_enum import MissingUsagePolicyEnum
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ComponentUsageItemRequest")
@@ -16,13 +17,16 @@ class ComponentUsageItemRequest:
         type_ (str): Type of the component
         amount (str): Usage amount
         description (Union[Unset, str]): Optional description of usage
-        recurring (Union[Unset, bool]): Whether this usage is recurring Default: False.
+        missing_usage_policy (Union[Unset, MissingUsagePolicyEnum]):
+        recurring (Union[None, Unset, bool]): Deprecated, use missing_usage_policy instead. True is equivalent to
+            missing_usage_policy='reuse'.
     """
 
     type_: str
     amount: str
     description: Union[Unset, str] = UNSET
-    recurring: Union[Unset, bool] = False
+    missing_usage_policy: Union[Unset, MissingUsagePolicyEnum] = UNSET
+    recurring: Union[None, Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -32,7 +36,15 @@ class ComponentUsageItemRequest:
 
         description = self.description
 
-        recurring = self.recurring
+        missing_usage_policy: Union[Unset, str] = UNSET
+        if not isinstance(self.missing_usage_policy, Unset):
+            missing_usage_policy = self.missing_usage_policy.value
+
+        recurring: Union[None, Unset, bool]
+        if isinstance(self.recurring, Unset):
+            recurring = UNSET
+        else:
+            recurring = self.recurring
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -44,6 +56,8 @@ class ComponentUsageItemRequest:
         )
         if description is not UNSET:
             field_dict["description"] = description
+        if missing_usage_policy is not UNSET:
+            field_dict["missing_usage_policy"] = missing_usage_policy
         if recurring is not UNSET:
             field_dict["recurring"] = recurring
 
@@ -58,12 +72,27 @@ class ComponentUsageItemRequest:
 
         description = d.pop("description", UNSET)
 
-        recurring = d.pop("recurring", UNSET)
+        _missing_usage_policy = d.pop("missing_usage_policy", UNSET)
+        missing_usage_policy: Union[Unset, MissingUsagePolicyEnum]
+        if isinstance(_missing_usage_policy, Unset):
+            missing_usage_policy = UNSET
+        else:
+            missing_usage_policy = MissingUsagePolicyEnum(_missing_usage_policy)
+
+        def _parse_recurring(data: object) -> Union[None, Unset, bool]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, bool], data)
+
+        recurring = _parse_recurring(d.pop("recurring", UNSET))
 
         component_usage_item_request = cls(
             type_=type_,
             amount=amount,
             description=description,
+            missing_usage_policy=missing_usage_policy,
             recurring=recurring,
         )
 

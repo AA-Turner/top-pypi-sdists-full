@@ -113,7 +113,11 @@ enum
     TextEntry_AutoCompleteKeyLength,
 
     TextEntry_SetHint,
-    TextEntry_End
+    TextEntry_End,
+
+    Theme_Light,
+    Theme_Dark,
+    Theme_System,
 };
 
 const wxChar *WidgetsCategories[MAX_PAGES] = {
@@ -248,6 +252,8 @@ protected:
     {
         event.Enable( CurrentPage()->GetTextEntry() != nullptr );
     }
+
+    void OnTheme(wxCommandEvent& event);
 #endif // wxUSE_MENUS
 
     // initialize the book: add all pages to it
@@ -375,6 +381,10 @@ wxBEGIN_EVENT_TABLE(WidgetsFrame, wxFrame)
                         WidgetsFrame::OnUpdateTextUI)
 
     EVT_MENU(wxID_EXIT, WidgetsFrame::OnExit)
+
+    EVT_MENU(Theme_Light, WidgetsFrame::OnTheme)
+    EVT_MENU(Theme_Dark, WidgetsFrame::OnTheme)
+    EVT_MENU(Theme_System, WidgetsFrame::OnTheme)
 #endif // wxUSE_MENUS
 wxEND_EVENT_TABLE()
 
@@ -584,6 +594,12 @@ WidgetsFrame::WidgetsFrame(const wxString& title)
 
     InitBook();
 
+    wxMenu* menuTheme = new wxMenu;
+    menuTheme->Append(Theme_System, "&System");
+    menuTheme->Append(Theme_Light, "&Light");
+    menuTheme->Append(Theme_Dark, "&Dark");
+    mbar->Append(menuTheme, "T&heme");
+
     // the lower one only has the log listbox and a button to clear it
 #if USE_LOG
     wxStaticBoxSizer *sizerDown = new wxStaticBoxSizer(wxVERTICAL, m_panel, "&Log window");
@@ -591,7 +607,7 @@ WidgetsFrame::WidgetsFrame(const wxString& title)
 
     m_lboxLog = new wxListBox(sizerDownBox, wxID_ANY);
     sizerDown->Add(m_lboxLog, wxSizerFlags(1).Expand().Border());
-    sizerDown->SetMinSize(100, 150);
+    sizerDown->SetMinSize(FromDIP(wxSize(100, 150)));
 #else
     wxSizer *sizerDown = new wxBoxSizer(wxVERTICAL);
 #endif // USE_LOG
@@ -601,7 +617,7 @@ WidgetsFrame::WidgetsFrame(const wxString& title)
 #if USE_LOG
     btn = new wxButton(sizerDownBox, Widgets_ClearLog, "Clear &log");
     sizerBtns->Add(btn);
-    sizerBtns->AddSpacer(10);
+    sizerBtns->AddSpacer(FromDIP(10));
 #endif // USE_LOG
     btn = new wxButton(sizerDownBox, Widgets_Quit, "E&xit");
     sizerBtns->Add(btn);
@@ -609,8 +625,8 @@ WidgetsFrame::WidgetsFrame(const wxString& title)
 
     // put everything together
     sizerTop->Add(m_book, wxSizerFlags(1).Expand().DoubleBorder(wxALL & ~(wxTOP | wxBOTTOM)));
-    sizerTop->AddSpacer(5);
-    sizerTop->Add(sizerDown, wxSizerFlags(0).Expand().DoubleBorder(wxALL & ~wxTOP));
+    sizerTop->AddSpacer(FromDIP(5));
+    sizerTop->Add(sizerDown, wxSizerFlags().Expand().DoubleBorder(wxALL & ~wxTOP));
 
     m_panel->SetSizer(sizerTop);
 
@@ -1299,6 +1315,25 @@ void WidgetsFrame::OnSetHint(wxCommandEvent& WXUNUSED(event))
     }
 }
 
+void WidgetsFrame::OnTheme(wxCommandEvent& event)
+{
+    wxApp::Appearance appearance;
+    switch ( event.GetId() )
+    {
+        case Theme_Dark:
+            appearance = wxApp::Appearance::Dark;
+            break;
+        case Theme_Light:
+            appearance = wxApp::Appearance::Light;
+            break;
+        default:
+            appearance = wxApp::Appearance::System;
+            break;
+    }
+    if ( wxTheApp->SetAppearance(appearance) == wxApp::AppearanceResult::Failure)
+        wxLogMessage("SetAppearance: failure");
+}
+
 #endif // wxUSE_MENUS
 
 // ----------------------------------------------------------------------------
@@ -1479,7 +1514,7 @@ wxSizer *WidgetsPage::CreateSizerWithText(wxControl *control,
     wxTextCtrl *text = new wxTextCtrl(control->GetParent(), id, wxEmptyString,
         wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 
-    sizerRow->Add(control, wxSizerFlags(0).Border(wxRIGHT).CentreVertical());
+    sizerRow->Add(control, wxSizerFlags().Border(wxRIGHT).CentreVertical());
     sizerRow->Add(text, wxSizerFlags(1).Border(wxLEFT).CentreVertical());
 
     if ( ppText )
@@ -1515,7 +1550,7 @@ wxCheckBox *WidgetsPage::CreateCheckBoxAndAddToSizer(wxSizer *sizer,
 {
     wxCheckBox *checkbox = new wxCheckBox(statBoxParent ? statBoxParent: this, id, label);
     sizer->Add(checkbox, wxSizerFlags().HorzBorder());
-    sizer->AddSpacer(2);
+    sizer->AddSpacer(FromDIP(2));
 
     return checkbox;
 }

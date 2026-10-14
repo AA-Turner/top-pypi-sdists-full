@@ -1,7 +1,10 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
+	context::fuel::ApplyFuel,
 	error::ParseError,
+	node::{Element, ParsedNode, ParsedNodes, SpannedParsedNode},
+	range::delim,
 	span::{TraceOk, TraceParse},
 };
 
@@ -11,7 +14,7 @@ use nom::{
 	Parser,
 	branch::alt,
 	character::complete::line_ending,
-	combinator::{map, value},
+	combinator::{eof, map, value},
 	multi::many0,
 	sequence::{preceded, terminated},
 };
@@ -22,7 +25,6 @@ use super::{
 	context::Context,
 	grammar::Grammar,
 	inline,
-	node::{Node, SpannedNodes},
 	span::{Span, WithSpan},
 };
 
@@ -64,7 +66,7 @@ pub mod small;
 
 fn inline_block<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -94,7 +96,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = SpannedNodes<'data, S>;
+	type Output = ParsedNodes<'data, S>;
 	type Error = E;
 
 	#[tracing::instrument(name = "block_parser", level = Level::TRACE, fields(ok, output))]
@@ -102,25 +104,67 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
+		let allowed = self.context.allowed_rules;
+		let single = |piece| (None, piece);
+
+		// A line is one node, or a delimiter run opening before a block rule, as in `*1. foo`.
+		let line = alt((
+			value(ParsedNode::Element(Element::Empty), line_ending)
+				.span()
+				.map(single),
+			self.context
+				.allowed_block_rules()
+				.map(ParsedNode::Element)
+				.span()
+				.map(single),
+			(
+				delim::opener(allowed, |start| self.context.is_disabled_opener(start))
+					.map(ParsedNode::Delim)
+					.span(),
+				self.context
+					.allowed_block_rules()
+					.map(ParsedNode::Element)
+					.span(),
+			)
+				.map(|(delim, block)| (Some(delim), block)),
+			// a line of nothing but delimiters, like the `||` around a spoiled list
+			terminated(delim::delim(allowed), alt((line_ending, eof)))
+				.map(|delim| {
+					ParsedNode::Delim(delim::Delim {
+						alone: true,
+						..delim
+					})
+				})
+				.span()
+				.map(single),
+			map(
+				inline_block(self.context.clone().with_grammar(Grammar::InlineBlock)),
+				|content| ParsedNode::Element(Element::Paragraph(content)),
+			)
+			.span()
+			.map(single),
+		))
+		.apply_fuel(self.context.remaining_fuel());
+
 		// Each iteration begins at the start of a line, so the enclosing container's line prefix
 		// (e.g. `> ` inside a quote) is consumed here. It matches empty when there is no container,
 		// and failing it is what ends the container when a line stops being part of it.
-		many0(preceded(
-			self.context.line_prefix(),
-			alt((
-				value(Node::Empty, line_ending).span(),
-				self.context.allowed_block_rules().span(),
-				map(
-					inline_block(self.context.clone().with_grammar(Grammar::InlineBlock)),
-					Node::Paragraph,
-				)
-				.span(),
-			)),
-		))
-		.span()
-		.trace_parse()
-		.process::<OM>(input)
-		.trace_ok()
+		many0(preceded(self.context.line_prefix(), line))
+			.map(
+				|lines: Vec<(
+					Option<SpannedParsedNode<'data, S>>,
+					SpannedParsedNode<'data, S>,
+				)>| {
+					lines
+						.into_iter()
+						.flat_map(|(delim, node)| delim.into_iter().chain([node]))
+						.collect::<Vec<_>>()
+				},
+			)
+			.span()
+			.trace_parse()
+			.process::<OM>(input)
+			.trace_ok()
 	}
 }
 
@@ -131,7 +175,7 @@ where
 #[must_use]
 pub fn block<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -153,8 +197,10 @@ mod test {
 	use pretty_assertions::assert_eq;
 
 	use crate::{
-		heading, paragraph, spanned_vec,
-		test_utils::handle_nom_err,
+		heading, italic, paragraph,
+		range::Content,
+		spanned_vec,
+		test_utils::{handle_nom_err, parsed, resolved},
 		{context::Context, node::SpannedNodes},
 	};
 
@@ -170,7 +216,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![paragraph!("foo")]);
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec![paragraph!("foo")]
+		);
 	}
 
 	#[test]
@@ -183,7 +232,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![paragraph!("foo"), paragraph!("bar")]);
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec![paragraph!("foo"), paragraph!("bar")]
+		);
 	}
 
 	#[test]
@@ -196,20 +248,19 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![heading!(1, "foo"), paragraph!("bar")]);
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec![heading!(1, "foo"), paragraph!("bar")]
+		);
 	}
 
 	#[test]
+	/// A modifier reaches across the end of a heading into the next line.
 	fn heading_with_nested_new_line() {
-		let s = "# _foo\nbar_";
-		let (rem, res) = block::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
-
-		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![heading!(1, "_foo"), paragraph!("bar_")]);
+		assert_eq!(
+			parsed("# _foo\nbar_"),
+			spanned_vec![italic!(heading!(1, "foo"), paragraph!("bar"))]
+		);
 	}
 
 	#[test]
@@ -224,17 +275,10 @@ mod test {
 			let markdown = read_to_string(content_path).unwrap();
 			let expected = read_to_string(result_path).unwrap();
 
-			let (rem, res) = block::<(), _>(Context::default())
-				.parse_complete((&*markdown).into())
-				.finish()
-				.map_err(handle_nom_err(&markdown))
-				.expect("unable to parse");
-
 			let expected: SpannedNodes<_> = serde_json::from_str(&expected)
 				.unwrap_or_else(|err| panic!("error parsing {}: {}", entry.path().display(), err));
 
-			assert_eq!(rem, "");
-			assert_eq!(res, expected);
+			assert_eq!(parsed(&markdown), expected);
 		}
 	}
 

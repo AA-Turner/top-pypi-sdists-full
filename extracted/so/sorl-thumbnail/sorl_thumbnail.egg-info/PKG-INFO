@@ -1,44 +1,16 @@
 Metadata-Version: 2.4
 Name: sorl-thumbnail
-Version: 13.1.0
+Version: 13.2.0
 Summary: Thumbnails for Django
 Author-email: Mikko Hellsing <mikko@aino.se>
-Maintainer-email: Jazzband <roadies@jazzband.co>
-License: Copyright (c) 2010, Mikko Hellsing
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-            * Redistributions of source code must retain the above copyright notice,
-              this list of conditions and the following disclaimer.
-        
-            * Redistributions in binary form must reproduce the above copyright
-              notice, this list of conditions and the following disclaimer in the
-              documentation and/or other materials provided with the distribution.
-        
-            * Neither the name of the sorl-thumbnail the names of its contributors
-              may be used to endorse or promote products derived from this software
-              without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
+Maintainer: Mario-César
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://sorl-thumbnail.readthedocs.io/en/latest/
-Project-URL: Repository, https://github.com/jazzband/sorl-thumbnail
+Project-URL: Repository, https://github.com/mariocesar/sorl-thumbnail
 Keywords: django,thumbnail,sorl
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -64,16 +36,18 @@ Provides-Extra: wand
 Requires-Dist: wand; extra == "wand"
 Provides-Extra: avif
 Requires-Dist: pillow-avif-plugin; extra == "avif"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
 Dynamic: license-file
 
-|jazzband-badge| |pypi| |python-badge| |django-badge| |docs| |gh-actions| |codecov|
+|pypi| |python-badge| |django-badge| |docs| |gh-actions| |codecov| |precommit|
 
 Thumbnails for Django.
 
 Features at a glance
 ====================
 
-- Support for Django 4.2, 5.0, 5.1, and 5.2 following the `Django supported versions policy`_
+- Support for Django 5.2, 6.0, and 6.1 following the `Django supported versions policy`_
 - Storage support
 - Pluggable Engine support for `Pillow`_, `ImageMagick`_, `PIL`_, `Wand`_, `pgmagick`_, and `vipsthumbnail`_
 - Pluggable Key Value Store support (cached db, redis, and dynamodb by AWS)
@@ -91,22 +65,15 @@ Read more in `the documentation (latest version) <https://sorl-thumbnail.readthe
 Developers
 ==========
 
-|jazzband|
-
-This is a `Jazzband <https://jazzband.co>`_ project. By contributing you agree to
-abide by the `Contributor Code of Conduct <https://jazzband.co/about/conduct>`_
-and follow the `guidelines <https://jazzband.co/about/guidelines>`_.
+By contributing you agree to abide by the
+`Code of Conduct <https://github.com/mariocesar/sorl-thumbnail/blob/master/CODE_OF_CONDUCT.md>`_.
+To report a security issue, follow the
+`security policy <https://github.com/mariocesar/sorl-thumbnail/blob/master/SECURITY.md>`_
+instead of opening a public issue.
 
 Feel free to create a new Pull request if you want to propose a new feature.
 If you need development support or want to discuss with other developers
-join us in the channel #sorl-thumbnail at freenode.net or Gitter.
-
-For releases updates and more in deep development discussion use our mailing list
-in Google Groups.
-
-- IRC Channel: irc://irc.freenode.net/#sorl-thumbnail
-
-- Mailing List: sorl-thumbnail@googlegroups.com https://groups.google.com/d/forum/sorl-thumbnail
+join us in `GitHub Discussions`_.
 
 Tests
 -----
@@ -119,8 +86,7 @@ for detailed instructions on running tests locally with Docker.
 User Support
 ============
 
-If you need help using sorl-thumbnail browse https://stackoverflow.com/questions/tagged/sorl-thumbnail
-and posts your questions with the `sorl-thumbnail` tag.
+If you need help using sorl-thumbnail ask in the Q&A category of `GitHub Discussions`_.
 
 
 How to Use
@@ -171,9 +137,7 @@ See more examples in the section `Template examples`_ in the Documentation
 Model Usage
 -----------
 
-Using the ImageField that automatically deletes references to itself in the key
-value store and its thumbnail references and the thumbnail files when deleted.
-Please note that this is only compatible with django 1.2.5 or less.::
+You can use ``sorl.thumbnail.ImageField`` in your models::
 
     from django.db import models
     from sorl.thumbnail import ImageField
@@ -226,9 +190,9 @@ A fast workaround if you are not willing to tweak your storage backend is to set
 So it will avoid to overly query the S3 API.
 
 
-.. |gh-actions| image:: https://github.com/jazzband/sorl-thumbnail/workflows/Test/badge.svg
-    :target: https://github.com/jazzband/sorl-thumbnail/actions
-.. |docs| image:: https://readthedocs.org/projects/pip/badge/?version=latest
+.. |gh-actions| image:: https://github.com/mariocesar/sorl-thumbnail/workflows/Test/badge.svg
+    :target: https://github.com/mariocesar/sorl-thumbnail/actions
+.. |docs| image:: https://readthedocs.org/projects/sorl-thumbnail/badge/?version=latest
     :alt: Documentation for latest version
     :target: https://sorl-thumbnail.readthedocs.io/en/latest/
 .. |pypi| image:: https://img.shields.io/pypi/v/sorl-thumbnail.svg
@@ -239,16 +203,13 @@ So it will avoid to overly query the S3 API.
     :alt: Supported Python versions
 .. |django-badge| image:: https://img.shields.io/pypi/djversions/sorl-thumbnail.svg
     :target: https://pypi.python.org/pypi/sorl-thumbnail
-    :alt: Supported Python versions
-.. |codecov| image:: https://codecov.io/gh/jazzband/sorl-thumbnail/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/jazzband/sorl-thumbnail
-   :alt: Coverage
-.. |jazzband-badge| image:: https://jazzband.co/static/img/badge.svg
-   :target: https://jazzband.co/
-   :alt: Jazzband
-.. |jazzband| image:: https://jazzband.co/static/img/jazzband.svg
-   :target: https://jazzband.co/
-   :alt: Jazzband
+    :alt: Supported Django versions
+.. |codecov| image:: https://codecov.io/gh/mariocesar/sorl-thumbnail/graph/badge.svg?token=YSN2eCESQT 
+    :target: https://codecov.io/gh/mariocesar/sorl-thumbnail
+    :alt: Coverage
+.. |precommit| image:: https://results.pre-commit.ci/badge/github/mariocesar/sorl-thumbnail/master.svg
+   :target: https://results.pre-commit.ci/latest/github/mariocesar/sorl-thumbnail/master
+   :alt: pre-commit.ci status
 
 .. _`Pillow`: https://pillow.readthedocs.io/
 .. _`ImageMagick`: https://imagemagick.org/
@@ -260,5 +221,6 @@ So it will avoid to overly query the S3 API.
 .. _`Template examples`: https://sorl-thumbnail.readthedocs.io/en/latest/examples.html#template-examples
 .. _`Model examples`: https://sorl-thumbnail.readthedocs.io/en/latest/examples.html#model-examples
 .. _`Low level API examples`: https://sorl-thumbnail.readthedocs.io/en/latest/examples.html#low-level-api-examples
-.. _`issue #351`: https://github.com/jazzband/sorl-thumbnail/issues/351
+.. _`GitHub Discussions`: https://github.com/mariocesar/sorl-thumbnail/discussions
+.. _`issue #351`: https://github.com/mariocesar/sorl-thumbnail/issues/351
 .. _`Django supported versions policy`: https://www.djangoproject.com/download/#supported-versions

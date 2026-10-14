@@ -313,10 +313,12 @@ class ReaderLane:
 
     def drop_stale_unasked(self) -> None:
         """An unasked message not delivered by the end of the researcher turn after
-        the one it was made in is out of date: dropped."""
+        the one it was made in is out of date: dropped. Never the writer's: a
+        receipt is the record of what was filed, however late it is read."""
         turn = self.store.current_turn()
         for path, msg in mailbox.waiting(self.sid):
-            if (msg.kind == mailbox.Kind.MESSAGE and not msg.keep and msg.origin_turn is not None
+            if (msg.kind == mailbox.Kind.MESSAGE and not msg.keep and not msg.from_writer
+                    and msg.origin_turn is not None
                     and int(msg.origin_turn) < turn - 1):
                 path.unlink(missing_ok=True)
 

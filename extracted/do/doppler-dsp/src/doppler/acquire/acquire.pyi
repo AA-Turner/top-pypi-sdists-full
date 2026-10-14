@@ -171,9 +171,11 @@ class CarrierAcquisition:
     def get_state(self) -> bytes:
         """Serialize this object's mutable state to bytes.
 
-        Captures exactly the state that evolves as the object runs, so a blob
-        taken now and restored later resumes from this point. Construction
-        parameters are not included: restore into an object built the same way.
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
 
         The blob is opaque and always `state_bytes()` long. Its layout is an
         implementation detail of the C core and is not a stable format across
@@ -191,10 +193,12 @@ class CarrierAcquisition:
     def set_state(self, blob: bytes) -> None:
         """Restore mutable state from a `get_state()` blob.
 
-        Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()`
-        before the blob is handed to the C core, and the core may reject it as
-        well.
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -405,7 +409,7 @@ class Acquisition:
     def push(
         self,
         x: complex,
-    ) -> list[tuple[int, int, float, float, float, float, int, float]]:
+    ) -> list[tuple[int, int, float, float, float, float, int, float, float]]:
         """Stream raw samples; emit one event per CFAR dump above threshold.
 
         Buffers x, then for every complete frame applies the slow-time Doppler
@@ -435,7 +439,7 @@ class Acquisition:
 
         Returns
         -------
-        list[tuple[int, int, float, float, float, float, int, float]]
+        list[tuple[int, int, float, float, float, float, int, float, float]]
             Number of events written (0 … max_results).
 
         Examples
@@ -1032,9 +1036,11 @@ class Acquisition:
     def get_state(self) -> bytes:
         """Serialize this object's mutable state to bytes.
 
-        Captures exactly the state that evolves as the object runs, so a blob
-        taken now and restored later resumes from this point. Construction
-        parameters are not included: restore into an object built the same way.
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
 
         The blob is opaque and always `state_bytes()` long. Its layout is an
         implementation detail of the C core and is not a stable format across
@@ -1051,10 +1057,12 @@ class Acquisition:
     def set_state(self, blob: bytes) -> None:
         """Restore mutable state from a `get_state()` blob.
 
-        Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()`
-        before the blob is handed to the C core, and the core may reject it as
-        well.
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -1331,6 +1339,15 @@ class BurstAcquisition:
         Doppler rate in Hz/s (>= 0) that caps the coherent depth at
         `f_epoch/sqrt(2*doppler_rate)` repetitions (doppler#1482); 0 is no
         bound.
+    rate_hypotheses : int, default 1
+        Doppler-rate hypotheses to search (0 = auto, else 1 to
+        ACQ_RATE_HYPS_MAX); 1 searches none. Above 1 the engine COMPENSATES the
+        rate rather than only capping the depth: `doppler_rate` becomes the
+        span `[-R, +R]`, the coherent block is de-chirped at this many rates
+        across it, and the depth is bounded by the residual `R/(n - 1)` -- see
+        dp_acq_create_burst(), which owns the semantics, including 0 = auto
+        (the engine chooses the count; read it back from `engine->rate_hyps`).
+        Needs a non-zero `doppler_rate`.
 
     Raises
     ------
@@ -1338,7 +1355,8 @@ class BurstAcquisition:
         If construction fails. The exception message is ``BurstAcquisition:
         invalid parameter (need a non-empty preamble with finite, non-zero
         energy, reps >= 1, fs > 0, cn0_dbhz finite or NaN, doppler_uncertainty
-        >= 0, doppler_rate >= 0, 0 < pfa < 1, 0 < pd < 1)``.
+        >= 0, doppler_rate >= 0, 0 <= rate_hypotheses <= 64 (0 = auto;
+        doppler_rate > 0 unless 1), 0 < pfa < 1, 0 < pd < 1)``.
 
     Warns
     -----
@@ -1376,6 +1394,21 @@ class BurstAcquisition:
     >>> z.push(np.tile(np.roll(zc, 40), 10))[0][:2]
     (0, 40)
 
+    A carrier that sweeps caps the coherent depth; searching Doppler-rate
+    hypotheses compensates it instead, and buys the depth back:
+
+    >>> import warnings
+    >>> def make(**kw):
+    ...     with warnings.catch_warnings():
+    ...         warnings.simplefilter("ignore")   # under-powered, below
+    ...         return BurstAcquisition(zc, reps=16, fs=1.0, cn0_dbhz=-13.0,
+    ...                                 doppler_rate=9e-7, **kw)
+    >>> make().doppler_bins, make().underpowered      # the rate caps it
+    (5, True)
+    >>> c = make(rate_hypotheses=9)
+    >>> c.rate_hypotheses, c.doppler_bins, c.underpowered
+    (9, 10, False)
+
     """
 
     def __init__(
@@ -1389,6 +1422,7 @@ class BurstAcquisition:
         pd: float = 0.9,
         noise_mode: Literal["mean", "median", "min", "max"] = "mean",
         doppler_rate: float = 0.0,
+        rate_hypotheses: int = 1,
     ) -> None: ...
     def reset(self) -> None:
         """Drain the input ring and reset the coherent accumulator.
@@ -1420,7 +1454,7 @@ class BurstAcquisition:
     def push(
         self,
         x: complex,
-    ) -> list[tuple[int, int, float, float, float, float, int, float]]:
+    ) -> list[tuple[int, int, float, float, float, float, int, float, float]]:
         """Stream raw samples; emit one event per CFAR dump above threshold.
 
         Forwards to dp_acq_push() on the embedded engine (see its doc comment
@@ -1438,7 +1472,7 @@ class BurstAcquisition:
 
         Returns
         -------
-        list[tuple[int, int, float, float, float, float, int, float]]
+        list[tuple[int, int, float, float, float, float, int, float, float]]
             Number of events written (0 … max_results).
 
         Examples
@@ -1578,9 +1612,11 @@ class BurstAcquisition:
     def get_state(self) -> bytes:
         """Serialize this object's mutable state to bytes.
 
-        Captures exactly the state that evolves as the object runs, so a blob
-        taken now and restored later resumes from this point. Construction
-        parameters are not included: restore into an object built the same way.
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
 
         The blob is opaque and always `state_bytes()` long. Its layout is an
         implementation detail of the C core and is not a stable format across
@@ -1598,10 +1634,12 @@ class BurstAcquisition:
     def set_state(self, blob: bytes) -> None:
         """Restore mutable state from a `get_state()` blob.
 
-        Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()`
-        before the blob is handed to the C core, and the core may reject it as
-        well.
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -1727,6 +1765,16 @@ class BurstAcquisition:
         """
 
     @property
+    def rate_hypotheses(self) -> int:
+        """Doppler-rate hypotheses the engine searches, as given at
+        construction, or the count the engine chose when it was built with 0
+        (auto: the fewest whose residual stops limiting the depth); 1 is none
+        -- `doppler_rate` then only caps the coherent depth. Above 1
+        `doppler_rate` is the span of the hypotheses and the depth is bounded
+        by the residual `doppler_rate/(rate_hypotheses - 1)`.
+        """
+
+    @property
     def cn0_dbhz(self) -> float:
         """Carrier-to-noise density used to size the search (dB-Hz)."""
 
@@ -1830,7 +1878,24 @@ class BurstCapture:
     doppler_rate : float, default 0.0
         Doppler rate, Hz/s (>= 0), that caps the acquisition's coherent depth
         at `f_epoch/sqrt(2*doppler_rate)` repetitions (doppler#1482); 0 is no
-        bound.
+        bound. With rate_hypotheses > 1 it is the span instead.
+    rate_hypotheses : int, default 1
+        Doppler-rate hypotheses to search (0 = auto, else 1 to
+        ACQ_RATE_HYPS_MAX; auto picks the fewest the span needs, see
+        dp_acq_create_burst(), and dp_burst_capture_get_rate_hypotheses() reads
+        the choice); 1 searches none and doppler_rate only caps the depth.
+        Above 1 the capture COMPENSATES the rate: `doppler_rate` is the span
+        `[-R, +R]`, the acquisition de-chirps its coherent block at this many
+        rates across it, and the depth is bounded by the RESIDUAL, `R/(n - 1)`
+        -- deeper blocks, more sensitivity, about `n` times the per-dwell cost,
+        and a false-alarm budget split over the hypotheses
+        (dp_acq_create_burst() owns the semantics). Refine follows the engine:
+        its coherent sum over the preamble's periods tries the rates too, on a
+        finer grid because it integrates the whole preamble, and its Doppler
+        cells widen by the shift a rate puts between the detecting dwell's
+        middle and the preamble's -- so a burst the engine found by rate is
+        placed by rate. Needs a non-zero doppler_rate (the span). Measured:
+        validate_acq_rate_pd.
 
     Raises
     ------
@@ -1838,7 +1903,8 @@ class BurstCapture:
         If construction fails. The exception message is ``BurstCapture: invalid
         parameter (need a non-empty preamble with finite, non-zero energy, reps
         >= 1, fs > 0, burst_len >= 1, cn0_dbhz finite or NaN, doppler_rate >=
-        0, 0 < pfa < 1, 0 < pd < 1)``.
+        0, 0 <= rate_hypotheses <= 64 (0 = auto; doppler_rate nonzero unless
+        1), 0 < pfa < 1, 0 < pd < 1)``.
 
     Warns
     -----
@@ -1861,6 +1927,23 @@ class BurstCapture:
     >>> cap.retain_span == cap.refine_span + cap.burst_len
     True
 
+    A carrier that sweeps caps the coherent depth at its rate; searching
+    Doppler-rate hypotheses compensates it, and buys the depth back:
+
+    >>> import warnings
+    >>> k = np.arange(127)
+    >>> zc = np.exp(-1j * np.pi * 5 * k * (k + 1) / 127).astype(np.complex64)
+    >>> def make(**kw):
+    ...     with warnings.catch_warnings():
+    ...         warnings.simplefilter("ignore")   # under-powered, below
+    ...         return BurstCapture(zc, burst_len=2432, reps=16, fs=1.0,
+    ...                             cn0_dbhz=-13.0, doppler_rate=9e-7, **kw)
+    >>> make().doppler_bins, make().underpowered      # the rate caps it
+    (5, True)
+    >>> c = make(rate_hypotheses=9)
+    >>> c.rate_hypotheses, c.doppler_bins, c.underpowered
+    (9, 10, False)
+
     """
 
     def __init__(
@@ -1875,6 +1958,7 @@ class BurstCapture:
         pd: float = 0.9,
         noise_mode: Literal["mean", "median", "min", "max"] = "mean",
         doppler_rate: float = 0.0,
+        rate_hypotheses: int = 1,
     ) -> None: ...
     def push(
         self,
@@ -2214,9 +2298,11 @@ class BurstCapture:
     def get_state(self) -> bytes:
         """Serialize this object's mutable state to bytes.
 
-        Captures exactly the state that evolves as the object runs, so a blob
-        taken now and restored later resumes from this point. Construction
-        parameters are not included: restore into an object built the same way.
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
 
         The blob is opaque and always `state_bytes()` long. Its layout is an
         implementation detail of the C core and is not a stable format across
@@ -2233,10 +2319,12 @@ class BurstCapture:
     def set_state(self, blob: bytes) -> None:
         """Restore mutable state from a `get_state()` blob.
 
-        Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()`
-        before the blob is handed to the C core, and the core may reject it as
-        well.
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -2346,6 +2434,17 @@ class BurstCapture:
         """Doppler rate (Hz/s) the acquisition's coherent depth is bounded
         against: `doppler_bins <= f_epoch/sqrt(2*doppler_rate)`, so the carrier
         drifts less than half a slow-time row per block. 0 is no bound.
+        """
+
+    @property
+    def rate_hypotheses(self) -> int:
+        """Doppler-rate hypotheses the acquisition searches, as given at
+        construction, or the count the acquisition chose when it was built with
+        0 (auto: the fewest whose residual stops limiting the depth); 1 is none
+        -- `doppler_rate` then only caps the coherent depth. Above 1
+        `doppler_rate` is the span of the hypotheses, the depth is bounded by
+        the residual `doppler_rate/(rate_hypotheses - 1)`, and refine tries the
+        rates too.
         """
 
     @property
@@ -2543,7 +2642,9 @@ class PersistentBurstCapture:
     doppler_rate : float, default 0.0
         Doppler rate, Hz/s (>= 0), that caps the acquisition's coherent depth
         at `f_epoch/sqrt(2*doppler_rate)` repetitions (doppler#1482); 0 is no
-        bound.
+        bound. With rate_hypotheses > 1 it is the span instead.
+    rate_hypotheses : int, default 1
+        Doppler-rate hypotheses to search; see dp_burst_capture_create().
 
     Raises
     ------
@@ -2551,7 +2652,8 @@ class PersistentBurstCapture:
         If construction fails. The exception message is ``BurstCapture: invalid
         parameter (need a non-empty preamble with finite, non-zero energy, reps
         >= 1, fs > 0, burst_len >= 1, cn0_dbhz finite or NaN, doppler_rate >=
-        0, 0 < pfa < 1, 0 < pd < 1)``.
+        0, 0 <= rate_hypotheses <= 64 (0 = auto; doppler_rate nonzero unless
+        1), 0 < pfa < 1, 0 < pd < 1)``.
 
     Warns
     -----
@@ -2596,6 +2698,7 @@ class PersistentBurstCapture:
         pd: float = 0.9,
         noise_mode: Literal["mean", "median", "min", "max"] = "mean",
         doppler_rate: float = 0.0,
+        rate_hypotheses: int = 1,
     ) -> None: ...
     def push(
         self,
@@ -2936,9 +3039,11 @@ class PersistentBurstCapture:
     def get_state(self) -> bytes:
         """Serialize this object's mutable state to bytes.
 
-        Captures exactly the state that evolves as the object runs, so a blob
-        taken now and restored later resumes from this point. Construction
-        parameters are not included: restore into an object built the same way.
+        Captures the state that evolves as the object runs, including any value
+        a setter changed after construction, so a blob taken now and restored
+        later resumes from this point. Construction parameters are not
+        restored: restore into an object built the same way. A core may check
+        some of them and refuse a blob built differently.
 
         The blob is opaque and always `state_bytes()` long. Its layout is an
         implementation detail of the C core and is not a stable format across
@@ -2956,10 +3061,12 @@ class PersistentBurstCapture:
     def set_state(self, blob: bytes) -> None:
         """Restore mutable state from a `get_state()` blob.
 
-        Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()`
-        before the blob is handed to the C core, and the core may reject it as
-        well.
+        Overwrites the live state in place, including any value a setter
+        changed after construction. Construction parameters are not restored:
+        restore into an object built the same way. Length is validated against
+        `state_bytes()` before the blob is handed to the C core, which may
+        reject it too: a core may check some construction parameters and refuse
+        a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -3070,6 +3177,17 @@ class PersistentBurstCapture:
         """Doppler rate (Hz/s) the acquisition's coherent depth is bounded
         against: `doppler_bins <= f_epoch/sqrt(2*doppler_rate)`, so the carrier
         drifts less than half a slow-time row per block. 0 is no bound.
+        """
+
+    @property
+    def rate_hypotheses(self) -> int:
+        """Doppler-rate hypotheses the acquisition searches, as given at
+        construction, or the count the acquisition chose when it was built with
+        0 (auto: the fewest whose residual stops limiting the depth); 1 is none
+        -- `doppler_rate` then only caps the coherent depth. Above 1
+        `doppler_rate` is the span of the hypotheses, the depth is bounded by
+        the residual `doppler_rate/(rate_hypotheses - 1)`, and refine tries the
+        rates too.
         """
 
     @property

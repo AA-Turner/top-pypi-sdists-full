@@ -32,7 +32,7 @@ from . import update as update_check
 from . import cloudsync
 from . import shop
 from .pet import Pet
-from .petbase import POOPDANCE_AT
+from .petbase import POOPDANCE_AT, GCELL_FRAG_DROPPERS, GCELL_FRAG_CHANCE
 
 from . import theme
 # arena.py owns the LCD renderer; pull the names app.py and the tests still
@@ -161,7 +161,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("NO MORE CRASH AT LAUNCH ON AN OLDER PYTHON. A player on a Mac with the stock Python 3.8 had the game die right after it opened, before the egg could hatch: the background check for a newer version, and the cloud save calls, used a helper that only exists from Python 3.9 on. They now use one every Python has. tuipet still asks for Python 3.10 or newer, and that is still the best way to play it.")
+    WHATS_NEW = ("ADVENTURE REBUILT. 30 maps, one per backdrop, each a single run: march, rest at the town halfway, then beat the boss to open the next map. Bosses pay a reward the first time, the road finds food that fits the land, and Godzilla's kaiju roam Monster Island. Road items are now Life Recovery, Shortcut and Rest Kit; your old transport tickets convert automatically.")
 
 
     BINDINGS = [
@@ -454,6 +454,14 @@ class TuiPetApp(ActionsMixin, App):
             persistence.bank_digimemory(new_mem)    # default: etched
             banked_new = True
         persistence.bank_bonus_seed(grade_spent)    # default seed; B re-banks
+        # G-CELL FRAGMENT (dmgz manual): a fallen G-Erosion kaiju -- Jr,
+        # MetalGreymon G, 1954, SkullGreymon G, 1994, WarGreymon G, 1999 --
+        # has a 15% chance to leave a fragment.  ONE roll per death (this
+        # ceremony runs once: death_banked); the fragment waits in the
+        # progress channel until it is hatched.
+        if p.num in GCELL_FRAG_DROPPERS and random.random() < GCELL_FRAG_CHANCE:
+            persistence._note_put("gcell_frag", 1)
+            p.gcell_frag_left = True         # the shard REPLACES the grave (Joel 2026-10-13)
         p.death_banked = True
         persistence.save(p)
         self._open_mode(deathscreen.DeathPanel(p, hold=hold, new_mem=new_mem,
@@ -1566,6 +1574,15 @@ class TuiPetApp(ActionsMixin, App):
         old = self.pet
         self.pet = Pet.new_egg(generation=gen, egg_type=egg_type)
         self._grant_digimemory(self.pet)
+        from . import egg as egg_mod
+        if egg_mod.hatch_name(egg_type) == egg_mod.GODZILLA_EGG \
+                and persistence._note_take("gcell_frag"):
+            # the G-Cell Fragment left at the grave (dmgz manual: it appears
+            # behind the grave, and the next egg hatches with it) rides into
+            # this Godzilla Egg: the mark the FRAG routes read (Burning
+            # Godzilla, the Chibis...).  Spent here; another egg leaves it
+            # waiting for the next Godzilla Egg.
+            self.pet.gcell_fragment = True
         if repick:
             # the outgoing shell's estate moves over untouched: wallet, bag
             # (bought goods included -- the shop opens for an egg), trophy

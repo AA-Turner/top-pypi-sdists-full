@@ -43,6 +43,7 @@ class RobotAccountDetails:
         user_keys (Union[Unset, list['SshKey']]):
         resource_name (Union[Unset, str]):
         resource_uuid (Union[Unset, UUID]):
+        resource_backend_id (Union[Unset, str]):
         project_name (Union[Unset, str]):
         project_uuid (Union[Unset, UUID]):
         customer_uuid (Union[Unset, UUID]):
@@ -71,6 +72,7 @@ class RobotAccountDetails:
     user_keys: Union[Unset, list["SshKey"]] = UNSET
     resource_name: Union[Unset, str] = UNSET
     resource_uuid: Union[Unset, UUID] = UNSET
+    resource_backend_id: Union[Unset, str] = UNSET
     project_name: Union[Unset, str] = UNSET
     project_uuid: Union[Unset, UUID] = UNSET
     customer_uuid: Union[Unset, UUID] = UNSET
@@ -154,6 +156,8 @@ class RobotAccountDetails:
         if not isinstance(self.resource_uuid, Unset):
             resource_uuid = str(self.resource_uuid)
 
+        resource_backend_id = self.resource_backend_id
+
         project_name = self.project_name
 
         project_uuid: Union[Unset, str] = UNSET
@@ -217,6 +221,8 @@ class RobotAccountDetails:
             field_dict["resource_name"] = resource_name
         if resource_uuid is not UNSET:
             field_dict["resource_uuid"] = resource_uuid
+        if resource_backend_id is not UNSET:
+            field_dict["resource_backend_id"] = resource_backend_id
         if project_name is not UNSET:
             field_dict["project_name"] = project_name
         if project_uuid is not UNSET:
@@ -335,6 +341,8 @@ class RobotAccountDetails:
         else:
             resource_uuid = UUID(_resource_uuid)
 
+        resource_backend_id = d.pop("resource_backend_id", UNSET)
+
         project_name = d.pop("project_name", UNSET)
 
         _project_uuid = d.pop("project_uuid", UNSET)
@@ -389,6 +397,7 @@ class RobotAccountDetails:
             user_keys=user_keys,
             resource_name=resource_name,
             resource_uuid=resource_uuid,
+            resource_backend_id=resource_backend_id,
             project_name=project_name,
             project_uuid=project_uuid,
             customer_uuid=customer_uuid,

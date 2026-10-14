@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -19,6 +20,11 @@ from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl
 UPLOAD_BATCH_FILES = 64
 DEFAULT_UPLOAD_TIMEOUT = 60 * 60.0
 DEFAULT_UPLOAD_CONCURRENCY = 8
+BENCHMARK_UPLOAD_CONCURRENCY = 64
+# Room for two 1,000-file allocation batches ahead of completed PUTs.
+MAX_PENDING_FILES = 2 * 1000
+# Signed URLs expire after 60 minutes, so bytes waiting for a worker are bounded too.
+MAX_WAITING_BYTES = 4 * 1024 * 1024 * 1024
 
 _RETRYABLE_STATUS_CODES = frozenset({408, 409, 429, 500, 502, 503, 504})
 _UPLOAD_CHUNK_SIZE = 64 * 1024
@@ -45,8 +51,9 @@ class UploadPool:
     self.progress = progress
     self.pool = ThreadPoolExecutor(max_workers=max_concurrency)
     self.pending: dict[Future[None], UploadFile] = {}
-    # At most two allocation batches are held ahead of completed PUTs.
-    self.max_pending = max(2 * UPLOAD_BATCH_FILES, max_concurrency)
+    self.max_pending = max(MAX_PENDING_FILES, max_concurrency)
+    self.waiting_bytes = 0
+    self.upload_started = threading.Condition()
 
   def __enter__(self) -> UploadPool:
     return self
@@ -68,21 +75,40 @@ class UploadPool:
         f"unexpected={unexpected!r}"
       )
     for path, file in files_by_path.items():
-      while len(self.pending) >= self.max_pending:
-        self._drain_completed()
+      while len(self.pending) >= self.max_pending or self._over_byte_budget(file):
+        if len(self.pending) >= self.max_pending:
+          self._drain_completed()
+          continue
+        # Starting an upload frees byte budget, so wait for a start rather than a completion.
+        with self.upload_started:
+          self.upload_started.wait_for(
+            lambda: not self._over_byte_budget(file), self.progress.interval
+          )
+        self._drain_completed(timeout=0)
       self.progress.start_file(path, file.size_bytes)
-      future = self.pool.submit(
-        self._put_file,
-        self.client,
-        file,
-        urls_by_path[path],
-        timeout=self.timeout,
-        max_retries=self.max_retries,
-        progress=self.progress,
-      )
+      with self.upload_started:
+        self.waiting_bytes += file.size_bytes
+      future = self.pool.submit(self._start_put, file, urls_by_path[path])
       self.pending[future] = file
     # Report successful files and surface failures between allocations without waiting.
     self._drain_completed(timeout=0)
+
+  def _over_byte_budget(self, file: UploadFile) -> bool:
+    return self.waiting_bytes > 0 and self.waiting_bytes + file.size_bytes > MAX_WAITING_BYTES
+
+  def _start_put(self, file: UploadFile, upload_url: BenchmarkUploadUrl) -> None:
+    # Only bytes still waiting for a worker count against the budget; running uploads do not.
+    with self.upload_started:
+      self.waiting_bytes -= file.size_bytes
+      self.upload_started.notify_all()
+    self._put_file(
+      self.client,
+      file,
+      upload_url,
+      timeout=self.timeout,
+      max_retries=self.max_retries,
+      progress=self.progress,
+    )
 
   def finish(self) -> None:
     while self.pending:

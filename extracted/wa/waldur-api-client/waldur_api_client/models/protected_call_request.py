@@ -5,10 +5,15 @@ from uuid import UUID
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.evaluation_start_enum import EvaluationStartEnum
+from ..models.order_author_enum import OrderAuthorEnum
+from ..models.publish_results_enum import PublishResultsEnum
+from ..models.undecided_at_round_completion_enum import UndecidedAtRoundCompletionEnum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.call_applicant_visibility_config_request import CallApplicantVisibilityConfigRequest
+    from ..models.call_proposal_field_config_request import CallProposalFieldConfigRequest
 
 
 T = TypeVar("T", bound="ProtectedCallRequest")
@@ -29,10 +34,14 @@ class ProtectedCallRequest:
             identities
         reviews_visible_to_submitters (Union[Unset, bool]): Whether proposal applicants can see review comments and
             scores
+        proposal_field_config (Union[Unset, CallProposalFieldConfigRequest]):
+        evaluation_start (Union[Unset, EvaluationStartEnum]):
+        publish_results (Union[Unset, PublishResultsEnum]):
         created_by (Union[None, Unset, str]):
         reference_code (Union[Unset, str]):
         compliance_checklist (Union[None, UUID, Unset]): Compliance checklist that proposals must complete before
             submission
+        panel_chair (Union[None, UUID, Unset]):
         proposal_slug_template (Union[None, Unset, str]): Template for proposal slugs. Supports: {call_slug},
             {round_slug}, {org_slug}, {year}, {month}, {counter}, {counter_padded}. Default: {round_slug}-{counter_padded}
         user_email_patterns (Union[Unset, list[str]]): List of email regex patterns. User must match one.
@@ -45,6 +54,12 @@ class ProtectedCallRequest:
         user_assurance_levels (Union[Unset, list[str]]): List of required assurance URIs (REFEDS). User must have ALL of
             these.
         applicant_visibility_config (Union['CallApplicantVisibilityConfigRequest', None, Unset]):
+        order_author (Union[Unset, OrderAuthorEnum]):
+        order_author_user (Union[None, UUID, Unset]): The person orders are attributed to when the author is a named
+            contact. Must hold a role on this call or on the organisation managing it.
+        carry_over_drafts (Union[Unset, bool]): Whether a draft still open when its round's cut-off passes moves on to
+            the call's next round instead of being cancelled. Without a later round the draft is cancelled either way.
+        undecided_at_round_completion (Union[Unset, UndecidedAtRoundCompletionEnum]):
     """
 
     name: str
@@ -56,9 +71,13 @@ class ProtectedCallRequest:
     external_url: Union[None, Unset, str] = UNSET
     reviewer_identity_visible_to_submitters: Union[Unset, bool] = UNSET
     reviews_visible_to_submitters: Union[Unset, bool] = UNSET
+    proposal_field_config: Union[Unset, "CallProposalFieldConfigRequest"] = UNSET
+    evaluation_start: Union[Unset, EvaluationStartEnum] = UNSET
+    publish_results: Union[Unset, PublishResultsEnum] = UNSET
     created_by: Union[None, Unset, str] = UNSET
     reference_code: Union[Unset, str] = UNSET
     compliance_checklist: Union[None, UUID, Unset] = UNSET
+    panel_chair: Union[None, UUID, Unset] = UNSET
     proposal_slug_template: Union[None, Unset, str] = UNSET
     user_email_patterns: Union[Unset, list[str]] = UNSET
     user_affiliations: Union[Unset, list[str]] = UNSET
@@ -67,6 +86,10 @@ class ProtectedCallRequest:
     user_organization_types: Union[Unset, list[str]] = UNSET
     user_assurance_levels: Union[Unset, list[str]] = UNSET
     applicant_visibility_config: Union["CallApplicantVisibilityConfigRequest", None, Unset] = UNSET
+    order_author: Union[Unset, OrderAuthorEnum] = UNSET
+    order_author_user: Union[None, UUID, Unset] = UNSET
+    carry_over_drafts: Union[Unset, bool] = UNSET
+    undecided_at_round_completion: Union[Unset, UndecidedAtRoundCompletionEnum] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -98,6 +121,18 @@ class ProtectedCallRequest:
 
         reviews_visible_to_submitters = self.reviews_visible_to_submitters
 
+        proposal_field_config: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.proposal_field_config, Unset):
+            proposal_field_config = self.proposal_field_config.to_dict()
+
+        evaluation_start: Union[Unset, str] = UNSET
+        if not isinstance(self.evaluation_start, Unset):
+            evaluation_start = self.evaluation_start.value
+
+        publish_results: Union[Unset, str] = UNSET
+        if not isinstance(self.publish_results, Unset):
+            publish_results = self.publish_results.value
+
         created_by: Union[None, Unset, str]
         if isinstance(self.created_by, Unset):
             created_by = UNSET
@@ -113,6 +148,14 @@ class ProtectedCallRequest:
             compliance_checklist = str(self.compliance_checklist)
         else:
             compliance_checklist = self.compliance_checklist
+
+        panel_chair: Union[None, Unset, str]
+        if isinstance(self.panel_chair, Unset):
+            panel_chair = UNSET
+        elif isinstance(self.panel_chair, UUID):
+            panel_chair = str(self.panel_chair)
+        else:
+            panel_chair = self.panel_chair
 
         proposal_slug_template: Union[None, Unset, str]
         if isinstance(self.proposal_slug_template, Unset):
@@ -152,6 +195,24 @@ class ProtectedCallRequest:
         else:
             applicant_visibility_config = self.applicant_visibility_config
 
+        order_author: Union[Unset, str] = UNSET
+        if not isinstance(self.order_author, Unset):
+            order_author = self.order_author.value
+
+        order_author_user: Union[None, Unset, str]
+        if isinstance(self.order_author_user, Unset):
+            order_author_user = UNSET
+        elif isinstance(self.order_author_user, UUID):
+            order_author_user = str(self.order_author_user)
+        else:
+            order_author_user = self.order_author_user
+
+        carry_over_drafts = self.carry_over_drafts
+
+        undecided_at_round_completion: Union[Unset, str] = UNSET
+        if not isinstance(self.undecided_at_round_completion, Unset):
+            undecided_at_round_completion = self.undecided_at_round_completion.value
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -174,12 +235,20 @@ class ProtectedCallRequest:
             field_dict["reviewer_identity_visible_to_submitters"] = reviewer_identity_visible_to_submitters
         if reviews_visible_to_submitters is not UNSET:
             field_dict["reviews_visible_to_submitters"] = reviews_visible_to_submitters
+        if proposal_field_config is not UNSET:
+            field_dict["proposal_field_config"] = proposal_field_config
+        if evaluation_start is not UNSET:
+            field_dict["evaluation_start"] = evaluation_start
+        if publish_results is not UNSET:
+            field_dict["publish_results"] = publish_results
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if reference_code is not UNSET:
             field_dict["reference_code"] = reference_code
         if compliance_checklist is not UNSET:
             field_dict["compliance_checklist"] = compliance_checklist
+        if panel_chair is not UNSET:
+            field_dict["panel_chair"] = panel_chair
         if proposal_slug_template is not UNSET:
             field_dict["proposal_slug_template"] = proposal_slug_template
         if user_email_patterns is not UNSET:
@@ -196,12 +265,21 @@ class ProtectedCallRequest:
             field_dict["user_assurance_levels"] = user_assurance_levels
         if applicant_visibility_config is not UNSET:
             field_dict["applicant_visibility_config"] = applicant_visibility_config
+        if order_author is not UNSET:
+            field_dict["order_author"] = order_author
+        if order_author_user is not UNSET:
+            field_dict["order_author_user"] = order_author_user
+        if carry_over_drafts is not UNSET:
+            field_dict["carry_over_drafts"] = carry_over_drafts
+        if undecided_at_round_completion is not UNSET:
+            field_dict["undecided_at_round_completion"] = undecided_at_round_completion
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.call_applicant_visibility_config_request import CallApplicantVisibilityConfigRequest
+        from ..models.call_proposal_field_config_request import CallProposalFieldConfigRequest
 
         d = dict(src_dict)
         name = d.pop("name")
@@ -236,6 +314,27 @@ class ProtectedCallRequest:
 
         reviews_visible_to_submitters = d.pop("reviews_visible_to_submitters", UNSET)
 
+        _proposal_field_config = d.pop("proposal_field_config", UNSET)
+        proposal_field_config: Union[Unset, CallProposalFieldConfigRequest]
+        if isinstance(_proposal_field_config, Unset):
+            proposal_field_config = UNSET
+        else:
+            proposal_field_config = CallProposalFieldConfigRequest.from_dict(_proposal_field_config)
+
+        _evaluation_start = d.pop("evaluation_start", UNSET)
+        evaluation_start: Union[Unset, EvaluationStartEnum]
+        if isinstance(_evaluation_start, Unset):
+            evaluation_start = UNSET
+        else:
+            evaluation_start = EvaluationStartEnum(_evaluation_start)
+
+        _publish_results = d.pop("publish_results", UNSET)
+        publish_results: Union[Unset, PublishResultsEnum]
+        if isinstance(_publish_results, Unset):
+            publish_results = UNSET
+        else:
+            publish_results = PublishResultsEnum(_publish_results)
+
         def _parse_created_by(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -263,6 +362,23 @@ class ProtectedCallRequest:
             return cast(Union[None, UUID, Unset], data)
 
         compliance_checklist = _parse_compliance_checklist(d.pop("compliance_checklist", UNSET))
+
+        def _parse_panel_chair(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                panel_chair_type_0 = UUID(data)
+
+                return panel_chair_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        panel_chair = _parse_panel_chair(d.pop("panel_chair", UNSET))
 
         def _parse_proposal_slug_template(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -304,6 +420,39 @@ class ProtectedCallRequest:
 
         applicant_visibility_config = _parse_applicant_visibility_config(d.pop("applicant_visibility_config", UNSET))
 
+        _order_author = d.pop("order_author", UNSET)
+        order_author: Union[Unset, OrderAuthorEnum]
+        if isinstance(_order_author, Unset):
+            order_author = UNSET
+        else:
+            order_author = OrderAuthorEnum(_order_author)
+
+        def _parse_order_author_user(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                order_author_user_type_0 = UUID(data)
+
+                return order_author_user_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        order_author_user = _parse_order_author_user(d.pop("order_author_user", UNSET))
+
+        carry_over_drafts = d.pop("carry_over_drafts", UNSET)
+
+        _undecided_at_round_completion = d.pop("undecided_at_round_completion", UNSET)
+        undecided_at_round_completion: Union[Unset, UndecidedAtRoundCompletionEnum]
+        if isinstance(_undecided_at_round_completion, Unset):
+            undecided_at_round_completion = UNSET
+        else:
+            undecided_at_round_completion = UndecidedAtRoundCompletionEnum(_undecided_at_round_completion)
+
         protected_call_request = cls(
             name=name,
             manager=manager,
@@ -314,9 +463,13 @@ class ProtectedCallRequest:
             external_url=external_url,
             reviewer_identity_visible_to_submitters=reviewer_identity_visible_to_submitters,
             reviews_visible_to_submitters=reviews_visible_to_submitters,
+            proposal_field_config=proposal_field_config,
+            evaluation_start=evaluation_start,
+            publish_results=publish_results,
             created_by=created_by,
             reference_code=reference_code,
             compliance_checklist=compliance_checklist,
+            panel_chair=panel_chair,
             proposal_slug_template=proposal_slug_template,
             user_email_patterns=user_email_patterns,
             user_affiliations=user_affiliations,
@@ -325,6 +478,10 @@ class ProtectedCallRequest:
             user_organization_types=user_organization_types,
             user_assurance_levels=user_assurance_levels,
             applicant_visibility_config=applicant_visibility_config,
+            order_author=order_author,
+            order_author_user=order_author_user,
+            carry_over_drafts=carry_over_drafts,
+            undecided_at_round_completion=undecided_at_round_completion,
         )
 
         protected_call_request.additional_properties = d

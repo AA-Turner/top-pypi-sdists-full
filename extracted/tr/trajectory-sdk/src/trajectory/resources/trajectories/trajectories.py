@@ -56,6 +56,12 @@ class Trajectories(APIResource):
     """Create a trajectory, or return the existing trajectory for a managed run.
 
     Args:
+      idempotency_key: Required with `Trajectory-API-Version: tmp-contract`, which rejects a missing,
+        blank or over-long key, including an SDK call that passes `idempotency_key=None`.
+        Optional for legacy callers, whose key the API generates. Reuse this key when
+        retrying a submission; the SDK generates one per call and reuses it across
+        automatic retries.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -74,10 +80,15 @@ class Trajectories(APIResource):
         headers={
           "Idempotency-Key": serialize_header(idempotency_key),
         },
-        extra_headers=extra_headers,
+        extra_headers=(
+          {"Idempotency-Key": omit, **(extra_headers or {})}
+          if idempotency_key is None
+          else extra_headers
+        ),
         extra_query=extra_query,
         extra_body=extra_body,
         timeout=timeout,
+        idempotency_header=("Idempotency-Key" if isinstance(idempotency_key, Omit) else None),
       ),
     )
 
@@ -342,6 +353,8 @@ class Trajectories(APIResource):
     *,
     name: str,
     value: float,
+    min_value: float = 0.0,
+    max_value: float = 1.0,
     explanation: str | Omit = omit,
     weight: float | Omit = omit,
     extra_headers: Headers | None = None,
@@ -354,7 +367,12 @@ class Trajectories(APIResource):
     Args:
       name: Reward component name.
 
-      value: Raw reward value.
+      value: Finite raw reward between min_value and max_value, including endpoints.
+
+      min_value: Minimum raw reward, default 0. Must be less than max_value.
+
+      max_value: Maximum raw reward, default 1. The server scales the declared range
+        to [0, 1] for training and preserves the raw value.
 
       explanation: Human-readable reason for the reward.
 
@@ -374,6 +392,23 @@ class Trajectories(APIResource):
       raise ValueError(
         f"Expected a non-empty value for `trajectory_id` but received {trajectory_id!r}"
       )
+    reward_values = {"value": value, "min_value": min_value, "max_value": max_value}
+    if extra_body:
+      reward_values.update({key: extra_body[key] for key in reward_values if key in extra_body})
+    if any(
+      isinstance(number, bool)
+      or not isinstance(number, (int, float))
+      or not -float("inf") < number < float("inf")
+      for number in reward_values.values()
+    ):
+      raise ValueError("value, min_value and max_value must be finite numbers")
+    minimum, maximum = reward_values["min_value"], reward_values["max_value"]
+    if not minimum < maximum:
+      raise ValueError("min_value must be less than max_value")
+    if maximum - minimum == float("inf"):
+      raise ValueError("max_value - min_value must be finite")
+    if not minimum <= reward_values["value"] <= maximum:
+      raise ValueError("value must be between min_value and max_value, including endpoints")
     return self._post(
       path_template(
         "/api/v1/trajectories/{trajectory_id}/rewards",
@@ -385,6 +420,8 @@ class Trajectories(APIResource):
           "reward_id": str(uuid4()),
           "name": name,
           "value": value,
+          "min_value": min_value,
+          "max_value": max_value,
           "explanation": explanation,
           "weight": weight,
         },

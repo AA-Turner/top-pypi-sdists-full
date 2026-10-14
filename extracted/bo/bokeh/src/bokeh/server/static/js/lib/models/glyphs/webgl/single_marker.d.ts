@@ -1,6 +1,7 @@
 import type { Transform } from "./base";
 import type { MarkerVisuals } from "./base_marker";
 import { BaseMarkerGL } from "./base_marker";
+import { Uint8Buffer } from "./buffer";
 import type { ReglWrapper } from "./regl_wrap";
 import type { GLMarkerType } from "./types";
 import type { GlyphView } from "../glyph";
@@ -10,6 +11,7 @@ export type SingleMarkerGlyphView = GlyphView & {
 };
 export declare abstract class SingleMarkerGL extends BaseMarkerGL {
     readonly glyph: SingleMarkerGlyphView;
+    protected readonly _show: Uint8Buffer;
     constructor(regl_wrapper: ReglWrapper, glyph: SingleMarkerGlyphView);
     abstract get marker_type(): GLMarkerType;
     protected _get_visuals(): MarkerVisuals;

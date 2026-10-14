@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: pyTenable
-Version: 26.8.1
+Version: 26.10.1
 Summary: Python library to interface into Tenable's products and applications
 Author: Tenable, Inc.
 Author-email: Steve McGrath <smcgrath@tenable.com>
-License: MIT License
+License-Expression: MIT
 Project-URL: Homepage, https://pytenable.readthedocs.io
 Project-URL: Repository, https://github.com/tenable/pytenable
 Project-URL: Issues, https://github.com/tenable/pytenable/issues
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -29,7 +28,6 @@ Requires-Dist: semver>=2.10.0
 Requires-Dist: marshmallow>=3.8
 Requires-Dist: python-box>=4.0
 Requires-Dist: defusedxml>=0.5.0
-Requires-Dist: urllib3>=1.26.20
 Requires-Dist: typing-extensions>=4.0.1
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: gql>=4.0.0

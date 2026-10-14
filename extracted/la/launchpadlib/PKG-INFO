@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: launchpadlib
-Version: 2.2.0
+Version: 2.3.0
 Summary: Script Launchpad through its web services interfaces.  Officially supported.
 Home-page: https://launchpad.net/launchpadlib
 Download-URL: https://launchpad.net/launchpadlib/+download
@@ -34,6 +34,8 @@ Requires-Dist: pysocks
 Requires-Dist: importlib_resources; python_version < "3.9"
 Provides-Extra: keyring
 Requires-Dist: keyring; extra == "keyring"
+Provides-Extra: fido2
+Requires-Dist: fido2<3,>=1.1.2; extra == "fido2"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Provides-Extra: testing
@@ -42,6 +44,7 @@ Requires-Dist: wadllib; extra == "testing"
 Provides-Extra: test
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: fido2<3,>=1.1.2; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -82,6 +85,19 @@ See https://help.launchpad.net/API/launchpadlib .
 =====================
 NEWS for launchpadlib
 =====================
+
+2.3.0 (2026-10-13)
+==================
+- Added optional support for USB FIDO2 security keys, installed with the
+  ``fido2`` extra.
+- Added ``Launchpad.register_hardware_key()`` to register security keys on
+  the logged-in account.
+- Added ``Launchpad.issue_hardware_bound_oauth_token()`` and
+  ``Launchpad.revoke_hardware_bound_oauth_token()`` to manage OAuth refresh
+  grants bound to a security key.
+- Added ``Launchpad.login_with_hardware_token()``, which exchanges a
+  hardware-bound grant for short-lived access tokens and stores only the
+  grant.
 
 2.2.0 (2026-10-01)
 ==================

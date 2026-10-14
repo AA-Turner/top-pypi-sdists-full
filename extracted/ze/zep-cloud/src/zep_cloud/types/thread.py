@@ -9,17 +9,39 @@ from ..core.serialization import FieldMetadata
 
 
 class Thread(UniversalBaseModel):
-    created_at: typing.Optional[str] = None
-    graph_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    created_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    GraphUUID is the graphs.uuid of the owning user's graph (spec-3 section 13.5).
+    The time the thread was created.
     """
 
-    project_uuid: typing.Optional[str] = None
-    thread_id: typing.Optional[str] = None
-    user_id: typing.Optional[str] = None
-    user_uuid: typing.Optional[str] = None
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = None
+    graph_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the owning user's graph.
+    """
+
+    thread_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The developer-assigned identifier of the thread.
+    """
+
+    updated_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The time the thread was last updated.
+    """
+
+    user_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the user the thread belongs to.
+    """
+
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the thread."),
+    ] = None
+    """
+    The unique identifier of the thread.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -7,17 +7,17 @@
 
 #ifdef __GNUC__
 #ifdef __x86_64__
-    #define TARGET_ATTRIBUTE __attribute__((target("sse4.2,pclmul")))
+#define TARGET_ATTRIBUTE __attribute__((target("sse4.1,pclmul")))
 #elif __aarch64__
-    #define TARGET_ATTRIBUTE __attribute__((target("+aes")))
+#define TARGET_ATTRIBUTE __attribute__((target("+aes")))
 #else
-    #error "Unsupported Architecture. Compile on x86-64 or aarch64 or use DISABLE_SIMD."
+#error "Unsupported Architecture. Compile on x86-64 or aarch64 or use DISABLE_SIMD."
 #endif
 #elif _MSC_VER
 #if defined(_M_AMD64) || defined(_M_ARM64)
-    #define TARGET_ATTRIBUTE
+#define TARGET_ATTRIBUTE
 #else
-    #error "Unsupported Architecture. Compile on x86-64 or aarch64 or use DISABLE_SIMD."
+#error "Unsupported Architecture. Compile on x86-64 or aarch64 or use DISABLE_SIMD."
 #endif
 #else
 #error "Unsupported Compiler. Use GCC, Clang, or MSVC."
@@ -29,10 +29,9 @@
 /* Static function definitions */
 
 static uint64_t reflect(uint64_t x, uint8_t w);
-static uint64_t xnmodp(params_t *params, uint16_t n);
+static uint64_t xndivp(params_t *params, uint64_t n);
 static uint64_t crc_initial(params_t *params, uint64_t crc);
 static uint64_t crc_final(params_t *params, uint64_t crc);
-static uint64_t crc_bits(params_t *params, uint64_t crc, uint8_t byte, uint8_t len);
 static uint64_t crc_bytes(params_t *params, uint64_t crc, unsigned char const *buf, uint64_t len);
 static uint64_t multmodp_sw(params_t *params, uint64_t a, uint64_t b);
 static uint64_t multmodp(params_t *params, uint64_t a, uint64_t b);
@@ -40,6 +39,9 @@ static void crc_build_table(params_t *params);
 static void crc_build_combine_table(params_t *params);
 
 #ifndef DISABLE_SIMD
+static uint128_t fold(uint128_t x, uint128_t y, uint128_t k);
+static uint128_t clmul65(uint128_t a, uint128_t b);
+static uint64_t modp(params_t *params, uint128_t x);
 static uint64_t crc_clmul(params_t *params, uint64_t crc, unsigned char const *buf, uint64_t len);
 static uint64_t multmodp_hw(params_t *params, uint64_t a, uint64_t b);
 #endif
@@ -71,7 +73,7 @@ static void print_hex128(uint128_t n) {
 
 //----------------------------------------
 
-/* Bit manipulation and math functions */
+/* Bit manipulation functions */
 
 /* Converts a boolean into an AND mask. */
 #define and_mask(c) (-(uint64_t)(c))
@@ -87,23 +89,27 @@ static uint64_t reflect(uint64_t x, uint8_t w) {
     return x >> (64 - w);
 }
 
-/* Computes x^n mod p. This is similar to the regular CRC calculation but we have
-   to stop earlier, as the data isn't multiplied by x^w like in CRC. Assumes that
-   the polynomial has been scaled to 64-bits, and that n is larger than 64.*/
-static uint64_t xnmodp(params_t *params, uint16_t n) {
+/* Calculate the result of dividing x^n by the polynomial.
+   64 <= n < 128. if n >= 128 then only the last 64 bits are returned. */
+static uint64_t xndivp(params_t *params, uint64_t n) {
     uint64_t mod = params->poly;
+    uint64_t div;
 
     if(params->refin) {
+        div = (uint64_t)1 << 63;
         while(n-- > 64) {
+            div = (div >> 1) | (mod << 63);
             mod = (mod >> 1) ^ (params->poly & and_mask(mod & 1));
         }
     } else {
+        div = 1;
         while(n-- > 64) {
+            div = (div << 1) | (mod >> 63);
             mod = (mod << 1) ^ (params->poly & and_mask(mod >> 63));
         }
     }
 
-    return mod;
+    return div;
 }
 
 //----------------------------------------
@@ -144,7 +150,10 @@ static uint64_t xnmodp(params_t *params, uint16_t n) {
 
    xorout is XORed with the CRC at the end of the calculation.
 
-   k1 and k2 are the constants used to fold the buffer (Intel paper p12).
+   k constants are used to fold the buffer (Intel paper p12).
+   They are equal x^n mod p with varied values for n.
+
+   u is the constant used for the Barret Reduction.
 
    table holds the values for the byte-by-byte (or Sarwate) algorithm.
    It's the result of computing the CRC for every possible input byte.
@@ -157,10 +166,10 @@ static uint64_t xnmodp(params_t *params, uint16_t n) {
    1- Shift to the left by 1 in each iteration. This requires
       additional instructions inside the folding loop.
 
-   2- Do the left shift on k1 and k2 instead. This seems to cause the
+   2- Apply the left shift on the constants instead. This seems to cause the
       constants to be 65-bits long in some cases, which is undesireable.
 
-   3- Use x^(n-1) mod p for computing k1 and k2. This method
+   3- Use x^(n-1) mod p for computing the constants. This method
       appears to work and it is the simplest to implement.
 
    This basically makes the CLMUL instruction compute the correct result
@@ -195,11 +204,7 @@ params_t crc_params(uint8_t width, uint64_t poly, uint64_t init, bool refin, boo
     }
 
     params.width = width;
-
-    //Reflected:     (p * x^(64-w))'
-    //Non-reflected:  p * x^(64-w)
     params.poly = refin ? reflect(poly, width) : poly << (64 - width);
-
     params.refin = refin;
     params.refout = refout;
 
@@ -209,20 +214,21 @@ params_t crc_params(uint8_t width, uint64_t poly, uint64_t init, bool refin, boo
 
     params.xorout = xorout;
 
-    #ifndef DISABLE_SIMD
-    //Reflected:     (x^(512+64-1) mod p)'
-    //Non-reflected:  x^(512+64) mod p
-    params.k1 = refin ? xnmodp(&params, 575) : xnmodp(&params, 576);
+    crc_build_table(&params);
 
-    //Reflected:     (x^(512-1) mod p)'
-    //Non-reflected:  x^512 mod p
-    params.k2 = refin ? xnmodp(&params, 511) : xnmodp(&params, 512);
+    #ifndef DISABLE_SIMD
+    uint64_t xp = refin ? 1 : params.poly;               //x^64 mod p | x^63 mod p
+    params.k4 = crc_zeros(&params, xp, 128-64);          //x^128 mod p | x^127 mod p
+    params.k3 = crc_zeros(&params, params.k4, 192-128);  //x^192 mod p | x^191 mod p
+    params.k2 = crc_zeros(&params, params.k3, 512-192);  //x^512 mod p | x^511 mod p
+    params.k1 = crc_zeros(&params, params.k2, 576-512);  //x^576 mod p | x^575 mod p
+    params.u = xndivp(&params, refin ? 127 : 128);       //x^128 / p | x^127 / p
     #endif
 
-    crc_build_table(&params);
     crc_build_combine_table(&params);
 
-    uint64_t crc = crc_table(&params, params.init, "123456789", 9);
+    char *data = "123456789";
+    uint64_t crc = crc_table(&params, params.init, (unsigned char*) data, 9);
     if(crc != check) {
         *error |= CRC_CHECK_INVALID;
     }
@@ -305,6 +311,32 @@ static void crc_build_table(params_t *params) {
     }
 }
 
+/* Apply n zero bits to crc. This is similar to multiplying the input by x^n mod p. */
+uint64_t crc_zeros(params_t *params, uint64_t crc, uint64_t n) {
+    if(params->refin) {
+        while(n >= 8) {
+            crc = (crc >> 8) ^ params->table[crc & 0xff];
+            n -= 8;
+        }
+
+        while(n--) {
+            crc = (crc >> 1) ^ (params->poly & and_mask(crc & 1));
+        }
+
+    } else {
+        while(n >= 8) {
+            crc = (crc << 8) ^ params->table[crc >> 56];
+            n -= 8;
+        }
+
+        while(n--) {
+            crc = (crc << 1) ^ (params->poly & and_mask(crc >> 63));
+        }
+    }
+
+    return crc;
+}
+
 /* Compute the CRC byte-by-byte using the lookup table. */
 static uint64_t crc_bytes(params_t *params, uint64_t crc, unsigned char const *buf, uint64_t len) {
     if(params->refin) {
@@ -326,150 +358,231 @@ uint64_t crc_table(params_t *params, uint64_t crc, unsigned char const *buf, uin
     return crc_final(params, crc);
 }
 
+//----------------------------------------
+
+/* Hardware-accelerated CRC */
+
+#ifndef DISABLE_SIMD
+/* Fold x and y using the folding constants stored in k. */
+TARGET_ATTRIBUTE
+static uint128_t fold(uint128_t x, uint128_t y, uint128_t k) {
+    uint128_t h = intrin_clmul_hi(x, k);
+    uint128_t l = intrin_clmul_lo(x, k);
+    return intrin_tri_xor(h, l, y);
+}
+
+/* Multiply the low bits of a by b. Used when it's not clear if the length of b
+   is 64-bits or 65-bits. */
+TARGET_ATTRIBUTE
+static uint128_t clmul65(uint128_t a, uint128_t b) {
+    uint128_t hi = intrin_clmul_lo(a, intrin_shr(b, 8));
+    uint128_t lo = intrin_clmul_lo(a, b);
+    return intrin_xor(intrin_shl(hi, 8), lo);
+}
+
+/* Find the modulos of a 128-bit integer using Barret Reduction (Intel paper p18,20).
+   Note that the constants u and p can be 65-bits long. */
+TARGET_ATTRIBUTE
+static uint64_t modp(params_t *params, uint128_t x) {
+    if(params->refin) {
+        //Add the implicit 1 back to the polynomial.
+        uint128_t u = intrin_set(0, params->u);
+        uint128_t p = intrin_set(params->poly >> 63, (params->poly << 1) | 1);
+        uint128_t c = intrin_clmul_lo(x, u);
+        c = clmul65(c, p);
+        c = intrin_xor(x, c);
+        return intrin_get(c, 1);
+
+    } else {
+        /* We don't care about the high bit of the polynomial, since we only take
+           the low 64-bits of the result. */
+        const uint128_t m = intrin_set(0xffffffffffffffff, 0);
+        uint128_t u = intrin_set(params->u, 0);
+        uint128_t p = intrin_set(params->poly, 0);
+        uint128_t c = intrin_xor(intrin_and(x, m), intrin_clmul_hi(x, u));
+        c = intrin_clmul_hi(c, p);
+        c = intrin_xor(x, c);
+        return intrin_get(c, 0);
+    }
+}
+
 /* Hardware accelerated algorithm based on the version used in Chromium.
 
-   The fold-by-4 method (Intel paper p11-12) is used to reduce the buffer to a smaller
+   The folding method (Intel paper p11-13) is used to reduce the buffer to a smaller
    buffer "congruent (modulo the polynomial) to the original one" (Intel paper p7).
-   Since the new buffer is congruent, we could just use the table-based algorithm
-   on the new buffer to find the CRC. This allows us to skip much of the paper.
-
-   This doesn't affect performance much, as the table-wise algorithm is used for
-   around or less than 200 bytes. It would be noticably slower if the input data
-   buffer is small, but in that case the speed of the table algorithm is enough.
+   The CRC of the folded buffer is then computed using Barret Reduction.
 
    It should be possible to extend this algorithm to use the 256 and 512 bit
    variants of CLMUL, using a similar approach to the one shown here. */
 
-#ifndef DISABLE_SIMD
 TARGET_ATTRIBUTE
 static uint64_t crc_clmul(params_t *params, uint64_t crc, unsigned char const *buf, uint64_t len) {
-    if(len >= 128) {
-        //Align to a 16 byte memory boundary.
-        uint64_t adrs = (uintptr_t)buf & 0xf;
-        if(adrs) {
-            uint64_t rem = 16 - adrs;
-            crc = crc_bytes(params, crc, buf, rem);
-            buf += rem;
-            len -= rem;
-        }
+    uint64_t offset = (uintptr_t)buf & 0xf;
+    uint64_t rem = (16 - offset) & 0xf;
 
-        #ifdef DEBUG
-        assert(((uintptr_t)buf & 0xf) == 0);
-        #endif
+    if(len >= 16 + rem) {
+        const uint128_t mask = intrin_set(0xffffffffffffffff, 0xffffffffffffffff);
+        uint128_t x1, x2, x3, x4;
+        uint128_t y1, y2, y3, y4;
 
-        if(len >= 128) {
-            //After every multiplication the result is split into an upper and
-            //lower half to avoid overflowing the register (Intel paper p8-9).
-            uint128_t h1, h2, h3, h4;
-            uint128_t l1, l2, l3, l4;
+        if(params->refin) {
+            //Reflected algorithm
+            //Data alignment: [ax^0 bx^1 ... cx^n]
+            uint128_t c = intrin_set(0, crc);
+            uint128_t k2k1 = intrin_set(params->k2, params->k1);
+            uint128_t k4k3 = intrin_set(params->k4, params->k3);
+            uint128_t k4 = intrin_set(0, params->k4);
 
-            //Load 64 bytes from buf into the registers.
-            uint128_t b1 = intrin_load_le(buf);
-            uint128_t b2 = intrin_load_le(buf + 16);
-            uint128_t b3 = intrin_load_le(buf + 32);
-            uint128_t b4 = intrin_load_le(buf + 48);
+            //xor with the init.
+            x1 = intrin_loadu_le(buf);
+            x1 = intrin_xor(x1, c);
+            buf += 16;
+            len -= 16;
 
-            buf += 64;
-            len -= 64;
-
-            if(params->refin) {
-                //Reflected algorithm
-                //Data alignment: [ax^0 bx^1 ... cx^n]
-                uint128_t c = intrin_set(0, crc);
-                uint128_t k2k1 = intrin_set(params->k2, params->k1);
-
-                //XOR with the init.
-                b1 = intrin_xor(b1, c);
-
-                while(len >= 64) {
-                    //Multiply by k1.
-                    h1 = intrin_clmul_lo(b1, k2k1);
-                    h2 = intrin_clmul_lo(b2, k2k1);
-                    h3 = intrin_clmul_lo(b3, k2k1);
-                    h4 = intrin_clmul_lo(b4, k2k1);
-
-                    //Multiply by k2.
-                    l1 = intrin_clmul_hi(b1, k2k1);
-                    l2 = intrin_clmul_hi(b2, k2k1);
-                    l3 = intrin_clmul_hi(b3, k2k1);
-                    l4 = intrin_clmul_hi(b4, k2k1);
-
-                    //Load the next chunk into the registers.
-                    b1 = intrin_load_le(buf);
-                    b2 = intrin_load_le(buf + 16);
-                    b3 = intrin_load_le(buf + 32);
-                    b4 = intrin_load_le(buf + 48);
-
-                    //XOR.
-                    b1 = intrin_tri_xor(b1, h1, l1);
-                    b2 = intrin_tri_xor(b2, h2, l2);
-                    b3 = intrin_tri_xor(b3, h3, l3);
-                    b4 = intrin_tri_xor(b4, h4, l4);
-
-                    buf += 64;
-                    len -= 64;
-                }
-
-            } else {
-                //Non-reflected algorithm
-                //Data alignment: [ax^n bx^(n-1) ... cx^0]
-                uint128_t c = intrin_set(crc, 0);
-                uint128_t k1k2 = intrin_set(params->k1, params->k2);
-
-                //Byte swap.
-                b1 = intrin_swap(b1);
-                b2 = intrin_swap(b2);
-                b3 = intrin_swap(b3);
-                b4 = intrin_swap(b4);
-
-                //XOR the left side of buf with the initial value.
-                b1 = intrin_xor(b1, c);
-
-                while(len >= 64) {
-                    //Multiply by k1.
-                    h1 = intrin_clmul_hi(b1, k1k2);
-                    h2 = intrin_clmul_hi(b2, k1k2);
-                    h3 = intrin_clmul_hi(b3, k1k2);
-                    h4 = intrin_clmul_hi(b4, k1k2);
-
-                    //Multiply by k2.
-                    l1 = intrin_clmul_lo(b1, k1k2);
-                    l2 = intrin_clmul_lo(b2, k1k2);
-                    l3 = intrin_clmul_lo(b3, k1k2);
-                    l4 = intrin_clmul_lo(b4, k1k2);
-
-                    //Load the next chunk into the registers.
-                    b1 = intrin_load_bg(buf);
-                    b2 = intrin_load_bg(buf + 16);
-                    b3 = intrin_load_bg(buf + 32);
-                    b4 = intrin_load_bg(buf + 48);
-
-                    //XOR.
-                    b1 = intrin_tri_xor(b1, h1, l1);
-                    b2 = intrin_tri_xor(b2, h2, l2);
-                    b3 = intrin_tri_xor(b3, h3, l3);
-                    b4 = intrin_tri_xor(b4, h4, l4);
-
-                    buf += 64;
-                    len -= 64;
-                }
-
-                //Byte swap.
-                b1 = intrin_swap(b1);
-                b2 = intrin_swap(b2);
-                b3 = intrin_swap(b3);
-                b4 = intrin_swap(b4);
+            //Fold unaligned bytes.
+            if(offset) {
+                y1 = intrin_loadu_le(buf - (16 - rem));
+                y1 = intrin_xor(intrin_shr(x1, rem), intrin_and(y1, intrin_shl(mask, 16 - rem)));
+                x1 = intrin_shl(x1, 16 - rem);
+                x1 = fold(x1, y1, k4k3);
+                buf += rem;
+                len -= rem;
             }
 
-            //Calculate the CRC of what's left using the table-based algorithm.
-            crc = crc_bytes(params, 0, (unsigned char*) &b1, 16);
-            crc = crc_bytes(params, crc, (unsigned char*) &b2, 16);
-            crc = crc_bytes(params, crc, (unsigned char*) &b3, 16);
-            crc = crc_bytes(params, crc, (unsigned char*) &b4, 16);
+            #ifdef DEBUG
+            assert(((uintptr_t)buf & 0xf) == 0);
+            #endif
+
+            if(len >= 48) {
+                x2 = intrin_load_le(buf);
+                x3 = intrin_load_le(buf + 16);
+                x4 = intrin_load_le(buf + 32);
+
+                buf += 48;
+                len -= 48;
+
+                //Fold by 4.
+                while(len >= 64) {
+                    y1 = intrin_load_le(buf);
+                    y2 = intrin_load_le(buf + 16);
+                    y3 = intrin_load_le(buf + 32);
+                    y4 = intrin_load_le(buf + 48);
+
+                    x1 = fold(x1, y1, k2k1);
+                    x2 = fold(x2, y2, k2k1);
+                    x3 = fold(x3, y3, k2k1);
+                    x4 = fold(x4, y4, k2k1);
+
+                    buf += 64;
+                    len -= 64;
+                }
+
+                //Fold to 128 bits.
+                x1 = fold(x1, x2, k4k3);
+                x1 = fold(x1, x3, k4k3);
+                x1 = fold(x1, x4, k4k3);
+            }
+
+            //Fold by 1.
+            while(len >= 16) {
+                y1 = intrin_load_le(buf);
+                x1 = fold(x1, y1, k4k3);
+                buf += 16;
+                len -= 16;
+            }
+
+            //Fold the remaining bytes.
+            if(len > 0) {
+                y1 = intrin_loadu_le(buf - (16 - len));
+                y1 = intrin_xor(intrin_shr(x1, len), intrin_and(y1, intrin_shl(mask, 16 - len)));
+                x1 = intrin_shl(x1, 16 - len);
+                x1 = fold(x1, y1, k4k3);
+            }
+
+            //Add 64 zeros.
+            x1 = intrin_xor(intrin_clmul_lo(x1, k4), intrin_shr(x1, 8));
+
+        } else {
+            //Non-reflected algorithm
+            //Data alignment: [ax^n bx^(n-1) ... cx^0]
+            uint128_t c = intrin_set(crc, 0);
+            uint128_t k1k2 = intrin_set(params->k1, params->k2);
+            uint128_t k3k4 = intrin_set(params->k3, params->k4);
+            uint128_t k4 = intrin_set(params->k4, 0);
+
+            //xor with the init.
+            x1 = intrin_loadu_bg(buf);
+            x1 = intrin_xor(x1, c);
+            buf += 16;
+            len -= 16;
+
+            //Fold unaligned bytes.
+            if(offset) {
+                y1 = intrin_loadu_bg(buf - (16 - rem));
+                y1 = intrin_xor(intrin_shl(x1, rem), intrin_and(y1, intrin_shr(mask, 16 - rem)));
+                x1 = intrin_shr(x1, 16 - rem);
+                x1 = fold(x1, y1, k3k4);
+                buf += rem;
+                len -= rem;
+            }
+
+            #ifdef DEBUG
+            assert(((uintptr_t)buf & 0xf) == 0);
+            #endif
+
+            if(len >= 48) {
+                x2 = intrin_load_bg(buf);
+                x3 = intrin_load_bg(buf + 16);
+                x4 = intrin_load_bg(buf + 32);
+
+                buf += 48;
+                len -= 48;
+
+                //Fold by 4.
+                while(len >= 64) {
+                    y1 = intrin_load_bg(buf);
+                    y2 = intrin_load_bg(buf + 16);
+                    y3 = intrin_load_bg(buf + 32);
+                    y4 = intrin_load_bg(buf + 48);
+
+                    x1 = fold(x1, y1, k1k2);
+                    x2 = fold(x2, y2, k1k2);
+                    x3 = fold(x3, y3, k1k2);
+                    x4 = fold(x4, y4, k1k2);
+
+                    buf += 64;
+                    len -= 64;
+                }
+
+                //Fold to 128 bits.
+                x1 = fold(x1, x2, k3k4);
+                x1 = fold(x1, x3, k3k4);
+                x1 = fold(x1, x4, k3k4);
+            }
+
+            //Fold by 1.
+            while(len >= 16) {
+                y1 = intrin_load_bg(buf);
+                x1 = fold(x1, y1, k3k4);
+                buf += 16;
+                len -= 16;
+            }
+
+            //Fold the remaining bytes.
+            if(len > 0) {
+                y1 = intrin_loadu_bg(buf - (16 - len));
+                y1 = intrin_xor(intrin_shl(x1, len), intrin_and(y1, intrin_shr(mask, 16 - len)));
+                x1 = intrin_shr(x1, 16 - len);
+                x1 = fold(x1, y1, k3k4);
+            }
+
+            //Add 64 zeros.
+            x1 = intrin_xor(intrin_clmul_hi(x1, k4), intrin_shl(x1, 8));
         }
+
+        return modp(params, x1);
     }
 
-    //Compute the remaining bytes and return the CRC.
     return crc_bytes(params, crc, buf, len);
 }
 #endif
@@ -526,30 +639,19 @@ static uint64_t multmodp_sw(params_t *params, uint64_t a, uint64_t b) {
 #ifndef DISABLE_SIMD
 TARGET_ATTRIBUTE
 static uint64_t multmodp_hw(params_t *params, uint64_t a, uint64_t b) {
-    //Load into two registers and multiply.
     uint128_t ar = intrin_set(0, a);
-    uint128_t br = intrin_set(0, b);
-
-    uint128_t prod = intrin_clmul_lo(ar, br);
-
-    uint64_t hi = intrin_get(prod, 1);
-    uint64_t lo = intrin_get(prod, 0);
+    uint128_t br, prod;
 
     //Shift to the left by 1 to account for reflection (Intel paper p20).
     if(params->refin) {
-        hi = (hi << 1) | (lo >> 63);
-        lo <<= 1;
-        for(uint8_t i = 0; i < 8; i++) {
-            lo = (lo >> 8) ^ params->table[lo & 0xff];
-        }
-
+        br = intrin_set(b >> 63, b << 1);
+        prod = clmul65(ar, br);
     } else {
-        for(uint8_t i = 0; i < 8; i++) {
-            hi = (hi << 8) ^ params->table[hi >> 56];
-        }
+        br = intrin_set(0, b);
+        prod = intrin_clmul_lo(ar, br);
     }
 
-    return hi ^ lo;
+    return modp(params, prod);
 }
 #endif
 
@@ -569,37 +671,48 @@ static uint64_t multmodp(params_t *params, uint64_t a, uint64_t b) {
 
 /* Fills combine_table with values of x^2^i mod p. */
 static void crc_build_combine_table(params_t *params) {
-    uint64_t sq = params->refin ? (uint64_t)1 << 62 : 2; //x^1
+    //Assuming that the polynomial is scaled to 64-bits.
+    params->combine_table[0] = params->refin ? (uint64_t)1 << (64-8-1)  : (uint64_t)1 << 8;  //x^8 mod p
+    params->combine_table[1] = params->refin ? (uint64_t)1 << (64-16-1) : (uint64_t)1 << 16; //x^16 mod p
+    params->combine_table[2] = params->refin ? (uint64_t)1 << (64-32-1) : (uint64_t)1 << 32; //x^32 mod p
 
-    sq = multmodp(params, sq, sq); //x^2
-    sq = multmodp(params, sq, sq); //x^4
-
-    //First value is x^8 mod p.
-    for(uint8_t i = 0; i < 64; i++) {
-        sq = multmodp(params, sq, sq); //x^2^(i+3)
+    //Compute the remaining values.
+    uint64_t sq = params->combine_table[3] = params->poly; //x^64 mod p
+    for(uint8_t i = 4; i < 64; i++) {
+        sq = multmodp(params, sq, sq); //x^2^(i+3) mod p
         params->combine_table[i] = sq;
     }
 }
 
-/* Multiplies the various x^2^i mod p factors to get x^8n mod p. This constant
-   can be precomputed once and reused in conjunction with crc_combine_fixed
-   if the length of the second CRC's message is always the same. */
+/* Multiplies the various x^2^i mod p factors to get x^8n mod p. */
 uint64_t crc_combine_constant(params_t *params, uint64_t len) {
-    uint64_t xp = params->refin ? (uint64_t)1 << 63 : 1; //x^0
+    if(len == 0) {
+        return params->refin ? (uint64_t)1 << 63 : 1;
+    }
+
+    uint64_t xp;
     uint8_t i = 0;
-    while(len) {
-        if(len & 1) {
-            xp = multmodp(params, xp, params->combine_table[i]);
-        }
+
+    while((len & 1) == 0) {
         len >>= 1;
         i++;
     }
+
+    xp = params->combine_table[i];
+
+    while(len) {
+        len >>= 1;
+        i++;
+        if(len & 1) {
+            xp = multmodp(params, xp, params->combine_table[i]);
+        }
+    }
+
     return xp;
 }
 
-/* Find CRC(A + B) from CRC(A) and CRC(B) if the length of B is fixed using the
-   constant precomputed from crc_combine_constant.*/
-uint64_t crc_combine_fixed(params_t *params, uint64_t crc, uint64_t crc2, uint64_t xp) {
+/* Find CRC((A * x^(8*len(B))) + B) from CRC(A) and CRC(B) using the value returned by crc_combine_constant. */
+uint64_t crc_combine(params_t *params, uint64_t crc, uint64_t crc2, uint64_t xp) {
     /* It's not clear why we should XOR with the initial. It could be that we
        are treating the CRC as the first incoming bits to the register. */
     crc ^= params->init ^ params->xorout;
@@ -609,105 +722,4 @@ uint64_t crc_combine_fixed(params_t *params, uint64_t crc, uint64_t crc2, uint64
     crc = multmodp(params, crc, xp) ^ crc2;
 
     return crc_final(params, crc);
-}
-
-/* Mark Adler's O(log n) combine algorithm. Use this if the length of the second
-   CRC is variable. */
-uint64_t crc_combine(params_t *params, uint64_t crc, uint64_t crc2, uint64_t len) {
-    crc ^= params->init ^ params->xorout;
-    crc = crc_initial(params, crc);
-    crc2 = crc_initial(params, crc2);
-
-    uint8_t i = 0;
-    while(len) {
-        if(len & 1) {
-            crc = multmodp(params, crc, params->combine_table[i]);
-        }
-        len >>= 1;
-        i++;
-    }
-
-    return crc_final(params, crc ^ crc2);
-}
-
-//----------------------------------------
-
-/* Bit-length CRC functions */
-/* Equivalent functions where the length is specified in bits. */
-
-/* Computes the CRC of up to 8 bits using the tableless algorithm. */
-static uint64_t crc_bits(params_t *params, uint64_t crc, uint8_t byte, uint8_t len) {
-    if(params->refin) {
-        uint8_t mask = (uint8_t)-1 >> (8 - len);
-        crc ^= byte & mask;
-        while(len--) {
-            crc = (crc >> 1) ^ (params->poly & and_mask(crc & 1));
-        }
-    } else {
-        uint8_t mask = (uint8_t)-1 << (8 - len);
-        crc ^= (uint64_t)(byte & mask) << 56;
-        while(len--) {
-            crc = (crc << 1) ^ (params->poly & and_mask(crc >> 63));
-        }
-    }
-    return crc;
-}
-
-uint64_t crc_calc_bits(params_t *params, uint64_t crc, unsigned char const *buf, uint64_t len) {
-    uint64_t bytes = len / 8;
-    uint8_t bits = len % 8;
-
-    crc = crc_initial(params, crc);
-
-    #ifndef DISABLE_SIMD
-    if(cpu_enable_simd) {
-        crc = crc_clmul(params, crc, buf, bytes);
-    } else {
-        crc = crc_bytes(params, crc, buf, bytes);
-    }
-
-    #else
-    crc = crc_bytes(params, crc, buf, bytes);
-    #endif
-
-    crc = crc_bits(params, crc, *(buf + bytes), bits);
-    return crc_final(params, crc);
-}
-
-uint64_t crc_combine_constant_bits(params_t *params, uint64_t len) {
-    uint64_t bytes = len / 8;
-    uint8_t bits = len % 8;
-
-    uint64_t xp = params->refin ? (uint64_t)1 << 63 : 1;
-    uint8_t i = 0;
-    while(bytes) {
-        if(bytes & 1) {
-            xp = multmodp(params, xp, params->combine_table[i]);
-        }
-        bytes >>= 1;
-        i++;
-    }
-
-    return crc_bits(params, xp, 0, bits);
-}
-
-uint64_t crc_combine_bits(params_t *params, uint64_t crc, uint64_t crc2, uint64_t len) {
-    uint64_t bytes = len / 8;
-    uint8_t bits = len % 8;
-
-    crc ^= params->init ^ params->xorout;
-    crc = crc_initial(params, crc);
-    crc2 = crc_initial(params, crc2);
-
-    uint8_t i = 0;
-    while(bytes) {
-        if(bytes & 1) {
-            crc = multmodp(params, crc, params->combine_table[i]);
-        }
-        bytes >>= 1;
-        i++;
-    }
-
-    crc = crc_bits(params, crc, 0, bits);
-    return crc_final(params, crc ^ crc2);
 }

@@ -72,6 +72,7 @@ OWNERS: dict[str, str] = {
     # The main agent's question to the daemon's reader: never the writer's.
     "ask": RESEARCHER,
     "edge add": DAEMON, "edge remove": DAEMON, "events": READ, "exec": SDK,
+    "feedback send": DAEMON, "feedback flush": SETUP,
     "experiment create": DAEMON, "experiment delete": DAEMON, "experiment edges": READ,
     "experiment fork": DAEMON, "experiment inherited": READ,
     "experiment freeze": DAEMON, "experiment get": READ, "experiment lineage": READ, "experiment list": READ,
@@ -179,13 +180,13 @@ ASYNC_REFUSED = "`--async` would queue the write without waiting for Probe's ans
 #: Per-command options the daemon may never pass, with why.
 _SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own Markdown on the Overview page - the daemon "
                                "never writes it; notes are yours")
-#: A description written through the CLI is stamped `description_customized`,
-#: which locks the server's `description` lane out of it for good
-#: (`app/generation/kinds/description.py`): the server writes a project's and a
-#: run's one-line description itself. An experiment's is its `--question`, which
-#: stays the daemon's (the lane skips experiments).
+#: The server writes a project's one-line description itself
+#: (`app/generation/kinds/description.py`). An experiment's is its `--question`,
+#: which stays the daemon's (the lane skips experiments). A RUN's is the daemon's
+#: from the moment it starts (track-work): its writes go as `authored_by=agent`
+#: (`agent_session.default_authorship`), so the lane still replaces it when the
+#: run finishes.
 _PROJECT_DESCRIPTION_IS_THE_SERVERS = "a project's description is written by the server once a run finishes under it"
-_RUN_DESCRIPTION_IS_THE_SERVERS = "a run's description is written by the server once the run finishes"
 _TEAM_NOTE_IS_A_QUESTION = ("`--team` writes the team note directly; change it in its file instead, where "
                             "the researcher sees each change first")
 _FORBIDDEN_OPTIONS = {
@@ -201,7 +202,6 @@ _FORBIDDEN_OPTIONS = {
     # session, and each one locked the server's lane out of that project.
     **{(path, "description"): _PROJECT_DESCRIPTION_IS_THE_SERVERS
        for path in ("project create", "project set", "project patch")},
-    ("run set", "description"): _RUN_DESCRIPTION_IS_THE_SERVERS,
     # D6: every team-note change is shown to the researcher first. The daemon
     # changes it through its file, where each write is held as a question with
     # its diff; `--team` would write it directly and skip that.

@@ -1,0 +1,156 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True
+# cython: freethreading_compatible=True
+"""
+Faster evaluation of ellipses from model.py.
+"""
+
+import numpy as np
+
+
+cdef extern from "math.h" nogil:
+    double cos(double x)
+    double sin(double x)
+    double sqrt(double x)
+
+DTYPE = np.float64
+
+
+def build_ellipse_model_c(
+    unsigned int n_rows,
+    unsigned int n_cols,
+    const double[:] finely_spaced_sma,
+    const double[:] intens_array,
+    const double[:] eps_array,
+    const double[:] pa_array,
+    const double[:] x0_array,
+    const double[:] y0_array,
+    const double[:] a3_array = None,
+    const double[:] b3_array = None,
+    const double[:] a4_array = None,
+    const double[:] b4_array = None,
+    double phi_min = 0.,
+    double phi_max = 2.0*np.pi,
+):
+    cdef Py_ssize_t len_sma
+    len_sma = len(finely_spaced_sma)
+    # Do not place the memoryview arguments in a tuple. Cython infers
+    # a ctuple type for a tuple of memoryviews and rejects it as of
+    # Cython 3.3, so each array is checked explicitly.
+    if (len(intens_array) != len_sma
+            or len(eps_array) != len_sma
+            or len(pa_array) != len_sma
+            or len(x0_array) != len_sma
+            or len(y0_array) != len_sma):
+        msg = f"All input arrays must be same length={len_sma}"
+        raise ValueError(msg)
+    harmonics_is_none = [a3_array is None, b3_array is None,
+                         a4_array is None, b4_array is None]
+
+    cdef double a3, b3, a4, b4
+    cdef bint do_harmonics
+
+    if all(harmonics_is_none):
+        a3 = 0
+        b3 = 0
+        a4 = 0
+        b4 = 0
+        do_harmonics = False
+    else:
+        if any(harmonics_is_none):
+            msg = "Must supply all harmonic arrays if any is not None"
+            raise ValueError(msg)
+        if (len(a3_array) != len_sma
+                or len(b3_array) != len_sma
+                or len(a4_array) != len_sma
+                or len(b4_array) != len_sma):
+            msg = f"All input arrays must be same length={len_sma}"
+            raise ValueError(msg)
+        do_harmonics = True
+
+    cdef double phi, fx, fy, x, y
+    cdef double one_m_fx, one_m_fy, weight_pix
+    cdef double r, sma, q, pa, x0, y0, intens0, intens
+    cdef int i, j, i_max, j_max
+    cdef Py_ssize_t index
+    cdef bint i_ge_zero, i_p1_le_max
+
+    # Define output array
+    cdef double[:, ::1] result = np.zeros([n_rows, n_cols], dtype=DTYPE)
+    cdef double[:, ::1] weight = np.zeros([n_rows, n_cols], dtype=DTYPE)
+
+    i_max = n_cols - 1
+    j_max = n_rows - 1
+
+    for index in range(1, len_sma):
+        sma = finely_spaced_sma[index]
+        q = 1.0 - eps_array[index]
+        pa = pa_array[index]
+        x0 = x0_array[index]
+        y0 = y0_array[index]
+        intens0 = intens_array[index]
+        phi = phi_min
+        r = sma
+        if do_harmonics:
+            a3 = a3_array[index]
+            b3 = b3_array[index]
+            a4 = a4_array[index]
+            b4 = b4_array[index]
+
+        while phi <= phi_max:
+            # get image coordinates of (r, phi) pixel
+            x = r * cos(phi + pa) + x0
+            y = r * sin(phi + pa) + y0
+            # round down (this is equivalent to int(floor(x)))
+            i = int(x) - (x < 0)
+            j = int(y) - (y < 0)
+
+            if (-1 <= i <= i_max) and (-1 <= j <= j_max):
+                # get fractional deviations relative to target array
+                fx = x - float(i)
+                fy = y - float(j)
+
+                intens = intens0
+                if do_harmonics:
+                    intens += (a3 * sin(3.0 * phi)
+                               + b3 * cos(3.0 * phi)
+                               + a4 * sin(4.0 * phi)
+                               + b4 * cos(4.0 * phi))
+
+                one_m_fx = (1.0 - fx)
+                one_m_fy = (1.0 - fy)
+
+                i_ge_zero = i >= 0
+                i_p1_le_max = (i + 1) <= i_max
+
+                if j >= 0:
+                    if i_ge_zero:
+                        weight_pix = one_m_fx * one_m_fy
+                        # add up the isophote contribution to the
+                        # overlapping pixels
+                        result[j, i] += intens * weight_pix
+                        # add up the fractional area contribution to the
+                        # overlapping pixels
+                        weight[j, i] += weight_pix
+                    if i_p1_le_max:
+                        weight_pix = one_m_fy * fx
+                        result[j, i + 1] += intens * weight_pix
+                        weight[j, i + 1] += weight_pix
+                if (j + 1) <= j_max:
+                    if i_ge_zero:
+                        weight_pix = one_m_fx * fy
+                        result[j + 1, i] += intens * weight_pix
+                        weight[j + 1, i] += weight_pix
+                    if i_p1_le_max:
+                        weight_pix = fy * fx
+                        result[j + 1, i + 1] += intens * weight_pix
+                        weight[j + 1, i + 1] += weight_pix
+
+            # step towards next pixel on ellipse
+            phi = max((phi + 0.75 / r), phi_min)
+            r = sma * q / sqrt((q * cos(phi))**2 + sin(phi)**2)
+            # max(r, 0.5) could return nan - this is safer
+            if not (r >= 0.5):
+                r = 0.5
+
+    return np.asarray(result), np.asarray(weight)

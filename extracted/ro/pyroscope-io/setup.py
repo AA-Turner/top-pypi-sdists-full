@@ -5,8 +5,8 @@ import sys
 import sysconfig
 import os
 
-# The C++ memalloc profiler reads version-specific CPython internal structs, so
-# it must be compiled against the exact Python the wheel targets. Pass the
+# The C++ profilers read version-specific CPython internal structs, so they
+# must be compiled against the exact Python the wheel targets. Pass the
 # building interpreter and its install root down to build.rs, which forwards
 # them to CMake as Python3_EXECUTABLE / Python3_ROOT_DIR. Python3_EXECUTABLE
 # pins the exact interpreter even when several Pythons share a prefix (the
@@ -21,9 +21,13 @@ env.update({
     "Python3_EXECUTABLE": sys.executable,
 })
 
-features = []
-if sysconfig.get_config_var("Py_GIL_DISABLED") != 1:
-    features.append("memory")
+if sysconfig.get_config_var("Py_GIL_DISABLED") == 1:
+    raise SystemExit(
+        f"pyroscope-io does not support free-threaded CPython: {sys.executable} is a "
+        "Py_GIL_DISABLED build. The C++ profilers read CPython internals that this "
+        "build lays out differently, and py-spy cannot attach to it at all "
+        "(https://github.com/grafana/pyroscope-python/issues/163)."
+    )
 
 setup(
     rust_extensions=[
@@ -32,7 +36,6 @@ setup(
             path="rust/Cargo.toml",
             binding=Binding.PyO3,
             cargo_manifest_args=["--locked"],
-            features=features,
             env=env,
         )
     ],

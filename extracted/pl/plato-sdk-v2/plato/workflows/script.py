@@ -49,7 +49,7 @@ _SCOPE_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
 
 # Injected primitives that return coroutines. A bare top-level call silently
 # yields a never-executed coroutine object instead of a result.
-_ASYNC_PRIMITIVES = frozenset({"agent", "parallel", "pipeline", "workflow"})
+_ASYNC_PRIMITIVES = frozenset({"agent", "llm", "parallel", "pipeline", "workflow"})
 
 
 def _wrap_source(source: str) -> str:
@@ -123,7 +123,7 @@ def _run_prechecks(tree: ast.Module, source: str) -> None:
                 excerpt=_excerpt_for(lineno, source),
             )
 
-    # agent()/parallel()/pipeline()/workflow() are async: a bare call produces
+    # agent()/llm()/parallel()/pipeline()/workflow() are async: a bare call produces
     # a coroutine that never runs and poisons results/journal records. Three
     # placements are legitimate and exempt:
     #   1. directly awaited (`await agent(...)`);

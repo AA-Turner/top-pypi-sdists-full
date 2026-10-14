@@ -1,0 +1,1 @@
+import{j as r,z as t,S as e}from"./index-lZWMzJS_.js";import{h as i}from"./default-highlight-DbK4HBwA.js";import"./toPropertyKey-DCwh5dYN.js";const l=n=>n.json!==void 0?r.jsx(t,{children:r.jsx(i,{language:"json",children:JSON.stringify(n.json,null,2)})}):r.jsx(e,{variant:"rectangular"});export{l as default};

@@ -24,7 +24,7 @@ class OpenStackNestedVolume:
         device (Union[Unset, str]): Name of volume as instance device e.g. /dev/vdb.
         resource_type (Union[Unset, str]):
         type_ (Union[None, Unset, str]): Type of the volume (e.g. SSD, HDD)
-        type_name (Union[Unset, str]):
+        type_name (Union[None, Unset, str]):
         marketplace_resource_uuid (Union[None, Unset, str]):
     """
 
@@ -38,7 +38,7 @@ class OpenStackNestedVolume:
     device: Union[Unset, str] = UNSET
     resource_type: Union[Unset, str] = UNSET
     type_: Union[None, Unset, str] = UNSET
-    type_name: Union[Unset, str] = UNSET
+    type_name: Union[None, Unset, str] = UNSET
     marketplace_resource_uuid: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -69,7 +69,11 @@ class OpenStackNestedVolume:
         else:
             type_ = self.type_
 
-        type_name = self.type_name
+        type_name: Union[None, Unset, str]
+        if isinstance(self.type_name, Unset):
+            type_name = UNSET
+        else:
+            type_name = self.type_name
 
         marketplace_resource_uuid: Union[None, Unset, str]
         if isinstance(self.marketplace_resource_uuid, Unset):
@@ -142,7 +146,14 @@ class OpenStackNestedVolume:
 
         type_ = _parse_type_(d.pop("type", UNSET))
 
-        type_name = d.pop("type_name", UNSET)
+        def _parse_type_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        type_name = _parse_type_name(d.pop("type_name", UNSET))
 
         def _parse_marketplace_resource_uuid(data: object) -> Union[None, Unset, str]:
             if data is None:

@@ -65,6 +65,39 @@ class MoleculeBatch:
 
     def hbd_counts(self) -> list[int]: ...
 
+class MolecularForceField:
+    """A prepared MMFF94 or UFF force field with mutable coordinates.
+
+    Construct with :meth:`Mol.mmff_force_field` or
+    :meth:`Mol.uff_force_field`. Reusing this object avoids repeating atom
+    typing and force-field term construction.
+    """
+
+    @property
+    def kind(self) -> str: ...
+
+    @property
+    def num_atoms(self) -> int: ...
+
+    @property
+    def positions(self) -> list[list[float]]: ...
+
+    def set_positions_(self, coords: list[list[float]]) -> MolecularForceField: ...
+
+    def position(self, atom_index: int) -> list[float]: ...
+
+    def set_position_(
+        self, atom_index: int, position: list[float]
+    ) -> MolecularForceField: ...
+
+    def energy(self) -> float: ...
+
+    def gradient(self) -> list[list[float]]: ...
+
+    def energy_gradient(self) -> tuple[float, list[list[float]]]: ...
+
+    def minimize_(self, max_iters: int = 200) -> tuple[int, float]: ...
+
 # ---------------------------------------------------------------------------
 # Mol
 # ---------------------------------------------------------------------------
@@ -74,6 +107,10 @@ class Mol:
 
     Create with :func:`from_smiles`, :func:`from_mol_block`, or :func:`from_inchi`.
     """
+
+    def __reduce__(self) -> tuple[Any, tuple[bytes]]:
+        """Return versioned state for Python pickle round-tripping."""
+        ...
 
     # -- Identity ------------------------------------------------------------
 
@@ -1344,6 +1381,10 @@ class Mol:
         """
         ...
 
+    def eem_charges(self, coords: list[list[float]]) -> list[float]:
+        """EEM partial charges; ionic charges sum to the molecule formal charge."""
+        ...
+
     def autocorr_3d(self, coords: list[list[float]]) -> list[float]:
         """3D autocorrelation descriptors.
 
@@ -1383,6 +1424,25 @@ class Mol:
         ...
 
     # -- Force field analysis ------------------------------------------------
+
+    def mmff_force_field(
+        self,
+        coords: list[list[float]],
+        variant: str = "MMFF94",
+        non_bonded_thresh: float = 100.0,
+        ignore_interfrag_interactions: bool = True,
+    ) -> MolecularForceField:
+        """Build a reusable RDKit-compatible MMFF94 force field."""
+        ...
+
+    def uff_force_field(
+        self,
+        coords: list[list[float]],
+        vdw_thresh: float = 10.0,
+        ignore_interfrag_interactions: bool = True,
+    ) -> MolecularForceField:
+        """Build a reusable RDKit-compatible UFF force field."""
+        ...
 
     def mmff94_total_energy(
         self, coords: list[list[float]], ignore_interfrag_interactions: bool = False
@@ -4073,6 +4133,29 @@ class SdfRecord:
         ...
 
     def __repr__(self) -> str: ...
+
+class SdfRecordMetadata:
+    """Byte-range metadata collected without parsing the molecular graph."""
+
+    index: int
+    byte_offset: int
+    byte_len: int
+    title: str
+
+class SdfDataset:
+    """Indexed, bounded-memory random access to a seekable SDF file."""
+
+    def __init__(self, path: str) -> None: ...
+
+    @staticmethod
+    def open(path: str) -> SdfDataset: ...
+
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> SdfRecord: ...
+    def get(self, index: int) -> SdfRecord: ...
+    def raw_record(self, index: int) -> str: ...
+    def metadata(self, index: int) -> SdfRecordMetadata: ...
+    def read_range(self, start: int, stop: Optional[int] = None) -> list[SdfRecord]: ...
 
 class SdfIter:
     """Lazy iterator over SDF records."""

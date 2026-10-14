@@ -2,6 +2,127 @@
 
 # isort: skip_file
 
-from . import document_summary, edge, episode, node, observation, thread_summary
+import typing
+from importlib import import_module
 
-__all__ = ["document_summary", "edge", "episode", "node", "observation", "thread_summary"]
+if typing.TYPE_CHECKING:
+    from .types import (
+        GraphContextRequestRecencyBias,
+        GraphListRequestOrder,
+        GraphListRequestOrderBy,
+        SearchEdgesRequestReranker,
+        SearchEpisodesRequestReranker,
+        SearchNodesRequestReranker,
+        SearchObservationsRequestReranker,
+        SearchThreadSummariesRequestReranker,
+        SubgraphRequestDirection,
+    )
+    from . import document_summary, edge, episode, hyperedge, node, observation, thread_summary
+    from .document_summary import DocumentSummaryListRequestOrder, DocumentSummaryListRequestOrderBy
+    from .edge import EdgeListRequestOrder, EdgeListRequestOrderBy
+    from .episode import AddEpisodeRequestType, EpisodeListRequestOrder, EpisodeListRequestOrderBy
+    from .hyperedge import HyperedgeListRequestOrder, HyperedgeListRequestOrderBy
+    from .node import (
+        NeighborsRequestDirection,
+        NodeListNeighborsRequestOrder,
+        NodeListNeighborsRequestOrderBy,
+        NodeListRequestOrder,
+        NodeListRequestOrderBy,
+    )
+    from .observation import ObservationListRequestOrder, ObservationListRequestOrderBy
+    from .thread_summary import ThreadSummaryListRequestOrder, ThreadSummaryListRequestOrderBy
+_dynamic_imports: typing.Dict[str, str] = {
+    "AddEpisodeRequestType": ".episode",
+    "DocumentSummaryListRequestOrder": ".document_summary",
+    "DocumentSummaryListRequestOrderBy": ".document_summary",
+    "EdgeListRequestOrder": ".edge",
+    "EdgeListRequestOrderBy": ".edge",
+    "EpisodeListRequestOrder": ".episode",
+    "EpisodeListRequestOrderBy": ".episode",
+    "GraphContextRequestRecencyBias": ".types",
+    "GraphListRequestOrder": ".types",
+    "GraphListRequestOrderBy": ".types",
+    "HyperedgeListRequestOrder": ".hyperedge",
+    "HyperedgeListRequestOrderBy": ".hyperedge",
+    "NeighborsRequestDirection": ".node",
+    "NodeListNeighborsRequestOrder": ".node",
+    "NodeListNeighborsRequestOrderBy": ".node",
+    "NodeListRequestOrder": ".node",
+    "NodeListRequestOrderBy": ".node",
+    "ObservationListRequestOrder": ".observation",
+    "ObservationListRequestOrderBy": ".observation",
+    "SearchEdgesRequestReranker": ".types",
+    "SearchEpisodesRequestReranker": ".types",
+    "SearchNodesRequestReranker": ".types",
+    "SearchObservationsRequestReranker": ".types",
+    "SearchThreadSummariesRequestReranker": ".types",
+    "SubgraphRequestDirection": ".types",
+    "ThreadSummaryListRequestOrder": ".thread_summary",
+    "ThreadSummaryListRequestOrderBy": ".thread_summary",
+    "document_summary": ".document_summary",
+    "edge": ".edge",
+    "episode": ".episode",
+    "hyperedge": ".hyperedge",
+    "node": ".node",
+    "observation": ".observation",
+    "thread_summary": ".thread_summary",
+}
+
+
+def __getattr__(attr_name: str) -> typing.Any:
+    module_name = _dynamic_imports.get(attr_name)
+    if module_name is None:
+        raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
+    try:
+        module = import_module(module_name, __package__)
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
+    except ImportError as e:
+        raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
+    except AttributeError as e:
+        raise AttributeError(f"Failed to get {attr_name} from {module_name}: {e}") from e
+
+
+def __dir__():
+    lazy_attrs = list(_dynamic_imports.keys())
+    return sorted(lazy_attrs)
+
+
+__all__ = [
+    "AddEpisodeRequestType",
+    "DocumentSummaryListRequestOrder",
+    "DocumentSummaryListRequestOrderBy",
+    "EdgeListRequestOrder",
+    "EdgeListRequestOrderBy",
+    "EpisodeListRequestOrder",
+    "EpisodeListRequestOrderBy",
+    "GraphContextRequestRecencyBias",
+    "GraphListRequestOrder",
+    "GraphListRequestOrderBy",
+    "HyperedgeListRequestOrder",
+    "HyperedgeListRequestOrderBy",
+    "NeighborsRequestDirection",
+    "NodeListNeighborsRequestOrder",
+    "NodeListNeighborsRequestOrderBy",
+    "NodeListRequestOrder",
+    "NodeListRequestOrderBy",
+    "ObservationListRequestOrder",
+    "ObservationListRequestOrderBy",
+    "SearchEdgesRequestReranker",
+    "SearchEpisodesRequestReranker",
+    "SearchNodesRequestReranker",
+    "SearchObservationsRequestReranker",
+    "SearchThreadSummariesRequestReranker",
+    "SubgraphRequestDirection",
+    "ThreadSummaryListRequestOrder",
+    "ThreadSummaryListRequestOrderBy",
+    "document_summary",
+    "edge",
+    "episode",
+    "hyperedge",
+    "node",
+    "observation",
+    "thread_summary",
+]

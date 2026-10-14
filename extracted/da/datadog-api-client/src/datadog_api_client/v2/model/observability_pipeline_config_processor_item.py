@@ -157,6 +157,9 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
         :param tags: A list of static tags (key-value pairs) added to each metric processed by this component.
         :type tags: [ObservabilityPipelineFieldValue]
 
+        :param aggregation_timing: Configures how metrics are assigned to aggregation windows. When omitted, metrics are grouped using system time.
+        :type aggregation_timing: ObservabilityPipelineAggregateProcessorAggregationTiming, optional
+
         :param interval_secs: The interval, in seconds, over which metrics are aggregated.
         :type interval_secs: int
 
@@ -255,6 +258,9 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
         from datadog_api_client.v2.model.observability_pipeline_aggregate_processor import (
             ObservabilityPipelineAggregateProcessor,
         )
+        from datadog_api_client.v2.model.observability_pipeline_metric_enrichment_table_processor import (
+            ObservabilityPipelineMetricEnrichmentTableProcessor,
+        )
         from datadog_api_client.v2.model.observability_pipeline_metric_tags_processor import (
             ObservabilityPipelineMetricTagsProcessor,
         )
@@ -291,6 +297,7 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
                 ObservabilityPipelineThrottleProcessor,
                 ObservabilityPipelineAddMetricTagsProcessor,
                 ObservabilityPipelineAggregateProcessor,
+                ObservabilityPipelineMetricEnrichmentTableProcessor,
                 ObservabilityPipelineMetricTagsProcessor,
                 ObservabilityPipelineRenameMetricTagsProcessor,
                 ObservabilityPipelineTagCardinalityLimitProcessor,

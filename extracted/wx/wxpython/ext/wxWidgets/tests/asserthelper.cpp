@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Name:        tests/asserthelper.cpp
-// Purpose:     Helper functions for cppunit
+// Purpose:     Helper functions for the unit tests
 // Author:      Steven Lamerton
 // Created:     2010-07-23
 // Copyright:   (c) 2009 Vadim Zeitlin <vadim@wxwidgets.org>
@@ -13,7 +13,8 @@
 
 std::ostream& operator<<(std::ostream& os, const wxColour& c)
 {
-    os << c.GetAsString(wxC2S_HTML_SYNTAX);
+    os << (c.IsOk() ? c.GetAsString(wxC2S_HTML_SYNTAX)
+                    : wxString::FromAscii("invalid"));
 
     return os;
 }

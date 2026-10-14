@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jeap_pipeline
-Version: 1.12.2
+Version: 1.12.3
 Summary: A collection of Python modules and libraries for CI/CD pipelines in the jEAP context.
 Project-URL: Homepage, https://github.com/jeap-admin-ch/jeap-python-pipeline-lib
 Project-URL: Issues, https://github.com/jeap-admin-ch/jeap-python-pipeline-lib
@@ -10,12 +10,12 @@ License-File: LICENSE
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Requires-Dist: boto3==1.43.89
+Requires-Dist: boto3==1.43.94
 Requires-Dist: markdown-it-py==4.2.0
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: requests==2.34.2
 Provides-Extra: dev
-Requires-Dist: build==1.6.0; extra == 'dev'
+Requires-Dist: build==1.6.1; extra == 'dev'
 Requires-Dist: pip-licenses==5.5.5; extra == 'dev'
 Requires-Dist: pytest==9.1.1; extra == 'dev'
 Requires-Dist: twine==7.0.0; extra == 'dev'

@@ -4,13 +4,21 @@ import abc
 import itertools
 import functools
 from typing import Callable, List, Optional, Tuple
+import warnings
 
 import numpy as np
 import scipy.linalg
-import scipy.sparse
 import scipy.sparse.linalg
 
 from .utilities import Array, Groups, identify_singletons, max_norm_convergence
+
+try:
+    from scipy.sparse import csc_array, csr_array, diags_array
+except ImportError:
+    import scipy.sparse
+    csr_array = scipy.sparse.csr_matrix
+    csc_array = scipy.sparse.csc_matrix
+    diags_array = scipy.sparse.diags
 
 
 class Algorithm(abc.ABC):
@@ -138,7 +146,7 @@ class Algorithm(abc.ABC):
         singletons = int(singleton_indices.sum())
         return degrees, singletons
 
-    def residualize(self, matrix: Array, weights: Optional[Array] = None) -> Array:
+    def residualize(self, matrix: Array, weights: Optional[Array] = None, errors: str = 'raise') -> Array:
         """Absorb the fixed effects into a matrix and return the residuals from a regression of each column of the
         matrix on the fixed effects.
 
@@ -157,6 +165,11 @@ class Algorithm(abc.ABC):
             Two-dimensional array with weights, which should have a number of rows equal to
             :attr:`Algorithm.observations` (i.e., the number of rows in the ``ids`` passed to :func:`create`), and one
             column. Currently supported algorithms are ``'within'``, ``'dummy'``, and non-accelerated ``'map'``.
+        errors : `str, optional`
+            If `'raise'`, the default, any errors raise an exception. If `'warn'`, non-critical errors will generate a
+            warning and residualization will continue. For example, if an iteration limit is hit, `'raise'` will raise
+            an exception, while `'warn'` will warn that the limit is hit but still return the non-converged, partially
+            residualized matrix.
 
         Returns
         -------
@@ -190,10 +203,13 @@ class Algorithm(abc.ABC):
             if self._singleton_indices is not None:
                 weights = weights[~self._singleton_indices]
 
-        return self._residualize_matrix(matrix, weights)
+        if errors not in {'raise', 'warn'}:
+            raise ValueError("errors must be 'raise' or 'warn'.")
+
+        return self._residualize_matrix(matrix, weights, errors)
 
     @abc.abstractmethod
-    def _residualize_matrix(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _residualize_matrix(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Residualize a matrix. If weights are provided, residualize using weighted averages."""
 
 
@@ -209,7 +225,7 @@ class Dummy(Algorithm):
         super().__init__(ids, cluster_ids, drop_singletons, compute_degrees, degrees_method)
         self._D = np.hstack([g.dense_dummies(drop_last=i > 0) for i, g in enumerate(self._groups_list)])
 
-    def _residualize_matrix(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _residualize_matrix(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Compute residuals from regressions of each matrix column on the dummy variables."""
         WD = self._D if weights is None else np.sqrt(weights) * self._D
         return matrix - WD @ scipy.linalg.inv(WD.T @ WD) @ WD.T @ matrix
@@ -226,7 +242,7 @@ class Within(Algorithm):
         """Create dummy variables."""
         super().__init__(ids, cluster_ids, drop_singletons, compute_degrees, degrees_method)
 
-    def _residualize_matrix(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _residualize_matrix(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """De-mean a matrix within groups."""
         assert len(self._groups_list) == 1
         groups = self._groups_list[0]
@@ -238,12 +254,12 @@ class SW(Algorithm):
 
     _supports_weights = False
     _lb = _ub = 2
-    _D: scipy.sparse.csr_matrix
-    _H: scipy.sparse.csc_matrix
-    _DH: scipy.sparse.csr_matrix
-    _DD_inv: scipy.sparse.csr_matrix
-    _C: scipy.sparse.csr_matrix
-    _B: scipy.sparse.csr_matrix
+    _D: csr_array
+    _H: csc_array
+    _DH: csr_array
+    _DD_inv: csr_array
+    _C: csr_array
+    _B: csr_array
 
     def __init__(
             self, ids: Array, cluster_ids: Optional[Array], drop_singletons: bool, compute_degrees: bool,
@@ -258,22 +274,22 @@ class SW(Algorithm):
 
         # compute the straightforward components of the annihilator matrix
         self._DH = self._D.T @ self._H
-        self._DD_inv = scipy.sparse.diags(1 / (self._D.T @ self._D).diagonal())
+        self._DD_inv = diags_array(1 / (self._D.T @ self._D).diagonal())
 
         # attempt to compute the only non-diagonal inverse
         C_inv = self._H.T @ self._H - self._DH.T @ self._DD_inv @ self._DH
         try:
-            self._C = scipy.sparse.csr_matrix(scipy.linalg.inv(C_inv.toarray()))
+            self._C = csr_array(scipy.linalg.inv(C_inv.toarray()))
         except scipy.linalg.LinAlgError:
             raise RuntimeError("Failed to invert the C matrix in the Somaini-Wolak algorithm.")
 
         # compute the remaining component
         self._B = -self._DD_inv @ self._DH @ self._C
 
-    def _residualize_matrix(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _residualize_matrix(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Complete the algorithm."""
         assert weights is None
-        matrix = scipy.sparse.csr_matrix(matrix)
+        matrix = csr_array(matrix)
         Dx = self._D.T @ matrix
         Hx = self._H.T @ matrix
         ADx = self._DD_inv @ Dx + self._DD_inv @ (self._DH @ (self._C @ (self._DH.T @ (self._DD_inv @ Dx))))
@@ -308,14 +324,19 @@ class FixedPoint(Algorithm, abc.ABC):
         else:
             self._converged = None
 
-    def _terminate(self, last_matrix: Array, matrix: Array, iterations: int) -> bool:
-        """Check for convergence for whether the iteration limit has been exceeded."""
-        converged = False
+    def _terminate(self, last_matrix: Array, matrix: Array, iterations: int, errors: str) -> bool:
+        """Check for convergence and whether the iteration limit has been exceeded."""
+        terminate = False
         if self._converged is not None:
-            converged = self._converged(last_matrix, matrix)
-        if not converged and iterations >= self._iteration_limit:
-            raise RuntimeError(f"Failed to converge after {iterations} iterations.")
-        return converged
+            terminate = self._converged(last_matrix, matrix)
+        if not terminate and iterations >= self._iteration_limit:
+            message = f"Failed to converge after {iterations} iterations."
+            if errors == 'raise':
+                raise RuntimeError(message)
+            assert errors == 'warn'
+            warnings.warn(message, RuntimeWarning)
+            terminate = True
+        return terminate
 
 
 class MAP(FixedPoint):
@@ -351,16 +372,16 @@ class MAP(FixedPoint):
         self._acceleration = acceleration
         self._acceleration_tol = acceleration_tol
 
-    def _residualize_matrix(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _residualize_matrix(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Residualize a matrix with fixed point iteration."""
         accelerations = {
             'none': self._iterate,
             'gk': self._apply_gk,
             'cg': self._apply_cg,
         }
-        return accelerations[self._acceleration](matrix, weights)
+        return accelerations[self._acceleration](matrix, weights, errors)
 
-    def _iterate(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _iterate(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Iteratively transform a matrix without acceleration."""
         iterations = 0
         while True:
@@ -369,12 +390,12 @@ class MAP(FixedPoint):
 
             # check for termination
             iterations += 1
-            if self._terminate(last_matrix, matrix, iterations):
+            if self._terminate(last_matrix, matrix, iterations, errors):
                 break
 
         return matrix
 
-    def _apply_gk(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _apply_gk(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Accelerate iteration with the Gearhart-Koshy method. For each vector, acceleration is only used when the sum
         of squared residuals relative to the sum of squared vector values is greater than the acceleration tolerance and
         when the t value is greater than its expected upper bound of 0.5.
@@ -395,12 +416,12 @@ class MAP(FixedPoint):
 
             # check for termination
             iterations += 1
-            if self._terminate(last_matrix, matrix, iterations):
+            if self._terminate(last_matrix, matrix, iterations, errors):
                 break
 
         return matrix
 
-    def _apply_cg(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _apply_cg(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Accelerate iteration with the conjugate gradient method. For each vector, acceleration is used until the
         first time that the sum of squared residuals is less than the acceleration tolerance.
         """
@@ -450,7 +471,7 @@ class MAP(FixedPoint):
 
             # check for termination
             iterations += 1
-            if self._terminate(last_matrix, matrix, iterations):
+            if self._terminate(last_matrix, matrix, iterations, errors):
                 break
 
         return matrix
@@ -510,7 +531,7 @@ class LSMR(FixedPoint):
         r = b / s if abs(b) > abs(a) else a / c
         return c, s, r
 
-    def _residualize_matrix(self, matrix: Array, weights: Optional[Array]) -> Array:
+    def _residualize_matrix(self, matrix: Array, weights: Optional[Array], errors: str) -> Array:
         """Compute fitted values for each column with LSMR and form residuals."""
         assert weights is None
 
@@ -606,7 +627,13 @@ class LSMR(FixedPoint):
                         min_rho_bar[i] = min(min_rho_bar[i], last_rho_bar)
                     cond_B = max(max_rho_bar[i], last_c_bar_rho) / min(min_rho_bar[i], last_c_bar_rho)
                     if cond_B > self._condition_limit:
-                        raise RuntimeError(f"Failed to converge with an estimated condition number of {cond_B}.")
+                        message = f"Failed to converge with an estimated condition number of {cond_B}."
+                        if errors == 'raise':
+                            raise RuntimeError(message)
+                        assert errors == 'warn'
+                        warnings.warn(message, RuntimeWarning)
+                        converged[i] = True
+                        break
 
                 # update h bar, x, and h
                 h_bar[i] = h[i] - (theta_bar * rho[i] / (last_rho * last_rho_bar)) * h_bar[i]
@@ -647,7 +674,7 @@ class LSMR(FixedPoint):
 
             # check for termination
             iterations += 1
-            if self._terminate(last_matrix, matrix, iterations) or converged.all():
+            if self._terminate(last_matrix, matrix, iterations, errors) or converged.all():
                 break
 
         return matrix

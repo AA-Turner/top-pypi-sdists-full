@@ -51,7 +51,7 @@ from nameparser._lexicon import (
 )
 from nameparser._policy import (CapsSuffixes, Policy, Script, _JA_SCRIPTS, _NO_INITIALS,
                                 _SCRIPT_RANGES, _script_matcher)
-from nameparser._pipeline._state import WorkToken, comma_bucket
+from nameparser._pipeline._state import COMMA_CHARS, WorkToken, comma_bucket
 
 # Ported verbatim from v1 (nameparser/config/regexes.py "initial") minus
 # its empty-string alternative -- WorkToken text is never empty. Kept in
@@ -143,7 +143,18 @@ def _drop_kana_voicing_marks(text: str) -> str:
 # vetoes the whole word -- 'Kim김.' is refused as a title along with
 # '田中.' -- and that is deliberate: a word carrying a script with no
 # abbreviations is not wearing an abbreviation's period.
-in_initialless_script = _script_matcher(*_NO_INITIALS, whole=False)
+_has_initialless_char = _script_matcher(*_NO_INITIALS, whole=False)
+
+
+def in_initialless_script(text: str) -> bool:
+    """Whether TEXT holds a character of a script that writes no
+    initials (#320), asked of the composed spelling: a decomposed
+    hangul syllable is conjoining jamo, which no _NO_INITIALS range
+    holds, so '씨.' typed decomposed escaped the veto every shape test
+    beside it reads composed (#665). ASCII answers without the
+    matcher's frame, as the callers' own `isascii()` gates do."""
+    return (not text.isascii()
+            and _has_initialless_char(unicodedata.normalize("NFC", text)))
 
 
 # H2's own shape, text-level: an unlisted period-marked abbreviation,
@@ -159,12 +170,25 @@ in_initialless_script = _script_matcher(*_NO_INITIALS, whole=False)
 # the comma structure to a credential run
 # (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
 #
-# Ported verbatim from v1 (nameparser/config/regexes.py
-# "period_abbreviation") -- layering forbids the config import; keep
-# in sync by hand (tests/v2/test_regex_sync.py, which reaches this
-# object through `_pieces._PERIOD_ABBREV`, an IMPORT of this one, not
-# a second definition -- the sync test's target name did not move).
-_PERIOD_ABBREV = re.compile(r'^[^\W\d_]{2,}\.$')
+# The shape shared with config's "period_abbreviation" (layering
+# forbids the config import; keep in sync by hand -- the pattern TEXT
+# is what tests/v2/test_regex_sync.py compares, reaching this object
+# through `_pieces._PERIOD_ABBREV`, an IMPORT of this one, not a second
+# definition -- the sync test's target name did not move). It is
+# composed from `_LETTER` below, so the text is v1's plus the marks.
+
+# `_LETTER` is the letter every shape regex in this module spells
+# (`_PERIOD_ABBREV`, `_DOTTED`, `_CHUNKED`, `_PAIRED_INITIALS`): one
+# letter (a word character that is not a digit or underscore) plus the
+# combining marks written after it (#652). `inž.` typed as i, n, z,
+# U+030C, '.' is the same word as the composed one, and `\w` alone ends
+# it at the z. `_MARKS` is the general combining blocks -- what NFD of
+# a Latin, Greek or Cyrillic letter produces -- and not the marks that
+# only some scripts write (Indic vowel signs, Arabic and Hebrew
+# points); rules.md#H2's Accepted clause owns that limit.
+_MARKS = '[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]'
+_LETTER = r'[^\W\d_]' + _MARKS + '*'
+_PERIOD_ABBREV = re.compile(r'^(?:' + _LETTER + r'){2,}\.$')
 
 
 # rules.md#H2: "an abbreviation opening the part of the name that
@@ -211,7 +235,15 @@ def is_initial_shaped(text: str) -> bool:
     name want is_initial (#320). The two answers differ only inside
     _NO_INITIALS scripts, where '씨.' is initial-SHAPED but is not an
     initial -- see assign's roman-numeral fork, the shape caller, for
-    what picking the wrong one costs."""
+    what picking the wrong one costs.
+
+    Asked of the composed spelling, as `_render` asks it (#542): `\\w`
+    does not match a combining mark, so a decomposed 'É.' is three
+    characters to the pattern and no initial (#665). Composing rather
+    than widening keeps the pattern v1-verbatim, and both calls are
+    C-level, so the predicate costs no frame it did not before."""
+    if not text.isascii():
+        text = unicodedata.normalize("NFC", text)
     return bool(_INITIAL.fullmatch(text))
 
 
@@ -363,13 +395,13 @@ def ambiguous_lean(text: str, one_case: bool) -> Lean | None:
     return "name"
 
 
-_DOTTED = re.compile(r"(?:[^\W\d_]\.)+")
+_DOTTED = re.compile(r"(?:" + _LETTER + r"\.)+")
 # #544: the CHUNKED spelling -- two or more runs of letters, each
 # closed by a period ('M.Eng.', 'L.Ac.'). Both callers compare the
 # period-free letters against the listed member, so the chunks must
 # spell it; one chunk ('Ma.', 'Ed.') is the single trailing period and
 # stays outside the gate.
-_CHUNKED = re.compile(r"(?:[^\W\d_]+\.){2,}")
+_CHUNKED = re.compile(r"(?:(?:" + _LETTER + r")+\.){2,}")
 
 
 def _dotted(text: str) -> bool:
@@ -389,7 +421,7 @@ def _dotted(text: str) -> bool:
 # a given and a middle initial are written run together ('M.J.',
 # 'G.J.'). The trailing period is optional, as `period_joined_vocab`'s
 # shape verdict lets it be.
-_PAIRED_INITIALS = re.compile(r"[^\W\d_]\.[^\W\d_]\.?")
+_PAIRED_INITIALS = re.compile(_LETTER + r"\." + _LETTER + r"\.?")
 
 
 def is_paired_initials(text: str) -> bool:
@@ -651,11 +683,33 @@ def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
     AMBIGUOUS_ACRONYM_TAG test), so a listed member never pays for
     the call.
     """
-    if not (policy.unlisted_caps_suffixes is not CapsSuffixes.OFF
-            and one_case is False
-            and len(text) >= 2 and text.isalpha() and text.isupper()):
+    if (policy.unlisted_caps_suffixes is CapsSuffixes.OFF
+            or one_case is not False):
+        return False
+    if not text.isascii():
+        text = unicodedata.normalize("NFC", text)
+    if not (len(text) >= 2 and text.isalpha() and text.isupper()):
         return False
     return not in_any_wordlist(_normalize(text), lexicon)
+
+
+def is_caps_word(text: str) -> bool:
+    """Whether TEXT is alphabetic capitals once NFC-composed: `isalpha()`
+    is False for a combining mark, so the decomposed spelling of
+    'ŽŠČ' would otherwise not be a caps word (#652). Callers test the
+    text as written inline first, in C, and call this only for text
+    that is not NFC (`unicodedata.is_normalized`, also C), so composed
+    text pays no frame."""
+    composed = unicodedata.normalize("NFC", text)
+    return composed.isalpha() and composed.isupper()
+
+
+def composed_len(text: str) -> int:
+    """The length of TEXT in letters as the writer sees them: code
+    points once NFC-composed. A caps word admitted decomposed (#652)
+    is longer than its composed twin, and the two-letter pair test
+    (`John Smith, MÁ`) counts letters."""
+    return len(text if text.isascii() else unicodedata.normalize("NFC", text))
 
 
 def in_any_wordlist(n: str, lexicon: Lexicon) -> bool:
@@ -1165,6 +1219,33 @@ def maiden_marker_run(words: Sequence[str], markers: frozenset[str]) -> int:
         if key.count(" ") == n - 1 and key in markers:
             return n
     return 0
+
+
+
+# rules.md#M3: "a marker followed by a comma is no marker"
+def comma_follows_marker(word: str) -> bool:
+    """Whether `word`, the one standing after a marker run inside a
+    delimited clause, opens with a comma -- standing alone (' , ') or
+    glued to the name after it (' ,Jones'). A comma glued to the marker
+    itself ('née,') needs no test: that word is no marker to begin with,
+    the vocabulary storing no comma. The one predicate for extract's M3
+    test over whitespace words and group's M1 drop over tokens, which
+    since #653 hold the same comma
+    (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+
+    The comma need not be the word's first character, only the first
+    that is a comma or a letter or digit. A whitespace word can open
+    with what the tokenizer drops or divides at -- a bidi mark, an
+    emoji, a nakaguro -- so '\u200f, Jones' is a comma-led WORD only
+    past its mark, while the token group asks about is ',' already;
+    reading past the rest makes the two sites agree by construction
+    (#653's second review)."""
+    for ch in word:
+        if ch in COMMA_CHARS:
+            return True
+        if ch.isalnum():
+            return False
+    return False
 
 
 def tag_marker_runs(tokens: Sequence[WorkToken], comma_offsets: Sequence[int],

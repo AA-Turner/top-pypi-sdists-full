@@ -57,6 +57,7 @@ class OrderDetails:
         resource_uuid (Union[None, UUID, Unset]):
         resource_type (Union[None, Unset, str]):
         resource_name (Union[Unset, str]):
+        resource_end_date (Union[None, Unset, datetime.date]):
         cost (Union[None, Unset, str]):
         state (Union[Unset, OrderState]):
         output (Union[Unset, str]):
@@ -107,7 +108,15 @@ class OrderDetails:
         new_plan_name (Union[None, Unset, str]):
         old_plan_uuid (Union[None, UUID, Unset]):
         new_plan_uuid (Union[None, UUID, Unset]):
-        old_cost_estimate (Union[Unset, float]):
+        old_plan_billing_mode (Union[None, Unset, str]):
+        new_plan_billing_mode (Union[None, Unset, str]):
+        old_cost_estimate (Union[Unset, float]): The old-limits estimate, snapshotted by init_cost() at creation.
+
+            Must not recompute live: _compute_old_cost_estimate() prices from
+            "today", which keeps advancing on every read while `cost` stays fixed
+            from creation -- the shown cost change would grow the longer an order
+            sits unread. Orders that predate this field have no snapshot, so they
+            fall back to the live computation rather than a wrong zero.
         new_cost_estimate (Union[None, Unset, str]):
         can_terminate (Union[Unset, bool]):
         fixed_price (Union[Unset, float]):
@@ -160,6 +169,7 @@ class OrderDetails:
     resource_uuid: Union[None, UUID, Unset] = UNSET
     resource_type: Union[None, Unset, str] = UNSET
     resource_name: Union[Unset, str] = UNSET
+    resource_end_date: Union[None, Unset, datetime.date] = UNSET
     cost: Union[None, Unset, str] = UNSET
     state: Union[Unset, OrderState] = UNSET
     output: Union[Unset, str] = UNSET
@@ -204,6 +214,8 @@ class OrderDetails:
     new_plan_name: Union[None, Unset, str] = UNSET
     old_plan_uuid: Union[None, UUID, Unset] = UNSET
     new_plan_uuid: Union[None, UUID, Unset] = UNSET
+    old_plan_billing_mode: Union[None, Unset, str] = UNSET
+    new_plan_billing_mode: Union[None, Unset, str] = UNSET
     old_cost_estimate: Union[Unset, float] = UNSET
     new_cost_estimate: Union[None, Unset, str] = UNSET
     can_terminate: Union[Unset, bool] = UNSET
@@ -337,6 +349,14 @@ class OrderDetails:
             resource_type = self.resource_type
 
         resource_name = self.resource_name
+
+        resource_end_date: Union[None, Unset, str]
+        if isinstance(self.resource_end_date, Unset):
+            resource_end_date = UNSET
+        elif isinstance(self.resource_end_date, datetime.date):
+            resource_end_date = self.resource_end_date.isoformat()
+        else:
+            resource_end_date = self.resource_end_date
 
         cost: Union[None, Unset, str]
         if isinstance(self.cost, Unset):
@@ -560,6 +580,18 @@ class OrderDetails:
         else:
             new_plan_uuid = self.new_plan_uuid
 
+        old_plan_billing_mode: Union[None, Unset, str]
+        if isinstance(self.old_plan_billing_mode, Unset):
+            old_plan_billing_mode = UNSET
+        else:
+            old_plan_billing_mode = self.old_plan_billing_mode
+
+        new_plan_billing_mode: Union[None, Unset, str]
+        if isinstance(self.new_plan_billing_mode, Unset):
+            new_plan_billing_mode = UNSET
+        else:
+            new_plan_billing_mode = self.new_plan_billing_mode
+
         old_cost_estimate = self.old_cost_estimate
 
         new_cost_estimate: Union[None, Unset, str]
@@ -713,6 +745,8 @@ class OrderDetails:
             field_dict["resource_type"] = resource_type
         if resource_name is not UNSET:
             field_dict["resource_name"] = resource_name
+        if resource_end_date is not UNSET:
+            field_dict["resource_end_date"] = resource_end_date
         if cost is not UNSET:
             field_dict["cost"] = cost
         if state is not UNSET:
@@ -801,6 +835,10 @@ class OrderDetails:
             field_dict["old_plan_uuid"] = old_plan_uuid
         if new_plan_uuid is not UNSET:
             field_dict["new_plan_uuid"] = new_plan_uuid
+        if old_plan_billing_mode is not UNSET:
+            field_dict["old_plan_billing_mode"] = old_plan_billing_mode
+        if new_plan_billing_mode is not UNSET:
+            field_dict["new_plan_billing_mode"] = new_plan_billing_mode
         if old_cost_estimate is not UNSET:
             field_dict["old_cost_estimate"] = old_cost_estimate
         if new_cost_estimate is not UNSET:
@@ -1024,6 +1062,23 @@ class OrderDetails:
         resource_type = _parse_resource_type(d.pop("resource_type", UNSET))
 
         resource_name = d.pop("resource_name", UNSET)
+
+        def _parse_resource_end_date(data: object) -> Union[None, Unset, datetime.date]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                resource_end_date_type_0 = isoparse(data).date()
+
+                return resource_end_date_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.date], data)
+
+        resource_end_date = _parse_resource_end_date(d.pop("resource_end_date", UNSET))
 
         def _parse_cost(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -1407,6 +1462,24 @@ class OrderDetails:
 
         new_plan_uuid = _parse_new_plan_uuid(d.pop("new_plan_uuid", UNSET))
 
+        def _parse_old_plan_billing_mode(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        old_plan_billing_mode = _parse_old_plan_billing_mode(d.pop("old_plan_billing_mode", UNSET))
+
+        def _parse_new_plan_billing_mode(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        new_plan_billing_mode = _parse_new_plan_billing_mode(d.pop("new_plan_billing_mode", UNSET))
+
         old_cost_estimate = d.pop("old_cost_estimate", UNSET)
 
         def _parse_new_cost_estimate(data: object) -> Union[None, Unset, str]:
@@ -1584,6 +1657,7 @@ class OrderDetails:
             resource_uuid=resource_uuid,
             resource_type=resource_type,
             resource_name=resource_name,
+            resource_end_date=resource_end_date,
             cost=cost,
             state=state,
             output=output,
@@ -1628,6 +1702,8 @@ class OrderDetails:
             new_plan_name=new_plan_name,
             old_plan_uuid=old_plan_uuid,
             new_plan_uuid=new_plan_uuid,
+            old_plan_billing_mode=old_plan_billing_mode,
+            new_plan_billing_mode=new_plan_billing_mode,
             old_cost_estimate=old_cost_estimate,
             new_cost_estimate=new_cost_estimate,
             can_terminate=can_terminate,

@@ -71,7 +71,9 @@ class LayoutTest(unittest.TestCase):
 
 
 def exercise_gpu(backend, ranks):
+    import fnmatch
     import json
+    import re
     import struct
     import warnings
     import torch
@@ -107,15 +109,37 @@ def exercise_gpu(backend, ranks):
                     path = Path(directory) / f"case{case_id}-{file_id}.safetensors"
                     path.write_bytes(struct.pack("<Q", len(header)) + header + payload)
                     paths.append(str(path))
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", UserWarning)
-                    with safe_open(paths, "pt", rank,
-                                   process_group=dist.group.WORLD if ranks > 1 else None,
-                                   backend=Backend[backend], chunk_size=4096, io_depth=8,
-                                   concurrency=2 if backend == "MMAP" else 0,
-                                   buffer_size=65536, copy=False) as loader:
-                        for name, tensor in loader.tensors():
-                            torch.testing.assert_close(tensor.cpu(), expected[name], rtol=0, atol=0)
+                selection = [name for name in expected if int(name[1:]) % 2 == rank % 2]
+                for mode, filters in (("glob", None), ("exact", selection),
+                                      ("glob", ["t*[02468]"]), ("regex", [r"t\d*[02468]"]),
+                                      ("exact", []), ("glob", []), ("regex", [])):
+                    def matches(name):
+                        if filters is None:
+                            return True
+                        if mode == "exact":
+                            return name in filters
+                        if mode == "glob":
+                            return any(fnmatch.fnmatchcase(name, pattern) for pattern in filters)
+                        return any(re.fullmatch(pattern, name) for pattern in filters)
+
+                    selected = {name: tensor for name, tensor in expected.items()
+                                if matches(name)}
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", UserWarning)
+                        with safe_open(paths, "pt", rank,
+                                       process_group=dist.group.WORLD if ranks > 1 and filters is None else None,
+                                       tensor_filter=filters,
+                                       tensor_name_match_mode=mode,
+                                       backend=Backend[backend], chunk_size=4096, io_depth=8,
+                                       concurrency=2 if backend == "MMAP" else 0,
+                                       buffer_size=65536, copy=False) as loader:
+                            assert set(loader.keys()) == set(selected)
+                            assert loader.total_tensor_size == sum(t.numel() * t.element_size() for t in selected.values())
+                            loaded = []
+                            for name, tensor in loader.tensors():
+                                torch.testing.assert_close(tensor.cpu(), selected[name], rtol=0, atol=0)
+                                loaded.append(name)
+                            assert set(loaded) == set(selected)
         print("layout GPU cases passed", flush=True)
     finally:
         if ranks > 1:

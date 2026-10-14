@@ -3,7 +3,7 @@ Agent Groups
 ============
 
 The following methods allow for interaction into the Tenable Vulnerability Management
-:devportal:`agent groups <agent-groups>` API endpoints.
+:devportal:`agent groups <agent-groups-list>` API endpoints.
 
 Methods available on ``tio.agent_groups``:
 
@@ -206,6 +206,15 @@ class AgentGroupsAPI(TIOEndpoint):
                 ),
                 json={'items': [self._check('agent_ids', i, int) for i in agent_ids]},
             ).json()
+
+    def delete_agents(self, group_id, *agent_ids, **kw):
+        """
+        Delete one or many agents from an agent group.
+
+        This plural alias matches the naming used by the other agent-group
+        operations while preserving the existing :meth:`delete_agent` API.
+        """
+        return self.delete_agent(group_id, *agent_ids, **kw)
 
     def details(self, group_id, *filters, **kw):
         """

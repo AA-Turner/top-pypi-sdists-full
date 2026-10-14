@@ -9,9 +9,9 @@ that this machine syncs on a timer.
 
 Core code asks `is_cloud(source)` and reaches the agent's own module through
 `module(source)`, never by name: each module provides `label`, `setup_steps`, `setup_summary`,
-`wizard_status`, `connected_here`, `load_config`, `ask_capture`, `apply_capture`,
-`capture_off`, `disconnect`, `after_sign_in`, `doctor_facts` and
-`SYNC_INTERVAL_SECONDS`.
+`can_open_add_plugin`, `open_add_plugin`, `wizard_status`, `connected_here`, `load_config`,
+`ask_capture`, `apply_capture`, `capture_off`, `disconnect`, `after_sign_in`, `doctor_facts`
+and `SYNC_INTERVAL_SECONDS`.
 """
 
 from __future__ import annotations

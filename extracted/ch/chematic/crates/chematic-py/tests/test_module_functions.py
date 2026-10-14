@@ -82,6 +82,19 @@ def test_hbd_and_qed_are_invariant_to_kekule_aromatic_spelling():
     assert aromatic.qed == pytest.approx(kekule.qed, abs=1e-12)
 
 
+@pytest.mark.parametrize(
+    ("smiles", "expected"),
+    [
+        ("o1cccccccc1", 0.47563583495897716),
+        ("s1cccccccc1", 0.49313631257730706),
+        ("[*H]", 0.33233238198631876),
+        ("[*H2]", 0.3246347508395032),
+    ],
+)
+def test_qed_matches_rdkit_for_stress_residual_families(smiles, expected):
+    assert chematic.from_smiles(smiles).qed == pytest.approx(expected, abs=1e-12)
+
+
 # ---------------------------------------------------------------------------
 # from_inchi / InChI round-trip (C3: InChI parser)
 # ---------------------------------------------------------------------------
@@ -297,6 +310,31 @@ def test_run_smirks_checked_rdkit_profile_keeps_ez_templates():
         "[C:1]=[C:2]>>[C:1]=[C:2]", [substrate], rdkit_compat=True
     )
     assert report["status"] == "products"
+
+
+def test_unspecified_product_ez_is_reactant_order_invariant():
+    acid = chematic.from_smiles("C/C=C\\C(=O)O")
+    amine = chematic.from_smiles("NC")
+    cases = [
+        (
+            "[C:6][C:1]=[C:2][C:3](=O)[OH].[NH2:4][#6:5]"
+            ">>[C:6][C:1]=[C:2][C:3](=O)[N:4][#6:5]",
+            [acid, amine],
+        ),
+        (
+            "[NH2:4][#6:5].[C:6][C:1]=[C:2][C:3](=O)[OH]"
+            ">>[C:6][C:1]=[C:2][C:3](=O)[N:4][#6:5]",
+            [amine, acid],
+        ),
+    ]
+    products = [chematic.run_smirks(smirks, reactants)[0][0] for smirks, reactants in cases]
+    expected = chematic.from_smiles("CC=CC(=O)NC").smiles
+    assert [product.smiles for product in products] == [expected, expected]
+    assert all(
+        descriptor["descriptor"] not in {"E", "Z"}
+        for product in products
+        for descriptor in product.cip_stereo()
+    )
 
 
 # E/Z stereo transfer & creation in products (issue #50)

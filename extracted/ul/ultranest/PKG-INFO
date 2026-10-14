@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultranest
-Version: 4.6.2
+Version: 4.6.3
 Summary: Fit and compare complex models reliably and rapidly. Advanced Nested Sampling.
 Home-page: https://github.com/JohannesBuchner/ultranest
 Author: Johannes Buchner

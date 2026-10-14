@@ -6,12 +6,13 @@ Tests for the utils module.
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.modeling.models import Gaussian1D, Gaussian2D
+from astropy.modeling.models import Gaussian1D, Gaussian2D, Identity
 from astropy.table import QTable
 from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose
 
 from photutils.psf import CircularGaussianPRF, make_psf_model_image
+from photutils.psf.flags import decode_psf_flags
 from photutils.psf.utils import (_get_psf_model_main_params,
                                  _interpolate_missing_data,
                                  _validate_psf_model, fit_2dgaussian, fit_fwhm)
@@ -50,7 +51,7 @@ def test_fit_2dgaussian_single(fix_fwhm):
         assert 'fwhm_fit' in fit_tbl.colnames
         assert_allclose(fit_tbl['fwhm_fit'], fwhm)
 
-    # test with NaNs - will emit two warnings
+    # Test with NaNs - will emit two warnings
     data[22, 29] = np.nan
     with pytest.warns(AstropyUserWarning) as record:
         fit = fit_2dgaussian(data, fwhm=3, fix_fwhm=fix_fwhm)
@@ -58,12 +59,12 @@ def test_fit_2dgaussian_single(fix_fwhm):
     assert len(record) == 2
     warning_msgs = [str(w.message) for w in record]
     assert any('fit_shape is None' in msg for msg in warning_msgs)
-    assert any('non-finite values' in msg for msg in warning_msgs)
+    assert any('nonfinite values' in msg for msg in warning_msgs)
     fit_tbl = fit.results
     assert isinstance(fit_tbl, QTable)
     assert len(fit_tbl) == 1
 
-    # test with NaNs and mask - only fit_shape warning
+    # Test with NaNs and mask - only fit_shape warning
     data[22, 29] = np.nan
     mask = np.isnan(data)
     match = ('fit_shape is None, so the input data array is assumed to be '
@@ -73,6 +74,30 @@ def test_fit_2dgaussian_single(fix_fwhm):
     fit_tbl = fit.results
     assert isinstance(fit_tbl, QTable)
     assert len(fit_tbl) == 1
+
+
+def test_fit_2dgaussian_user_mask_with_nan():
+    """
+    Regression test that unmasked nonfinite values are merged into
+    a user-provided mask.
+    """
+    rng = np.random.default_rng(0)
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = Gaussian2D(100, 15, 15, 3, 3)(xx, yy)
+    data += rng.normal(0, 0.1, data.shape)
+    data[5, 5] = np.nan
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[0, 0] = True
+    # Expect exactly two warnings: fit_shape is None and unmasked
+    # nonfinite values
+    with pytest.warns(AstropyUserWarning) as record:
+        fit = fit_2dgaussian(data, mask=mask, fix_fwhm=False)
+    assert len(record) == 2
+    warning_msgs = [str(w.message) for w in record]
+    assert any('fit_shape is None' in msg for msg in warning_msgs)
+    assert any('unmasked nonfinite values' in msg
+               for msg in warning_msgs)
+    assert_allclose(fit.results['x_fit'][0], 15.0, atol=0.1)
 
 
 @pytest.mark.parametrize(('fix_fwhm', 'with_units'),
@@ -96,7 +121,7 @@ def test_fit_2dgaussian_multiple(test_data, fix_fwhm, with_units):
         assert 'fwhm_fit' in fit_tbl.colnames
         assert_allclose(fit_tbl['fwhm_fit'], sources['fwhm'])
 
-    # test with zip instead of list
+    # Test with zip instead of list
     xypos = zip(sources['x_0'], sources['y_0'], strict=True)
     fit2 = fit_2dgaussian(data, xypos=xypos, fit_shape=(5, 5),
                           fix_fwhm=fix_fwhm)
@@ -107,7 +132,44 @@ def test_fit_2dgaussian_multiple(test_data, fix_fwhm, with_units):
     if with_units:
         for column in fit_tbl.colnames:
             if 'flux' in column:
-                assert fit_tbl['flux_fit'].unit == unit
+                assert fit_tbl[column].unit == unit
+
+
+@pytest.mark.parametrize('with_units', [False, True])
+def test_fit_2dgaussian_no_overlap(test_data, with_units):
+    """
+    Test that a position whose fit region is off the image is flagged
+    instead of raising an error.
+    """
+    data, sources = test_data
+    if with_units:
+        data = data * u.nJy
+    xypos = [(sources['x_0'][0], sources['y_0'][0]), (200.0, 50.0)]
+    fit = fit_2dgaussian(data, xypos=xypos, fit_shape=(5, 5),
+                         fix_fwhm=False)
+    fit_tbl = fit.results
+    assert_allclose(fit_tbl['fwhm_fit'][0], sources['fwhm'][0])
+    assert np.isnan(fit_tbl['fwhm_fit'][1])
+    assert fit_tbl['flags'][0] == 0
+    assert 'no_overlap' in decode_psf_flags(fit_tbl['flags'][1])
+
+    fwhm = fit_fwhm(data, xypos=xypos, fit_shape=(5, 5))
+    assert_allclose(fwhm[0], sources['fwhm'][0])
+    assert np.isnan(fwhm[1])
+
+
+def test_fit_2dgaussian_generator_xypos(test_data):
+    """
+    Test that xypos can be an iterator, such as a generator.
+    """
+    data, sources = test_data
+
+    xypos = ((x, y) for x, y in zip(sources['x_0'], sources['y_0'],
+                                    strict=True))
+    fit = fit_2dgaussian(data, xypos=xypos, fit_shape=(5, 5))
+    fit_tbl = fit.results
+    assert isinstance(fit_tbl, QTable)
+    assert len(fit_tbl) == len(sources)
 
 
 def test_fit_2dgaussian_fit_shape_none_single():
@@ -178,7 +240,7 @@ def test_fit_fwhm_single():
     model = CircularGaussianPRF(x_0=22.17, y_0=28.87, fwhm=fwhm0)
     data = model(xx, yy)
 
-    # fit_fwhm re-emits the fit_shape warning
+    # fit_fwhm emits the fit_shape warning again
     match = ('fit_shape is None, so the input data array is assumed to be '
              'a cutout image containing only one source')
     with pytest.warns(AstropyUserWarning, match=match):
@@ -187,7 +249,7 @@ def test_fit_fwhm_single():
     assert len(fwhm) == 1
     assert_allclose(fwhm, fwhm0)
 
-    # test warning message for convergence issues - flat data should also
+    # Test warning message for convergence issues - flat data should also
     # emit the fit_shape warning since fit_shape=None
     with pytest.warns(AstropyUserWarning) as record:
         fwhm = fit_fwhm(np.zeros(data.shape) + 1)
@@ -196,6 +258,36 @@ def test_fit_fwhm_single():
     warning_msgs = [str(w.message) for w in record]
     assert any('fit_shape is None' in msg for msg in warning_msgs)
     assert len(fwhm) == 1
+
+
+def test_fit_fwhm_convergence_warning_not_swallowed():
+    """
+    Test that the convergence warning is emitted even when the
+    fit_shape warning also fired.
+    """
+    data = np.ones((25, 25))
+    with pytest.warns(AstropyUserWarning) as record:
+        fit_fwhm(data)
+    warning_msgs = [str(w.message) for w in record]
+    assert any('fit_shape is None' in msg for msg in warning_msgs)
+
+    # Only the fit_fwhm convergence message is emitted, not the
+    # PSFPhotometry one that refers to the results table
+    convergence_msgs = [msg for msg in warning_msgs
+                        if 'may not have converged' in msg]
+    assert len(convergence_msgs) == 1
+    assert '"xypos" and "fit_shape"' in convergence_msgs[0]
+
+
+def test_fit_2dgaussian_convergence_warning():
+    """
+    Test that fit_2dgaussian emits the PSFPhotometry convergence
+    warning.
+    """
+    data = np.ones((25, 25))
+    match = 'check the "flags" column in the output table'
+    with pytest.warns(AstropyUserWarning, match=match):
+        fit_2dgaussian(data, fit_shape=25, fix_fwhm=False)
 
 
 @pytest.mark.parametrize('with_units', [False, True])
@@ -229,7 +321,10 @@ def test_interpolate_missing_data():
     mask[5, 5] = True
 
     data_int = _interpolate_missing_data(data, mask, method='nearest')
-    assert 54 <= data_int[5, 5] <= 56
+    # The 4 nearest unmasked neighbors are all equidistant (distance=1).
+    # KD-tree tie-breaking is platform-dependent (e.g., win_arm64 picks
+    # 45).
+    assert data_int[5, 5] in (45, 54, 56, 65)
 
     data_int = _interpolate_missing_data(data, mask, method='cubic')
     assert 54 <= data_int[5, 5] <= 56
@@ -296,6 +391,25 @@ def test_interpolate_missing_data_all_masked():
     assert np.all(np.isnan(data_int))
 
 
+def test_interpolate_missing_data_int_input():
+    """
+    Test that integer input data is interpolated in float.
+    """
+    data = np.arange(100).reshape(10, 10)
+    mask = np.ones_like(data, dtype=bool)  # All pixels masked
+
+    data_int = _interpolate_missing_data(data, mask, method='cubic')
+    assert np.all(np.isnan(data_int))
+
+    # A masked corner pixel must be filled with a finite value
+    # derived from its neighbors
+    mask = np.zeros_like(data, dtype=bool)
+    mask[0, 0] = True
+    data_int = _interpolate_missing_data(data, mask, method='cubic')
+    assert np.isfinite(data_int[0, 0])
+    assert 1 <= data_int[0, 0] <= 11
+
+
 def test_validate_psf_model():
     model = np.arange(10)
 
@@ -309,7 +423,7 @@ def test_validate_psf_model():
         _validate_psf_model(model)
 
     match = 'psf_model must be two-dimensional'
-    model = Gaussian1D()
+    model = Identity(2)  # 2 inputs, but also 2 outputs
     with pytest.raises(ValueError, match=match):
         _validate_psf_model(model)
 
@@ -332,3 +446,53 @@ def test_get_psf_model_main_params():
     params = _get_psf_model_main_params(model)
     assert len(params) == 3
     assert params == set_params
+
+
+def test_fit_2dgaussian_flux_init_excludes_masked_pixels():
+    """
+    Regression test that the initial flux estimate excludes pixels
+    masked by the user mask.
+    """
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = CircularGaussianPRF(flux=50, x_0=15, y_0=15, fwhm=3.1)(xx, yy)
+    data[15, 14] = 1e7
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[15, 14] = True
+    fit = fit_2dgaussian(data, xypos=(15, 15), fit_shape=7, mask=mask,
+                         fix_fwhm=False)
+    assert fit.results['flux_init'][0] < 100.0
+    assert_allclose(fit.results['flux_fit'][0], 50.0, rtol=0.01)
+    assert_allclose(fit.results['fwhm_fit'][0], 3.1, atol=0.01)
+
+
+def test_fit_fwhm_reemits_other_warnings():
+    """
+    Regression test that fit_fwhm passes on nonconvergence warnings
+    verbatim instead of replacing them with a false convergence
+    warning.
+    """
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = CircularGaussianPRF(flux=50, x_0=15, y_0=15, fwhm=3.1)(xx, yy)
+    data[0, 0] = np.nan
+    match = 'Input data contains unmasked nonfinite values'
+    with pytest.warns(AstropyUserWarning, match=match) as record:
+        fwhm = fit_fwhm(data, xypos=(15, 15), fit_shape=7)
+    assert_allclose(fwhm[0], 3.1, atol=0.01)
+    messages = [str(w.message) for w in record]
+    assert not any('may not have converged' in msg for msg in messages)
+
+
+@pytest.mark.parametrize('bad_geometry', ['two_pixels', 'collinear'])
+def test_interpolate_missing_data_degenerate_geometry(bad_geometry):
+    """
+    Regression test that cubic interpolation falls back to nearest
+    neighbor when too few or collinear valid pixels remain.
+    """
+    data = np.ones((5, 5))
+    mask = np.ones(data.shape, dtype=bool)
+    if bad_geometry == 'two_pixels':
+        mask[0, 0] = mask[4, 4] = False
+    else:
+        mask[2, :] = False
+    result = _interpolate_missing_data(data, mask, method='cubic')
+    assert np.all(np.isfinite(result))

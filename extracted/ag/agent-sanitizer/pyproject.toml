@@ -11,12 +11,11 @@
 # locally, run `node scripts/bundle-python-cli.mjs` from the repo root; then
 # `python -m build` (or `uv build`) from this `python/` directory.
 [build-system]
-# Pinned because plugin/dist/redactor/ is a COMMITTED build of this project and
-# the live-engine job rebuilds it and byte-compares. The backend writes its own
-# version into the wheel's dist-info/WHEEL, so an unpinned `hatchling` resolves
-# whatever PyPI published most recently and the compare fails on every pull
-# request from that moment, whatever the diff. This pin is the version that
-# built the committed artifact: move the two together or the compare reds.
+# Pinned because the release bake builds plugin/dist/redactor/ from this project
+# and ships it. The backend writes its own version into the wheel's
+# dist-info/WHEEL, so an unpinned `hatchling` resolves whatever PyPI published
+# most recently and the same tree bakes to different bytes from one day to the
+# next, whatever the diff.
 requires = ["hatchling==1.32.0"]
 build-backend = "hatchling.build"
 
@@ -33,7 +32,7 @@ name = "agent-sanitizer"
 # agent-sanitizer` report the SAME version, and the wheel bundles `src/` at
 # exactly that version. The guard in tests/test_python_version.py pins this to the
 # 0.0.0 sentinel so a stray hand-edit fails CI instead of shipping a wrong number.
-version = "2.63.0"
+version = "2.66.1"
 description = "Python client for agent-sanitizer: a thin bridge to the Node.js CLI for byte-identical sanitization verdicts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -68,16 +67,21 @@ secrets = ["detect-secrets>=1.5.0"]
 agent-secret-redactor = "agent_sanitizer.secrets.cli:main"
 agent-secret-redactor-daemon = "agent_sanitizer.secrets.daemon:main"
 
-# The bundled CLI is git-ignored (a build artifact), so hatchling's VCS-aware
-# file collection skips it by default. `artifacts` force-includes it into BOTH
-# the sdist and the wheel — the release build regenerates it before packaging.
+# The bundled CLI and the invisible-charset SSOT are git-ignored (build
+# artifacts), so hatchling's VCS-aware file collection skips them by default.
+# `artifacts` force-includes them into BOTH the sdist and the wheel — the
+# wheel is normally built FROM the sdist, so listing them for the wheel alone
+# would leave them out of it. The release build regenerates both before
+# packaging (hatchling runs no Node: `node scripts/gen-unicode.mjs` writes the
+# JSON, `node scripts/bundle-python-cli.mjs` the CLI).
 [tool.hatch.build]
-artifacts = ["agent_sanitizer/_bundled/sanitize-cli.mjs"]
+artifacts = [
+  "agent_sanitizer/_bundled/sanitize-cli.mjs",
+  "agent_sanitizer/data/invisible-charset.json",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["agent_sanitizer"]
-# The invisible-charset SSOT is data, not code, so it is not auto-included.
-artifacts = ["agent_sanitizer/data/invisible-charset.json"]
 # `license-files` (the `[project]` glob above) only resolves against files already
 # present in THIS build's source tree; when `uv build`/`pip wheel` build the wheel
 # FROM the sdist (the normal path, not straight off this checkout), the sdist's own

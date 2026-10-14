@@ -3,9 +3,8 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import InstanceId, InternalId
 from cognite_toolkit._cdf_tk.exceptions import ResourceCreationError
-from cognite_toolkit._cdf_tk.feature_flags import Flags, v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_hash, humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import create_zip_in_memory, sanitize_filename, yaml_safe_dump
@@ -66,7 +65,7 @@ class FunctionCodeBundle:
         function_rootdir = cls.get_code_implicitly(filepath, external_id)
         if not function_rootdir.is_dir():
             yield FailedReadExtra(
-                code=v09_gate("MISSING-REFERENCED-DIRECTORY", "MISSING"),
+                code="MISSING-REFERENCED-DIRECTORY",
                 error=f"Cannot find function code for function {external_id!r} in {filepath.as_posix()}. Expected function code directory {function_rootdir.as_posix()} to exist. ",
                 source_path=function_rootdir,
             )
@@ -89,14 +88,6 @@ class FunctionCodeBundle:
         )
         name = item.get("name")
         if not isinstance(name, str):
-            # 'name' is required by the function schema, so a missing name is already
-            # reported as a syntax error. From v09 and on, we drop this extraneous error.
-            if not Flags.V09.is_enabled():
-                yield FailedReadExtra(
-                    source_path=function_rootdir,
-                    code="MISSING",
-                    error=f"Cannot find function name for function {external_id!r} in {filepath.as_posix()}. This is required and is necessary for creating the function code.",
-                )
             return
         filename = sanitize_filename(name)
         if data_set_external_id := item.get("dataSetExternalId"):
@@ -133,14 +124,6 @@ class FunctionCodeBundle:
                 resource_field=None,
                 write_to_build=True,
             )
-        elif not Flags.V09.is_enabled():
-            # With the v09 flag, the function schema now reports a syntax error if the function
-            # does not have a dataSetExternalId or a space specified, so we drop this extraneous error.
-            yield FailedReadExtra(
-                source_path=function_rootdir,
-                code="MISSING",
-                error=f"Failed to create function code metadata for function {external_id!r} in {filepath.as_posix()}. This is required for creating the function code. The function must have either a dataSetExternalId or a space specified.",
-            )
 
     def as_file_by_external_id(self, external_ids: Iterable[str]) -> tuple[dict[Path, str], dict[Path, str]]:
         filemetadata_files: dict[Path, str] = {}
@@ -166,14 +149,20 @@ class FunctionCodeBundle:
         if filemetadata_files:
             fileio = FileMetadataIO(self.client)
             file_request = fileio.load_resource_files(list(filemetadata_files))
-            fileresponse = fileio.create(file_request)
-            file_id_by_external_id.update(zip(filemetadata_files.values(), (InternalId(id=f.id) for f in fileresponse)))
+            created = fileio.create(file_request)
+            by_external_id = {response.external_id: response for response in created if response.external_id}
+            file_id_by_external_id.update(
+                {
+                    external_id: InternalId(id=by_external_id[external_id].id)
+                    for external_id in filemetadata_files.values()
+                }
+            )
         if cognite_files:
             cognitefileio = CogniteFileIO(self.client)
             cognitefile_request = cognitefileio.load_resource_files(list(cognite_files))
-            cognitefile_response = cognitefileio.create(cognitefile_request)
+            created_node_ids = cognitefileio.create(cognitefile_request)
             dm_fileresponse = self.client.tool.filemetadata.retrieve(
-                [node.as_instance_id() for node in cognitefile_response]
+                [InstanceId(instance_id=node_id) for node_id in created_node_ids]
             )
             file_id_by_external_id.update(zip(cognite_files.values(), (InternalId(id=f.id) for f in dm_fileresponse)))
         return file_id_by_external_id

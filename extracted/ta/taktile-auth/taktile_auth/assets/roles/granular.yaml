@@ -16,7 +16,6 @@ flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
     - r:jobs/org_id,ws_id,flow_folder_id
     - r:job_run/org_id,ws_id,flow_folder_id,{env=*}
-    - file_viewer_sandbox/org_id,ws_id
 flow_execute_sandbox/org_id,ws_id,flow_folder_id:
     - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
     - execute:flows/org_id,ws_id,flow_folder_id,{env=test}
@@ -28,7 +27,6 @@ flow_execute_live/org_id,ws_id,flow_folder_id:
 flow_editor/org_id,ws_id,flow_folder_id:
     - flow_viewer/org_id,ws_id,flow_folder_id
     - flow_execute_sandbox/org_id,ws_id,flow_folder_id
-    - file_user_sandbox/org_id,ws_id
     - w:flows/org_id,ws_id,flow_folder_id,{env=*}
     - d:flows/org_id,ws_id,flow_folder_id,{env=*}
     - w:jobs/org_id,ws_id,flow_folder_id
@@ -123,6 +121,7 @@ chart_editor_sandbox/org_id,ws_id:
     # Edit Charts: exploring and pinning charts is a dashboard write
     - w:workspace_analytics_dashboard/org_id,ws_id
 chart_editor_live/org_id,ws_id:
+    - chart_editor_sandbox/org_id,ws_id
     - chart_viewer_live/org_id,ws_id
     - dh_viewer_live/org_id,ws_id
     - w:workspace_analytics_dashboard/org_id,ws_id

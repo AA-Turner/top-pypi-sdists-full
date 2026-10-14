@@ -20,6 +20,7 @@ def _get_kwargs(
     page_size: Union[Unset, int] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -47,6 +48,11 @@ def _get_kwargs(
     if not isinstance(provider_assignee, Unset):
         json_provider_assignee = str(provider_assignee)
     params["provider_assignee"] = json_provider_assignee
+
+    json_provider_helpdesk_uuid: Union[Unset, str] = UNSET
+    if not isinstance(provider_helpdesk_uuid, Unset):
+        json_provider_helpdesk_uuid = str(provider_helpdesk_uuid)
+    params["provider_helpdesk_uuid"] = json_provider_helpdesk_uuid
 
     params["sla_breached"] = sla_breached
 
@@ -100,6 +106,7 @@ def sync_detailed(
     page_size: Union[Unset, int] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -112,6 +119,7 @@ def sync_detailed(
         page_size (Union[Unset, int]):
         priority (Union[Unset, str]):
         provider_assignee (Union[Unset, UUID]):
+        provider_helpdesk_uuid (Union[Unset, UUID]):
         sla_breached (Union[Unset, bool]):
         status (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -131,6 +139,7 @@ def sync_detailed(
         page_size=page_size,
         priority=priority,
         provider_assignee=provider_assignee,
+        provider_helpdesk_uuid=provider_helpdesk_uuid,
         sla_breached=sla_breached,
         status=status,
         summary=summary,
@@ -152,6 +161,7 @@ def sync(
     page_size: Union[Unset, int] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -164,6 +174,7 @@ def sync(
         page_size (Union[Unset, int]):
         priority (Union[Unset, str]):
         provider_assignee (Union[Unset, UUID]):
+        provider_helpdesk_uuid (Union[Unset, UUID]):
         sla_breached (Union[Unset, bool]):
         status (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -184,6 +195,7 @@ def sync(
         page_size=page_size,
         priority=priority,
         provider_assignee=provider_assignee,
+        provider_helpdesk_uuid=provider_helpdesk_uuid,
         sla_breached=sla_breached,
         status=status,
         summary=summary,
@@ -199,6 +211,7 @@ async def asyncio_detailed(
     page_size: Union[Unset, int] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -211,6 +224,7 @@ async def asyncio_detailed(
         page_size (Union[Unset, int]):
         priority (Union[Unset, str]):
         provider_assignee (Union[Unset, UUID]):
+        provider_helpdesk_uuid (Union[Unset, UUID]):
         sla_breached (Union[Unset, bool]):
         status (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -230,6 +244,7 @@ async def asyncio_detailed(
         page_size=page_size,
         priority=priority,
         provider_assignee=provider_assignee,
+        provider_helpdesk_uuid=provider_helpdesk_uuid,
         sla_breached=sla_breached,
         status=status,
         summary=summary,
@@ -249,6 +264,7 @@ async def asyncio(
     page_size: Union[Unset, int] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -261,6 +277,7 @@ async def asyncio(
         page_size (Union[Unset, int]):
         priority (Union[Unset, str]):
         provider_assignee (Union[Unset, UUID]):
+        provider_helpdesk_uuid (Union[Unset, UUID]):
         sla_breached (Union[Unset, bool]):
         status (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -282,6 +299,7 @@ async def asyncio(
             page_size=page_size,
             priority=priority,
             provider_assignee=provider_assignee,
+            provider_helpdesk_uuid=provider_helpdesk_uuid,
             sla_breached=sla_breached,
             status=status,
             summary=summary,
@@ -296,6 +314,7 @@ def sync_all(
     o: Union[Unset, list[ProviderTicketOEnum]] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -312,6 +331,7 @@ def sync_all(
         o (Union[Unset, list[ProviderTicketOEnum]]):
         priority (Union[Unset, str]):
         provider_assignee (Union[Unset, UUID]):
+        provider_helpdesk_uuid (Union[Unset, UUID]):
         sla_breached (Union[Unset, bool]):
         status (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -333,6 +353,7 @@ def sync_all(
         o=o,
         priority=priority,
         provider_assignee=provider_assignee,
+        provider_helpdesk_uuid=provider_helpdesk_uuid,
         sla_breached=sla_breached,
         status=status,
         summary=summary,
@@ -387,6 +408,7 @@ async def asyncio_all(
     o: Union[Unset, list[ProviderTicketOEnum]] = UNSET,
     priority: Union[Unset, str] = UNSET,
     provider_assignee: Union[Unset, UUID] = UNSET,
+    provider_helpdesk_uuid: Union[Unset, UUID] = UNSET,
     sla_breached: Union[Unset, bool] = UNSET,
     status: Union[Unset, str] = UNSET,
     summary: Union[Unset, str] = UNSET,
@@ -403,6 +425,7 @@ async def asyncio_all(
         o (Union[Unset, list[ProviderTicketOEnum]]):
         priority (Union[Unset, str]):
         provider_assignee (Union[Unset, UUID]):
+        provider_helpdesk_uuid (Union[Unset, UUID]):
         sla_breached (Union[Unset, bool]):
         status (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -424,6 +447,7 @@ async def asyncio_all(
         o=o,
         priority=priority,
         provider_assignee=provider_assignee,
+        provider_helpdesk_uuid=provider_helpdesk_uuid,
         sla_breached=sla_breached,
         status=status,
         summary=summary,

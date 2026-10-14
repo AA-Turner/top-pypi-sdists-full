@@ -63,10 +63,10 @@ from ._bspline_kernels import (
     _EK,
     _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL,
     _ek_axis_groups,
-    _ek_axis_groups_coaxial,
     _ek_cut,
     _normalize_ladder,
     _refuse_complex_k,
+    _same_edge_corr,
     _seg_seg_full_moments_offedge,
     _seg_seg_full_moments_offedge_swept,
     _seg_seg_reg_geometry,
@@ -82,6 +82,7 @@ from . import _below_interface
 from . import _bspline_kernels
 from . import _crossing_fill
 from . import _exact_kernel
+from . import _exact_kernel_seam
 from . import _feed_snap
 from . import _ground_mirror
 from . import _ground_refl
@@ -998,7 +999,31 @@ class _ObserverRows(_schedule.ObserverRows):
         )
 
 
-class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
+def _exact_kernel_refusals(use_singular_enrichment, rotational_symmetry):
+    """``[(condition, message)]``: bs2's own refusals of `exact_kernel=True`
+    (`_exact_kernel_seam.ExactKernelOption._exact_kernel_family_refusals`)."""
+    return [
+        (
+            bool(use_singular_enrichment),
+            "exact_kernel=True + use_singular_enrichment=True is "
+            "refused: the enrichment blocks have no exact-kernel "
+            "correction (momwire#1408)",
+        ),
+        (
+            bool(rotational_symmetry),
+            "exact_kernel=True + rotational_symmetry=True is refused: "
+            "the sector route fills restricted rows, which the "
+            "exact-kernel correction does not serve (momwire#1408)",
+        ),
+    ]
+
+
+class BSplineSolver(
+    _exact_kernel_seam.ExactKernelOption,
+    _ElementCurrents,
+    _SweptPortSolutions,
+    _Cancelable,
+):
     """Degree-d B-spline Galerkin MoM, multi-wire polylines with junctions.
 
     **Usable Δ/a floor (issue #248).** Like every reduced-kernel
@@ -1270,7 +1295,13 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         together (scalar / per-wire like wire_conductivity). Adds King's
         quasi-static series inductance μ₀/2π·(1−1/εr)·ln(b/a) per meter —
         the insulated-wire velocity-factor effect (the wire tunes a few
-        percent long). Purely reactive; no dissipation modeled.
+        percent long) — with the equivalent kernel radius (#865). Purely
+        reactive unless a loss tangent is given.
+    insulation_loss_tangent : the jacket's dielectric loss tangent tan δ
+        (momwire#765), scalar / per-wire like the two above, NaN or 0 for a
+        lossless jacket; needs `insulation_radius`. Served as a charge-side
+        term (`_charge_gram` scaled by `_wire_loading.jacket_loss_charge`);
+        `wire_loss_power` counts its watts.
     distributed_rlc : NEC's `LD 2` / `LD 3` per-metre RLC (momwire#1088).
         None (default) = off; one `_wire_loading.DistributedRLC` applies to
         every wire, or a per-wire sequence whose None entries switch
@@ -1404,16 +1435,11 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         },
     )
 
-    # momwire#1408: subclasses that replace the dense fill (H-matrix, array
-    # blocks) never reach the exact-kernel correction, so they refuse it.
-    _serves_exact_kernel = True
-    # What `exact_kernel=` accepts. Public so a consumer can gate on the
-    # capability ("auto" in BSplineSolver.EXACT_KERNEL_CHOICES) instead of
-    # parsing a version or a signature.
-    EXACT_KERNEL_CHOICES = (False, True, "auto")
-    # "auto" engages when some segment's length is below this many radii
-    # (the kernel-error table: EK 2.1e-3 at |z|/a = 3, 3.1e-2 at 1).
-    EXACT_KERNEL_AUTO_H_OVER_A = 3.0
+    # momwire#1408: `_serves_exact_kernel`, `EXACT_KERNEL_CHOICES` and
+    # `EXACT_KERNEL_AUTO_H_OVER_A` come from `_exact_kernel_seam.
+    # ExactKernelOption` (momwire#1433), shared with every family that serves
+    # the kernel. Subclasses that replace the dense fill (H-matrix, array
+    # blocks) never reach the correction and set `_serves_exact_kernel` False.
 
     def __init__(
         self,
@@ -1442,6 +1468,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         wire_conductivity=None,
         insulation_radius=None,
         insulation_eps_r=None,
+        insulation_loss_tangent=None,
         distributed_rlc=None,
         nsegs=101,
         ground_z=None,
@@ -1478,6 +1505,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 "wire_conductivity": wire_conductivity,
                 "insulation_radius": insulation_radius,
                 "insulation_eps_r": insulation_eps_r,
+                "insulation_loss_tangent": insulation_loss_tangent,
                 "distributed_rlc": distributed_rlc,
             },
             sites={
@@ -1492,6 +1520,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         wire_conductivity = _per_wire["wire_conductivity"]
         insulation_radius = _per_wire["insulation_radius"]
         insulation_eps_r = _per_wire["insulation_eps_r"]
+        insulation_loss_tangent = _per_wire["insulation_loss_tangent"]
         distributed_rlc = _per_wire["distributed_rlc"]
         feeds = _sites["feeds"]
         if feeds is None:
@@ -1593,37 +1622,15 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # measurements behind it.
         # momwire#1408: the exact ring kernel on coaxial pairs, opt-in. Off,
         # nothing below reads it but the guard in `_compute_Z_operator`.
-        if isinstance(exact_kernel, str):
-            if exact_kernel != "auto":
-                raise ValueError(
-                    f"exact_kernel must be True, False or 'auto', got {exact_kernel!r}"
-                )
-            self.exact_kernel_requested = "auto"
-            # Resolved at the end of __init__ (`_resolve_exact_kernel_auto`),
-            # once the geometry and the ground are known; off until then.
-            self.exact_kernel = False
-        else:
-            self.exact_kernel_requested = bool(exact_kernel)
-            self.exact_kernel = bool(exact_kernel)
-        if self.exact_kernel:
-            if not self._serves_exact_kernel:
-                raise NotImplementedError(
-                    f"exact_kernel=True is not served by {type(self).__name__}: "
-                    "its fills never reach the exact-kernel correction "
-                    "(momwire#1408)"
-                )
-            if use_singular_enrichment:
-                raise NotImplementedError(
-                    "exact_kernel=True + use_singular_enrichment=True is "
-                    "refused: the enrichment blocks have no exact-kernel "
-                    "correction (momwire#1408)"
-                )
-            if rotational_symmetry:
-                raise NotImplementedError(
-                    "exact_kernel=True + rotational_symmetry=True is refused: "
-                    "the sector route fills restricted rows, which the "
-                    "exact-kernel correction does not serve (momwire#1408)"
-                )
+        # Parsed, and True's refusals raised, by the shared option
+        # (`_exact_kernel_seam`, momwire#1433); "auto" is resolved at the end
+        # of __init__ (`_resolve_exact_kernel_auto`), once the geometry and
+        # the ground are known, and is off until then. The two refusals of
+        # this family's own are `_exact_kernel_family_refusals`.
+        self._exact_kernel_init(
+            exact_kernel,
+            _exact_kernel_refusals(use_singular_enrichment, rotational_symmetry),
+        )
         self.swept_mem_mb = int(swept_mem_mb)
         if self.swept_mem_mb < 1:
             raise ValueError(f"swept_mem_mb must be >= 1, got {swept_mem_mb}")
@@ -1713,6 +1720,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             insulation_radius,
             insulation_eps_r,
             distributed_rlc,
+            insulation_loss_tangent,
         )
         # Per-instance cache for the k-independent loading Gram structure
         # (rows, cols, vals, wire_of_nnz) — see `_loading_gram`.
@@ -1963,15 +1971,9 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # only one is the rotational sector route, which "auto" already
         # resolves False for here.
         # True with a route the fill will refuse (buried, lossy) counts as
-        # not running: the fill raises before any number comes out.
-        try:
-            servable = self._exact_kernel_servable()
-        except ValueError:
-            # A wire-media reading the fill refuses by name (a crossing, a
-            # wire below a ground with no lower medium): it says so there,
-            # not from an advisory.
-            servable = False
-        exact_runs = bool(self.exact_kernel) and servable
+        # not running: the fill raises before any number comes out
+        # (`_exact_kernel_resolved`).
+        exact_runs, servable = self._exact_kernel_resolved()
         # momwire#1378: any segment under two radii, anywhere (not only at a gap).
         # Advisory, once per solver, on the final mesh; silent where the exact
         # ring kernel runs.
@@ -1995,6 +1997,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             _wire_spec.solver_gaps(self, end_ports_are_gaps=not exact_runs),
             gap_model="point",
             exact_kernel=True if exact_runs else (False if servable else None),
+            fixed_gap_feed=self.EXACT_KERNEL_FIXED_GAP_FEED,
         )
         if (
             self.exact_kernel_requested is True
@@ -2002,36 +2005,30 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             and self.feeds
         ):
             warnings.warn(
-                "exact_kernel=True with a point-gap feed: under the exact ring "
-                "kernel a zero-width gap has no limiting reactance (each halving "
-                "of the gap adds 4 ln2 w eps0 a of susceptance), so the feed "
-                "reactance drifts with the mesh. A fixed geometric gap is two "
-                "facing wire ends driven through junction_ports (momwire#1408).",
+                _exact_kernel_seam.point_gap_warning(self.EXACT_KERNEL_FIXED_GAP_FEED),
                 RuntimeWarning,
                 stacklevel=2,
             )
 
-    def _resolve_exact_kernel_auto(self):
-        """`exact_kernel="auto"`'s value (see the class docstring): True iff
-        this route serves the exact kernel and some segment is shorter than
-        `EXACT_KERNEL_AUTO_H_OVER_A` radii. Never raises a refusal."""
-        if not self._exact_kernel_servable():
-            return False
+    # -- the exact-kernel option's hooks (`_exact_kernel_seam`, momwire#1433)
+    def _exact_kernel_family_refusals(self):
+        """The two refusals of `exact_kernel=True` this family adds to the
+        shared ones, on the solver's current flags; either also makes "auto"
+        resolve False."""
+        return _exact_kernel_refusals(
+            self.use_singular_enrichment, self.rotational_symmetry
+        )
+
+    def _exact_kernel_buried(self):
+        return self.ground_z is not None and self._has_buried_wires()
+
+    def _exact_kernel_lossy(self):
+        return bool(np.iscomplexobj(self.k) or np.iscomplexobj(self.eps))
+
+    def _exact_kernel_h_and_a(self):
         geom = self._build_geometry()
         h = np.linalg.norm(geom["seg_r"] - geom["seg_l"], axis=1)
-        a = self._seg_radius(geom)
-        return bool(np.any(h < self.EXACT_KERNEL_AUTO_H_OVER_A * a))
-
-    def _exact_kernel_servable(self):
-        """Whether this solver's construction-time route serves the exact
-        ring kernel: condition (i) of "auto" (see the class docstring)."""
-        if not self._serves_exact_kernel:
-            return False
-        if self.use_singular_enrichment or self.rotational_symmetry:
-            return False
-        if self.ground_z is not None and self._has_buried_wires():
-            return False
-        return not (np.iscomplexobj(self.k) or np.iscomplexobj(self.eps))
+        return h, self._seg_radius(geom)
 
     def _rotational_ground_kind(self):
         """The ground's name for the rotational-symmetry rule (momwire#1029
@@ -4879,7 +4876,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 else:
                     A_st_w = A_st[:, :, lo:hi, :]
                     A_reg_w = A_reg[:, :, lo:hi, :]
-                corr = (A_st_w + A_reg_w) - J_win
+                corr = _same_edge_corr(A_st_w, A_reg_w, J_win)
                 del J_win, A_st_w, A_reg_w  # not beside the assembler's call (#338)
                 _accumulate(corr, r0, r1, j0, j1, _bases_touching(r0, r1), e_idx)
 
@@ -5144,11 +5141,12 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         The same closed-form moments as `_loading_gram`, on the
         differentiated per-segment polynomials (exact, since `polys` is).
         Cached per instance; built only when a deck has a jacketed buried
-        wire.
+        wire or a lossy jacket.
 
-        `wire_loss_power` does not read it: that readout is the METAL's
-        ohmic loss, and the real part of ΔS′ is the soil's loss seen through
-        the jacket, which the solved impedance carries.
+        `wire_loss_power` reads only the lossy jacket's share of it
+        (`_wire_loading.jacket_loss_charge`, momwire#765): the real part of
+        the buried ΔS′ is the soil's loss seen through the jacket, which the
+        solved impedance carries and the wire ledger must not count.
         """
         cached = self._cached_charge_gram
         if cached is not None:
@@ -5229,9 +5227,10 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         self._add_wire_scaled(
             Z, (rows, cols, vals, wire_ids), spec.z_wire, row_of=row_of
         )
-        # A jacketed BURIED wire's charge-side term (momwire#1154), after the
-        # series one. `zq_wire` is None on every deck without one, so every
-        # other fill is structurally what it was.
+        # A jacket's charge-side term — a BURIED jacket's (momwire#1154), a
+        # lossy one's (momwire#765) — after the series one. `zq_wire` is None
+        # on every deck without one, so every other fill is structurally what
+        # it was.
         if spec.zq_wire is not None:
             self._add_wire_scaled(Z, self._charge_gram(), spec.zq_wire, row_of=row_of)
         return Z
@@ -5278,7 +5277,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 (zw[wire_ids] * vals, (rows, cols)), shape=(n, n)
             ).tocsr()
             if spec.zq_wire is not None:
-                # The buried jacket's charge-side term (momwire#1154), so the
+                # The jacket's charge-side term (momwire#1154, #765), so the
                 # H-matrix blocks carry what the dense `_apply_loading` does.
                 q_rows, q_cols, q_vals, q_wire = self._charge_gram()
                 L = (
@@ -5294,12 +5293,16 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
     @_wire_spec.reads_input_wires("loss")
     def wire_loss_power(self, coeffs, omega=None):
-        """Ohmic power dissipated in the wire metal, from a solve's coeffs.
+        """Power dissipated in the wire — its metal and its jacket — from a
+        solve's coeffs.
 
         P_wire = ½ Σ_w Re[Z'_w(ω)] · (c^H S_w c) — the ∫ R'(l)·|I(l)|² dl
-        readout the downstream power budget reports. Insulation loading is
-        purely reactive and contributes nothing here. Trailing KCL
-        Lagrange-multiplier entries in `coeffs` are ignored.
+        readout the downstream power budget reports — plus, on a jacket with
+        tan δ > 0 (momwire#765), its dielectric loss
+        ½ Σ_w Re[zq_loss,w] · (c^H D_w c) = ½·Re(zq)·∫|dI/dl|² dl, through
+        the same derivative Gram the fill loads (`_charge_gram`). A lossless
+        jacket contributes nothing. Trailing KCL Lagrange-multiplier entries
+        in `coeffs` are ignored.
 
         Returns (total_watts, per_wire_watts ndarray (n_wires,)).
         """
@@ -5318,6 +5321,18 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         )
         contrib = 0.5 * r_w[wire_ids] * np.real(np.conj(c[rows]) * c[cols]) * vals
         np.add.at(per_wire, wire_ids, contrib)
+        zq_loss = _wire_loading.jacket_loss_charge(
+            self, self.omega if omega is None else omega
+        )
+        if zq_loss is not None:
+            q_rows, q_cols, q_vals, q_wire = self._charge_gram()
+            contrib = (
+                0.5
+                * np.real(zq_loss)[q_wire]
+                * np.real(np.conj(c[q_rows]) * c[q_cols])
+                * q_vals
+            )
+            np.add.at(per_wire, q_wire, contrib)
         return float(per_wire.sum()), per_wire
 
     # ------------------------------------------------------------------
@@ -7065,15 +7080,9 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         peak on exactly the entry point the SimNEC portal and the array
         benchmarks drive (issue #235).
         """
-        use_exact = self.exact_kernel
-        if use_exact:
-            if self.exact_kernel_requested == "auto":
-                # "auto" never refuses: an unserved route skips the
-                # correction, and the solver says so.
-                if self._exact_kernel_route_refusal(rows, compact) is not None:
-                    use_exact = self.exact_kernel = False
-            else:
-                self._refuse_exact_kernel_route(rows, compact)
+        # "auto" never refuses: an unserved route skips the correction, and
+        # the solver says so (`_exact_kernel_seam`, momwire#1433).
+        use_exact = self._exact_kernel_fill_gate(rows, compact)
         if self.ground_z is not None and self._has_buried_wires():
             # Per-segment media (momwire#553 U5). Structurally a different
             # fill, not a flag inside this one: three pair classes, two
@@ -7168,42 +7177,16 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # wire property, added once to the final Z).
         return self._apply_loading(Z)
 
-    def _exact_kernel_route_refusal(self, rows, compact):
-        """Why this fill route does not serve `exact_kernel`, or None."""
-        if rows is not None or compact:
-            return (
-                "exact_kernel=True serves the dense fill only; a restricted-row "
-                "fill (sector route) has no exact-kernel correction (momwire#1408)"
-            )
-        if self.ground_z is not None and self._has_buried_wires():
-            return (
-                "exact_kernel=True is refused for buried wires: the exact ring "
-                "kernel here is written for a real wavenumber (momwire#1408)"
-            )
-        if np.iscomplexobj(self.k) or np.iscomplexobj(self.eps):
-            return (
-                "exact_kernel=True is refused in a lossy medium (complex k or "
-                "permittivity) (momwire#1408)"
-            )
-        return None
-
-    def _refuse_exact_kernel_route(self, rows, compact):
-        """The routes `exact_kernel` does not serve, refused by name."""
-        why = self._exact_kernel_route_refusal(rows, compact)
-        if why is not None:
-            raise NotImplementedError(why)
-
     def _exact_kernel_groups(self, geom):
         """[(segment indices, [(slice, arc, radius) per edge])] per coaxial
         equal-radius group: the segments the exact ring kernel covers."""
-        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
-        labels = _ek_axis_groups_coaxial(
-            seg_l, seg_r, geom["tangents"], self._seg_radius(geom)
+        labels, groups = _exact_kernel_seam.coaxial_groups(
+            geom["seg_l"], geom["seg_r"], geom["tangents"], self._seg_radius(geom)
         )
         edges = {}
         for _w, sl, arc, a_w in self._edge_ingredients(geom):
             edges.setdefault(int(labels[sl.start]), []).append((sl, arc, a_w))
-        return [(np.flatnonzero(labels == g), edges[g]) for g in sorted(edges)]
+        return [(S, edges[g]) for g, S in groups]
 
     def _exact_kernel_base_J(self, geom, S, g_edges, k, rows=None, fill=None):
         """The (d+1, d+1, n, n) moments the free-space fill put on the
@@ -7323,10 +7306,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         fill = self._exact_kernel_fill_spec(geom, k)
         for S, g_edges in self._exact_kernel_groups(geom):
             n = S.size
-            axis = tang[S[0]]
-            x0 = (seg_l[S] - seg_l[S[0]]) @ axis
-            sgn = np.where(tang[S] @ axis >= 0.0, 1.0, -1.0)
-            h = np.linalg.norm(seg_r[S] - seg_l[S], axis=1)
+            _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
             budget = self.swept_mem_mb * 1024 * 1024
             exact = _exact_kernel.coaxial_rows(
                 x0,
@@ -7433,10 +7413,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         n_total = int(geom["n_segs_total"])
         for S, g_edges in self._exact_kernel_groups(geom):
             n = S.size
-            axis = tang[S[0]]
-            x0 = (seg_l[S] - seg_l[S[0]]) @ axis
-            sgn = np.where(tang[S] @ axis >= 0.0, 1.0, -1.0)
-            h = np.linalg.norm(seg_r[S] - seg_l[S], axis=1)
+            _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
             dJ = _exact_kernel.coaxial_block(x0, sgn, h, float(seg_a[S[0]]), k, nd)
             dJ -= self._exact_kernel_base_J(geom, S, g_edges, k)
             # assemble over the bases touching the group; wings elsewhere

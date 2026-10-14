@@ -14,6 +14,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.permission import Permission
     from ..models.user_attribute_sources import UserAttributeSources
+    from ..models.user_details import UserDetails
 
 
 T = TypeVar("T", bound="User")
@@ -64,6 +65,8 @@ class User:
         should_protect_user_details (Union[Unset, bool]):
         has_active_session (Union[Unset, bool]):
         has_usable_password (Union[Unset, bool]):
+        has_passkey (Union[Unset, bool]):
+        passkey_count (Union[Unset, int]):
         ip_address (Union[None, Unset, str]):
         gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
@@ -93,6 +96,7 @@ class User:
         deactivation_reason (Union[Unset, str]): Reason why the user was deactivated. Visible to staff and support.
         is_admin_deactivated (Union[Unset, bool]): Designates that the user was deactivated by an administrator and must
             not be reactivated automatically by the role-sync task. Visible to staff and support.
+        details (Union[Unset, UserDetails]): Extra details from authentication backend.
     """
 
     url: Union[Unset, str] = UNSET
@@ -133,6 +137,8 @@ class User:
     should_protect_user_details: Union[Unset, bool] = UNSET
     has_active_session: Union[Unset, bool] = UNSET
     has_usable_password: Union[Unset, bool] = UNSET
+    has_passkey: Union[Unset, bool] = UNSET
+    passkey_count: Union[Unset, int] = UNSET
     ip_address: Union[None, Unset, str] = UNSET
     gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
@@ -156,6 +162,7 @@ class User:
     active_isds: Union[Unset, list[str]] = UNSET
     deactivation_reason: Union[Unset, str] = UNSET
     is_admin_deactivated: Union[Unset, bool] = UNSET
+    details: Union[Unset, "UserDetails"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -282,6 +289,10 @@ class User:
 
         has_usable_password = self.has_usable_password
 
+        has_passkey = self.has_passkey
+
+        passkey_count = self.passkey_count
+
         ip_address: Union[None, Unset, str]
         if isinstance(self.ip_address, Unset):
             ip_address = UNSET
@@ -357,6 +368,10 @@ class User:
         deactivation_reason = self.deactivation_reason
 
         is_admin_deactivated = self.is_admin_deactivated
+
+        details: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.details, Unset):
+            details = self.details.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -437,6 +452,10 @@ class User:
             field_dict["has_active_session"] = has_active_session
         if has_usable_password is not UNSET:
             field_dict["has_usable_password"] = has_usable_password
+        if has_passkey is not UNSET:
+            field_dict["has_passkey"] = has_passkey
+        if passkey_count is not UNSET:
+            field_dict["passkey_count"] = passkey_count
         if ip_address is not UNSET:
             field_dict["ip_address"] = ip_address
         if gender is not UNSET:
@@ -483,6 +502,8 @@ class User:
             field_dict["deactivation_reason"] = deactivation_reason
         if is_admin_deactivated is not UNSET:
             field_dict["is_admin_deactivated"] = is_admin_deactivated
+        if details is not UNSET:
+            field_dict["details"] = details
 
         return field_dict
 
@@ -490,6 +511,7 @@ class User:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.permission import Permission
         from ..models.user_attribute_sources import UserAttributeSources
+        from ..models.user_details import UserDetails
 
         d = dict(src_dict)
         url = d.pop("url", UNSET)
@@ -656,6 +678,10 @@ class User:
 
         has_usable_password = d.pop("has_usable_password", UNSET)
 
+        has_passkey = d.pop("has_passkey", UNSET)
+
+        passkey_count = d.pop("passkey_count", UNSET)
+
         def _parse_ip_address(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -751,6 +777,13 @@ class User:
 
         is_admin_deactivated = d.pop("is_admin_deactivated", UNSET)
 
+        _details = d.pop("details", UNSET)
+        details: Union[Unset, UserDetails]
+        if isinstance(_details, Unset):
+            details = UNSET
+        else:
+            details = UserDetails.from_dict(_details)
+
         user = cls(
             url=url,
             uuid=uuid,
@@ -790,6 +823,8 @@ class User:
             should_protect_user_details=should_protect_user_details,
             has_active_session=has_active_session,
             has_usable_password=has_usable_password,
+            has_passkey=has_passkey,
+            passkey_count=passkey_count,
             ip_address=ip_address,
             gender=gender,
             personal_title=personal_title,
@@ -813,6 +848,7 @@ class User:
             active_isds=active_isds,
             deactivation_reason=deactivation_reason,
             is_admin_deactivated=is_admin_deactivated,
+            details=details,
         )
 
         user.additional_properties = d

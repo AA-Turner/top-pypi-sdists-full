@@ -363,7 +363,14 @@ class LabelSplit:
         all_symbol_and_group_pairs = []
         if self.labelsplit_cfg.get("project_symbols"):
             special_project_dict = self.labelsplit_cfg.get("project_symbols")
-            pair_list = [val for key, val in special_project_dict.items() if key in self.project]
+            project_name_parts = self.project.split('_')
+
+            project_type = project_name_parts[0]
+            project_generation = project_name_parts[1]
+            pair_list = [val for key, val in special_project_dict.items() if key in project_generation]
+            if not pair_list:
+                pair_list = [val for key, val in special_project_dict.items() if key in project_type]
+
             if len(pair_list) == 1:
                 symbol_and_group_pairs_list = pair_list[0].items()
                 all_symbol_and_group_pairs += symbol_and_group_pairs_list

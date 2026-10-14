@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: splunk-opentelemetry
-Version: 2.13.1
+Version: 2.13.2
 Project-URL: Documentation, https://github.com/signalfx/splunk-otel-python#readme
 Project-URL: Issues, https://github.com/signalfx/splunk-otel-python/issues
 Project-URL: Source, https://github.com/signalfx/splunk-otel-python
@@ -23,12 +23,11 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.45.1
 Requires-Dist: opentelemetry-instrumentation-logging==0.66b1
 Requires-Dist: opentelemetry-instrumentation-system-metrics==0.66b1
 Requires-Dist: opentelemetry-instrumentation==0.66b1
-Requires-Dist: opentelemetry-opamp-client==0.3b0
+Requires-Dist: opentelemetry-opamp-client==0.4b0
 Requires-Dist: opentelemetry-propagator-b3==1.45.1
 Requires-Dist: opentelemetry-sdk==1.45.1
 Requires-Dist: opentelemetry-semantic-conventions==0.66b1
 Requires-Dist: protobuf>=6.33.5
-Requires-Dist: requests~=2.7
 Requires-Dist: wrapt>=2.5.0
 Provides-Extra: secureapp
 Requires-Dist: secureapp-python-agent>=26.10.0; extra == 'secureapp'

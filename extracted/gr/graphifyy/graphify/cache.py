@@ -37,7 +37,7 @@ except Exception:
     _EXTRACTOR_VERSION = "unknown"
 
 # Bump when AST cache-key semantics change independently of the package version.
-_AST_CACHE_SCHEMA = 12  # Java inherited-supertype (`receiver_unbound`) and chained/new/cast receiver typing (`java_receiver_chain`, `_java_ret`); C/C++ quoted cross-directory include provenance (`include_kind`); JS external imports anchored to the package, not the path leaf; prior (11): Python property-accessor decorators / `Self`, Swift `Self`, Go generic type params, Python forward type-hint file node, PowerShell dot-source, C# verbatim-interpolated string recovery; (10): C# partial types carry `type_path`; (9): Python property-read raw calls and `_py_property` nodes; (8): Rust `use`-group per-binding edges; (7): Python opaque-base/super(args) markers + nested-class enclosing ids.
+_AST_CACHE_SCHEMA = 15  # Go generic receiver types normalized (`Box[T]` -> `Box`) so methods attach to the type node; prior (14): C# receiver resolution for nameless/`new X()`/`foreach` receivers (defer + receiver-chain markers) and `_`/case-distinct node ids (underscore-salted); prior (13): Kotlin/Scala/C++/Swift generic & template type params no longer mint sourceless stubs; Objective-C NS_ENUM/NS_OPTIONS extraction and `_callable`/`_callable_class` markers; Go and PHP receiver-typed member calls park cross-repo (`go_type_table`/`php_type_table`, receiver fields); prior (12): Java inherited-supertype (`receiver_unbound`) and chained/new/cast receiver typing (`java_receiver_chain`, `_java_ret`); C/C++ quoted cross-directory include provenance (`include_kind`); JS external imports anchored to the package, not the path leaf; prior (11): Python property-accessor decorators / `Self`, Swift `Self`, Go generic type params, Python forward type-hint file node, PowerShell dot-source, C# verbatim-interpolated string recovery; (10): C# partial types carry `type_path`; (9): Python property-read raw calls and `_py_property` nodes; (8): Rust `use`-group per-binding edges; (7): Python opaque-base/super(args) markers + nested-class enclosing ids.
 
 
 # Per-process memo: distributions() scans site-packages metadata, which is
@@ -1838,17 +1838,18 @@ def scope_semantic_result(
     still says unchanged, so no later incremental run re-dispatches it and the
     loss is permanent until a full rebuild.
 
-    Items whose ``source_file`` resolves outside ``allowed_source_files`` are
-    dropped from ``result``'s ``nodes`` / ``edges`` / ``hyperedges`` lists
-    (mutated in place); items without a ``source_file`` pass through. An edge
-    or hyperedge that survives the scope filter but references a dropped node
-    id is dropped too (#1916 mirror), unless that id is also defined by a kept
-    node (duplicate attribution must not be over-pruned).
+    Nodes and hyperedges whose ``source_file`` resolves outside
+    ``allowed_source_files`` are dropped from ``result`` (mutated in place);
+    items without a ``source_file`` pass through. An edge whose own
+    ``source_file`` is outside the allowlist is kept when both endpoint ids are
+    kept nodes (#2276). An edge or hyperedge that survives
+    the scope filter but references a dropped node id is dropped too (#1916
+    mirror), unless that id is also defined by a kept node (duplicate
+    attribution must not be over-pruned).
 
     Path matching shares :func:`_semantic_source_matcher` with
     :func:`save_semantic_cache` (relative against ``root``, walked-path
-    identity), so an item this function keeps can never still hit the save's
-    out-of-scope skip, and vice versa.
+    identity). That kept edge can still be skipped by the cache write.
 
     Returns ``(dropped_source_files, dropped_item_count)`` for logging;
     ``dropped_source_files`` holds the normalized ``source_file`` strings of
@@ -1885,6 +1886,20 @@ def scope_semantic_result(
         for item in result.get(bucket) or []:
             display, ident = _item_identity(item)
             if ident is not None and ident not in allowed_paths:
+                if bucket == "edges":
+                    src = item.get("source")
+                    tgt = item.get("target")
+                    # Nodes are processed first, so kept_ids is complete.
+                    # An edge to a dropped id that is not also kept still falls
+                    # through and is counted below (#2276).
+                    if (
+                        _hashable(src)
+                        and _hashable(tgt)
+                        and src in kept_ids
+                        and tgt in kept_ids
+                    ):
+                        kept.append(item)
+                        continue
                 dropped_files.add(display)
                 dropped_items += 1
                 if bucket == "nodes" and item.get("id") is not None:

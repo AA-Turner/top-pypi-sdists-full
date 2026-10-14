@@ -5,6 +5,7 @@
 // Created:     2008-07-10
 // Copyright:   (c) 2008 Peter Most
 //              (c) 2009 Vadim Zeitlin
+//              (c) 2026 wxWidgets development team
 ///////////////////////////////////////////////////////////////////////////////
 
 // ----------------------------------------------------------------------------
@@ -16,6 +17,7 @@
 
 #include "wx/defs.h"
 
+#include "wx/iconloc.h"
 #include "wx/math.h"
 #include "wx/mimetype.h"
 #include "wx/versioninfo.h"
@@ -27,41 +29,16 @@
 #include "wx/tarstrm.h"
 #include "wx/zipstrm.h"
 
+#include <memory>
+
 #ifdef __WINDOWS__
     // Needed for wxMulDivInt32().
     #include "wx/msw/wrapwin.h"
 #endif
 
 // ----------------------------------------------------------------------------
-// test class
+// tests
 // ----------------------------------------------------------------------------
-
-class MiscTestCase : public CppUnit::TestCase
-{
-public:
-    MiscTestCase() { }
-
-private:
-    CPPUNIT_TEST_SUITE( MiscTestCase );
-        CPPUNIT_TEST( Assert );
-        CPPUNIT_TEST( CallForEach );
-        CPPUNIT_TEST( Delete );
-        CPPUNIT_TEST( StaticCast );
-    CPPUNIT_TEST_SUITE_END();
-
-    void Assert();
-    void CallForEach();
-    void Delete();
-    void StaticCast();
-
-    wxDECLARE_NO_COPY_CLASS(MiscTestCase);
-};
-
-// register in the unnamed registry so that these tests are run by default
-CPPUNIT_TEST_SUITE_REGISTRATION( MiscTestCase );
-
-// also include in its own registry so that these tests can be run alone
-CPPUNIT_TEST_SUITE_NAMED_REGISTRATION( MiscTestCase, "MiscTestCase" );
 
 namespace
 {
@@ -75,7 +52,7 @@ bool AssertIfOdd(int n)
 
 } // anonymous namespace
 
-void MiscTestCase::Assert()
+TEST_CASE("wxAssertHandler", "[assert]")
 {
     AssertIfOdd(0);
     WX_ASSERT_FAILS_WITH_ASSERT(AssertIfOdd(1));
@@ -86,35 +63,35 @@ void MiscTestCase::Assert()
     wxSetAssertHandler(oldHandler);
 }
 
-void MiscTestCase::CallForEach()
+TEST_CASE("wxCALL_FOR_EACH", "[misc]")
 {
     #define MY_MACRO(pos, str) s += str;
 
     wxString s;
     wxCALL_FOR_EACH(MY_MACRO, "foo", "bar", "baz");
 
-    CPPUNIT_ASSERT_EQUAL( "foobarbaz", s );
+    CHECK( s == "foobarbaz" );
 
     #undef MY_MACRO
 }
 
-void MiscTestCase::Delete()
+TEST_CASE("wxDELETE", "[misc]")
 {
     // Allocate some arbitrary memory to get a valid pointer:
     long *pointer = new long;
-    CPPUNIT_ASSERT( pointer != nullptr );
+    CHECK( pointer != nullptr );
 
     // Check that wxDELETE sets the pointer to nullptr:
     wxDELETE( pointer );
-    CPPUNIT_ASSERT( pointer == nullptr );
+    CHECK( pointer == nullptr );
 
     // Allocate some arbitrary array to get a valid pointer:
     long *array = new long[ 3 ];
-    CPPUNIT_ASSERT( array != nullptr );
+    CHECK( array != nullptr );
 
     // Check that wxDELETEA sets the pointer to nullptr:
     wxDELETEA( array );
-    CPPUNIT_ASSERT( array == nullptr );
+    CHECK( array == nullptr );
 
     // this results in compilation error, as it should
 #if 0
@@ -139,19 +116,19 @@ bool IsNull(void *p)
 
 } // anonymous namespace
 
-void MiscTestCase::StaticCast()
+TEST_CASE("wxStaticCast", "[rtti]")
 {
 #if wxUSE_TARSTREAM
     wxTarEntry tarEntry;
-    CPPUNIT_ASSERT( wxStaticCast(&tarEntry, wxArchiveEntry) );
+    CHECK( wxStaticCast(&tarEntry, wxArchiveEntry) );
 
     wxArchiveEntry *entry = &tarEntry;
-    CPPUNIT_ASSERT( wxStaticCast(entry, wxTarEntry) );
+    CHECK( wxStaticCast(entry, wxTarEntry) );
 
 #if wxUSE_ZIPSTREAM
     wxZipEntry zipEntry;
     entry = &zipEntry;
-    CPPUNIT_ASSERT( wxStaticCast(entry, wxZipEntry) );
+    CHECK( wxStaticCast(entry, wxZipEntry) );
     WX_ASSERT_FAILS_WITH_ASSERT( IsNull(wxStaticCast(&zipEntry, wxTarEntry)) );
 #endif // wxUSE_ZIPSTREAM
 
@@ -211,20 +188,13 @@ TEST_CASE("wxRound", "[math]")
     // For compatibility reasons, we allow using wxRound() with integer types
     // as well, even if this doesn't really make sense/
 #if WXWIN_COMPATIBILITY_3_0
-    #ifdef __VISUALC__
-        #pragma warning(push)
-        #pragma warning(disable:4996)
-    #endif
-    wxGCC_WARNING_SUPPRESS(deprecated-declarations)
+    wxWARNING_SUPPRESS_DEPRECATED()
 
     CHECK( wxRound(-9) == -9 );
     CHECK( wxRound((size_t)17) == 17 );
     CHECK( wxRound((short)289) == 289 );
 
-    wxGCC_WARNING_RESTORE(deprecated-declarations)
-    #ifdef __VISUALC__
-        #pragma warning(pop)
-    #endif
+    wxWARNING_RESTORE_DEPRECATED()
 #endif // WXWIN_COMPATIBILITY_3_0
 }
 
@@ -273,6 +243,22 @@ TEST_CASE("wxFileType::ExpandCommand", "[mime]")
     // string; check that the trailing '%' is just copied verbatim instead.
     CHECK( wxFileType::ExpandCommand("show %s %", params) == "show file.txt %" );
 }
+
+#ifdef __WINDOWS__
+TEST_CASE("wxFileType::ExecutableIcon", "[mime][msw]")
+{
+    std::unique_ptr<wxFileType> fileType(
+        wxTheMimeTypesManager->GetFileTypeFromExtension("exe"));
+    REQUIRE( fileType );
+
+    wxIconLocation iconLoc;
+    REQUIRE( fileType->GetIcon(&iconLoc) );
+
+    CHECK( iconLoc.IsOk() );
+    CHECK( iconLoc.GetFileName() != "%1" );
+    CHECK( iconLoc.GetFileName() != "%L" );
+}
+#endif // __WINDOWS__
 #endif // wxUSE_MIMETYPE
 
 TEST_CASE("wxVersionInfo", "[version]")

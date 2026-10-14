@@ -62,6 +62,7 @@ class LLMModelType:
 
     telechat = 'telechat'
     telechat2 = 'telechat2'
+    xing4_0 = 'xing4_0'
 
     mistral = 'mistral'
     devstral = 'devstral'
@@ -122,6 +123,9 @@ class LLMModelType:
 
     olmoe = 'olmoe'
 
+    # typed-decision (System-1 scoring) generic text-LLM path (loads AutoModelForCausalLM, not multimodal)
+    generic_decision = 'generic_decision'
+
 
 class BertModelType:
     modern_bert = 'modern_bert'
@@ -158,6 +162,11 @@ class MLLMModelType:
     wemm_embedding = 'wemm_embedding'
     qwen4_exp = 'qwen4_exp'
 
+    # typed-decision (System-1 scoring) task_type models
+    jev = 'jev'
+    clef = 'clef'
+    omnijev = 'omnijev'
+
     qwen2_gme = 'qwen2_gme'
     ovis1_6 = 'ovis1_6'
     ovis2 = 'ovis2'
@@ -168,6 +177,7 @@ class MLLMModelType:
     chatglm4v = 'chatglm4v'
     glm4v = 'glm4v'
     glm4v_moe = 'glm4v_moe'
+    glm5_next = 'glm5_next'
     glm_edge_v = 'glm_edge_v'
     glm_ocr = 'glm_ocr'
     cogvlm = 'cogvlm'
@@ -210,6 +220,7 @@ class MLLMModelType:
     llava_onevision1_5 = 'llava_onevision1_5'
     llava_onevision2 = 'llava_onevision2'
 
+    deepseek_v41 = 'deepseek_v41'
     deepseek_vl = 'deepseek_vl'
     deepseek_vl2 = 'deepseek_vl2'
     deepseek_janus = 'deepseek_janus'
@@ -224,6 +235,7 @@ class MLLMModelType:
     minicpmv4 = 'minicpmv4'
     minicpmv4_5 = 'minicpmv4_5'
     minicpmv4_6 = 'minicpmv4_6'
+    minicpmv4_7 = 'minicpmv4_7'
     minicpmo = 'minicpmo'
 
     minimax_vl = 'minimax_vl'
@@ -275,6 +287,7 @@ class MLLMModelType:
     muse_glimmer = 'muse_glimmer'
 
     jina_reranker_m0 = 'jina_reranker_m0'
+    monkeyocrv2 = 'monkeyocrv2'
 
 
 class ModelType(LLMModelType, MLLMModelType, BertModelType, RMModelType):

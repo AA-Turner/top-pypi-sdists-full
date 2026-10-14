@@ -31,6 +31,8 @@ from .paginator import (
     ListDataCellsFilterPaginator,
     ListLFTagExpressionsPaginator,
     ListLFTagsPaginator,
+    ListRLSPoliciesPaginator,
+    ListRLSPolicyAttachmentsPaginator,
     SearchDatabasesByLFTagsPaginator,
     SearchTablesByLFTagsPaginator,
 )
@@ -39,6 +41,7 @@ from .type_defs import (
     AddLFTagsToResourceResponseTypeDef,
     AssumeDecoratedRoleWithSAMLRequestTypeDef,
     AssumeDecoratedRoleWithSAMLResponseTypeDef,
+    AttachRLSPolicyRequestTypeDef,
     BatchGrantPermissionsRequestTypeDef,
     BatchGrantPermissionsResponseTypeDef,
     BatchRevokePermissionsRequestTypeDef,
@@ -52,12 +55,14 @@ from .type_defs import (
     CreateLakeFormationOptInRequestTypeDef,
     CreateLFTagExpressionRequestTypeDef,
     CreateLFTagRequestTypeDef,
+    CreateRLSPolicyRequestTypeDef,
     DeleteDataCellsFilterRequestTypeDef,
     DeleteLakeFormationIdentityCenterConfigurationRequestTypeDef,
     DeleteLakeFormationOptInRequestTypeDef,
     DeleteLFTagExpressionRequestTypeDef,
     DeleteLFTagRequestTypeDef,
     DeleteObjectsOnCancelRequestTypeDef,
+    DeleteRLSPolicyRequestTypeDef,
     DeregisterResourceRequestTypeDef,
     DescribeLakeFormationIdentityCenterConfigurationRequestTypeDef,
     DescribeLakeFormationIdentityCenterConfigurationResponseTypeDef,
@@ -65,6 +70,7 @@ from .type_defs import (
     DescribeResourceResponseTypeDef,
     DescribeTransactionRequestTypeDef,
     DescribeTransactionResponseTypeDef,
+    DetachRLSPolicyRequestTypeDef,
     ExtendTransactionRequestTypeDef,
     GetDataCellsFilterRequestTypeDef,
     GetDataCellsFilterResponseTypeDef,
@@ -83,6 +89,8 @@ from .type_defs import (
     GetQueryStatisticsResponseTypeDef,
     GetResourceLFTagsRequestTypeDef,
     GetResourceLFTagsResponseTypeDef,
+    GetRLSPolicyRequestTypeDef,
+    GetRLSPolicyResponseTypeDef,
     GetTableObjectsRequestTypeDef,
     GetTableObjectsResponseTypeDef,
     GetTemporaryDataLocationCredentialsRequestTypeDef,
@@ -108,6 +116,10 @@ from .type_defs import (
     ListPermissionsResponseTypeDef,
     ListResourcesRequestTypeDef,
     ListResourcesResponseTypeDef,
+    ListRLSPoliciesRequestTypeDef,
+    ListRLSPoliciesResponseTypeDef,
+    ListRLSPolicyAttachmentsRequestTypeDef,
+    ListRLSPolicyAttachmentsResponseTypeDef,
     ListTableStorageOptimizersRequestTypeDef,
     ListTableStorageOptimizersResponseTypeDef,
     ListTransactionsRequestTypeDef,
@@ -130,6 +142,7 @@ from .type_defs import (
     UpdateLFTagExpressionRequestTypeDef,
     UpdateLFTagRequestTypeDef,
     UpdateResourceRequestTypeDef,
+    UpdateRLSPolicyRequestTypeDef,
     UpdateTableObjectsRequestTypeDef,
     UpdateTableStorageOptimizerRequestTypeDef,
     UpdateTableStorageOptimizerResponseTypeDef,
@@ -218,6 +231,14 @@ class LakeFormationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/assume_decorated_role_with_saml.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#assume_decorated_role_with_saml)
+        """
+
+    def attach_rls_policy(self, **kwargs: Unpack[AttachRLSPolicyRequestTypeDef]) -> dict[str, Any]:
+        """
+        Attaches a row-level security policy to a resource for a principal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/attach_rls_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#attach_rls_policy)
         """
 
     def batch_grant_permissions(
@@ -312,6 +333,14 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#create_lake_formation_opt_in)
         """
 
+    def create_rls_policy(self, **kwargs: Unpack[CreateRLSPolicyRequestTypeDef]) -> dict[str, Any]:
+        """
+        Creates a row-level security (RLS) policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/create_rls_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#create_rls_policy)
+        """
+
     def delete_data_cells_filter(
         self, **kwargs: Unpack[DeleteDataCellsFilterRequestTypeDef]
     ) -> dict[str, Any]:
@@ -373,6 +402,14 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#delete_objects_on_cancel)
         """
 
+    def delete_rls_policy(self, **kwargs: Unpack[DeleteRLSPolicyRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a row-level security policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/delete_rls_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#delete_rls_policy)
+        """
+
     def deregister_resource(
         self, **kwargs: Unpack[DeregisterResourceRequestTypeDef]
     ) -> dict[str, Any]:
@@ -412,6 +449,14 @@ class LakeFormationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/describe_transaction.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#describe_transaction)
+        """
+
+    def detach_rls_policy(self, **kwargs: Unpack[DetachRLSPolicyRequestTypeDef]) -> dict[str, Any]:
+        """
+        Detaches a row-level security policy from a resource for a principal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/detach_rls_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#detach_rls_policy)
         """
 
     def extend_transaction(
@@ -501,6 +546,17 @@ class LakeFormationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_query_statistics.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_query_statistics)
+        """
+
+    def get_rls_policy(
+        self, **kwargs: Unpack[GetRLSPolicyRequestTypeDef]
+    ) -> GetRLSPolicyResponseTypeDef:
+        """
+        Returns the definition of a row-level security policy, including its attachment
+        columns and filter expression.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_rls_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_rls_policy)
         """
 
     def get_resource_lf_tags(
@@ -637,6 +693,26 @@ class LakeFormationClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/list_permissions.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#list_permissions)
+        """
+
+    def list_rls_policies(
+        self, **kwargs: Unpack[ListRLSPoliciesRequestTypeDef]
+    ) -> ListRLSPoliciesResponseTypeDef:
+        """
+        Lists the row-level security policies in the Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/list_rls_policies.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#list_rls_policies)
+        """
+
+    def list_rls_policy_attachments(
+        self, **kwargs: Unpack[ListRLSPolicyAttachmentsRequestTypeDef]
+    ) -> ListRLSPolicyAttachmentsResponseTypeDef:
+        """
+        Lists the row-level security policy attachments in the Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/list_rls_policy_attachments.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#list_rls_policy_attachments)
         """
 
     def list_resources(
@@ -791,6 +867,14 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#update_lake_formation_identity_center_configuration)
         """
 
+    def update_rls_policy(self, **kwargs: Unpack[UpdateRLSPolicyRequestTypeDef]) -> dict[str, Any]:
+        """
+        Updates the filter expression of an existing row-level security policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/update_rls_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#update_rls_policy)
+        """
+
     def update_resource(self, **kwargs: Unpack[UpdateResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the data access role used for vending access to the given (registered)
@@ -858,6 +942,28 @@ class LakeFormationClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_lf_tags"]
     ) -> ListLFTagsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_rls_policies"]
+    ) -> ListRLSPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_rls_policy_attachments"]
+    ) -> ListRLSPolicyAttachmentsPaginator:
         """
         Create a paginator for an operation.
 

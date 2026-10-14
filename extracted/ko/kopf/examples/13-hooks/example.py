@@ -55,7 +55,7 @@ async def login_fn(**_: Any) -> kopf.ConnectionInfo:
         certificate_path=cert.filename() if cert else None,  # can be a temporary file
         private_key_path=pkey.filename() if pkey else None,  # can be a temporary file
         default_namespace=config.namespace,
-        expiration=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=30),
+        expiration=datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=30),
     )
 
 
@@ -84,9 +84,3 @@ async def _task_fn(logger: kopf.Logger, shouldstop: asyncio.Event) -> None:
         await asyncio.sleep(random.randint(1, 10))
         logger.info("Served by the background task.")
     logger.info("Serving is finished by request.")
-
-
-# Marks for the e2e tests (see tests/e2e/test_examples.py):
-E2E_STARTUP_STOP_WORDS = ['Served by the background task.']
-E2E_CLEANUP_STOP_WORDS = ['Hung tasks', 'Root tasks']
-E2E_SUCCESS_COUNTS = {'startup_fn_simple': 1, 'startup_fn_retried': 1, 'cleanup_fn': 1}

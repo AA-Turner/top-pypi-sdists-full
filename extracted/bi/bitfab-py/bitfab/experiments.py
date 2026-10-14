@@ -91,6 +91,7 @@ class ExperimentTally(TypedDict):
     classified: int
     passing: int
     failing: int
+    abstained: int
 
 
 class ExperimentCategoryTally(TypedDict):

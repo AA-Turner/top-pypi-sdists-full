@@ -66,6 +66,24 @@
 // at least use it here instead of hardcoding the number.
 static const int DEFAULT_MAX_PAGES = 32000;
 
+namespace
+{
+
+wxPreviewControlBar *GetPreviewControlBar(wxPrintPreviewBase *preview,
+                                          wxWindow *parent)
+{
+    wxPreviewFrame *frame = nullptr;
+    if ( preview )
+        frame = wxDynamicCast(preview->GetFrame(), wxPreviewFrame);
+
+    if ( !frame )
+        frame = wxDynamicCast(parent, wxPreviewFrame);
+
+    return frame ? frame->GetControlBar() : nullptr;
+}
+
+} // anonymous namespace
+
 //----------------------------------------------------------------------------
 // wxPrintFactory
 //----------------------------------------------------------------------------
@@ -1005,7 +1023,6 @@ void wxPreviewCanvas::OnDPIChanged(wxDPIChangedEvent& event)
     event.Skip();
 }
 
-// Responds to colour changes, and passes event on to children.
 void wxPreviewCanvas::OnSysColourChanged(wxSysColourChangedEvent& event)
 {
 #ifdef __WXMAC__
@@ -1020,13 +1037,19 @@ void wxPreviewCanvas::OnSysColourChanged(wxSysColourChangedEvent& event)
     SetBackgroundColour(wxSystemSettings::GetColour(colourIndex));
     Refresh();
 
-    // Propagate the event to the non-top-level children
-    wxWindow::OnSysColourChanged(event);
+    event.Skip();
 }
 
 void wxPreviewCanvas::OnChar(wxKeyEvent &event)
 {
-    wxPreviewControlBar* controlBar = ((wxPreviewFrame*) GetParent())->GetControlBar();
+    wxPreviewControlBar * const
+        controlBar = GetPreviewControlBar(m_printPreview, GetParent());
+    if ( !controlBar )
+    {
+        event.Skip();
+        return;
+    }
+
     switch (event.GetKeyCode())
     {
         case WXK_RETURN:
@@ -1069,10 +1092,10 @@ void wxPreviewCanvas::OnChar(wxKeyEvent &event)
 
 void wxPreviewCanvas::OnMouseWheel(wxMouseEvent& event)
 {
-    wxPreviewControlBar *
-        controlBar = wxStaticCast(GetParent(), wxPreviewFrame)->GetControlBar();
+    wxPreviewControlBar * const
+        controlBar = GetPreviewControlBar(m_printPreview, GetParent());
 
-    if ( controlBar )
+    if ( controlBar && m_printPreview )
     {
         if ( event.ControlDown() && event.GetWheelRotation() != 0 )
         {

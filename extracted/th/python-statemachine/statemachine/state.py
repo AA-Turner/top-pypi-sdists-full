@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from collections.abc import Mapping
 from enum import Enum
 from typing import TYPE_CHECKING
 from typing import Any
@@ -8,6 +9,7 @@ from weakref import ref
 from .callbacks import CallbackGroup
 from .callbacks import CallbackPriority
 from .callbacks import CallbackSpecList
+from .event import Event
 from .event import _expand_event_id
 from .exceptions import InvalidDefinition
 from .i18n import _
@@ -56,7 +58,7 @@ class _FromState(_TransitionBuilder):
 
 
 class NestedStateFactory(type):
-    def __new__(  # type: ignore [misc]
+    def __new__(  # type: ignore [misc]  # noqa: C901
         cls, classname, bases, attrs, name="", **kwargs
     ) -> "State":
         if not bases:
@@ -76,6 +78,8 @@ class NestedStateFactory(type):
         states = []
         history = []
         callbacks = {}
+        # Order is significant: a ``HistoryState`` is a ``State``, and an ``Event`` is a
+        # callable ``str``, so both would be captured by a later branch.
         for key, value in attrs.items():
             if isinstance(value, States):
                 for state_id, state in value.items():
@@ -88,7 +92,27 @@ class NestedStateFactory(type):
                 value._set_id(key)
                 states.append(value)
             elif isinstance(value, TransitionList):
-                value.add_event(_expand_event_id(key))
+                for event_id in _expand_event_id(key):
+                    value.add_event(event_id)
+            elif isinstance(value, Event):
+                event_ids = [value.id] if value._has_real_id else _expand_event_id(key)
+                events = [
+                    Event(
+                        id=event_id,
+                        name=value.name,
+                        delay=value.delay,
+                        internal=value.internal,
+                    )
+                    for event_id in event_ids
+                ]
+                if value._transitions is not None:
+                    for event in events:
+                        value._transitions.add_event(event)
+            elif getattr(value, "attr_name", None):
+                if value.is_event:
+                    for event_id in _expand_event_id(key):
+                        value._transitions.add_event(event_id)
+                callbacks[value.attr_name] = value
             elif callable(value):
                 callbacks[key] = value
 
@@ -366,14 +390,18 @@ class InstanceState(State):
         self,
         state: State,
         machine: "StateChart",
+        instance_states: "Mapping[Any, State]",
     ):
         self._state = state
         self._machine = ref(machine)
+        self._instance_states = instance_states
         self._hash = hash(state)
-        self._init_states()
+        # No _init_states(): it would rebind the shared children's ``parent`` to this proxy.
 
     def __getattr__(self, name: str):
         value = getattr(self._state, name)
+        if isinstance(value, State):
+            value = self._instance_states.get(value.value, value)
         self.__dict__[name] = value
         return value
 
@@ -416,13 +444,24 @@ class AnyState(State):
     until the state machine class is evaluated.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._copies: dict[tuple[int, int], Transition] = {}
+        """Transition copied onto each state, keyed by ``(id(transition), id(state))``, so an
+        attribute that declares several ids adds them all to one copy."""
+
     def _on_event_defined(self, event: str, transition: Transition, states: list[State]):
         for state in states:
             if state.final:
                 continue
-            new_transition = transition._copy_with_args(source=state, event=event)
-
-            state.transitions.add_transitions(new_transition)
+            key = (id(transition), id(state))
+            copy = self._copies.get(key)
+            if copy is None:
+                copy = transition._copy_with_args(source=state, event=event)
+                self._copies[key] = copy
+                state.transitions.add_transitions(copy)
+            else:
+                copy.add_event(event)
 
 
 class HistoryType(str, Enum):

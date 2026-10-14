@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "3.43.1"
+version = "3.44.0"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -137,7 +137,8 @@ packages = ["src/codex_plugin_scanner"]
 
 [tool.hatch.build.targets.sdist]
 # Keep all inputs needed to rebuild the wheel and verify frozen projections.
-# Dashboard assets are already bundled under src; contributor tests live in Git.
+# Dashboard assets are already bundled under src; contributor tests live in Git,
+# as do the Rust integration tests and their fixtures.
 only-include = [
     "src",
     "scripts",
@@ -148,6 +149,11 @@ only-include = [
     "README.md",
     "LICENSE",
 ]
+# The packaged source-compiler build slurps these two vector files into its
+# command-extension build envelope; they are build inputs, not test data.
+[tool.hatch.build.targets.sdist.force-include]
+"rust/crates/guard-command/tests/fixtures/command-source-example.v1.json" = "rust/crates/guard-command/tests/fixtures/command-source-example.v1.json"
+"rust/crates/guard-command/tests/fixtures/command-source-behavior.v1.json" = "rust/crates/guard-command/tests/fixtures/command-source-behavior.v1.json"
 
 [tool.hatch.build.hooks.custom]
 path = "scripts/build_command_projection_hook.py"
@@ -168,6 +174,10 @@ artifacts = [
     "src/codex_plugin_scanner/guard/schemas/**",
 ]
 exclude = [
+    # Rust integration tests and their fixtures stay in Git; the wheel selects
+    # only src/codex_plugin_scanner, so these patterns only shrink the sdist.
+    "rust/crates/*/tests/**",
+    "rust/crates/*/testdata/**",
     "contributions/extensions/**",
     "contracts/extensions/trust-class-map.v1.json",
     "src/codex_plugin_scanner/_native/guard-command-source",
@@ -209,6 +219,8 @@ markers = [
   "fault_injection: destructive store fault tests; only run with GUARD_FAULT_INJECTION=1",
   "installed: requires verification through an installed package artifact",
   "integration: verifies multiple Guard subsystems together",
+  "native_codex_hook_bridge: installs Codex hooks through the native runtime bridge when it is available",
+  "native_bounded_hook_bridge: installs bounded CLI hooks through the native runtime bridge when it is available",
   "parser: verifies parsing or normalization security semantics",
   "policy: verifies policy composition or enforcement semantics",
   "regression: protects a previously observed defect or security finding",

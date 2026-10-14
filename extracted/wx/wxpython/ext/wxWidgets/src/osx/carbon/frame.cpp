@@ -29,6 +29,7 @@
 namespace
 {
 
+#if wxUSE_STATUSBAR
 int GetMacStatusbarHeight()
 {
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_16
@@ -38,12 +39,12 @@ int GetMacStatusbarHeight()
 #endif
         return 24;
 }
+#endif // wxUSE_STATUSBAR
 
 } // anonymous namespace
 
 wxBEGIN_EVENT_TABLE(wxFrame, wxFrameBase)
   EVT_ACTIVATE(wxFrame::OnActivate)
-  EVT_SYS_COLOUR_CHANGED(wxFrame::OnSysColourChanged)
 wxEND_EVENT_TABLE()
 
 // ----------------------------------------------------------------------------
@@ -61,6 +62,7 @@ bool wxFrame::Create(wxWindow *parent,
     if ( !wxTopLevelWindow::Create(parent, id, title, pos, size, style, name) )
         return false;
 
+#if wxUSE_TOOLBAR
     if ( wxTheApp->OSXIsFullScreenApp() )
     {
         if ((parent != nullptr) && (HasFlag(wxCAPTION) || HasFlag(wxCLOSE_BOX)))
@@ -81,6 +83,7 @@ bool wxFrame::Create(wxWindow *parent,
             tb->Realize();
         }
     }
+#endif
 
     return true;
 }
@@ -179,23 +182,18 @@ void wxFrame::PositionStatusBar()
 }
 #endif // wxUSE_STATUSBAR
 
-// Responds to colour changes, and passes event on to children.
-void wxFrame::OnSysColourChanged(wxSysColourChangedEvent& event)
+void wxFrame::SendSysColourChangedEvents()
 {
     Refresh();
 
 #if wxUSE_STATUSBAR
     if ( m_frameStatusBar )
     {
-        wxSysColourChangedEvent event2;
-
-        event2.SetEventObject( m_frameStatusBar );
-        m_frameStatusBar->GetEventHandler()->ProcessEvent(event2);
+        m_frameStatusBar->SendSysColourChangedEvents();
     }
 #endif // wxUSE_STATUSBAR
 
-    // Propagate the event to the non-top-level children
-    wxWindow::OnSysColourChanged(event);
+    BaseType::SendSysColourChangedEvents();
 }
 
 // Default activation behaviour - set the focus for the first child

@@ -9,38 +9,66 @@ from ..core.serialization import FieldMetadata
 
 
 class User(UniversalBaseModel):
-    created_at: typing.Optional[str] = None
-    deleted_at: typing.Optional[str] = None
-    disable_default_ontology: typing.Optional[bool] = None
-    email: typing.Optional[str] = None
-    first_name: typing.Optional[str] = None
+    created_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The time the user was created.
+    """
+
+    disable_default_ontology: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    When true, disables the use of the default fallback ontology for the
+    user's graph.
+    """
+
+    email: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The email address of the user.
+    """
+
+    first_name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The first name of the user.
+    """
+
     graph_uuid: typing.Optional[str] = pydantic.Field(default=None)
     """
-    GraphUUID is the graphs.uuid of the user's graph (spec-3 section 13.5).
-    Omitted when the graph row does not exist. Read-only; never accepted as input.
+    The unique identifier of the user's graph, populated when the user is
+    created.
     """
 
-    id: typing.Optional[int] = None
-    last_name: typing.Optional[str] = None
-    metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    last_name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Deprecated
+    The last name of the user.
     """
 
-    project_uuid: typing.Optional[str] = None
-    session_count: typing.Optional[int] = pydantic.Field(default=None)
+    metadata: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Deprecated
-    """
-
-    time_zone: typing.Optional[str] = None
-    updated_at: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Deprecated
+    Arbitrary key-value metadata attached to the user.
     """
 
-    user_id: typing.Optional[str] = None
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = None
+    time_zone: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The user's IANA time zone, used to localize dates in generated context.
+    """
+
+    user_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    An optional external identity identifier, such as an identity-provider
+    subject claim. Zep uses it to match an identity-provider sign-in to this
+    user. It is not an address; use uuid to address the user in v4. It is
+    unique within the project, can contain at most 500 characters, and
+    cannot be changed after creation. v4 sets it on create; v3 users keep
+    their existing value.
+    """
+
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the user."),
+    ] = None
+    """
+    The unique identifier of the user.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

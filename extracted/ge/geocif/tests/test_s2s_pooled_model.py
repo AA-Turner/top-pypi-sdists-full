@@ -1,7 +1,7 @@
 """Tests for the S2S eligibility scanner and the pooled model.
 
-Critical properties: the eligibility window math (open / too_early /
-in_season, usable-from month), the phenology-aligned init calendar, and the
+Critical properties: the eligibility window math (open before or after
+planting / too_early, usable-from and close dates), the init calendar, and the
 pooled LOYO's YEAR-level exclusion across countries (ENSO years are shared —
 per-country exclusion would leak the fold year through the neighbour).
 """
@@ -33,24 +33,35 @@ class TestEligibilityWindow(unittest.TestCase):
         self.assertEqual(st["harvest_year"], 2027)
         self.assertEqual(st["usable_from"], "2026-11")
 
-    def test_recently_planted_season_rolls_to_next_year(self):
-        """Aug-planted crop on Sep 6: the current season is already growing
-        (in-season CIDs own it); the scanner reports the NEXT unstarted
-        season, whose window opens Apr 2027."""
+    def test_recently_planted_season_stays_open(self):
+        """Aug-planted crop on Sep 6: the season is growing, and S2S inits
+        issued after planting still cover its remaining months, so the
+        window stays open (until end-Nov, the season's last month)."""
         from geocif.experiments.s2s_eligibility import window_state
 
         st = window_state(planting=8, wraps=False, today=date(2026, 9, 6),
                           latest_init="2026-08")
+        self.assertEqual((st["status"], st["phase"]), ("open", "in_season"))
+        self.assertEqual(st["harvest_year"], 2026)
+        self.assertEqual(st["closes"], "2026-11-30")
+
+    def test_closed_season_rolls_to_next_year(self):
+        """Past the season's last month the scanner reports the NEXT season,
+        whose window opens Apr 2027."""
+        from geocif.experiments.s2s_eligibility import window_state
+
+        st = window_state(planting=8, wraps=False, today=date(2026, 12, 1),
+                          latest_init="2026-11")
         self.assertEqual(st["status"], "too_early")
         self.assertEqual(st["usable_from"], "2027-04")
         self.assertEqual(st["harvest_year"], 2027)
 
-    def test_in_season_during_planting_month(self):
+    def test_open_during_planting_month(self):
         from geocif.experiments.s2s_eligibility import window_state
 
         st = window_state(planting=9, wraps=False, today=date(2026, 9, 6),
                           latest_init="2026-08")
-        self.assertEqual(st["status"], "in_season")
+        self.assertEqual((st["status"], st["phase"]), ("open", "in_season"))
 
     def test_open_but_init_not_published(self):
         from geocif.experiments.s2s_eligibility import window_state
@@ -82,6 +93,29 @@ class TestInitCalendar(unittest.TestCase):
 
         # offset 4: lead for planting+3 would be 7 -> excluded
         self.assertEqual(lead_map(11, 4), {11: 4, 12: 5, 1: 6})
+
+    def test_post_planting_inits_see_only_months_ahead(self):
+        """Lead L forecasts init month + L, so an init issued in or after the
+        planting month cannot forecast season months at lead < 1."""
+        from geocif.experiments.s2s_pooled_model import MIN_OFFSET, lead_map
+
+        self.assertEqual(MIN_OFFSET, -2)
+        self.assertEqual(lead_map(11, 0), {12: 1, 1: 2, 2: 3})
+        self.assertEqual(lead_map(11, -1), {1: 1, 2: 2})
+        self.assertEqual(lead_map(11, -2), {2: 1})
+        self.assertEqual(lead_map(11, -3), {})
+
+    def test_post_planting_init_crosses_new_year(self):
+        from geocif.experiments.s2s_pooled_model import init_calendar
+
+        # planting Nov 2026 (harvest 2027): offset -2 -> Jan 2027
+        self.assertEqual(init_calendar(11, -2, 2027, True), (2027, 1))
+        self.assertEqual(init_calendar(11, -1, 2027, True), (2026, 12))
+        # planting Mar 2027, no wrap: offset -2 -> May 2027
+        self.assertEqual(init_calendar(3, -2, 2027, False), (2027, 5))
+        # planting Dec 2026 (wraps): offset 0 -> Dec 2026, -1 -> Jan 2027
+        self.assertEqual(init_calendar(12, 0, 2027, True), (2026, 12))
+        self.assertEqual(init_calendar(12, -1, 2027, True), (2027, 1))
 
 
 class TestPooledLoyoLeakage(unittest.TestCase):

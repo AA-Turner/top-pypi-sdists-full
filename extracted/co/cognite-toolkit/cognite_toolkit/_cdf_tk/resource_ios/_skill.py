@@ -16,7 +16,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.group import (
 from cognite_toolkit._cdf_tk.client.resource_classes.skill import SkillRequest, SkillResponse
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
     calculate_hash,
@@ -50,7 +49,9 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         return "agent skills"
 
     @classmethod
-    def get_id(cls, item: SkillRequest | SkillResponse | dict) -> ExternalId:
+    def get_id(cls, item: SkillRequest | SkillResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             external_id = item.get("externalId") or item.get("external_id")
             if external_id is None:
@@ -112,7 +113,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         if skill_md_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
-                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
+                code="MISSING-REFERENCED-FILE",
                 error=(
                     f"Missing skill content for {prefix!r} in {filepath.as_posix()}. "
                     f"No 'content' field found and no <prefix>.md file found. Expected one of: "
@@ -127,7 +128,7 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
         except (ValidationError, ValueError) as e:
             yield FailedReadExtra(
                 source_path=skill_md_path,
-                code=v09_gate("INVALID-FILE-CONTENT", "SYNTAX-ERROR"),
+                code="INVALID-FILE-CONTENT",
                 error=f"\nInvalid markdown in {skill_md_path.parent.name}/{skill_md_path.name}.\n{e}",
             )
             return
@@ -229,9 +230,10 @@ class SkillIO(ResourceIO[ExternalId, SkillRequest, SkillResponse, SkillYAML]):
     def update(self, items: Sequence[SkillRequest]) -> list[SkillResponse]:
         return self.client.tool.skills.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        self.client.tool.skills.delete(list(ids), ignore_unknown_ids=True)
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        self.client.tool.skills.delete(id_list, ignore_unknown_ids=True)
+        return id_list
 
     def _iterate(
         self,

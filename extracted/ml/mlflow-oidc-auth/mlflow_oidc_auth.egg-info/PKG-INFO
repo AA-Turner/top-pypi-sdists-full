@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow-oidc-auth
-Version: 9.0.4
+Version: 10.0.0
 Summary: Authentication and access control for MLflow: SSO (OIDC, SAML), SCIM provisioning and per-resource permissions
 Maintainer-email: Alexander Kharkevich <alex@kharkevich.org>
 License-Expression: Apache-2.0
@@ -17,15 +17,18 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mlflow<4,>=3.16.0
 Requires-Dist: python-dotenv<2
 Requires-Dist: requests<3,>=2.32.5
 Requires-Dist: truststore>=0.10
-Requires-Dist: sqlalchemy<3,>=2.0.46
+Requires-Dist: sqlalchemy<3,>=2.1.0
 Requires-Dist: flask<4
 Requires-Dist: gunicorn<24; platform_system != "Windows"
 Requires-Dist: alembic!=1.18.4,<2
@@ -75,7 +78,7 @@ Dynamic: license-file
 # MLflow Access Control (`mlflow-oidc-auth`)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PyPI Downloads](https://static.pepy.tech/badge/mlflow-oidc-auth/month)](https://pepy.tech/projects/mlflow-oidc-auth)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mlflow-oidc/mlflow-oidc-auth)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/mlflow-oidc/mlflow-oidc-auth)
 
 Authentication and access control for MLflow tracking servers: single sign-on (OIDC, SAML 2.0), SCIM user and group provisioning, service accounts, and per-resource permissions for users, groups and workspaces.
 

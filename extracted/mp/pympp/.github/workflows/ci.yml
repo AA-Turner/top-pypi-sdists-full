@@ -19,7 +19,11 @@ jobs:
     if: always()
     needs: [test, integration, package, install-smoke]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
       - env:
           ANY_FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
@@ -30,18 +34,23 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: tempoxyz/gh-actions/vendor/astral-sh/setup-uv@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
@@ -66,7 +75,7 @@ jobs:
 
       - name: Type check
         if: matrix.python-version == '3.12'
-        uses: jakebailey/pyright-action@8ec14b5cfe41f26e5f41686a31eb6012758217ef # v3.0.2
+        uses: tempoxyz/gh-actions/vendor/jakebailey/pyright-action@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
         with:
           version: PATH
 
@@ -93,13 +102,18 @@ jobs:
   integration:
     name: Integration Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: tempoxyz/gh-actions/vendor/astral-sh/setup-uv@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
@@ -125,13 +139,18 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: tempoxyz/gh-actions/vendor/astral-sh/setup-uv@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
@@ -157,18 +176,23 @@ jobs:
   install-smoke:
     needs: package
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
-        profile: [base, tempo, mcp]
+        profile: [base, tempo, stripe, mcp]
 
     steps:
+      - name: Secure runner
+        uses: tempoxyz/gh-actions/actions/secure-runner@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: tempoxyz/gh-actions/vendor/astral-sh/setup-uv@55fe3b63d9612623cc51e6c62d9d62fbcb175fb0 # 2026-09-29T01-25-15Z-55fe3b63
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
@@ -196,6 +220,9 @@ jobs:
               ;;
             tempo)
               INSTALL_TARGET="${WHEEL}[tempo]"
+              ;;
+            stripe)
+              INSTALL_TARGET="${WHEEL}[stripe]"
               ;;
             mcp)
               INSTALL_TARGET="${WHEEL}[mcp]"
@@ -228,16 +255,19 @@ jobs:
           print("base install smoke test passed")
           PY
 
-      - name: Smoke test built wheel (tempo)
-        if: matrix.profile == 'tempo'
+      - name: Smoke test built wheel (Tempo dependencies)
+        if: matrix.profile == 'tempo' || matrix.profile == 'stripe'
+        env:
+          PROFILE: ${{ matrix.profile }}
         run: |
           .smoke-venv/bin/python - <<'PY'
+          import os
           from mpp.methods.tempo import ChargeIntent, TempoAccount
-
-          assert ChargeIntent.__name__ == "ChargeIntent"
-          assert TempoAccount.__name__ == "TempoAccount"
-
-          print("tempo install smoke test passed")
+          if os.environ["PROFILE"] == "stripe":
+              from stripe import StripeClient
+              from mpp.methods.stripe import create
+              payments = create(network_id="bn_test", livemode=False, client=StripeClient("sk_test"), deposit_addresses={"tempo": "0x" + "1" * 40})
+              assert [method.name for method in payments.default_methods()] == ["tempo", "stripe"]
           PY
 
       - name: Smoke test built wheel (mcp)

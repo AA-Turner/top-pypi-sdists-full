@@ -17,6 +17,7 @@ if cuda_available:
 @pytest.fixture
 def small_safetensors(tmp_path):
     tensors = {f"w{i}": torch.arange(64, dtype=torch.float32) + i for i in range(8)}
+    tensors["w[0]"] = torch.arange(64, dtype=torch.float32)
     path = tmp_path / "tiny.safetensors"
     save_file(tensors, str(path))
     return str(path), tensors
@@ -88,6 +89,27 @@ def test_copy_false_warns_when_buffer_smaller_than_total(ring_buffer_safetensors
                 pass
     msgs = [str(x.message) for x in w if issubclass(x.category, UserWarning)]
     assert any("copy=False" in m for m in msgs), msgs
+
+
+@pytest.mark.parametrize("copy", [False, True])
+def test_filtered_copy_warning_includes_alignment_padding(small_safetensors, copy):
+    """Tensor bytes fitting in the buffer must not suppress filtered warnings."""
+    path, expected = small_safetensors
+    selected = ["w[0]", "w2", "w4", "w6"]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with safe_open(path, "pt", 0, tensor_filter=selected,
+                       tensor_name_match_mode="exact", copy=copy,
+                       chunk_size=4096, io_depth=1, buffer_size=65536) as f:
+            assert f.buffer_size >= f.total_tensor_size
+            loaded = {}
+            for name, tensor in f.tensors():
+                loaded[name] = tensor.cpu()
+    assert set(loaded) == set(selected)
+    for name, tensor in loaded.items():
+        torch.testing.assert_close(tensor, expected[name])
+    messages = [str(w.message) for w in caught if issubclass(w.category, UserWarning)]
+    assert any("copy=False" in message for message in messages) is (not copy)
 
 
 def test_copy_true_does_not_warn_with_small_buffer(ring_buffer_safetensors):

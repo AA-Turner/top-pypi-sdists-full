@@ -22,6 +22,7 @@ class PublicInvitation:
         call_name (str):
         call_uuid (UUID):
         invitation_status (str):
+        invited_at (datetime.datetime):
         expires_at (Union[None, datetime.datetime]):
         is_expired (bool):
         max_assignments (Union[None, int]):
@@ -37,6 +38,7 @@ class PublicInvitation:
     call_name: str
     call_uuid: UUID
     invitation_status: str
+    invited_at: datetime.datetime
     expires_at: Union[None, datetime.datetime]
     is_expired: bool
     max_assignments: Union[None, int]
@@ -56,6 +58,8 @@ class PublicInvitation:
         call_uuid = str(self.call_uuid)
 
         invitation_status = self.invitation_status
+
+        invited_at = self.invited_at.isoformat()
 
         expires_at: Union[None, str]
         if isinstance(self.expires_at, datetime.datetime):
@@ -100,6 +104,7 @@ class PublicInvitation:
                 "call_name": call_name,
                 "call_uuid": call_uuid,
                 "invitation_status": invitation_status,
+                "invited_at": invited_at,
                 "expires_at": expires_at,
                 "is_expired": is_expired,
                 "max_assignments": max_assignments,
@@ -125,6 +130,8 @@ class PublicInvitation:
         call_uuid = UUID(d.pop("call_uuid"))
 
         invitation_status = d.pop("invitation_status")
+
+        invited_at = isoparse(d.pop("invited_at"))
 
         def _parse_expires_at(data: object) -> Union[None, datetime.datetime]:
             if data is None:
@@ -199,6 +206,7 @@ class PublicInvitation:
             call_name=call_name,
             call_uuid=call_uuid,
             invitation_status=invitation_status,
+            invited_at=invited_at,
             expires_at=expires_at,
             is_expired=is_expired,
             max_assignments=max_assignments,

@@ -22,11 +22,16 @@ CLI, hooks and logbook never change when a policy is added.
                            is a false alarm (D14)
     team_note.edit         a change to the team note, which is rendered into every
                            teammate's agent instructions: shown as a diff
+    feedback.send          feedback about Probe for the Probe team, from any agent
+                           (`probe.feedback`); a yes sends it, and the daemon never
+                           acts on it
 
 BYPASS MODE (Richard, 2026-09-26: "Bypass means bypass"): when the session runs
 with the harness's approvals off, nothing is asked -- secrets included -- and the
 logbook says "auto-approved: bypass mode". When the mode cannot be read, the
-daemon asks.
+daemon asks. The one exception is `feedback.send` (Richard, 2026-10-13): feedback
+is asked in every mode, because nothing about a session leaves for the Probe team
+unseen (`probe.feedback.hold` passes `bypass=False`).
 
 The files: `<state>/probe/approvals/requests/<id>.json` (written by the daemon,
 read by the hooks and `probe approvals`), `<state>/probe/approvals/answers/<id>.json`
@@ -232,6 +237,8 @@ def _bound(policy: str, facts: dict, held: dict) -> bool:
         if policy == "delete.others_data":
             return parsed.path in precheck.CASCADE_DELETES
         return parsed.path == "notes sync" and not parsed.params.get("pull_only")
+    if policy == FEEDBACK:
+        return held.get("kind") == "feedback"
     return policy == "team_note.edit" and held.get("kind") == "shell" and isinstance(held.get("command"), str)
 
 
@@ -348,6 +355,28 @@ def _render_team_note(facts: dict, header: str) -> Question:
                     terminal_only=long)
 
 
+#: Feedback about Probe for the Probe team (`probe.feedback`). Its question is
+#: never cut: `probe.feedback.MAX_CHARS` keeps the text short enough to show whole.
+FEEDBACK = "feedback.send"
+#: Who wrote the feedback, as the question names them (`probe.feedback.Source`).
+FEEDBACK_AUTHORS = {
+    "agent": "your coding agent",
+    "daemon_writer": "the Probe daemon",
+    "daemon_reader": "the Probe daemon's reader",
+}
+
+
+def _render_feedback(facts: dict, header: str) -> Question:
+    who = FEEDBACK_AUTHORS.get(str(facts.get("source")), "an agent")
+    version = facts.get("client_version")
+    also = ["your name and team", facts.get("harness"), f"CLI {version}" if version else None,
+            "this session's id" if facts.get("session_id") else None]
+    text = (f"Feedback about Probe from {who}:\n{facts.get('text') or ''}\n"
+            f"Also sent: {', '.join(part for part in also if part)}.\n")
+    return Question(header=header, question=text + "Send it to the Probe team?", yes_label="Send it",
+                    no_label="Don't send")
+
+
 POLICIES: dict[str, Policy] = {
     "delete.others_data": Policy(
         "delete.others_data", _render_delete,
@@ -361,6 +390,10 @@ POLICIES: dict[str, Policy] = {
         "check.override", _render_override, lambda f: _digest(f.get("command"), f.get("flagged"))),
     "team_note.edit": Policy(
         "team_note.edit", _render_team_note, lambda f: _digest(f.get("path"), f.get("text_sha"))),
+    FEEDBACK: Policy(
+        FEEDBACK, _render_feedback,
+        lambda f: _digest(f.get("text"), f.get("source"), f.get("harness"), f.get("client_version"),
+                          f.get("session_id"))),
 }
 
 
@@ -506,9 +539,15 @@ class Board:
         return sorted(out, key=lambda r: r.asked_at)
 
     def waiting(self) -> list[Request]:
+        """Questions still waiting for the person: unanswered, unexpired. One
+        answered and not yet acted on is not asked again, and is never expired
+        here: whoever acts on it reads its answer first (a yes given in time
+        stays a yes)."""
         now = self.clock()
         out = []
         for req in self.all(state=WAITING):
+            if self._path("answers", req.id).exists():
+                continue
             if req.expires_at and now > req.expires_at:
                 req.state, req.outcome = EXPIRED, "expired: nobody answered"
                 self.save(req)

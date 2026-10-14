@@ -4,6 +4,9 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.plan_billing_mode import PlanBillingMode
+from ..types import UNSET, Unset
+
 if TYPE_CHECKING:
     from ..models.export_plan_component_data import ExportPlanComponentData
 
@@ -24,6 +27,7 @@ class ExportPlanData:
         article_code (str):
         backend_id (str):
         components (list['ExportPlanComponentData']):
+        billing_mode (Union[Unset, PlanBillingMode]):  Default: PlanBillingMode.INHERIT.
     """
 
     name: str
@@ -35,6 +39,7 @@ class ExportPlanData:
     article_code: str
     backend_id: str
     components: list["ExportPlanComponentData"]
+    billing_mode: Union[Unset, PlanBillingMode] = PlanBillingMode.INHERIT
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,6 +65,10 @@ class ExportPlanData:
             components_item = components_item_data.to_dict()
             components.append(components_item)
 
+        billing_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.billing_mode, Unset):
+            billing_mode = self.billing_mode.value
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -75,6 +84,8 @@ class ExportPlanData:
                 "components": components,
             }
         )
+        if billing_mode is not UNSET:
+            field_dict["billing_mode"] = billing_mode
 
         return field_dict
 
@@ -111,6 +122,13 @@ class ExportPlanData:
 
             components.append(components_item)
 
+        _billing_mode = d.pop("billing_mode", UNSET)
+        billing_mode: Union[Unset, PlanBillingMode]
+        if isinstance(_billing_mode, Unset):
+            billing_mode = UNSET
+        else:
+            billing_mode = PlanBillingMode(_billing_mode)
+
         export_plan_data = cls(
             name=name,
             description=description,
@@ -121,6 +139,7 @@ class ExportPlanData:
             article_code=article_code,
             backend_id=backend_id,
             components=components,
+            billing_mode=billing_mode,
         )
 
         export_plan_data.additional_properties = d

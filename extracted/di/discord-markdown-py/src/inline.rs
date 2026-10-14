@@ -6,39 +6,33 @@ use nom::Parser;
 use nom::branch::alt;
 use nom::character::complete::{anychar, line_ending};
 use nom::combinator::map;
-use nom::error::ErrorKind;
 use nom::multi::many1;
 use nom::sequence::preceded;
 use tracing::Level;
 
-use crate::context::TerminalOutput;
-use crate::error::{OutOfFuel, ParseError};
+use crate::context::fuel::ApplyFuel;
+use crate::error::ParseError;
+use crate::range::delim;
 use crate::span::{TraceOk, TraceParse};
 
 use super::Input;
 use super::context::Context;
 use super::grammar::Grammar;
-use super::node::{Node, SpannedNodes, flatten_owned};
+use super::node::{Element, ParsedNode, ParsedNodes, merge_text};
 use super::span::{Span, WithSpan};
 
 pub use {
-	bold::bold, code::code, code_block::code_block, italic::italic, link::link, mention::mention,
-	spoiler::spoiler, strikethrough::strikethrough, text::text, timestamp::timestamp,
-	underline::underline,
+	code::code, code_block::code_block, link::link, mention::mention, text::text,
+	timestamp::timestamp,
 };
 
-pub mod bold;
 pub mod code;
 pub mod code_block;
 pub mod emoji;
-pub mod italic;
 pub mod link;
 pub mod mention;
-pub mod spoiler;
-pub mod strikethrough;
 pub mod text;
 pub mod timestamp;
-pub mod underline;
 
 struct InlineParser<S, E> {
 	context: Context,
@@ -71,7 +65,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = SpannedNodes<'data, S>;
+	type Output = ParsedNodes<'data, S>;
 	type Error = E;
 
 	#[tracing::instrument(name = "inline_parser", level = Level::TRACE, fields(ok, output))]
@@ -79,45 +73,37 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		// Every inline parse costs a unit of fuel, including the ones an enclosing rule goes on to
-		// abandon. Running dry is a `Failure` rather than an `Error` so that it aborts the parse
-		// instead of being swallowed by the surrounding `alt`, which would just retry against an
-		// empty tank. `OutOfFuel` travels as an external error, so an error type that cares can
-		// keep it (see `crate::error::Error`); the `ErrorKind` is only what nom's signature
-		// demands, and carries no meaning here.
-		if !self.context.consume_fuel() {
-			return Err(nom::Err::Failure(E::from_external_error(
-				input,
-				ErrorKind::Fail,
-				OutOfFuel,
-			)));
-		}
-
 		let ctx = self.context.with_hints(&input);
 
 		many1(alt((
 			ctx.matched_pairs()
 				// TODO: this should respect the inner content by outputting a Node (or list of Nodes) rather than Input
-				.map(|seq| Node::<S>::Text(seq.content.into()))
+				.map(|seq| ParsedNode::<S>::Element(Element::Text(seq.content.into())))
 				.span(),
 			ctx.guard_terminal_sequence(|| {
 				alt((
-					ctx.allowed_inline_rules(),
-					preceded((line_ending, ctx.line_prefix()), ctx.allowed_block_rules()),
-					text::text(ctx.clone()).map(|content| Node::Text(Cow::Owned(content))),
+					ctx.allowed_inline_rules().map(ParsedNode::Element),
+					// resolved into modifiers once the whole message is parsed; see `crate::range`
+					delim::delim(ctx.allowed_rules).map(ParsedNode::Delim),
+					preceded((line_ending, ctx.line_prefix()), ctx.allowed_block_rules())
+						.map(ParsedNode::Element),
+					text::text(ctx.clone())
+						.map(|content| ParsedNode::Element(Element::Text(Cow::Owned(content)))),
 					// If we failed to capture the current character after stepping through all rules
 					// then we are likely dealing with an unpaired control character, so consume it
 					// and allow the rules to continue.
-					map(anychar, |ch: char| Node::Text(ch.to_string().into())),
+					map(anychar, |ch: char| {
+						ParsedNode::Element(Element::Text(ch.to_string().into()))
+					}),
 				))
-			})
-			.map(|seq| match seq {
-				TerminalOutput::Override(seq) => Node::Text(seq.content.into()),
-				TerminalOutput::Normal(node) => node,
 			})
 			.span(),
 		)))
-		.map(flatten_owned)
+		.apply_fuel(self.context.remaining_fuel())
+		.map(|mut pieces| {
+			merge_text(&mut pieces);
+			pieces
+		})
 		.span()
 		.trace_parse()
 		.process::<OM>(input)
@@ -129,7 +115,7 @@ where
 #[must_use]
 pub fn inline<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -146,13 +132,16 @@ mod test {
 	use nom::{Finish, Parser};
 
 	use crate::{
-		bold, code, code_block, emoji, italic, link, spanned_vec, spoiler,
-		test_utils::handle_nom_err,
+		bold, code, code_block, emoji, italic, link,
+		range::Content,
+		spanned_vec, spoiler,
+		test_utils::{handle_nom_err, resolved},
 		text, underline,
 		{
 			context::Context,
 			inline::{mention::Mention, timestamp::Timestamp},
-			node::Node,
+			node::{Element, Node, ParsedNode},
+			rule::Rule,
 		},
 	};
 
@@ -168,17 +157,17 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![italic!(
 				text!("foo t_a "),
 				bold!("bat"),
 				text!(" "),
 				emoji!(id = 1234, name = "abcd", animated),
-				Node::Timestamp(Timestamp {
+				Node::Element(Element::Timestamp(Timestamp {
 					value: 1234,
 					style: None,
-				}),
-				Node::Mention(Mention::User(1234)),
+				})),
+				Node::Element(Element::Mention(Mention::User(1234))),
 				text!(" butt")
 			)]
 		);
@@ -197,7 +186,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![
 				text!("the discord_admin codebase and "),
 				italic!("really"),
@@ -218,7 +207,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![text!("Endemic_(epidemiology) and "), italic!("really")]
 		);
 	}
@@ -234,7 +223,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![text!("foo_bar baz_")]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![text!("foo_bar baz_")]
+		);
 	}
 
 	/// The override is anchored on a *preceding* alphanumeric, so an underscore that starts a word
@@ -249,7 +241,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![italic!("(foo)")]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![italic!("(foo)")]
+		);
 	}
 
 	/// A bold nested in an asterisk italic survives in every container, because they all descend
@@ -266,7 +261,7 @@ mod test {
 				.expect("unable to parse");
 			assert!(
 				res.iter()
-					.any(|node| node.iter().any(|node| matches!(node, Node::Bold(_)))),
+					.any(|node| node.iter().any(|node| node.rule() == Some(Rule::Bold))),
 				"expected a nested bold for {s:?}, got {res:?}"
 			);
 		}
@@ -284,7 +279,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![italic!(underline!("foo"))]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![italic!(underline!("foo"))]
+		);
 	}
 
 	#[test]
@@ -298,7 +296,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![text!("foo "), link!("https://wnelson.dev"), text!(" bar"),]
 		);
 	}
@@ -314,7 +312,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![text!("(see "), link!("https://wnelson.dev"), text!(").")]
 		);
 	}
@@ -330,7 +328,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![
 				text!("foo "),
 				link!("https://wnelson.dev", [text!("bar")]),
@@ -349,7 +347,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![text!("foo\nbar")]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![text!("foo\nbar")]
+		);
 	}
 
 	#[test]
@@ -362,7 +363,7 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![code!("foo")]);
+		assert_eq!(resolved(res, Content::Inline), spanned_vec![code!("foo")]);
 	}
 
 	#[test]
@@ -375,7 +376,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![text!("foo "), code!("ba**r**")]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![text!("foo "), code!("ba**r**")]
+		);
 	}
 
 	#[test]
@@ -388,7 +392,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![code_block!("foo")]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![code_block!("foo")]
+		);
 	}
 
 	#[test]
@@ -402,7 +409,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![
 				text!("foo "),
 				bold!("bar"),
@@ -423,7 +430,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![text!("foo "), emoji!("🦶"),]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![text!("foo "), emoji!("🦶"),]
+		);
 	}
 
 	#[test]
@@ -436,7 +446,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec![text!("foo "), emoji!("🦶"),]);
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec![text!("foo "), emoji!("🦶"),]
+		);
 	}
 
 	#[test]
@@ -450,7 +463,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![text!("foo "), spoiler!("bar"), text!(" baz")]
 		);
 	}
@@ -468,7 +481,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![text!("foo "), link!("https://wnelson.dev"), text!(" bar")]
 		);
 	}
@@ -484,7 +497,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Inline),
 			spanned_vec![bold!("foo __bar "), text!("baz"), bold!(" foo__ bar")]
 		);
 	}
@@ -513,10 +526,12 @@ mod test {
 				.finish()
 				.map_err(handle_nom_err(s))
 				.expect("unable to parse");
+			let res = resolved(res, Content::Inline);
 
 			assert_eq!(rem, "", "unexpected input remaining for {s:?}");
 			assert!(
-				res.iter().all(|node| matches!(node.value, Node::Text(_))),
+				res.iter()
+					.all(|node| matches!(node.value, Node::Element(Element::Text(_)))),
 				"expected only text for {s:?}, got {res:?}"
 			);
 		}
@@ -535,7 +550,7 @@ mod test {
 		assert_eq!(rem, "");
 		assert_eq!(res.value.len(), 1, "expected one node, got {res:?}");
 		assert!(
-			matches!(res.value[0].value, Node::Link(_)),
+			matches!(res.value[0].value, ParsedNode::Element(Element::Link(_))),
 			"expected a link, got {res:?}"
 		);
 	}
@@ -559,7 +574,8 @@ mod test {
 
 			assert_eq!(rem, "", "unexpected input remaining for {s:?}");
 			assert!(
-				res.iter().any(|node| matches!(node.value, Node::Link(_))),
+				res.iter()
+					.any(|node| matches!(node.value, ParsedNode::Element(Element::Link(_)))),
 				"expected a link for {s:?}, got {res:?}"
 			);
 		}
@@ -577,7 +593,8 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert!(
-			res.iter().any(|node| matches!(node.value, Node::Link(_))),
+			res.iter()
+				.any(|node| matches!(node.value, ParsedNode::Element(Element::Link(_)))),
 			"expected a link, got {res:?}"
 		);
 	}

@@ -20,26 +20,33 @@ class PosixIdentity:
         uuid (UUID):
         created (datetime.datetime):
         pool_uuid (UUID):
-        offering_uuid (UUID):
-        offering_name (str):
+        offering_uuid (Union[None, UUID]):
+        offering_name (Union[None, str]):
+        user_uuid (Union[None, UUID]):
+        user_username (Union[None, str]): Required. 128 characters or fewer. Lowercase letters, numbers and @/./+/-/_
+            characters
         consumer_type (Union[None, str]):
         consumer_name (Union[None, str]):
         uid (Union[None, Unset, int]):
         gid (Union[None, Unset, int]):
         released_at (Union[None, Unset, datetime.datetime]):
+        recyclable (Union[Unset, bool]):
     """
 
     url: str
     uuid: UUID
     created: datetime.datetime
     pool_uuid: UUID
-    offering_uuid: UUID
-    offering_name: str
+    offering_uuid: Union[None, UUID]
+    offering_name: Union[None, str]
+    user_uuid: Union[None, UUID]
+    user_username: Union[None, str]
     consumer_type: Union[None, str]
     consumer_name: Union[None, str]
     uid: Union[None, Unset, int] = UNSET
     gid: Union[None, Unset, int] = UNSET
     released_at: Union[None, Unset, datetime.datetime] = UNSET
+    recyclable: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,9 +58,23 @@ class PosixIdentity:
 
         pool_uuid = str(self.pool_uuid)
 
-        offering_uuid = str(self.offering_uuid)
+        offering_uuid: Union[None, str]
+        if isinstance(self.offering_uuid, UUID):
+            offering_uuid = str(self.offering_uuid)
+        else:
+            offering_uuid = self.offering_uuid
 
+        offering_name: Union[None, str]
         offering_name = self.offering_name
+
+        user_uuid: Union[None, str]
+        if isinstance(self.user_uuid, UUID):
+            user_uuid = str(self.user_uuid)
+        else:
+            user_uuid = self.user_uuid
+
+        user_username: Union[None, str]
+        user_username = self.user_username
 
         consumer_type: Union[None, str]
         consumer_type = self.consumer_type
@@ -81,6 +102,8 @@ class PosixIdentity:
         else:
             released_at = self.released_at
 
+        recyclable = self.recyclable
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -91,6 +114,8 @@ class PosixIdentity:
                 "pool_uuid": pool_uuid,
                 "offering_uuid": offering_uuid,
                 "offering_name": offering_name,
+                "user_uuid": user_uuid,
+                "user_username": user_username,
                 "consumer_type": consumer_type,
                 "consumer_name": consumer_name,
             }
@@ -101,6 +126,8 @@ class PosixIdentity:
             field_dict["gid"] = gid
         if released_at is not UNSET:
             field_dict["released_at"] = released_at
+        if recyclable is not UNSET:
+            field_dict["recyclable"] = recyclable
 
         return field_dict
 
@@ -115,9 +142,49 @@ class PosixIdentity:
 
         pool_uuid = UUID(d.pop("pool_uuid"))
 
-        offering_uuid = UUID(d.pop("offering_uuid"))
+        def _parse_offering_uuid(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                offering_uuid_type_0 = UUID(data)
 
-        offering_name = d.pop("offering_name")
+                return offering_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        offering_uuid = _parse_offering_uuid(d.pop("offering_uuid"))
+
+        def _parse_offering_name(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        offering_name = _parse_offering_name(d.pop("offering_name"))
+
+        def _parse_user_uuid(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                user_uuid_type_0 = UUID(data)
+
+                return user_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        user_uuid = _parse_user_uuid(d.pop("user_uuid"))
+
+        def _parse_user_username(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        user_username = _parse_user_username(d.pop("user_username"))
 
         def _parse_consumer_type(data: object) -> Union[None, str]:
             if data is None:
@@ -168,6 +235,8 @@ class PosixIdentity:
 
         released_at = _parse_released_at(d.pop("released_at", UNSET))
 
+        recyclable = d.pop("recyclable", UNSET)
+
         posix_identity = cls(
             url=url,
             uuid=uuid,
@@ -175,11 +244,14 @@ class PosixIdentity:
             pool_uuid=pool_uuid,
             offering_uuid=offering_uuid,
             offering_name=offering_name,
+            user_uuid=user_uuid,
+            user_username=user_username,
             consumer_type=consumer_type,
             consumer_name=consumer_name,
             uid=uid,
             gid=gid,
             released_at=released_at,
+            recyclable=recyclable,
         )
 
         posix_identity.additional_properties = d

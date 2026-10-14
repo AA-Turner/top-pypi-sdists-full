@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.organization_group import OrganizationGroup
+    from ..models.provider_account_options import ProviderAccountOptions
 
 
 T = TypeVar("T", bound="ServiceProvider")
@@ -38,6 +39,7 @@ class ServiceProvider:
         offering_count (Union[Unset, int]):
         allowed_domains (Union[Unset, list[str]]): List of allowed domains for offering endpoints. Only staff can modify
             this field.
+        account_options (Union[Unset, ProviderAccountOptions]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -57,6 +59,7 @@ class ServiceProvider:
     organization_groups: Union[Unset, list["OrganizationGroup"]] = UNSET
     offering_count: Union[Unset, int] = UNSET
     allowed_domains: Union[Unset, list[str]] = UNSET
+    account_options: Union[Unset, "ProviderAccountOptions"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -111,6 +114,10 @@ class ServiceProvider:
         if not isinstance(self.allowed_domains, Unset):
             allowed_domains = self.allowed_domains
 
+        account_options: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.account_options, Unset):
+            account_options = self.account_options.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -148,12 +155,15 @@ class ServiceProvider:
             field_dict["offering_count"] = offering_count
         if allowed_domains is not UNSET:
             field_dict["allowed_domains"] = allowed_domains
+        if account_options is not UNSET:
+            field_dict["account_options"] = account_options
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.organization_group import OrganizationGroup
+        from ..models.provider_account_options import ProviderAccountOptions
 
         d = dict(src_dict)
         url = d.pop("url", UNSET)
@@ -217,6 +227,13 @@ class ServiceProvider:
 
         allowed_domains = cast(list[str], d.pop("allowed_domains", UNSET))
 
+        _account_options = d.pop("account_options", UNSET)
+        account_options: Union[Unset, ProviderAccountOptions]
+        if isinstance(_account_options, Unset):
+            account_options = UNSET
+        else:
+            account_options = ProviderAccountOptions.from_dict(_account_options)
+
         service_provider = cls(
             url=url,
             uuid=uuid,
@@ -235,6 +252,7 @@ class ServiceProvider:
             organization_groups=organization_groups,
             offering_count=offering_count,
             allowed_domains=allowed_domains,
+            account_options=account_options,
         )
 
         service_provider.additional_properties = d

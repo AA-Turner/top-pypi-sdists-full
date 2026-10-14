@@ -740,7 +740,8 @@ def _prune_empty_container(params: dict[str, Any], container: str | None) -> dic
 #            (cell-declared, with default_include_thoughts_why; explicit false /
 #            reasoning_summary "never" always win)
 # House values (ai_041): "auto" never reaches a table (fragment stays empty, the
-# provider default applies); "none" sends nothing (no level, no budget).
+# provider default applies). "none": legacy sends budget 0; gemini_3 has no off,
+# so it sends the lowest level the model takes (never the provider default).
 # Non-native gemini_3 tiers (pro medium -> low, xhigh -> high) are TRANSLATION
 # compat; the UI never offers them (ui_values).
 
@@ -856,11 +857,21 @@ def _google_thinking_3_fragment(
     include_thoughts: bool | None = None
 
     effort = _explicit_effort(canonical)
-    if effort:
-        default_map = D.GOOGLE_3_EFFORT_TO_LEVEL.get(
-            family, D.GOOGLE_3_EFFORT_TO_LEVEL[D.GOOGLE_3_DEFAULT_FAMILY]
-        )
-        thinking_level = effort_lookup(ctx.table("level_map", default_map), effort)
+    default_map = D.GOOGLE_3_EFFORT_TO_LEVEL.get(
+        family, D.GOOGLE_3_EFFORT_TO_LEVEL[D.GOOGLE_3_DEFAULT_FAMILY]
+    )
+    level_map = ctx.table("level_map", default_map)
+    if effort == "none" or (not effort and canonical.get("thinking_level") == "none"):
+        # Gemini 3 cannot turn thinking off, and leaving the level out runs the
+        # model's default — MORE thinking than asked (live 2026-10-13,
+        # gemini-3.8-flash). The honest equivalent of off is the lowest level;
+        # reconcile_supported below lands it on the lowest THIS model takes.
+        thinking_level = effort_lookup(level_map, D.GOOGLE_3_OFF_EFFORT)
+    elif effort:
+        thinking_level = effort_lookup(level_map, effort)
+    elif canonical.get("thinking_level") is not None:
+        # A level the caller chose is already this provider's word.
+        thinking_level = str(canonical["thinking_level"])
 
     reasoning_summary = canonical.get("reasoning_summary")
     if reasoning_summary:
@@ -868,10 +879,14 @@ def _google_thinking_3_fragment(
             "summary_to_include", D.GOOGLE_3_SUMMARY_TO_INCLUDE
         ).get(reasoning_summary)
 
-    # House "none" (ai_041): send nothing — no thinking_level, and the raw
-    # thinking_budget fallback must not resurrect one.
-    if effort != "none" and thinking_level is None and canonical.get("thinking_budget") is not None:
-        thinking_level = ctx.from_number(int(canonical["thinking_budget"]), D.GOOGLE_3_FROM_NUMBER)
+    # A raw budget is read only when nothing above chose a level; <= 0 is an off.
+    if thinking_level is None and canonical.get("thinking_budget") is not None:
+        budget = int(canonical["thinking_budget"])
+        thinking_level = (
+            effort_lookup(level_map, D.GOOGLE_3_OFF_EFFORT)
+            if budget <= 0
+            else ctx.from_number(budget, D.GOOGLE_3_FROM_NUMBER)
+        )
 
     if canonical.get("include_thoughts") is not None:
         include_thoughts = canonical["include_thoughts"]

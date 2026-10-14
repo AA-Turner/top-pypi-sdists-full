@@ -920,6 +920,107 @@ def test_secrets_only_count_added_lines_and_ignore_doc_examples(repo: Path):
     assert GH_TOKEN[4:] not in json.dumps([f.message for f in result.findings])
 
 
+VALID_YAML = "language: en\nreviews:\n  profile: chill\n"
+HELM_TEMPLATE = (
+    "apiVersion: v1\nkind: Pod\nmetadata:\n  name: {{ .Values.name }}\n"
+    '  labels: {{- include "x" . | nindent 4 }}\nspec:\n  containers: []\n'
+)
+
+
+def _yaml_base(repo: Path, rel: str, text: str) -> None:
+    _write(repo, rel, text)
+    _commit(repo, "yaml base")
+    _git(repo, "branch", "-f", "main", "HEAD")
+
+
+def test_unparsable_yaml_is_an_incomplete_secrets_check_not_a_secret(repo: Path):
+    _yaml_base(repo, ".coderabbit.yaml", VALID_YAML)
+    _write(repo, ".coderabbit.yaml", VALID_YAML + "reviews: [unclosed\n")
+
+    result = check_secrets(_ctx(repo))
+
+    assert result.status == "incomplete"
+    assert result.summary.startswith("Not fully checked: .coderabbit.yaml")
+    assert "does not parse as YAML" in result.summary
+    assert [(f.rule, f.file) for f in result.findings] == [
+        ("SKY-ANALYSIS-INCOMPLETE", ".coderabbit.yaml")
+    ]
+    assert "Could not parse this YAML file" in result.findings[0].message
+    assert all("secret added" not in f.message for f in result.findings)
+    assert result.evidence["secrets"] == 0
+    assert result.evidence["not_fully_checked"] == 1
+
+
+def test_unparsable_yaml_with_a_real_secret_still_fails(repo: Path):
+    _yaml_base(repo, ".coderabbit.yaml", VALID_YAML)
+    _write(
+        repo,
+        ".coderabbit.yaml",
+        VALID_YAML + f"token: {GH_TOKEN}\nreviews: [unclosed\n",
+    )
+
+    result = check_secrets(_ctx(repo))
+
+    assert result.status == "fail"
+    assert [f.rule for f in result.findings] == [
+        "SKY-S101",
+        "SKY-ANALYSIS-INCOMPLETE",
+    ]
+    assert result.findings[0].line == 4
+    assert result.evidence["secrets"] == 1
+
+
+def test_change_that_breaks_yaml_on_an_unchanged_line_is_incomplete(repo: Path):
+    # The added line (2) opens a flow sequence; the parser fails on a later,
+    # unchanged line. The base parsed, so this change made it unparsable.
+    _yaml_base(repo, ".coderabbit.yaml", VALID_YAML)
+    _write(
+        repo,
+        ".coderabbit.yaml",
+        "language: en\npaths: [a,\nreviews:\n  profile: chill\n",
+    )
+
+    result = check_secrets(_ctx(repo))
+
+    assert result.status == "incomplete"
+    assert result.findings[0].rule == "SKY-ANALYSIS-INCOMPLETE"
+    assert result.findings[0].line != 2
+
+
+def test_already_unparsable_template_edited_elsewhere_passes_and_says_so(
+    repo: Path,
+):
+    _yaml_base(repo, "chart/templates/pod.yaml", HELM_TEMPLATE)
+    _write(repo, "chart/templates/pod.yaml", HELM_TEMPLATE + "status: {}\n")
+
+    result = check_secrets(_ctx(repo))
+
+    assert result.status == "pass"
+    assert result.findings == []
+    assert "chart/templates/pod.yaml was checked line by line only" in (
+        result.summary
+    )
+    assert result.evidence["checked_line_by_line"] == 1
+
+
+def test_new_unparsable_template_is_incomplete(repo: Path):
+    _write(repo, "chart/templates/pod.yaml", HELM_TEMPLATE)
+
+    result = check_secrets(_ctx(repo))
+
+    assert result.status == "incomplete"
+    assert result.findings[0].rule == "SKY-ANALYSIS-INCOMPLETE"
+
+
+def test_unfinished_secrets_check_still_stops_a_block_mode_run(repo: Path):
+    _yaml_base(repo, ".coderabbit.yaml", VALID_YAML)
+    _write(repo, ".coderabbit.yaml", VALID_YAML + "reviews: [unclosed\n")
+
+    secrets = check_secrets(_ctx(repo))
+
+    assert decide_verdict([CheckOutcome("block", secrets)]) == "incomplete"
+
+
 # ---------------------------------------------------------------------------
 # runner (A113)
 # ---------------------------------------------------------------------------
@@ -990,8 +1091,10 @@ def test_verdict_names_the_failed_tests_plainly(repo: Path):
 
     receipt = build_receipt(result)
     verdict = render_text(receipt).splitlines()[-1]
+    # Every failure passes on main, so each is labeled introduced.
     assert verdict == (
         f"Verdict: FAIL: {failed} of {ran} tests failed when Skylos ran them"
+        f" ({failed} introduced)"
     )
     assert f"**{verdict}**" in render_markdown(receipt)
 
@@ -1776,6 +1879,38 @@ def test_opaque_test_candidate_makes_inventory_unfinished(repo: Path, opaque):
     result = done_checks.run_check("test_tampering", _ctx(repo))
     assert result.status == "incomplete"
     assert "Cannot inventory tests/test_calc.py" in result.summary
+
+
+def test_inventory_parses_a_file_the_change_left_alone_once(repo: Path, monkeypatch):
+    calls: list[str] = []
+    original = done_checks.collect_tests
+
+    def counting(path, source, **kwargs):
+        calls.append(path)
+        return original(path, source, **kwargs)
+
+    _write(repo, "tests/test_other.py", "def test_other():\n    assert 1 + 1 == 2\n")
+    _make_current_base(repo)
+    _write(repo, "tests/test_calc.py", TESTS.replace("test_add_negative", "test_neg"))
+    monkeypatch.setattr(done_checks, "collect_tests", counting)
+    base, head = _ctx(repo).tests()
+    assert calls.count("tests/test_other.py") == 1
+    assert calls.count("tests/test_calc.py") == 2
+    assert [t for t in base if t.path == "tests/test_other.py"] == [
+        t for t in head if t.path == "tests/test_other.py"
+    ]
+    assert {t.name for t in base if t.path == "tests/test_calc.py"} - {
+        t.name for t in head
+    } == {"test_add_negative"}
+
+
+def test_unchanged_symlinked_test_file_still_stops_the_inventory(repo: Path):
+    (repo / "tests/test_link.py").symlink_to(repo / "tests/test_calc.py")
+    _make_current_base(repo)
+    _write(repo, "app/calc.py", CALC + "\n# harmless change\n")
+    result = done_checks.run_check("test_tampering", _ctx(repo))
+    assert result.status == "incomplete"
+    assert "Cannot inventory tests/test_link.py" in result.summary
 
 
 @pytest.mark.parametrize("candidate", [False, True])

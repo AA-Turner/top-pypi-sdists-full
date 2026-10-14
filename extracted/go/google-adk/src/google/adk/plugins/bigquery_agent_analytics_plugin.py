@@ -104,6 +104,9 @@ from ..models.llm_response import LlmResponse
 from ..platform.thread import create_thread
 from ..tools.base_tool import BaseTool
 from ..tools.tool_context import ToolContext
+from ..utils._function_call_names import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
+from ..utils._function_call_names import REQUEST_EUC_FUNCTION_CALL_NAME
+from ..utils._function_call_names import REQUEST_INPUT_FUNCTION_CALL_NAME
 from ..utils._telemetry_context import _get_telemetry_surface
 from ..version import __version__
 from .base_plugin import BasePlugin
@@ -136,18 +139,18 @@ class _ClientInfoFactory(Protocol):
 _CLIENT_INFO_FACTORY = cast(_ClientInfoFactory, gapic_client_info.ClientInfo)
 
 _HITL_EVENT_MAP = MappingProxyType({
-    "adk_request_credential": "HITL_CREDENTIAL_REQUEST",
-    "adk_request_confirmation": "HITL_CONFIRMATION_REQUEST",
-    "adk_request_input": "HITL_INPUT_REQUEST",
+    REQUEST_EUC_FUNCTION_CALL_NAME: "HITL_CREDENTIAL_REQUEST",
+    REQUEST_CONFIRMATION_FUNCTION_CALL_NAME: "HITL_CONFIRMATION_REQUEST",
+    REQUEST_INPUT_FUNCTION_CALL_NAME: "HITL_INPUT_REQUEST",
 })
 
 # Reverse of _HITL_EVENT_MAP for the long-running-tool pause_kind
 # discriminator. The id→name lookup routes ``adk_request_credential``
 # → ``hitl_credential`` etc.; everything else is ``tool``.
 _HITL_PAUSE_KIND_MAP = MappingProxyType({
-    "adk_request_credential": "hitl_credential",
-    "adk_request_confirmation": "hitl_confirmation",
-    "adk_request_input": "hitl_input",
+    REQUEST_EUC_FUNCTION_CALL_NAME: "hitl_credential",
+    REQUEST_CONFIRMATION_FUNCTION_CALL_NAME: "hitl_confirmation",
+    REQUEST_INPUT_FUNCTION_CALL_NAME: "hitl_input",
 })
 
 
@@ -590,6 +593,15 @@ _LLM_RESPONSE_ERROR_CODES = frozenset(
 
 
 # --- Helper Formatters ---
+def _enum_label(value: object) -> str:
+  """Returns an enum's value or the value itself as a label, else 'unknown'."""
+  if value is None:
+    return "unknown"
+  if isinstance(value, enum.Enum):
+    return str(value.value) or "unknown"
+  return str(value) or "unknown"
+
+
 def _format_content(
     content: Optional[types.Content], *, max_len: int = 5000
 ) -> tuple[str, bool]:
@@ -597,7 +609,7 @@ def _format_content(
 
   Args:
       content: The content to format.
-      max_len: Maximum length for text parts.
+      max_len: Maximum length for text, code, and execution output parts.
 
   Returns:
       A tuple of (formatted_string, is_truncated).
@@ -608,15 +620,30 @@ def _format_content(
   truncated = False
   for p in content.parts:
     if p.text:
-      if max_len != -1 and len(p.text) > max_len:
-        parts.append(f"text: '{p.text[:max_len]}...'")
+      sanitized_text, text_truncated = _sanitize_sensitive_text(p.text, max_len)
+      if text_truncated:
         truncated = True
-      else:
-        parts.append(f"text: '{p.text}'")
+      parts.append(f"text: '{sanitized_text}'")
     elif p.function_call:
       parts.append(f"call: {p.function_call.name}")
     elif p.function_response:
       parts.append(f"resp: {p.function_response.name}")
+    elif p.executable_code:
+      lang = _enum_label(p.executable_code.language)
+      code = p.executable_code.code or ""
+      sanitized_code, code_truncated = _sanitize_sensitive_text(code, max_len)
+      if code_truncated:
+        truncated = True
+      parts.append(f"Executable code ({lang}): {sanitized_code}")
+    elif p.code_execution_result:
+      outcome = _enum_label(p.code_execution_result.outcome)
+      output = p.code_execution_result.output or ""
+      sanitized_output, output_truncated = _sanitize_sensitive_text(
+          output, max_len
+      )
+      if output_truncated:
+        truncated = True
+      parts.append(f"Code execution result ({outcome}): {sanitized_output}")
     else:
       parts.append("other")
   return " | ".join(parts), truncated
@@ -1685,6 +1712,13 @@ def _require_finite(name: str, value: Any, minimum_exclusive: float) -> float:
   return float(value)
 
 
+def _is_async_callable(fn: object) -> bool:
+  """Returns whether ``fn`` is a coroutine function or async callable object."""
+  return inspect.iscoroutinefunction(fn) or inspect.iscoroutinefunction(
+      getattr(fn, "__call__", None)
+  )
+
+
 def _validate_runtime_config(config: "BigQueryLoggerConfig") -> None:
   """Validates runtime settings at construction time.
 
@@ -1693,7 +1727,7 @@ def _validate_runtime_config(config: "BigQueryLoggerConfig") -> None:
   every batch is dropped without a single attempt.
 
   Raises:
-      ValueError: If any batch, queue, duration, or retry setting is
+      ValueError: If any batch, queue, duration, retry, or callback setting is
         invalid.
   """
   _require_count("batch_size", config.batch_size, 1)
@@ -1737,6 +1771,22 @@ def _validate_runtime_config(config: "BigQueryLoggerConfig") -> None:
     raise ValueError(
         "retry_config.max_delay must be >= initial_delay, got"
         f" max_delay={retry.max_delay} initial_delay={retry.initial_delay}."
+    )
+  if config.on_schema_error is not None and (
+      not callable(config.on_schema_error)
+      or _is_async_callable(config.on_schema_error)
+  ):
+    raise ValueError(
+        "on_schema_error must be a synchronous callable or None, got"
+        f" {config.on_schema_error!r}."
+    )
+  if config.on_schema_ready is not None and (
+      not callable(config.on_schema_ready)
+      or _is_async_callable(config.on_schema_ready)
+  ):
+    raise ValueError(
+        "on_schema_ready must be a synchronous callable or None, got"
+        f" {config.on_schema_ready!r}."
     )
 
 
@@ -2389,12 +2439,12 @@ class BigQueryLoggerConfig:
         ``False`` (the default) emits no ``attributes.otel``. Has no effect when
         ``attributes`` is projected out via ``payload_column_denylist``.
       custom_metadata_allowlist: Keys to capture from ``event.custom_metadata``
-        into ``attributes.custom_metadata.*``. Entries are exact keys, or
-        explicit prefix patterns ending in ``*`` (e.g. ``"a2a:*"``). ``None`` /
-        empty preserves today's behavior (only the built-in ``a2a:*`` path
-        runs). Captured values pass the same safety pipeline (truncation,
-        sensitive-key redaction, circular-reference handling) as all other
-        logged content.
+        or ``llm_response.custom_metadata`` into
+        ``attributes.custom_metadata.*``. Entries are exact keys, or explicit
+        prefix patterns ending in ``*`` (e.g. ``"a2a:*"``). ``None`` / empty
+        preserves today's behavior (only the built-in ``a2a:*`` path runs).
+        Captured values pass the same safety pipeline (truncation, sensitive-key
+        redaction, circular-reference handling) as all other logged content.
       payload_column_denylist: Payload columns to project OUT of the table at
         write time. Only the projectable payload columns ``content`` /
         ``content_parts`` / ``attributes`` / ``latency_ms`` may be listed;
@@ -2437,6 +2487,43 @@ class BigQueryLoggerConfig:
         never written to BigQuery: the row's ``error_message`` still names
         only the exception class. ``False`` (the default) logs a constant
         message with no traceback.
+      on_schema_error: Optional synchronous callback invoked with the triggering
+        exception each time the table readiness pass fails to read, create, or
+        upgrade the BigQuery table. It runs on a worker thread, not the event
+        loop, and fires at most once per readiness pass, so it may be called
+        repeatedly while setup retries; keep it fast and non-blocking. Once a
+        pass completes with ``True`` (see ``on_schema_ready``), later setups of
+        the same plugin, including after ``close()``, after a fork, and in
+        copies pickled afterwards, skip the pass, so neither callback fires
+        again and later table outages surface only as append-time drops. Later
+        setups run the pass again only if the setup awaiting that pass was
+        cancelled, or after a ``create_analytics_views()`` call tries to create
+        the views and one fails; a call that creates every view makes later
+        setups skip the pass, and that call's own view creation never invokes
+        either callback. This callback is not invoked for analytics-view
+        creation failures or label-only ``update_table`` refresh failures (those
+        are logged and swallowed without raising). Exceptions it raises are
+        logged and suppressed so the original exception still propagates. If the
+        plugin is serialized with the standard ``pickle`` module, the callback
+        must be picklable (e.g. a module-level function; lambdas and closures
+        fail with standard ``pickle``, and bound methods pickle their instance).
+      on_schema_ready: Optional synchronous no-arg callback invoked each time
+        the table readiness pass completes with ``True`` (i.e. the table exists
+        or was created/upgraded and all requested views succeeded; not called
+        when view creation returns ``False`` or when an exception is raised).
+        After such a pass, later setups of the same plugin, including after
+        ``close()``, after a fork, and in copies pickled afterwards, skip the
+        pass, so neither callback fires again and later table outages surface
+        only as append-time drops. Later setups run the pass again only if the
+        setup awaiting that pass was cancelled, or after a
+        ``create_analytics_views()`` call tries to create the views and one
+        fails; a call that creates every view makes later setups skip the pass,
+        and that call's own view creation never invokes either callback. It runs
+        on a worker thread, not the event loop; keep it fast and non-blocking.
+        Exceptions it raises are logged and suppressed. If the plugin is
+        serialized with the standard ``pickle`` module, the callback must be
+        picklable (e.g. a module-level function; lambdas and closures fail with
+        standard ``pickle``, and bound methods pickle their instance).
   """
 
   enabled: bool = True
@@ -2526,6 +2613,8 @@ class BigQueryLoggerConfig:
   # local formatter-failure warning. The traceback can embed the unformatted
   # content; see the class docstring before enabling it.
   debug_content_formatter_errors: bool = False
+  on_schema_error: Optional[Callable[[Exception], None]] = None
+  on_schema_ready: Optional[Callable[[], None]] = None
 
 
 # ==============================================================================
@@ -4709,7 +4798,22 @@ _EVENT_VIEW_DEFS: dict[str, list[str]] = {
         "CAST(JSON_VALUE(latency_ms, '$.total_ms') AS INT64) AS total_ms",
     ],
     "AGENT_STARTING": [
-        "JSON_VALUE(content, '$.text_summary') AS agent_instruction",
+        # Most string instructions are stored as a JSON string scalar, so fall
+        # back to the document root when there is no text_summary key, while
+        # filtering out historical callable reprs ("<function ...",
+        # "<bound method ...", "<... at 0x...>", "functools.partial(...)").
+        (
+            "COALESCE(JSON_VALUE(content, '$.text_summary'),"
+            " IF(REGEXP_CONTAINS(JSON_VALUE(content, '$'),"
+            " r'^(?:<(?:function|bound method) |<.+ at"
+            " 0x[0-9a-fA-F]+>|functools\\.partial\\()'), NULL,"
+            " JSON_VALUE(content, '$'))) AS agent_instruction"
+        ),
+        "JSON_VALUE(attributes, '$.instruction_source') AS instruction_source",
+        "JSON_VALUE(attributes, '$.static_instruction') AS static_instruction",
+        "JSON_VALUE(attributes, '$.agent_description') AS agent_description",
+        "JSON_VALUE(attributes, '$.model') AS model",
+        "JSON_QUERY(attributes, '$.sub_agents') AS sub_agents",
     ],
     "AGENT_COMPLETED": [
         "CAST(JSON_VALUE(latency_ms, '$.total_ms') AS INT64) AS total_ms",
@@ -4889,6 +4993,10 @@ class EventData:
   # like ``JSON_VALUE(attributes, '$.adk.function_call_id')`` lands at
   # the right JSON path.
   adk_extras: dict[str, Any] = field(default_factory=dict)
+  # Dedicated custom metadata dictionary (e.g. from LlmResponse.custom_metadata
+  # on terminal LLM_RESPONSE rows). When set, takes precedence over
+  # getattr(source_event, "custom_metadata", None).
+  custom_metadata: Optional[collections.abc.Mapping[str, Any]] = None
 
 
 async def _close_write_transport_helper(
@@ -5279,7 +5387,7 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
       return _format_content(content, max_len=self.config.max_content_length)
     except Exception as e:
       logger.warning("Content formatter failed: %s", e)
-      return "[FORMATTING FAILED]", False
+      return "[FORMATTING FAILED]", True
 
   async def _close_write_transport(self, write_client: Any) -> None:
     """Best-effort bounded close for a BigQuery write-client transport."""
@@ -5891,6 +5999,44 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
 
     await self._get_loop_state(claimed_generation=claimed_generation)
 
+  def _notify_schema_error(self, exc: Exception) -> None:
+    """Invokes ``config.on_schema_error(exc)`` if configured."""
+    callback = self.config.on_schema_error
+    if callback is None:
+      return
+    try:
+      result = callback(exc)
+      if inspect.iscoroutine(result):
+        result.close()
+        logger.warning(
+            "BigQueryLoggerConfig.on_schema_error returned a coroutine;"
+            " callback must be synchronous."
+        )
+    except Exception:  # pylint: disable=broad-exception-caught
+      logger.warning(
+          "Exception raised by BigQueryLoggerConfig.on_schema_error callback",
+          exc_info=True,
+      )
+
+  def _notify_schema_ready(self) -> None:
+    """Invokes ``config.on_schema_ready()`` if configured."""
+    callback = self.config.on_schema_ready
+    if callback is None:
+      return
+    try:
+      result = callback()
+      if inspect.iscoroutine(result):
+        result.close()
+        logger.warning(
+            "BigQueryLoggerConfig.on_schema_ready returned a coroutine;"
+            " callback must be synchronous."
+        )
+    except Exception:  # pylint: disable=broad-exception-caught
+      logger.warning(
+          "Exception raised by BigQueryLoggerConfig.on_schema_ready callback",
+          exc_info=True,
+      )
+
   def _ensure_schema_exists(self) -> bool:
     """Ensures the BigQuery table exists with the correct schema.
 
@@ -5911,6 +6057,18 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
         or created, or a required schema upgrade failed.
     """
     client = self._require_client()
+    self._require_schema()
+    try:
+      ready = self._ensure_schema_exists_impl(client)
+    except Exception as e:
+      self._notify_schema_error(e)
+      raise
+    if ready:
+      self._notify_schema_ready()
+    return ready
+
+  def _ensure_schema_exists_impl(self, client: bigquery.Client) -> bool:
+    """Table readiness pass; see ``_ensure_schema_exists``."""
     try:
       existing_table = client.get_table(self.full_table_id)
       if self.config.auto_schema_upgrade:
@@ -7368,7 +7526,8 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
   ) -> bool:
     """Captures allowlisted ``custom_metadata`` into ``attributes``.
 
-    Reads ``event.custom_metadata`` from the row's source Event, keeps only
+    Reads ``event.custom_metadata`` from the row's source Event or
+    ``llm_response.custom_metadata`` from event_data, keeps only
     allowlisted keys, runs them through the shared safety pipeline
     (truncation + sensitive-key redaction + circular-reference handling),
     and writes the result under ``attributes['custom_metadata']``.
@@ -7376,12 +7535,19 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
     The built-in ``a2a:*`` handling in ``on_event_callback`` is unaffected;
     this is purely additive under a separate namespace.
 
+    Args:
+      event_data: Event payload container holding custom metadata or source
+        event.
+      attributes: Attributes dictionary to receive the allowlisted custom
+        metadata map.
+
     Returns:
         True if any captured value was truncated (so the caller can flip
         ``is_truncated``).
     """
-    source = event_data.source_event
-    meta = getattr(source, "custom_metadata", None) if source else None
+    meta = event_data.custom_metadata
+    if meta is None and event_data.source_event:
+      meta = getattr(event_data.source_event, "custom_metadata", None)
     if not meta:
       return False
     captured = {
@@ -7591,9 +7757,10 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
     attributes = self._enrich_attributes(event_data, callback_context)
 
     # Capture allowlisted custom_metadata into attributes.custom_metadata.
-    # Runs for every row emitted from a source Event (incl. AGENT_RESPONSE,
-    # which does not otherwise read custom_metadata), through the same safety
-    # pipeline. Truncation here also flips is_truncated.
+    # Runs for every row emitted with custom_metadata or from a source Event
+    # (incl. AGENT_RESPONSE, which does not otherwise read custom_metadata, and
+    # terminal LLM_RESPONSE rows), through the same safety pipeline.
+    # Truncation here also flips is_truncated.
     if self._custom_metadata_exact or self._custom_metadata_prefixes:
       meta_truncated = self._capture_custom_metadata(event_data, attributes)
       is_truncated = is_truncated or meta_truncated
@@ -8071,8 +8238,9 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
     ):
       # Filter to visible text parts only.  Exclude thoughts
       # (internal reasoning, A2A working/submitted updates),
-      # empty parts, and non-text parts (executable_code, etc.)
-      # that would render as "other" in _format_content.
+      # empty parts, and non-text execution parts (executable_code,
+      # code_execution_result) that are internal tool execution turns
+      # rather than user-facing conversational text.
       visible_parts = [
           p
           for p in event_content.parts
@@ -8174,10 +8342,87 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
     """
     TraceManager.init_trace(callback_context)
     TraceManager.push_span(callback_context, "agent")
+    # A callable InstructionProvider is resolved per invocation; log None
+    # rather than its function repr and record instruction_source="provider".
+    raw_instruction = getattr(agent, "instruction", None)
+    instruction_text = (
+        raw_instruction
+        if isinstance(raw_instruction, str) and raw_instruction
+        else None
+    )
+    extra_attributes: dict[str, Any] = {}
+    if callable(raw_instruction):
+      extra_attributes["instruction_source"] = "provider"
+
+    raw_static = getattr(agent, "static_instruction", None)
+    static_instruction_text: Optional[str] = None
+    if isinstance(raw_static, str):
+      static_instruction_text = raw_static or None
+    elif raw_static is not None and not callable(raw_static):
+      from google.genai import _transformers
+
+      try:
+        normalized_static = _transformers.t_content(
+            cast(types.ContentOrDict, raw_static)
+        )
+      except Exception:
+        normalized_static = None
+      if normalized_static is not None:
+        parts = getattr(normalized_static, "parts", None) or []
+        part_texts = [
+            p.text
+            for p in parts
+            if isinstance(getattr(p, "text", None), str) and p.text
+        ]
+        if part_texts:
+          static_instruction_text = "\n".join(part_texts)
+    if static_instruction_text:
+      extra_attributes["static_instruction"] = static_instruction_text
+
+    raw_description = getattr(agent, "description", None)
+    if isinstance(raw_description, str) and raw_description:
+      extra_attributes["agent_description"] = raw_description
+
+    # ``model`` is either a model name or a BaseLlm carrying one; if unset
+    # on a sub-agent that defines ``model``, walk ``parent_agent`` to resolve
+    # the inherited model.
+    model_name: Optional[str] = None
+    curr_agent: Any = agent if hasattr(agent, "model") else None
+    seen_agents: set[int] = set()
+    for _ in range(16):
+      if curr_agent is None or id(curr_agent) in seen_agents:
+        break
+      seen_agents.add(id(curr_agent))
+      raw_model = getattr(curr_agent, "model", None)
+      if isinstance(raw_model, str) and raw_model:
+        model_name = raw_model
+        break
+      if raw_model is not None:
+        nested_model = getattr(raw_model, "model", None)
+        if isinstance(nested_model, str) and nested_model:
+          model_name = nested_model
+          break
+      curr_agent = getattr(curr_agent, "parent_agent", None)
+
+    raw_sub_agents = getattr(agent, "sub_agents", None)
+    if isinstance(raw_sub_agents, (list, tuple)):
+      sub_agent_names = [
+          sub_name
+          for sub in raw_sub_agents
+          if isinstance((sub_name := getattr(sub, "name", None)), str)
+          and sub_name
+      ]
+      if sub_agent_names:
+        extra_attributes["sub_agents"] = sub_agent_names
+
     await self._log_event(
         "AGENT_STARTING",
         callback_context,
-        raw_content=getattr(agent, "instruction", ""),
+        raw_content=instruction_text,
+        event_data=EventData(
+            model=model_name,
+            extra_attributes=extra_attributes,
+        ),
     )
 
   @_safe_callback
@@ -8427,6 +8672,11 @@ class BigQueryAgentAnalyticsPlugin(BasePlugin):
             span_id_override=span_id if is_popped else None,
             parent_span_id_override=(parent_span_id if is_popped else None),
             extra_attributes=extra_attributes,
+            custom_metadata=(
+                llm_response.custom_metadata
+                if not is_partial and isinstance(llm_response, LlmResponse)
+                else None
+            ),
         ),
     )
 

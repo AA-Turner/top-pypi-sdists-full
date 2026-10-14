@@ -7,18 +7,29 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.offering_estimated_cost_policy import OfferingEstimatedCostPolicy
+from ...models.offering_estimated_cost_policy_field_enum import OfferingEstimatedCostPolicyFieldEnum
 from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
 
 
 def _get_kwargs(
     *,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scope: Union[Unset, str] = UNSET,
     scope_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_field: Union[Unset, list[str]] = UNSET
+    if not isinstance(field, Unset):
+        json_field = []
+        for field_item_data in field:
+            field_item = field_item_data.value
+            json_field.append(field_item)
+
+    params["field"] = json_field
 
     params["page"] = page
 
@@ -73,6 +84,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scope: Union[Unset, str] = UNSET,
@@ -80,6 +92,7 @@ def sync_detailed(
 ) -> Response[list["OfferingEstimatedCostPolicy"]]:
     """
     Args:
+        field (Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scope (Union[Unset, str]):
@@ -94,6 +107,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        field=field,
         page=page,
         page_size=page_size,
         scope=scope,
@@ -110,6 +124,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scope: Union[Unset, str] = UNSET,
@@ -117,6 +132,7 @@ def sync(
 ) -> list["OfferingEstimatedCostPolicy"]:
     """
     Args:
+        field (Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scope (Union[Unset, str]):
@@ -132,6 +148,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        field=field,
         page=page,
         page_size=page_size,
         scope=scope,
@@ -142,6 +159,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scope: Union[Unset, str] = UNSET,
@@ -149,6 +167,7 @@ async def asyncio_detailed(
 ) -> Response[list["OfferingEstimatedCostPolicy"]]:
     """
     Args:
+        field (Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scope (Union[Unset, str]):
@@ -163,6 +182,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        field=field,
         page=page,
         page_size=page_size,
         scope=scope,
@@ -177,6 +197,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scope: Union[Unset, str] = UNSET,
@@ -184,6 +205,7 @@ async def asyncio(
 ) -> list["OfferingEstimatedCostPolicy"]:
     """
     Args:
+        field (Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scope (Union[Unset, str]):
@@ -200,6 +222,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            field=field,
             page=page,
             page_size=page_size,
             scope=scope,
@@ -211,6 +234,7 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     scope: Union[Unset, str] = UNSET,
     scope_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["OfferingEstimatedCostPolicy"]:
@@ -222,6 +246,7 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        field (Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]]):
         scope (Union[Unset, str]):
         scope_uuid (Union[Unset, UUID]):
 
@@ -238,6 +263,7 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        field=field,
         scope=scope,
         scope_uuid=scope_uuid,
     )
@@ -287,6 +313,7 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    field: Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]] = UNSET,
     scope: Union[Unset, str] = UNSET,
     scope_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["OfferingEstimatedCostPolicy"]:
@@ -298,6 +325,7 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        field (Union[Unset, list[OfferingEstimatedCostPolicyFieldEnum]]):
         scope (Union[Unset, str]):
         scope_uuid (Union[Unset, UUID]):
 
@@ -314,6 +342,7 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        field=field,
         scope=scope,
         scope_uuid=scope_uuid,
     )

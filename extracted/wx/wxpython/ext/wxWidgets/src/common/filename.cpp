@@ -1208,6 +1208,36 @@ wxFileName::CreateTempFileName(const wxString& prefix, wxFFile *fileTemp)
 
 #endif // wxUSE_FFILE
 
+#if wxUSE_FILE || wxUSE_FFILE
+
+void wxInitTempFile(const wxString& strTemp, const wxString& strName)
+{
+    // The temp file should have the same attributes as the original one.
+    if ( wxFileExists(strName) )
+    {
+        if ( !wxFileName(strTemp).CopyAttributesFrom(strName) )
+        {
+            wxLogError(_("Error preserving all attributes of '%s'"), strName);
+        }
+    }
+#ifdef __UNIX__
+    else
+    {
+        // The file didn't exist, so just give it the default mode _using_
+        // user's umask (new files creation should respect umask)
+        mode_t mask = umask(0777);
+        mode_t mode = 0666 & ~mask;
+        umask(mask);
+
+        if ( chmod( (const char*) strTemp.fn_str(), mode) == -1 )
+        {
+            wxLogSysError(_("Failed to set temporary file permissions"));
+        }
+    }
+#endif // Unix
+}
+
+#endif // wxUSE_FILE || wxUSE_FFILE
 
 // ----------------------------------------------------------------------------
 // directory operations
@@ -1323,6 +1353,19 @@ bool wxFileName::Rmdir(int flags) const
 
 bool wxFileName::Rmdir(const wxString& dir, int flags)
 {
+    if ( (flags & wxPATH_RMDIR_RECURSIVE) && (flags & wxPATH_RMDIR_PARENTS) )
+    {
+        // Combining these two flags would mean automatically removing the
+        // ancestors of a directory whose contents were just force-deleted,
+        // possibly wiping out more than what was explicitly asked for. If
+        // this combination is really needed, it can always be emulated by
+        // calling Rmdir(wxPATH_RMDIR_RECURSIVE) followed by a separate call
+        // to Rmdir(wxPATH_RMDIR_PARENTS) on its parent directory.
+        wxFAIL_MSG( "wxPATH_RMDIR_PARENTS can't be combined with "
+                    "wxPATH_RMDIR_RECURSIVE" );
+        return false;
+    }
+
 #ifdef __WINDOWS__
     if ( flags & wxPATH_RMDIR_RECURSIVE )
     {
@@ -1354,7 +1397,7 @@ bool wxFileName::Rmdir(const wxString& dir, int flags)
     }
     else if ( flags & wxPATH_RMDIR_FULL )
 #else // !__WINDOWS__
-    if ( flags != 0 )   // wxPATH_RMDIR_FULL or wxPATH_RMDIR_RECURSIVE
+    if ( flags & (wxPATH_RMDIR_FULL | wxPATH_RMDIR_RECURSIVE) )
 #endif // !__WINDOWS__
     {
 #ifndef __WINDOWS__
@@ -1389,7 +1432,10 @@ bool wxFileName::Rmdir(const wxString& dir, int flags)
                                wxDIR_DIRS | wxDIR_HIDDEN | wxDIR_NO_FOLLOW);
         while ( cont )
         {
-            wxFileName::Rmdir(path + filename, flags);
+            // wxPATH_RMDIR_PARENTS only applies to the original directory
+            // itself, once it, and everything under it, has been removed -- it
+            // must not be propagated to the subdirectories being deleted here.
+            wxFileName::Rmdir(path + filename, flags & ~wxPATH_RMDIR_PARENTS);
             cont = d.GetNext(&filename);
         }
 
@@ -1410,7 +1456,27 @@ bool wxFileName::Rmdir(const wxString& dir, int flags)
 #endif // !__WINDOWS__
     }
 
-    return ::wxRmdir(dir);
+    if ( !::wxRmdir(dir) )
+        return false;
+
+    if ( flags & wxPATH_RMDIR_PARENTS )
+    {
+        auto fn = wxFileName::DirName(dir);
+        while ( fn.GetDirCount() > 1 )
+        {
+            fn.RemoveLastDir();
+
+            // Note that we intentionally call wxRmDir() which is just the
+            // standard rmdir() function and not ::wxRmdir() which is a wx
+            // wrapper around it giving an error message because we don't want
+            // to log any errors here: we can be sure to get one, sooner or
+            // later, but they don't indicate a real problem.
+            if ( wxRmDir(fn.GetPath()) != 0 )
+                break;
+        }
+    }
+
+    return true;
 }
 
 // ----------------------------------------------------------------------------
@@ -2705,6 +2771,109 @@ bool wxFileName::SetPermissions(int permissions)
 #endif // __WINDOWS__
 
     return wxChmod(GetFullPath(), permissions) == 0;
+}
+
+#if defined(__WINDOWS__)
+
+namespace
+{
+
+bool CopyFileAttributes(const wxString& pathSrc, const wxString& pathDst)
+{
+    const DWORD attrsSrc = ::GetFileAttributes(pathSrc.t_str());
+    if ( attrsSrc == INVALID_FILE_ATTRIBUTES )
+    {
+        wxLogSysError(_("Failed to get attributes of '%s'"), pathSrc);
+        return false;
+    }
+
+    const DWORD attrsDst = ::GetFileAttributes(pathDst.t_str());
+    if ( attrsDst == INVALID_FILE_ATTRIBUTES )
+    {
+        wxLogSysError(_("Failed to get attributes of '%s'"), pathDst);
+        return false;
+    }
+
+    // Only these attributes can be usefully and successfully copied: notably
+    // FILE_ATTRIBUTE_READONLY is not copied because it would prevent the
+    // destination file from being written to or removed later, while the
+    // compressed and encrypted ones simply can't be set using this function.
+    constexpr DWORD ATTRS_TO_COPY = FILE_ATTRIBUTE_HIDDEN |
+                                    FILE_ATTRIBUTE_SYSTEM |
+                                    FILE_ATTRIBUTE_NOT_CONTENT_INDEXED;
+
+    // Note that this clears the attributes not set in the source file too.
+    const DWORD attrsNew = (attrsDst & ~ATTRS_TO_COPY) |
+                           (attrsSrc & ATTRS_TO_COPY);
+    if ( attrsNew != attrsDst &&
+            !::SetFileAttributes(pathDst.t_str(), attrsNew) )
+    {
+        wxLogSysError(_("Failed to set attributes of '%s'"), pathDst);
+        return false;
+    }
+
+    return true;
+}
+
+#if wxUSE_DATETIME
+bool CopyFileTimes(const wxFileName& src, const wxFileName& dst)
+{
+    // Preserve just the creation time, the others are going to be modified
+    // anyhow soon by the caller.
+    wxDateTime dtCreate;
+
+    return src.GetTimes(nullptr, nullptr, &dtCreate) &&
+                dst.SetTimes(nullptr, nullptr, &dtCreate);
+}
+#endif // wxUSE_DATETIME
+
+} // anonymous namespace
+
+#endif // __WINDOWS__
+
+bool wxFileName::CopyAttributesFrom(const wxFileName& source) const
+{
+    const wxString pathSrc = source.GetFullPath();
+    const wxString pathDst = GetFullPath();
+
+#if defined(__WINDOWS__)
+    bool ok = true;
+
+    if ( !CopyFileAttributes(pathSrc, pathDst) )
+        ok = false;
+
+#if wxUSE_DATETIME
+    if ( !CopyFileTimes(source, *this) )
+        ok = false;
+#endif // wxUSE_DATETIME
+
+    return ok;
+#elif defined(__UNIX_LIKE__)
+    // Under Unix we copy just the file mode: we can't set creation time.
+    wxStructStat st;
+    if ( wxStat(pathSrc, &st) != 0 )
+    {
+        wxLogSysError(_("Failed to get mode of '%s'"), pathSrc);
+        return false;
+    }
+
+    if ( wxChmod(pathDst, st.st_mode) != 0 )
+    {
+        wxLogSysError(_("Failed to set mode of '%s'"), pathDst);
+        return false;
+    }
+
+    return true;
+#else // other platform
+    wxUnusedVar(pathSrc);
+    wxUnusedVar(pathDst);
+
+    // Returning false from here would result in an error message being logged
+    // by the caller, which would be incomprehensible and there won't be
+    // anything that could possibly be done about it, so just pretend that we
+    // succeeded.
+    return true;
+#endif // platforms
 }
 
 // Returns the native path for a file URL

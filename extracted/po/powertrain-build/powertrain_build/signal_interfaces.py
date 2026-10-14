@@ -600,9 +600,13 @@ class CsvSignalInterfaces(SignalInterfaces):
     PROJ_COL = 9  # Variable number of projects
     HEADER_ROW = 3  # which row the header info is found
     DATA_ROW = 5  # the row which data starts
-    WS_NAMES = ['EMS-Output', 'EMS-Input', 'LIN-Output', 'LIN-Input',
-                'CAN-Output', 'CAN-Input', 'Private CAN-Output',
-                'Private CAN-Input']
+    WS_NAMES = [
+        'EMS-Output', 'EMS-Input',
+        'LIN-Output', 'LIN-Input',
+        'CAN-Output', 'CAN-Input',
+        'Private CAN-Output', 'Private CAN-Input',
+        'TX', 'RX'
+    ]
 
     def __init__(self, prj_cfg, unit_cfg, models=None):
         """Class initializer.
@@ -616,6 +620,15 @@ class CsvSignalInterfaces(SignalInterfaces):
 
         """
         super().__init__(unit_cfg, model_names=models)
+        self._prj_cfg = prj_cfg
+        self.name = self._prj_cfg.get_prj_config()
+        use_external_asil_config = self._prj_cfg.get_code_generation_config('useExternalAsilConfig')
+        if use_external_asil_config:
+            self.columns = [0, 2, 3, 4, 5, 6, 7, 14]
+            self.column_keys = ['type', 'min', 'max', 'unit', 'description', 'init', 'asil_level']  # Excluding column 0
+        else:
+            self.columns = [0, 2, 3, 4, 5, 6, 7]
+            self.column_keys = ['type', 'min', 'max', 'unit', 'description', 'init']  # Excluding column 0
         self.interfaces = {}
 
         self.__prjs = {}
@@ -625,9 +638,7 @@ class CsvSignalInterfaces(SignalInterfaces):
         self.__prj_col_range = {}
 
         prj2index = {}
-        self.name = prj_cfg.get_prj_config()
-        file_path = prj_cfg.get_if_cfg_dir()
-        self._prj_cfg = prj_cfg
+        file_path = self._prj_cfg.get_if_cfg_dir()
         self._parse_io_cnfg(file_path)
         for k in self.__prj2col:
             self.__prj2col[k] = prj2index
@@ -665,19 +676,24 @@ class CsvSignalInterfaces(SignalInterfaces):
                             next(csvreader)
                     except StopIteration:
                         self.critical('File %s has bad format, not enough header rows', file_path.stem)
-                    for row in csvreader:
-                        row = row[1:] if row[0] == '' else row
-                        try:
-                            signal, data = self._get_var_def(row)
-                            data.update({'element_index': csvreader.get_count()})
-                        except InterfaceValueException as interface_exception:
-                            self.critical('Missing value for key "%s" in list "%s" at index "%s"',
-                                          interface_exception.erroneous_field,
-                                          file_path.stem, csvreader.get_count())
-                            continue
-                        if signal not in interface:
-                            interface.update({signal: data})
-                        interface[signal]['IOType'] = row[col].lower()
+                    try:
+                        for row in csvreader:
+                            row = row[1:] if row[0] == '' else row
+                            try:
+                                signal, data = self._get_var_def(row)
+                                data.update({'element_index': csvreader.get_count()})
+                            except InterfaceValueException as interface_exception:
+                                self.critical(
+                                    'Missing value for key "%s" in list "%s" at index "%s"',
+                                    interface_exception.erroneous_field,
+                                    file_path.stem, csvreader.get_count()
+                                )
+                                continue
+                            if signal not in interface:
+                                interface.update({signal: data})
+                            interface[signal]['IOType'] = row[col].lower()
+                    except UnicodeDecodeError as unicode_exception:
+                        self.critical(f'Invalid character in CSV file {file_path.stem}: {unicode_exception}')
                 self.debug("read sheet %s end", ws_name)
             except FileNotFoundError:
                 self.info('Project %s does not have a %s', self.name, ws_name)
@@ -727,18 +743,14 @@ class CsvSignalInterfaces(SignalInterfaces):
 
         raise IndexError
 
-    @staticmethod
-    def _get_var_def(row):
+    def _get_var_def(self, row):
         """Get the variable definition from a row in a sheet.
 
         Returns:
             dict: with var definitions
-
         """
-        keys = ['type', 'min', 'max', 'unit', 'description', 'init']
-
         vals = []
-        for col in [0, 2, 3, 4, 5, 6, 7]:
+        for col in self.columns:
             val = row[col]
             if isinstance(val, str):
                 val = val.strip()
@@ -749,11 +761,59 @@ class CsvSignalInterfaces(SignalInterfaces):
             vals.append(val)
         critical_attributes = ['type']
         signal_name = vals[0]
-        signal_attributes = dict(zip(keys, vals[1:]))
+        signal_attributes = dict(zip(self.column_keys, vals[1:]))
         for field in critical_attributes:
             if signal_attributes[field] == '':
                 raise InterfaceValueException(signal_name, field)
         return signal_name, signal_attributes
+
+    def get_asil_config(self):
+        """Get the ASIL levels for a specific project.
+
+        Returns:
+            tuple: a tuple with four dicts - (qm_dict, asil_a_dict, asil_b_dict, asil_c_dict)
+        """
+        qm = {}
+        asil_a = {}
+        asil_b = {}
+        asil_c = {}
+        debug_qm_a = {}
+        debug_b_c = {}
+        for interface_name, interface in self.interfaces.items():
+            qm[interface_name] = {}
+            asil_a[interface_name] = {}
+            asil_b[interface_name] = {}
+            asil_c[interface_name] = {}
+            debug_qm_a[interface_name] = {}
+            debug_b_c[interface_name] = {}
+            for signal_name, signal in interface.items():
+                prj_def = signal.get('asil_level', '-')
+                prj_def = prj_def.lower()
+                iotype = signal.get('IOType', '-')
+                iotype = iotype.lower()
+
+                if iotype in 'd' or iotype in 's' or iotype in 'sc':
+                    if prj_def in 'qm' or prj_def in 'asil_a':
+                        debug_qm_a[interface_name][signal_name] = copy.deepcopy(signal)
+                    if prj_def == 'asil_b' or prj_def in 'asil_c':
+                        debug_b_c[interface_name][signal_name] = copy.deepcopy(signal)
+
+                if prj_def in 'qm':
+                    qm[interface_name][signal_name] = copy.deepcopy(signal)
+                elif prj_def in 'asil_a':
+                    asil_a[interface_name][signal_name] = copy.deepcopy(signal)
+                elif prj_def == 'asil_b':
+                    asil_b[interface_name][signal_name] = copy.deepcopy(signal)
+                elif prj_def in 'asil_c':
+                    asil_c[interface_name][signal_name] = copy.deepcopy(signal)
+                else:
+                    error_message = (
+                        "asil_level only allows the types QM, ASIL_A, ASIL_B and ASIL_C. "
+                        f"Got: {prj_def} for signal {signal_name}."
+                    )
+                    raise ValueError(error_message)
+
+        return qm, asil_a, asil_b, asil_c, debug_qm_a, debug_b_c
 
     def get_raw_io_cnfg(self):
         """Get the raw IO-Config parsed from the config file.
@@ -832,7 +892,7 @@ class CsvSignalInterfaces(SignalInterfaces):
         deep_dict_update(cfg, cfg_sec)
         out = {}
         for key, value in cfg.items():
-            if re.match('.*Input$', key) is not None:
+            if re.match(r'.*(Input|RX)$', key) is not None:
                 out[key] = value
         return out
 
@@ -848,7 +908,7 @@ class CsvSignalInterfaces(SignalInterfaces):
         deep_dict_update(cfg, cfg_sec)
         out = {}
         for key, value in cfg.items():
-            if re.match(r'.*Output$', key) is not None:
+            if re.match(r'.*(Output|TX)$', key) is not None:
                 out[key] = value
         return out
 

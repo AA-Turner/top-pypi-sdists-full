@@ -305,6 +305,9 @@ jobs:
         run: uv run ruff check src/ tests/ benchmarks/
       - name: Ruff format check
         run: uv run ruff format --check src/ tests/ benchmarks/
+      # OMN-20865: SYNC with the landing-decision-scenarios pre-commit hook.
+      - name: Landing decision scenarios
+        run: uv run --frozen pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_scenarios.py -q --no-cov
       # OMN-18963: SYNC with the ci-summary-event-scope pre-commit hook.
       # This strict lint job already gates CI Summary, including docs-only PRs.
       - name: CI Summary external producer trigger parity
@@ -313,15 +316,11 @@ jobs:
         run: python ../omnibase_core/scripts/validation/check_stub_implementations.py src/
       - name: TODO format check
         run: |
-          pip install onex-change-control 2>/dev/null || pip install ../onex_change_control 2>/dev/null || true
-          # Inline check: all TODO/FIXME/HACK must have (OMN-XXXX) ticket reference
-          find src/ -name '*.py' -not -path '*/tests/*' | while read -r f; do
-            grep -nE '#.*\b(TODO|FIXME|HACK)\b' "$f" 2>/dev/null | grep -vE '\b(TODO|FIXME|HACK)\(OMN-[0-9]+\)' | while read -r line; do
-              echo "::error file=${f}::${line} -- bare TODO/FIXME/HACK without ticket reference (use: # TODO(OMN-XXXX): description)"
-              echo "FAIL" > /tmp/todo_check_failed
-            done
-          done
-          if [ -f /tmp/todo_check_failed ]; then exit 1; fi
+          # Every TODO/FIXME/HACK comment in src/ must carry a ticket reference.
+          # omnibase_core owns the rule: this is the handler the no-untracked-todos
+          # pre-commit hook runs. It prints file:line for each violation and exits 1.
+          find src/ -name '*.py' -not -path '*/tests/*' -print0 \
+            | xargs -0 uv run python -m omnibase_core.handlers.handler_todo_format
       # NOTE: This step requires PR #75 (OMN-7922, fix legacy contracts) to be merged
       # before it is active in CI. The build_loop_orchestrator handler still contains
       # hardcoded onex.evt.* constants until OMN-7922 migrates them to contract-declared
@@ -430,6 +429,12 @@ jobs:
       # SYNC with pre-commit hook 'github-token-env-gate'.
       - name: GitHub-token env-read gate (enforce)
         run: uv run python scripts/ci/check_github_token_env_reads.py
+      # OMN-20915: source-control nodes (node directories named *github*) never
+      # shell out to the gh CLI or hand-write an api.github.com URL; the test
+      # plants a violation and requires the scan to refuse it.
+      # SYNC with pre-commit hook 'scm-nodes-no-gh-cli'.
+      - name: Source-control nodes do not use the gh CLI (OMN-20915)
+        run: uv run pytest tests/ci/test_scm_nodes_no_gh_cli_omn20915.py -q -n 0 -p no:randomly --no-cov
       # OMN-17372: house inference-credential gate. Fails CI if a delegation
       # backend re-declares `api_key_env`, or if any omnimarket source reads a
       # house provider key from the process environment (bare os.environ, or
@@ -489,12 +494,98 @@ jobs:
       # SYNC with pre-commit hook 'typed-decision-shadow-calibration'.
       - name: Typed decision shadow calibration (OMN-19136)
         run: uv run pytest tests/unit/nodes/test_golden_chain_typed_decision_effect.py -q
+      # OMN-21002: paired with the imperative-contract-guard-caller hook.
+      - name: Imperative guard caller regression (OMN-21002)
+        run: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21002.py -q -n 0
+      # OMN-20910: paired with the review-voter-model-from-overlay hook.
+      - name: Review voter model comes from the overlay (OMN-20910)
+        run: uv run pytest tests/ci/test_hostile_reviewer_voters_overlay_omn20910.py -q -n 0 -p no:randomly --no-cov
+      # OMN-20967: paired with the anthropic-key-prefix-workflows hook.
+      - name: No Anthropic key value in a workflow (OMN-20967)
+        run: uv run pytest tests/ci/test_anthropic_key_prefix_workflows_omn20967.py -q -n 0
+
+      # OMN-20601: the house routing-overlay write command has a producer and
+      # the node contract declares its runtime profile. Paired with the
+      # house-routing-overlay-publisher hook. This tests the publisher's own
+      # output; it does not scan omnimarket code for routing tables.
+      - name: House routing-overlay publisher (OMN-20601)
+        run: uv run pytest tests/nodes/node_house_routing_overlay_effect/test_publish_house_overlay_command.py -q -n 0
+
+      # Paired with ticket-contract-prerequisite-regression (pre-commit).
+      - name: Ticket contract authoring refusal controls (OMN-20864)
+        run: uv run pytest tests/ci/test_ticket_contract_prerequisite_omn20864.py tests/nodes/node_ticket_contract_prerequisite_effect tests/ci/test_pipeline_observability_export_closure_omn20864.py -q -n 0 -p no:randomly
+
+      # The checkout has full history, so read the actual PR head, not the
+      # synthetic merge tree. Paired with ticket-contract-prerequisite (pre-push).
+      - name: Ticket contract prerequisite at PR head (OMN-20864)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: uv run python -m omnimarket.nodes.node_ticket_contract_prerequisite_effect --head "$PR_HEAD" --title "$PR_TITLE"
+
       # OMN-20838: dod_verify reads PR and commit facts from the canonical
       # clone and the PR watcher's state; this fails when its read layer spawns
       # gh for a read a local source holds. SYNC with pre-commit hook
       # 'dod-verify-local-reads-guard'.
       - name: dod_verify local reads guard (OMN-20838)
         run: uv run pytest tests/unit/nodes/node_dod_verify/test_omn_20838_dod_verify_reads_local.py -q -p no:randomly
+      # OMN-20890: paired with the landing-decision-park-ladder hook.
+      - name: Landing decision park ladder (OMN-20890)
+        run: uv run pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_causes.py -q -n 0 -p no:randomly
+      # OMN-20032: node_dod_verify refuses a contract whose acceptance criteria are
+      # only partly bound (ruling 2026-10-10T11:04:11Z). SYNC with pre-commit hook
+      # 'dod-verify-every-criterion-bound'.
+      - name: dod_verify refuses partly bound criteria (OMN-20032)
+        run: uv run pytest tests/test_dod_verify_every_criterion_bound.py -q -p no:randomly --no-cov
+      # OMN-21062: a binding is accepted by a second lane that reruns its check
+      # (ruling 2026-10-03T00:40:00Z). One run per selector, so a renamed or
+      # deleted case selects nothing and fails. SYNC with pre-commit hook
+      # 'dod-verify-independent-acceptance'.
+      - name: dod_verify independent acceptance (OMN-21062)
+        run: |
+          for selector in self_accepted_is_proposal acceptance_without_rerun_refused independent_rerun_accepted; do
+            uv run pytest tests/unit/nodes/node_dod_verify/test_independent_acceptance.py -q -p no:randomly --no-cov -n 0 -k "$selector"
+          done
+          uv run pytest tests/ci/test_dod_verify_independent_acceptance_wiring_omn21062.py -q -p no:randomly --no-cov -n 0
+      # OMN-20780: a criterion binding is never accepted by the lane that authored it
+      # (ruling 2026-10-03T00:40:00Z); node_dod_verify demotes a self-accepted binding.
+      # SYNC with pre-commit hook 'dod-verify-self-accepted-bindings'.
+      - name: dod_verify demotes self-accepted bindings (OMN-20780)
+        run: uv run pytest tests/test_occ_falsifier_checks.py tests/test_dod_verify_acceptance_basis.py tests/ci/test_dod_verify_self_accepted_wiring_omn20780.py -q -p no:randomly --no-cov
+      # OMN-20912: the gh shim refuses a lane's gh write only while the write
+      # effect's operations block and SCM_VERBS name its onex scm replacement
+      # (ruling 2026-10-10T18:32:46Z). SYNC with pre-commit hook 'scm-operation-table'.
+      - name: onex scm operation table names every lane gh write (OMN-20912)
+        run: uv run pytest tests/ci/test_scm_operation_table_omn20912.py -q -p no:randomly --no-cov
+      # OMN-20730: red CI emits ci-run-failed and the lifecycle orchestrator triages it on
+      # receipt (ruling 2026-10-08T14:27:26Z); the five contract legs of that chain stay
+      # connected. SYNC with pre-commit hook 'red-ci-event-chain'.
+      - name: red CI bus chain stays connected (OMN-20730)
+        run: uv run pytest tests/ci/test_red_ci_bus_chain_omn20730.py -q -p no:randomly --no-cov
+      # OMN-20914: the gh shim refuses a lane's gh write only while the contract
+      # operations and the onex scm verb table it reads stay readable and served
+      # (ruling 2026-10-10T18:32:46Z). SYNC with pre-commit hook 'gh-shim-coverage-table'.
+      - name: gh shim coverage table stays served (OMN-20914)
+        run: uv run pytest tests/ci/test_gh_shim_coverage_table_omn20914.py tests/unit/handlers/scm/test_onex_scm_command.py::test_every_contract_operation_has_exactly_one_verb tests/unit/handlers/scm/test_onex_scm_command.py::test_no_refused_verb_is_also_served -q -p no:randomly --no-cov
+      # OMN-20001: the drift check reads omniclaude at the pin, a pin move needs the
+      # integration step, both drift directions stay strict, and the two OMN-13146
+      # tests stay present and uninverted. SYNC with pre-commit hook
+      # 'omniclaude-pin-drift'.
+      - name: Event registry drift reads the pinned omniclaude (OMN-20001)
+        run: uv run pytest tests/ci/test_omniclaude_pin_drift_omn20001.py -q -p no:randomly --no-cov
+      # OMN-20730: the red CI triage model (formal/ci_red_triage) passes its design
+      # config, each property fails on a one-knob mutation, the results match the
+      # committed model, configs and outputs, and the verdict approves the model's
+      # digest. SYNC with pre-commit hook 'ci-red-triage-model'.
+      - name: Red CI triage model and verdict (OMN-20730)
+        run: uv run pytest tests/formal/test_ci_red_triage_model.py -q -n 0 -p no:randomly --no-cov
+      # OMN-20601: routing decisions come from overlays, never from omnimarket code
+      # (ruling 2026-10-10T17:54:30Z). Inventory of routing sources, overlay
+      # precedence, and a ratchet on route-selecting code. SYNC with pre-commit hook
+      # 'routing-sources-omn20601'.
+      - name: Routing sources, overlay precedence and routing-in-code ratchet (OMN-20601)
+        run: uv run pytest tests/test_routing_sources_omn20601.py tests/unit/nodes/node_deployment_fact_gate_effect/test_routing_in_code_omn20601.py tests/unit/delegation/test_roi_overlay_routing_omn14001.py -q -p no:randomly --no-cov
       # SYNC with pre-commit hook 'same-model-sibling-quality-gate'.
       - name: Same-model sibling quality gate (OMN-19215)
         run: uv run pytest tests/unit/nodes/node_delegate_skill_orchestrator/test_local_dispatch_same_model_sibling_omn19215.py -q -p no:randomly
@@ -544,6 +635,9 @@ jobs:
       # 'node-auto-wiring-in-process' and the release workflows.
       - name: Node auto-wiring and dispatch-id limits gate (OMN-17427)
         run: uv run pytest tests/unit/contracts/test_every_node_auto_wires_in_process_omn17427.py -q -p no:randomly
+
+      - name: Scheduled merge sweep bus cycle (OMN-20676)
+        run: uv run --frozen pytest tests/nodes/node_merge_sweep_orchestrator/test_bus_cycle_merge_sweep_orchestrator.py -q
       # OMN-18300: the delegation task-complexity ladder. Wired here in the same
       # change that introduces it, per the enforcement-not-detection rule: these
       # tests assert that every committed bundle parses and names real fixtures,
@@ -969,29 +1063,6 @@ jobs:
         run: git clone --depth=1 --branch "v$(grep -A1 '^name = "omnibase-compat"$' uv.lock | sed -n 's/^version = "\(.*\)"/\1/p')" https://github.com/OmniNode-ai/omnibase_compat.git ../omnibase_compat
       - name: Clone omnimemory
         run: git clone --depth=1 --branch "v$(grep -A1 '^name = "omninode-memory"$' uv.lock | sed -n 's/^version = "\(.*\)"/\1/p')" https://github.com/OmniNode-ai/omnimemory.git ../omnimemory
-      # OMN-15390 (residual R3): the ONLY cross-repo differential in this repo
-      # — node_dod_verify's supersession parity against onex_change_control's
-      # REAL `contract_compliance_check._superseded_dod_ids` — used to SKIP on
-      # every hosted run because no OCC checkout existed here, so the parity
-      # claim was proven locally and asserted, never executed, on a PR. OCC is
-      # PUBLIC, so the default `github.token` reads it: no new secret, no new
-      # permission, and the same `actions/checkout` pattern the
-      # `contract-compliance` and `onex-schema-compat` jobs already use.
-      # `sparse-checkout: src` skips the contracts/ + drift/ bulk (~25 MB) and
-      # takes only the package the differential imports. Kept OFF
-      # ONEX_CC_REPO_PATH deliberately: exporting that would re-point
-      # EvidenceCollector's contract resolution for every other test in the
-      # job. The test finds this path relative to the repo root, and
-      # `test_ci_wires_an_occ_checkout_into_the_job_that_runs_this_suite` fails
-      # if this step is removed or its path changed.
-      - name: Checkout onex_change_control (OCC parity differential)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-        with:
-          repository: OmniNode-ai/onex_change_control
-          ref: 6adc28168d023d027bf9c1172f262ac03c9d9055
-          path: onex_change_control
-          sparse-checkout: src
-          persist-credentials: false
       - name: Install uv
         uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a  # v4
         with:
@@ -1706,7 +1777,7 @@ jobs:
       - name: Refuse shape-gate detector jobs that depend on the preflight (OMN-20298)
         run: |
           uv run --no-project \
-            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5' \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad' \
             python -m omnibase_core.handlers.handler_shape_gate_independence
 
   # OMN-20287: direct-model-call gate, BLOCKING. Model calls must live in
@@ -1720,7 +1791,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DIRECT_MODEL_CALL_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5"
+      DIRECT_MODEL_CALL_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad"
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
@@ -1949,6 +2020,12 @@ jobs:
         run: uv sync --locked
       - name: Validate event registry drift
         run: uv run python -m omnimarket.validators.event_registry_drift --omniclaude-root ../omniclaude
+      # OMN-20001: a pin move merges only with the omniclaude-coupled tests passing
+      # against the new version. This job is "Event Registry Drift" in CI Summary's
+      # strict set and clones omniclaude at the one pin, so moving the literal above
+      # makes this step run against the new version in the same PR.
+      - name: Integration suite against the pinned omniclaude (OMN-20001)
+        run: uv run pytest tests/validators/test_event_registry_drift.py -q -p no:randomly --no-cov
 
   # ============================================================================
   # RUNTIME SWEEP GATE (OMN-8611)
@@ -2724,6 +2801,12 @@ jobs:
       baseline-path: scripts/validation/state_coverage_baseline.txt
       parser: line-set
 
+  # OMN-20885: validates THIS repository's contracts/OMN-*.yaml with the installed
+  # omnibase_core ModelTicketContract (core>=0.47.39 also refuses a binds_ac entry
+  # that is not a criterion label and a binds_ac item with check_type
+  # command_exit_0). It used to check out and install onex_change_control and run
+  # its validate-yaml over that repository's contracts, never this one's. The step
+  # body is the same as contract-validation.yml's "Run contract validation".
   contract-compliance:
     needs: occ-preflight
     name: Contract Compliance Check
@@ -2731,33 +2814,44 @@ jobs:
     if: needs.occ-preflight.result == 'success' && (github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push')
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
-      - name: Checkout onex_change_control
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
-        with:
-          repository: OmniNode-ai/onex_change_control
-          ref: 6adc28168d023d027bf9c1172f262ac03c9d9055
-          path: onex_change_control
 
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
         with:
           enable-cache: true
-          cache-dependency-glob: 'onex_change_control/uv.lock'
+          cache-dependency-glob: 'uv.lock'
 
-      - name: Install onex_change_control
-        working-directory: onex_change_control
+      - name: Install omnimarket dependencies
         run: uv sync --locked
 
       - name: Validate contract YAML files
-        working-directory: onex_change_control
         run: |
-          mapfile -t CONTRACTS < <(find "$GITHUB_WORKSPACE/onex_change_control/contracts" -maxdepth 1 -type f -name "OMN-*.yaml" 2>/dev/null)
-          if [ "${#CONTRACTS[@]}" -eq 0 ]; then
-            echo "No contract YAML files found — skipping validation"
-            exit 0
-          fi
-          uv run validate-yaml "${CONTRACTS[@]}"
-        env:
-          GH_TOKEN: ${{ github.token }}
+          uv run python3 - <<'PY'
+          import sys
+          from pathlib import Path
+
+          from omnibase_core.models.errors.model_onex_error import ModelOnexError
+          from omnibase_core.models.ticket.model_ticket_contract import ModelTicketContract
+
+          # Named contracts, or every contracts/OMN-*.yaml when none are named.
+          paths = [Path(arg) for arg in sys.argv[1:]] or sorted(Path("contracts").glob("OMN-*.yaml"))
+          if not paths:
+              print("::error::contracts/ holds no OMN-*.yaml ticket contract")
+              sys.exit(1)
+
+          broken = []
+          for path in paths:
+              try:
+                  ModelTicketContract.from_yaml(path.read_text(encoding="utf-8"))
+              except (OSError, ModelOnexError) as exc:
+                  broken.append((path, " ".join(str(exc).split())))
+
+          for path, reason in broken:
+              print(f"::error file={path.as_posix()}::{path.as_posix()}: {reason}")
+          if broken:
+              print(f"ERROR: {len(broken)} of {len(paths)} ticket contract(s) fail omnibase_core's ModelTicketContract.")
+              sys.exit(1)
+          print(f"OK: {len(paths)} ticket contract(s) pass omnibase_core's ModelTicketContract.")
+          PY
 
   # ============================================================================
   # CONTRACT SWEEP GATE (OMN-14542, class fix, parent OMN-14531)
@@ -2996,7 +3090,7 @@ jobs:
       - name: Ratchet non-canonical lifecycle-word classes against frozen allowlist (OMN-14350)
         run: |
           uv run --no-project \
-            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5' \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad' \
             python -m omnibase_core.validators.no_noncanonical_lifecycle_classes \
             --check-stale \
             --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
@@ -3113,7 +3207,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
           repository: OmniNode-ai/omnibase_infra
-          ref: v0.38.69
+          ref: v0.38.71
           path: .sibling/omnibase_infra
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Python
@@ -3443,7 +3537,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5"
+      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad"
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
@@ -3497,6 +3591,28 @@ jobs:
             uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
               python -m omnibase_core.validators.canonical_file_shape --head HEAD
           fi
+
+  # OMN-20844: bring-your-own-key customers choose their OpenRouter model; the
+  # system never picks one. Names the tests that guard it so the generic split
+  # `test` job's selection cannot silently drop them. Same command as the
+  # `byok-customer-chooses-model` pre-commit hook. Unconditional (no `if:`, no
+  # `needs:`); registered in ci_summary_gate.py STRICT_GATE_JOBS.
+  byok-customer-chooses-model:
+    name: BYOK Customer Chooses Model (OMN-20844)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7
+      - name: Run the customer-chooses-model tests
+        run: >-
+          uv run pytest
+          tests/unit/cli/test_omn20844_openrouter_model_choice.py
+          tests/test_omn20844_chosen_model_never_re_aimed.py
+          tests/unit/nodes/node_delegate_skill_orchestrator/test_delegate_model_choice_omn20844.py
+          -q -p no:randomly
 
   # Release staleness (OMN-18010), moved from OCC per retirement plan step S8,
   # option (b) of the addendum's section 11 question 2 (B3): enforce release

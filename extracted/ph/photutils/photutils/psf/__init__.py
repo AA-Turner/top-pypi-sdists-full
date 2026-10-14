@@ -18,3 +18,21 @@ from .model_plotting import *  # noqa: F401, F403
 from .photometry import *  # noqa: F401, F403
 from .simulation import *  # noqa: F401, F403
 from .utils import *  # noqa: F401, F403
+
+
+def __getattr__(name):
+    # EPSFBuildResult was renamed to EPSFBuildResults in 3.1.
+    if name == 'EPSFBuildResult':
+        import warnings
+
+        from photutils.utils.exceptions import PhotutilsDeprecationWarning
+
+        from .epsf_builder import EPSFBuildResults
+
+        msg = ('EPSFBuildResult is deprecated and will be removed in '
+               'version 4.0. Use EPSFBuildResults instead.')
+        warnings.warn(msg, PhotutilsDeprecationWarning, stacklevel=2)
+        return EPSFBuildResults
+
+    msg = f'module {__name__!r} has no attribute {name!r}'
+    raise AttributeError(msg)

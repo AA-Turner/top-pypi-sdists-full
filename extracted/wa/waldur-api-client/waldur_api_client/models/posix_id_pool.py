@@ -28,13 +28,19 @@ class PosixIdPool:
         min_gid (Union[None, Unset, int]):
         max_gid (Union[None, Unset, int]):
         next_gid (Union[None, Unset, int]):
+        min_group_gid (Union[None, Unset, int]): First GID of the range reserved for provider project groups. Without
+            it, project groups draw from the GID range.
+        max_group_gid (Union[None, Unset, int]): Last GID of the range reserved for project groups.
+        next_group_gid (Union[None, Unset, int]):
         customer_uuid (Union[Unset, UUID]):
         customer_name (Union[Unset, str]):
         scope (Union[Unset, str]):
         uid_used (Union[Unset, int]):
         gid_used (Union[Unset, int]):
+        group_gid_used (Union[Unset, int]):
         uid_utilization (Union[None, Unset, float]):
         gid_utilization (Union[None, Unset, float]):
+        group_gid_utilization (Union[None, Unset, float]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -49,13 +55,18 @@ class PosixIdPool:
     min_gid: Union[None, Unset, int] = UNSET
     max_gid: Union[None, Unset, int] = UNSET
     next_gid: Union[None, Unset, int] = UNSET
+    min_group_gid: Union[None, Unset, int] = UNSET
+    max_group_gid: Union[None, Unset, int] = UNSET
+    next_group_gid: Union[None, Unset, int] = UNSET
     customer_uuid: Union[Unset, UUID] = UNSET
     customer_name: Union[Unset, str] = UNSET
     scope: Union[Unset, str] = UNSET
     uid_used: Union[Unset, int] = UNSET
     gid_used: Union[Unset, int] = UNSET
+    group_gid_used: Union[Unset, int] = UNSET
     uid_utilization: Union[None, Unset, float] = UNSET
     gid_utilization: Union[None, Unset, float] = UNSET
+    group_gid_utilization: Union[None, Unset, float] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -123,6 +134,24 @@ class PosixIdPool:
         else:
             next_gid = self.next_gid
 
+        min_group_gid: Union[None, Unset, int]
+        if isinstance(self.min_group_gid, Unset):
+            min_group_gid = UNSET
+        else:
+            min_group_gid = self.min_group_gid
+
+        max_group_gid: Union[None, Unset, int]
+        if isinstance(self.max_group_gid, Unset):
+            max_group_gid = UNSET
+        else:
+            max_group_gid = self.max_group_gid
+
+        next_group_gid: Union[None, Unset, int]
+        if isinstance(self.next_group_gid, Unset):
+            next_group_gid = UNSET
+        else:
+            next_group_gid = self.next_group_gid
+
         customer_uuid: Union[Unset, str] = UNSET
         if not isinstance(self.customer_uuid, Unset):
             customer_uuid = str(self.customer_uuid)
@@ -135,6 +164,8 @@ class PosixIdPool:
 
         gid_used = self.gid_used
 
+        group_gid_used = self.group_gid_used
+
         uid_utilization: Union[None, Unset, float]
         if isinstance(self.uid_utilization, Unset):
             uid_utilization = UNSET
@@ -146,6 +177,12 @@ class PosixIdPool:
             gid_utilization = UNSET
         else:
             gid_utilization = self.gid_utilization
+
+        group_gid_utilization: Union[None, Unset, float]
+        if isinstance(self.group_gid_utilization, Unset):
+            group_gid_utilization = UNSET
+        else:
+            group_gid_utilization = self.group_gid_utilization
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -174,6 +211,12 @@ class PosixIdPool:
             field_dict["max_gid"] = max_gid
         if next_gid is not UNSET:
             field_dict["next_gid"] = next_gid
+        if min_group_gid is not UNSET:
+            field_dict["min_group_gid"] = min_group_gid
+        if max_group_gid is not UNSET:
+            field_dict["max_group_gid"] = max_group_gid
+        if next_group_gid is not UNSET:
+            field_dict["next_group_gid"] = next_group_gid
         if customer_uuid is not UNSET:
             field_dict["customer_uuid"] = customer_uuid
         if customer_name is not UNSET:
@@ -184,10 +227,14 @@ class PosixIdPool:
             field_dict["uid_used"] = uid_used
         if gid_used is not UNSET:
             field_dict["gid_used"] = gid_used
+        if group_gid_used is not UNSET:
+            field_dict["group_gid_used"] = group_gid_used
         if uid_utilization is not UNSET:
             field_dict["uid_utilization"] = uid_utilization
         if gid_utilization is not UNSET:
             field_dict["gid_utilization"] = gid_utilization
+        if group_gid_utilization is not UNSET:
+            field_dict["group_gid_utilization"] = group_gid_utilization
 
         return field_dict
 
@@ -300,6 +347,33 @@ class PosixIdPool:
 
         next_gid = _parse_next_gid(d.pop("next_gid", UNSET))
 
+        def _parse_min_group_gid(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        min_group_gid = _parse_min_group_gid(d.pop("min_group_gid", UNSET))
+
+        def _parse_max_group_gid(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        max_group_gid = _parse_max_group_gid(d.pop("max_group_gid", UNSET))
+
+        def _parse_next_group_gid(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        next_group_gid = _parse_next_group_gid(d.pop("next_group_gid", UNSET))
+
         _customer_uuid = d.pop("customer_uuid", UNSET)
         customer_uuid: Union[Unset, UUID]
         if isinstance(_customer_uuid, Unset):
@@ -314,6 +388,8 @@ class PosixIdPool:
         uid_used = d.pop("uid_used", UNSET)
 
         gid_used = d.pop("gid_used", UNSET)
+
+        group_gid_used = d.pop("group_gid_used", UNSET)
 
         def _parse_uid_utilization(data: object) -> Union[None, Unset, float]:
             if data is None:
@@ -333,6 +409,15 @@ class PosixIdPool:
 
         gid_utilization = _parse_gid_utilization(d.pop("gid_utilization", UNSET))
 
+        def _parse_group_gid_utilization(data: object) -> Union[None, Unset, float]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, float], data)
+
+        group_gid_utilization = _parse_group_gid_utilization(d.pop("group_gid_utilization", UNSET))
+
         posix_id_pool = cls(
             url=url,
             uuid=uuid,
@@ -346,13 +431,18 @@ class PosixIdPool:
             min_gid=min_gid,
             max_gid=max_gid,
             next_gid=next_gid,
+            min_group_gid=min_group_gid,
+            max_group_gid=max_group_gid,
+            next_group_gid=next_group_gid,
             customer_uuid=customer_uuid,
             customer_name=customer_name,
             scope=scope,
             uid_used=uid_used,
             gid_used=gid_used,
+            group_gid_used=group_gid_used,
             uid_utilization=uid_utilization,
             gid_utilization=gid_utilization,
+            group_gid_utilization=group_gid_utilization,
         )
 
         posix_id_pool.additional_properties = d

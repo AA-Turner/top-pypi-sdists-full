@@ -21,7 +21,7 @@ config:
   # `AGUI_AGENTS`). `id` keeps the existing /chat/ops and /chat/cloud URLs
   # and stored threads; `persona` is the server persona each entry posts to.
   agent-chat-internal:playground-agents: '[{"id":"ops","persona":"ops"},{"id":"cloud","persona":"cloud"}]'
-  # Thin mtx Builder image; transforms-poc deploys directly as agui-mtx-deployer.
+  # Thin mtx Builder image; mtx deploys directly as agui-mtx-deployer.
   # This config value only seeds the first creation.
   agent-chat-internal:mtx-playground-image: ghcr.io/airbytehq/airbyte-mtx-agui-playground:dev-3eb5f54
   agent-chat-internal:mcp-url: https://mcp.internal.airbyte.ai/ops-mcp

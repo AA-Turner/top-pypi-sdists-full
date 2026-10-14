@@ -10,10 +10,11 @@ import httpx2
 from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, not_given
-from trajectory.types.held_out_rewards_by_step_response import HeldOutRewardsByStepResponse
-from trajectory.types.trainer_rewards_by_step_response import TrainerRewardsByStepResponse
-from trajectory.types.training_trajectory_rewards_response import TrainingTrajectoryRewardsResponse
+from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._utils import maybe_transform
+from trajectory.types.held_out_rewards_by_step_page import HeldOutRewardsByStepPage
+from trajectory.types.trainer_rewards_by_step_page import TrainerRewardsByStepPage
+from trajectory.types.training_trajectory_rewards_page import TrainingTrajectoryRewardsPage
 
 
 class Rewards(APIResource):
@@ -25,12 +26,15 @@ class Rewards(APIResource):
     self,
     run_id: str,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> HeldOutRewardsByStepResponse:
-    """Get Held Out Rewards By Step
+  ) -> HeldOutRewardsByStepPage:
+    """Held-out evaluation rewards and sample coverage for a training run, in ascending
+    training-step order.
 
     Args:
       extra_headers: Send extra headers
@@ -48,8 +52,14 @@ class Rewards(APIResource):
         "/api/v1/train/{run_id}/step/held-out-reward-by-step",
         run_id=run_id,
       ),
-      cast_to=HeldOutRewardsByStepResponse,
+      cast_to=HeldOutRewardsByStepPage,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,
@@ -61,12 +71,14 @@ class Rewards(APIResource):
     self,
     run_id: str,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> TrainerRewardsByStepResponse:
-    """Get Trainer Rewards By Step
+  ) -> TrainerRewardsByStepPage:
+    """Trainer rewards recorded for a training run, in ascending training-step order.
 
     Args:
       extra_headers: Send extra headers
@@ -84,8 +96,14 @@ class Rewards(APIResource):
         "/api/v1/train/{run_id}/step/trainer-reward-by-step",
         run_id=run_id,
       ),
-      cast_to=TrainerRewardsByStepResponse,
+      cast_to=TrainerRewardsByStepPage,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,
@@ -98,12 +116,14 @@ class Rewards(APIResource):
     run_id: str,
     step: int,
     *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> TrainingTrajectoryRewardsResponse:
-    """Get Training Trajectory Rewards Route
+  ) -> TrainingTrajectoryRewardsPage:
+    """Per-trajectory rewards recorded at one training step, in ascending trajectory-ID order.
 
     Args:
       extra_headers: Send extra headers
@@ -124,8 +144,14 @@ class Rewards(APIResource):
         run_id=run_id,
         step=step,
       ),
-      cast_to=TrainingTrajectoryRewardsResponse,
+      cast_to=TrainingTrajectoryRewardsPage,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

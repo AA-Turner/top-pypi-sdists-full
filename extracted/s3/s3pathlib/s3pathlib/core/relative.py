@@ -2,11 +2,19 @@
 
 """
 Relative Path implementation.
+
+A relative path is a path without bucket. ``relative_to`` (and ``-``) is the
+inverse of ``/``, see the design notes in :mod:`s3pathlib.core.joinpath`.
 """
 
-import typing as T
+from __future__ import annotations
 
-from .. import utils
+import typing as T
+import warnings
+
+from .base import BaseS3Path
+from ..exc import S3PathIsNotRelpathError
+from ..exc import S3PathTypeError
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from .s3path import S3Path
@@ -17,166 +25,144 @@ class RelativePathAPIMixin:
     A mixin class that implements the relative path concept.
     """
 
+    __slots__ = ()
+
     @classmethod
     def make_relpath(
-        cls: T.Type["S3Path"],
-        *parts: str,
-    ) -> "S3Path":
+        cls: type[S3Path],
+        *parts: str | S3Path,
+    ) -> S3Path:
         """
-        A construct method that create a relative S3 Path.
+        Create a relative path from string parts or other relative paths. It
+        follows the same rules as the
+        :class:`~s3pathlib.core.s3path.S3Path` constructor: ``/`` is
+        collapsed, empty arguments are ignored, and the last non-empty
+        argument decides whether it is a file or a dir. With no parts it is
+        the void path, which is neither a file nor a dir.
 
-        Definition of relative path:
+        Example::
 
-        - no bucket (self.bucket is None)
-        - has some parts or no part. when no part, it is a special relative path.
-            Any path add this relative path resulting to itself. We call this
-            special relative path **Void relative path**. A
-            **Void relative path** is logically equivalent to **Void s3 path**.
-        - relative path can be a file (object) or a directory. The
-            **Void relative path** is neither a file or a directory.
+            >>> S3Path.make_relpath("folder", "file.txt")
+            S3RelPath('folder/file.txt')
 
-        :param parts:
-
-        .. versionadded:: 1.0.1
-
-        **中文文档**
-
-        相对路径的概念是 p1 + p2 = p3, 其中 p1 和 p3 都是实际存在的路径, 而 p2 则是
-        相对路径.
-
-        相对路径的功能是如果 p3 - p1 = p2, 那么 p1 + p2 必须还能等于 p3. 有一个特殊情况是
-        如果 p1 - p1 = p0, 两个相同的绝对路径之间的相对路径是 p0, 我们还是需要满足
-        p1 + p0 = p1 以保证逻辑上的一致.
+        :raises TypeError: if a part is not a str or a relative path.
         """
-        _parts = list()
-        last_non_empty_part = None
-        for part in parts:
-            chunks = utils.split_parts(part)
-            if len(chunks):
-                last_non_empty_part = part
-            for _part in chunks:
-                _parts.append(_part)
+        void = cls._from_parsed_parts(bucket=None, parts=(), is_dir=None)
+        return cls._from_parts([void, *parts])
 
-        if len(_parts):
-            _is_dir = last_non_empty_part.endswith("/")
-        else:
-            _is_dir = None
-
-        return cls._from_parsed_parts(
-            bucket=None,
-            parts=_parts,
-            is_dir=_is_dir,
-        )
-
-    def relative_to(self: "S3Path", other: "S3Path") -> "S3Path":
+    def relative_to(self: S3Path, other: S3Path) -> S3Path:
         """
-        Return the relative path to another path. If the operation
-        is not possible (because this is not a sub path of the other path),
-        raise ``ValueError``.
+        Return the relative path from ``other`` to this path, the inverse of
+        ``/``: ``other / self.relative_to(other) == self``. ``-`` is a syntax
+        sugar for it. The same path gives the void path.
 
-        ``-`` is a syntax sugar for ``relative_to``. See more information at
-        :meth:`~RelativePathAPIMixin.__sub__`.
+        Example::
 
-        The relative path usually works with
-        :meth:`~s3pathlib.core.joinpath.JoinPathAPIMixin.joinpath` to form a new
-        path. Or you can use the ``/`` syntax sugar as well.
+            >>> S3Path("bucket", "a/b/c").relative_to(S3Path("bucket", "a/"))
+            S3RelPath('b/c')
 
-        Examples::
+        Both paths are absolute paths in the same bucket, or both are relative
+        paths (a relative path relative to another one).
 
-            >>> S3Path("bucket", "a/b/c").relative_to(S3Path("bucket", "a")).parts
-            ['b', 'c']
+        ``other`` should be a dir. Using a file as ``other`` (e.g.
+        ``S3Path("bucket", "folder")`` without the trailing ``/``) is
+        deprecated since 3.0.0: it still works, emits a ``DeprecationWarning``,
+        and will raise :class:`~s3pathlib.exc.S3PathIsNotFolderError` in
+        4.0.0. See :meth:`~s3pathlib.core.joinpath.JoinPathAPIMixin.joinpath`.
 
-            >>> S3Path("bucket", "a").relative_to(S3Path("bucket", "a")).parts
-            []
-
-            >>> S3Path("bucket", "a").relative_to(S3Path("bucket", "a/b/c")).parts
-            ValueError ...
-
-            >>> S3Path("bucket") / S3Path("new_bucket/file.txt").relative_to(S3Path("new_bucket"))
-            S3Path('s3://bucket/file.txt')
-
-        :param other: other :class:`S3Path` instance.
-
-        :return: a relative path object, which is a special version of S3Path
-
-        .. versionadded:: 1.0.1
+        :raises TypeError: if ``other`` is not an S3Path.
+        :raises ValueError: if this path is not under ``other``, e.g. a
+            different bucket, a sibling path, or the same parts but one is a
+            file and the other a dir, so that no relative path can lead from
+            ``other`` to this path.
         """
-        if (
-            (self._bucket != other._bucket)
-            or (self._bucket is None)
-            or (other._bucket is None)
-        ):
-            msg = (
-                "both 'from path' {} and 'to path' {} has to be concrete path!"
-            ).format(self, other)
-            raise ValueError(msg)
+        return self._relative_to(other)
+
+    def _relative_to(self: S3Path, other: S3Path) -> S3Path:
+        """
+        Implementation of :meth:`relative_to` and ``-``.
+        """
+        if not isinstance(other, BaseS3Path):
+            raise TypeError(
+                f"other has to be an S3Path, got {type(other).__name__}: {other!r}"
+            )
+        if self._bucket != other._bucket:
+            if (self._bucket is None) or (other._bucket is None):
+                raise ValueError(
+                    f"{self._error_label()} and {other._error_label()}: both have to be absolute paths, "
+                    "or both relative paths"
+                )
+            raise ValueError(
+                f"{self._error_label()} is not under {other._error_label()}: they are in different buckets"
+            )
 
         n = len(other._parts)
         if self._parts[:n] != other._parts:
-            msg = "{} does not start with {}".format(
-                self.uri,
-                other.uri,
+            raise ValueError(
+                f"{self._error_label()} is not under {other._error_label()}"
             )
-            raise ValueError(msg)
+
         rel_parts = self._parts[n:]
-        if len(rel_parts):
-            is_dir = self._is_dir
-        else:
+        if len(rel_parts) == 0:
+            # same parts: only the same path gives the void relative path,
+            # because ``other / void`` is ``other`` itself
+            if self._is_dir != other._is_dir:
+                raise ValueError(
+                    f"{self._error_label()} is not under {other._error_label()}: they have the same parts, "
+                    "but one is a file and the other is a dir, no relative path "
+                    "leads from one to the other"
+                )
             is_dir = None
+        else:
+            is_dir = self._is_dir
+
+        if other.is_file():
+            warnings.warn(
+                f"{other._error_label()} is a file. Using a file as the base of relative_to "
+                "is deprecated since 3.0.0, and will raise "
+                "S3PathIsNotFolderError in 4.0.0. Use a dir instead, "
+                "e.g. end it with '/' or call .to_dir().",
+                DeprecationWarning,
+                stacklevel=3,  # user -> relative_to or - -> _relative_to
+            )
+
         return self._from_parsed_parts(
             bucket=None,
             parts=rel_parts,
             is_dir=is_dir,
         )
 
-    def is_relpath(self: "S3Path") -> bool:
+    def is_relpath(self: S3Path) -> bool:
         """
-        Relative path is a special path supposed to join with other concrete
-        path.
-
-        **Definition**
-
-        A long full path relating to its parent directory is a relative path.
-        A :meth:`void <is_void>` path also a special relative path.
-
-        .. versionadded:: 1.0.1
+        Test if it is a relative path, i.e. any path without bucket. The
+        :meth:`void <is_void>` path is a relative path too. See
+        :mod:`s3pathlib.core.base`.
         """
-        if self._bucket is None:
-            if len(self._parts) == 0:
-                if self._is_dir is None:
-                    return True
-                else:
-                    return False
-            else:
-                return True
-        else:
-            return False
+        return self._bucket is None
 
-    def __sub__(self: "S3Path", other: "S3Path") -> "S3Path":
+    def __sub__(self: S3Path, other: S3Path) -> S3Path:
         """
-        A syntax sugar. Basically ``s3path1 - s3path2`` is equal to
-        ``s3path2.relative_to(s3path1)``
-
-        .. versionadded:: 1.0.11
+        A syntax sugar. ``s3path1 - s3path2`` is ``s3path1.relative_to(s3path2)``.
         """
-        return self.relative_to(other)
+        return self._relative_to(other)
 
-    def ensure_relpath(self: "S3Path") -> None:
+    def ensure_relpath(self: S3Path) -> None:
         """
         A validator method that ensure it represents a S3 relative path.
 
-        .. versionadded:: 1.2.1
+        :raises S3PathIsNotRelpathError: if it is not a relative path.
         """
         if self.is_relpath() is not True:
-            raise TypeError(f"{self} IS a s3 relative path!")
+            raise S3PathIsNotRelpathError.make(self.uri)
 
-    def ensure_not_relpath(self: "S3Path") -> None:
+    def ensure_not_relpath(self: S3Path) -> None:
         """
-        A validator method that ensure it represents a S3 relative path.
+        A validator method that ensure it is not a relative path, i.e. it is
+        an absolute path with a bucket.
 
-        Can be used if you want to raise error if it is not a relative path.
-
-        .. versionadded:: 1.0.1
+        :raises S3PathTypeError: if it is a relative path.
         """
         if self.is_relpath() is True:
-            raise TypeError(f"{self} is not a valid s3 relative path!")
+            raise S3PathTypeError(
+                f"{self._error_label()} is a relative path, an absolute path is required!"
+            )

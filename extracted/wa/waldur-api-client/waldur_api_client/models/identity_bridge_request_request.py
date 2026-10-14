@@ -36,7 +36,12 @@ class IdentityBridgeRequestRequest:
         nationalities (Union[Unset, list[str]]):
         organization_country (Union[Unset, str]):
         organization_type (Union[Unset, str]):
+        organization_registry_code (Union[Unset, str]):
+        organization_vat_code (Union[Unset, str]):
+        organization_address (Union[Unset, str]):
         eduperson_assurance (Union[Unset, list[str]]):
+        uid_number (Union[None, Unset, int]):
+        primary_gid (Union[None, Unset, int]):
     """
 
     username: str
@@ -59,7 +64,12 @@ class IdentityBridgeRequestRequest:
     nationalities: Union[Unset, list[str]] = UNSET
     organization_country: Union[Unset, str] = UNSET
     organization_type: Union[Unset, str] = UNSET
+    organization_registry_code: Union[Unset, str] = UNSET
+    organization_vat_code: Union[Unset, str] = UNSET
+    organization_address: Union[Unset, str] = UNSET
     eduperson_assurance: Union[Unset, list[str]] = UNSET
+    uid_number: Union[None, Unset, int] = UNSET
+    primary_gid: Union[None, Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,9 +129,27 @@ class IdentityBridgeRequestRequest:
 
         organization_type = self.organization_type
 
+        organization_registry_code = self.organization_registry_code
+
+        organization_vat_code = self.organization_vat_code
+
+        organization_address = self.organization_address
+
         eduperson_assurance: Union[Unset, list[str]] = UNSET
         if not isinstance(self.eduperson_assurance, Unset):
             eduperson_assurance = self.eduperson_assurance
+
+        uid_number: Union[None, Unset, int]
+        if isinstance(self.uid_number, Unset):
+            uid_number = UNSET
+        else:
+            uid_number = self.uid_number
+
+        primary_gid: Union[None, Unset, int]
+        if isinstance(self.primary_gid, Unset):
+            primary_gid = UNSET
+        else:
+            primary_gid = self.primary_gid
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -167,8 +195,18 @@ class IdentityBridgeRequestRequest:
             field_dict["organization_country"] = organization_country
         if organization_type is not UNSET:
             field_dict["organization_type"] = organization_type
+        if organization_registry_code is not UNSET:
+            field_dict["organization_registry_code"] = organization_registry_code
+        if organization_vat_code is not UNSET:
+            field_dict["organization_vat_code"] = organization_vat_code
+        if organization_address is not UNSET:
+            field_dict["organization_address"] = organization_address
         if eduperson_assurance is not UNSET:
             field_dict["eduperson_assurance"] = eduperson_assurance
+        if uid_number is not UNSET:
+            field_dict["uid_number"] = uid_number
+        if primary_gid is not UNSET:
+            field_dict["primary_gid"] = primary_gid
 
         return field_dict
 
@@ -245,7 +283,31 @@ class IdentityBridgeRequestRequest:
 
         organization_type = d.pop("organization_type", UNSET)
 
+        organization_registry_code = d.pop("organization_registry_code", UNSET)
+
+        organization_vat_code = d.pop("organization_vat_code", UNSET)
+
+        organization_address = d.pop("organization_address", UNSET)
+
         eduperson_assurance = cast(list[str], d.pop("eduperson_assurance", UNSET))
+
+        def _parse_uid_number(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        uid_number = _parse_uid_number(d.pop("uid_number", UNSET))
+
+        def _parse_primary_gid(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        primary_gid = _parse_primary_gid(d.pop("primary_gid", UNSET))
 
         identity_bridge_request_request = cls(
             username=username,
@@ -268,7 +330,12 @@ class IdentityBridgeRequestRequest:
             nationalities=nationalities,
             organization_country=organization_country,
             organization_type=organization_type,
+            organization_registry_code=organization_registry_code,
+            organization_vat_code=organization_vat_code,
+            organization_address=organization_address,
             eduperson_assurance=eduperson_assurance,
+            uid_number=uid_number,
+            primary_gid=primary_gid,
         )
 
         identity_bridge_request_request.additional_properties = d

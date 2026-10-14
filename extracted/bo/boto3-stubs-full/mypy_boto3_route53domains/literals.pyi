@@ -35,6 +35,7 @@ __all__ = (
     "OperationTypeType",
     "OperatorType",
     "PaginatorName",
+    "PriceTypeType",
     "ReachabilityStatusType",
     "RegionName",
     "ResourceServiceName",
@@ -378,6 +379,7 @@ OperationTypeType = Literal[
     "UPDATE_NAMESERVER",
 ]
 OperatorType = Literal["BEGINS_WITH", "GE", "LE"]
+PriceTypeType = Literal["REGISTRY_PREMIUM", "STANDARD"]
 ReachabilityStatusType = Literal["DONE", "EXPIRED", "PENDING"]
 SortOrderType = Literal["ASC", "DESC"]
 StatusFlagType = Literal[
@@ -391,6 +393,7 @@ TransferableType = Literal[
     "DOMAIN_IN_ANOTHER_ACCOUNT",
     "DOMAIN_IN_OWN_ACCOUNT",
     "DONT_KNOW",
+    "PENDING",
     "PREMIUM_DOMAIN",
     "TRANSFERABLE",
     "UNTRANSFERABLE",

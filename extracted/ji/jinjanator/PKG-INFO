@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jinjanator
-Version: 26.1.0
+Version: 26.2.0
 Summary: Command-line interface to Jinja2 for templating in shell scripts.
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator
@@ -19,11 +19,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Requires-Dist: attrs
 Requires-Dist: jinja2>=2.7.2
-Requires-Dist: jinjanator-plugins==26.1.*
+Requires-Dist: jinjanator-plugins==26.2.*
 Requires-Dist: python-dotenv>=1
 Requires-Dist: pyyaml
 Requires-Dist: typing-extensions
@@ -564,13 +565,15 @@ def extra_tests():
 ```
 
 ## Release Information
-### Backwards-incompatible Changes
+### Additions
 
-- Support for Python 3.10 has been removed. Since the minimum supported
-  version is now 3.11, the code has been updated to use features
-  introduced in that version.
+- Added support for Python 3.15.
   
-- Upgrade to version 26.1.0 of jinjanator-plugins.
+
+
+### Changes
+
+- Update to version 26.2.0 of jinjanator-plugins.
   
 
 ---

@@ -78,6 +78,7 @@ __all__ = (
     "SoftwareDeploymentStatusType",
     "StackAttributeType",
     "StackErrorCodeType",
+    "StorageConnectorAuthenticationType",
     "StorageConnectorTypeType",
     "StreamViewType",
     "ThemeAttributeType",
@@ -244,6 +245,7 @@ StackAttributeType = Literal[
     "IAM_ROLE_ARN",
     "REDIRECT_URL",
     "STORAGE_CONNECTORS",
+    "STORAGE_CONNECTOR_AUTHENTICATION",
     "STORAGE_CONNECTOR_GOOGLE_DRIVE",
     "STORAGE_CONNECTOR_HOMEFOLDERS",
     "STORAGE_CONNECTOR_ONE_DRIVE",
@@ -252,6 +254,7 @@ StackAttributeType = Literal[
     "USER_SETTINGS",
 ]
 StackErrorCodeType = Literal["INTERNAL_SERVICE_ERROR", "STORAGE_CONNECTOR_ERROR"]
+StorageConnectorAuthenticationType = Literal["FORCE_REAUTHENTICATION", "REUSE_CREDENTIALS"]
 StorageConnectorTypeType = Literal["GOOGLE_DRIVE", "HOMEFOLDERS", "ONE_DRIVE"]
 StreamViewType = Literal["APP", "DESKTOP"]
 ThemeAttributeType = Literal["FOOTER_LINKS"]

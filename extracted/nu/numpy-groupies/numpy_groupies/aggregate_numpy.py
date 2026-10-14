@@ -190,7 +190,8 @@ def _argmax(
 ) -> np.ndarray:
     # the mask value has to be the smallest value of numpy's order, which for a
     # complex dtype is -inf-infj and not -inf+0j (see minval and maxval)
-    a_ = np.where(np.isnan(a), minval(fill_value, a.dtype), a) if _nansqueeze else a
+    # Integer inputs have no NaNs; replacing them can promote uint64 to float64.
+    a_ = np.where(np.isnan(a), minval(fill_value, a.dtype), a) if _nansqueeze and a.dtype.kind in "fc" else a
     group_max = _max(group_idx, a_, size, np.nan)
     # nan should never be maximum, so use a and not a_
     is_max = a == group_max[group_idx]
@@ -211,7 +212,8 @@ def _argmin(
 ) -> np.ndarray:
     # the mask value has to be the largest value of numpy's order, which for a
     # complex dtype is inf+infj and not inf+0j (see minval and maxval)
-    a_ = np.where(np.isnan(a), maxval(fill_value, a.dtype), a) if _nansqueeze else a
+    # Integer inputs have no NaNs; replacing them can promote uint64 to float64.
+    a_ = np.where(np.isnan(a), maxval(fill_value, a.dtype), a) if _nansqueeze and a.dtype.kind in "fc" else a
     group_min = _min(group_idx, a_, size, np.nan)
     # nan should never be minimum, so use a and not a_
     is_min = a == group_min[group_idx]
@@ -363,6 +365,8 @@ def _sum_of_squres(
     fill_value: Any,
     dtype: np.dtype | None = np.dtype(np.float64),
 ) -> np.ndarray:
+    if np.issubdtype(a.dtype, np.integer):
+        a = a.astype(dtype, copy=False)
     if iscomplexobj(a):
         # the squared magnitude |a|^2 - the power of complex values, giving
         # a real result like np.var, instead of the complex a*a
@@ -669,7 +673,10 @@ def _aggregate_base(
                         a = a[good]
                     group_idx = group_idx[good]
 
-        dtype = check_dtype(dtype, funcname, a, flat_size)
+        # the sum overflow guess needs the maximum number of values that can
+        # be summed into a single group, i.e. the (nan-filtered) input length
+        # - flat_size counts output groups and can be arbitrarily smaller
+        dtype = check_dtype(dtype, funcname, a, len(group_idx))
         fill_value = resolve_fill_value(funcname, fill_value, dtype)
         check_fill_value(fill_value, dtype, func=funcname)
         ret = func(group_idx, a, flat_size, fill_value=fill_value, dtype=dtype, **kwargs)  # type: ignore[operator]

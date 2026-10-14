@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-benedict
-Version: 0.39.0
+Version: 0.40.0
 Summary: python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>
@@ -47,17 +47,18 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Education :: Testing
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: python-slugify<10.0.0,>=7.0.0
@@ -82,7 +83,6 @@ Requires-Dist: python-fsutil<1.0.0,>=0.17.0; extra == "s3"
 Provides-Extra: schema
 Requires-Dist: pydantic<3.0.0,>=2.0.0; extra == "schema"
 Provides-Extra: toml
-Requires-Dist: tomli<3.0.0,>=2.0.0; python_version < "3.11" and extra == "toml"
 Requires-Dist: tomli-w<2.0.0,>=1.0.0; extra == "toml"
 Provides-Extra: xls
 Requires-Dist: openpyxl<4.0.0,>=3.0.0; extra == "xls"
@@ -340,6 +340,13 @@ d = benedict(
 
 # data
 d = benedict('{"a": 1, "b": 2, "c": 3, "x": 7, "y": 8, "z": 9}')
+```
+
+When the `format` is not specified, it is auto-detected from the source extension, with one exception: `pickle` is **never** auto-detected, because decoding it executes arbitrary code. It must always be requested explicitly:
+
+```python
+d = benedict("/root/data.pickle", format="pickle")
+d = benedict.from_pickle("/root/data.pickle")
 ```
 
 #### Input methods
@@ -600,7 +607,8 @@ k = d.keypaths(indexes=False, sort=True)
 
 ```python
 # Return a list of all values whose keypath matches the given pattern (a regex or string).
-# If pattern is string, wildcard can be used (eg. [*] can be used to match all list indexes).
+# If pattern is string, wildcard can be used (eg. [*] can be used to match all list indexes),
+# all other characters are matched literally.
 # If indexes is True, the pattern will be matched also against list values.
 m = d.match(pattern, indexes=True)
 ```

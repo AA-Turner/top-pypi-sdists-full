@@ -23,6 +23,7 @@ import warnings
 from aioesphomeapi.model import (
     APIVersion,
     DeviceInfo,
+    SerialProxyDataReceived,
     SerialProxyIdentity,
     SerialProxyIdentityFlag,
     SerialProxyIdentitySource,
@@ -38,9 +39,12 @@ from serialx import (
     Platform,
     SerialException,
     SerialPortInfo,
+    UnsupportedSetting,
     async_list_serial_ports,
     async_serial_for_url,
+    create_serial_connection,
     list_serial_ports,
+    redact_uri,
 )
 from serialx.platforms.serial_esphome import (
     ESPHOME_DEFAULT_PORT,
@@ -723,6 +727,47 @@ async def test_mode_protocol_set_before_subscribe() -> None:
     ]
 
 
+async def test_data_before_connection_made_is_held() -> None:
+    """Data streamed during the handshake reaches the protocol after `connection_made`."""
+    api = mock_api_client("Zigbee")
+    events: list[object] = []
+
+    class RecordingProtocol(asyncio.Protocol):
+        def connection_made(self, transport: asyncio.BaseTransport) -> None:
+            events.append("connection_made")
+
+        def data_received(self, data: bytes) -> None:
+            events.append(data)
+
+    async def subscribe(instance: int, *, timeout: float) -> None:
+        # The device starts streaming as soon as it is subscribed, before the mode and
+        # port settings are negotiated
+        on_data = api.subscribe_serial_proxy_data.call_args.args[0]
+        on_data(SerialProxyDataReceived(instance=instance, data=b"early"))  # type:ignore[call-arg]
+
+    api.serial_proxy_subscribe_await_response.side_effect = subscribe
+
+    transport, _ = await create_serial_connection(
+        asyncio.get_running_loop(),
+        RecordingProtocol,
+        url=None,
+        baudrate=115200,
+        transport_cls=ESPHomeSerialTransport,
+        api=api,
+        port_name="Zigbee",
+    )
+
+    assert events == ["connection_made", b"early"]
+
+    # Once connected, data is delivered directly
+    on_data = api.subscribe_serial_proxy_data.call_args.args[0]
+    on_data(SerialProxyDataReceived(instance=0, data=b"late"))  # type:ignore[call-arg]
+    assert events == ["connection_made", b"early", b"late"]
+
+    transport.close()
+    await transport.wait_closed()
+
+
 async def test_mode_protocol_kwarg_with_external_api() -> None:
     """The `mode` kwarg is honored when the API client is passed in externally."""
     api = mock_api_client("Zigbee")
@@ -781,12 +826,11 @@ async def test_mode_raw_is_sent_explicitly(query: str) -> None:
     ]
 
 
-@pytest.mark.parametrize("query", ["", "&mode=protocol"])
-async def test_mode_skipped_on_old_device(query: str) -> None:
+async def test_mode_skipped_on_old_device() -> None:
     """A device predating API 1.17 never answers set-mode, so it is not sent."""
     api = mock_api_client("Zigbee")
     api.api_version = APIVersion(1, 16)
-    url = f"esphome://127.0.0.1:6053/?port_name=Zigbee{query}"
+    url = "esphome://127.0.0.1:6053/?port_name=Zigbee"
 
     with patch("serialx.platforms.serial_esphome.APIClient", return_value=api):
         async with async_serial_for_url(url=url, baudrate=115200) as serial:
@@ -807,6 +851,47 @@ async def test_mode_skipped_on_old_device(query: str) -> None:
     ]
 
 
+async def test_mode_protocol_refused_on_old_device() -> None:
+    """`protocol` on a device predating modes fails rather than falling back to raw."""
+    api = mock_api_client("Zigbee")
+    api.api_version = APIVersion(1, 16)
+    url = "esphome://127.0.0.1:6053/?port_name=Zigbee&mode=protocol"
+
+    with patch("serialx.platforms.serial_esphome.APIClient", return_value=api):
+        with pytest.raises(UnsupportedSetting, match="needs API 1.17"):
+            async with async_serial_for_url(url=url, baudrate=115200):
+                pass
+
+    assert proxy_calls(api) == [
+        call.subscribe_serial_proxy_data(ANY),
+        call.serial_proxy_subscribe_await_response(0, timeout=ANY),
+    ]
+    assert api.disconnect.mock_calls == [call()]
+
+
+async def test_mode_protocol_refused_without_tap() -> None:
+    """A port with no tap refuses `protocol`, and that refusal is not a fallback."""
+    api = mock_api_client("Zigbee")
+    api.serial_proxy_set_mode_await_response.return_value = SerialProxyRequestResponse(  # type:ignore[call-arg]
+        status=SerialProxyStatus.NOT_SUPPORTED
+    )
+    url = "esphome://127.0.0.1:6053/?port_name=Zigbee&mode=protocol"
+
+    with patch("serialx.platforms.serial_esphome.APIClient", return_value=api):
+        with pytest.raises(UnsupportedSetting, match="has no tap"):
+            async with async_serial_for_url(url=url, baudrate=115200):
+                pass
+
+    assert proxy_calls(api) == [
+        call.subscribe_serial_proxy_data(ANY),
+        call.serial_proxy_subscribe_await_response(0, timeout=ANY),
+        call.serial_proxy_set_mode_await_response(
+            instance=0, mode=SerialProxyMode.PROTOCOL, timeout=ANY
+        ),
+    ]
+    assert api.disconnect.mock_calls == [call()]
+
+
 async def test_invalid_mode_in_url() -> None:
     """An unknown `mode` in the URL is rejected before any connection is made."""
     api = mock_api_client("Zigbee")
@@ -818,6 +903,19 @@ async def test_invalid_mode_in_url() -> None:
                 pass
 
     assert len(api.mock_calls) == 0
+
+
+@pytest.mark.parametrize(
+    "url", ["esphome:///?key=c2VjcmV0", "esphome://?key=c2VjcmV0&port_name=uart"]
+)
+async def test_missing_hostname_error_redacts_key(url: str) -> None:
+    """The missing-hostname error shows the URI as typed, without the key."""
+    with pytest.raises(InvalidSettingsError, match="is missing a hostname") as exc:
+        async with async_serial_for_url(url=url, baudrate=115200):
+            pass
+
+    assert "c2VjcmV0" not in str(exc.value)
+    assert redact_uri(url) in str(exc.value)
 
 
 def test_invalid_mode_kwarg() -> None:
@@ -1091,8 +1189,7 @@ async def test_list_serial_ports_reports_identity() -> None:
     base = "esphome://127.0.0.1:6053/?port_name="
     # A device with a serial number is found by it, not by the port it is on
     zbt2_url = (
-        "esphome://127.0.0.1:6053/?port_serial_number=AABBCCDDEEFF"
-        "&port_udev_id=usb-Nabu_Casa_ZBT-2_AABBCCDDEEFF-if00"
+        "esphome://127.0.0.1:6053/?port_udev_id=usb-Nabu_Casa_ZBT-2_AABBCCDDEEFF-if00"
     )
     empty = {
         "vid": None,

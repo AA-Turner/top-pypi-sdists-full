@@ -1,7 +1,8 @@
 """The few Probe reads the daemon's plain code makes itself (not through the CLI).
 
 Facts for an approval question come from Probe, never from the model: what a
-delete would trash, and who made it (`DELETE ...?dry_run=true`, S13).
+delete would trash, and who made it (`DELETE ...?dry_run=true`, S13). The run
+alerts the worker hands the agent come from here too (`run_alerts`).
 
 A dry-run DELETE is still a DELETE: a server that does not know `dry_run`
 ignores it and deletes. So the preview is sent only to a server that declares
@@ -275,6 +276,37 @@ async def edge_is_this_daemons(env: dict[str, str], edge_id: str) -> bool:
         return False
     by, me = _who(meta.get("by")), _who((await whoami(env)).get("user_id"))
     return bool(by) and by == me
+
+
+#: The run-alert poll, start to finish: the next poll is never more than one
+#: interval away, so a slow server costs one poll, not a stuck lane.
+RUN_ALERTS_TIMEOUT_S = 10.0
+
+
+async def run_alerts(env: dict[str, str], session_id: str) -> list[dict] | None:
+    """The run alerts of the last two hours on runs this session launched or wrote
+    to (`GET /v1/sessions/{id}/run-alerts`), oldest first: `[{"id", "run_id",
+    "kind", "text", "created_at"}]`. None when Probe could not say -- no answer, a
+    server from before the route (404), a malformed session id (422), a 5xx, a
+    body that is not a listing -- and the poller asks again next time; it never
+    raises for those. `KeyRefused` when Probe refused the key, as every call here."""
+    segment = quote(session_id, safe="")
+    try:
+        async with await _client(env) as client:
+            client.timeout = httpx.Timeout(RUN_ALERTS_TIMEOUT_S)
+            resp = await client.get(f"/v1/sessions/{segment}/run-alerts")
+    except httpx.HTTPError:
+        return None
+    _refuse_key(resp)
+    if resp.status_code != 200:
+        return None
+    try:
+        alerts = resp.json().get("alerts")
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(alerts, list):
+        return None
+    return [a for a in alerts if isinstance(a, dict)]
 
 
 #: What `others_from` answers when it cannot read the tally: someone else's data.

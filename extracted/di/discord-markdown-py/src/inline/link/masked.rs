@@ -29,6 +29,7 @@ use crate::{
 };
 
 use super::{Grammar, Link, auto, detection, is_suspicious_whitespace, scheme, verify_url};
+use crate::node::ParsedNode;
 
 mod link;
 mod text;
@@ -131,7 +132,7 @@ where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
 {
-	type Output = Link<'data, S>;
+	type Output = Link<S, ParsedNode<'data, S>>;
 	type Error = E;
 
 	#[tracing::instrument(name = "masked_parser", level = Level::TRACE, fields(ok, output))]
@@ -174,7 +175,7 @@ where
 #[must_use]
 pub fn masked<'ctx, 'data, S, E>(
 	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Link<'data, S>, Error = E> + 'ctx
+) -> impl Parser<Input<'data>, Output = Link<S, ParsedNode<'data, S>>, Error = E> + 'ctx
 where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
@@ -193,8 +194,18 @@ mod test {
 	use super::masked;
 	use crate::context::Context;
 	use crate::inline::link::Link;
-	use crate::node::Node;
-	use crate::test_utils::handle_nom_err;
+	use crate::node::{Node, ParsedNode};
+	use crate::range::Content;
+	use crate::test_utils::{handle_nom_err, resolved};
+
+	/// Resolve the delimiters in a link's text, as a whole parse would.
+	fn resolved_link(link: Link<(), ParsedNode<'_, ()>>) -> Link<(), Node<'_, ()>> {
+		Link {
+			text: link.text.map(|text| resolved(text, Content::Inline)),
+			url: link.url,
+			title: link.title,
+		}
+	}
 	use crate::{bold, italic, spanned_vec, text};
 
 	/// A schemaless link in the text segment is rejected the same way a URL is.
@@ -305,7 +316,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://good.com").unwrap(),
 				text: Some(spanned_vec![text!("foo")]),
@@ -336,7 +347,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://discord.gg/abc").unwrap(),
 				text: Some(spanned_vec![text!("join")]),
@@ -366,7 +377,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
 				text: Some(spanned_vec![text!("test")]),
@@ -385,7 +396,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
 				text: Some(spanned_vec![italic!("foo"), text!(" "), bold!("bar")]),
@@ -404,7 +415,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
 				text: Some(spanned_vec![text!("foo\nbar")]),
@@ -434,7 +445,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
 				text: Some(spanned_vec![text!("<:abcd:1234>")]),
@@ -454,7 +465,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
 				text: Some(spanned_vec![text!("foo")]),
@@ -473,10 +484,10 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
-				text: Some(spanned_vec![Node::Text("foo".into())]),
+				text: Some(spanned_vec![text!("foo")]),
 				title: Some("Will Nelson's website".to_string()),
 			}
 		);
@@ -492,10 +503,10 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://en.wikipedia.org/wiki/Endemic_(epidemiology)").unwrap(),
-				text: Some(spanned_vec![Node::Text("Endemic".into())]),
+				text: Some(spanned_vec![text!("Endemic")]),
 				title: None,
 			}
 		);
@@ -514,7 +525,7 @@ mod test {
 	}
 
 	/// The underscore spelling of the case above is no longer a hiding technique: an intraword `_`
-	/// does not open an italic (see [`crate::grammar::Grammar::override_start_sequence`]), so the
+	/// does not delimit an italic (see [`crate::range`]), so the
 	/// text renders as the literal `http_s_://foo`, which is not a URL and does not spoof one.
 	#[test]
 	fn masked_link_with_intraword_underscores_is_not_a_hidden_link() {
@@ -526,7 +537,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
 				text: Some(spanned_vec![
@@ -549,7 +560,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("sms:+18005882300").unwrap(),
 				text: Some(spanned_vec![text!("test")]),
@@ -568,7 +579,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("mailto:tim@apple.com").unwrap(),
 				text: Some(spanned_vec![text!("test")]),
@@ -588,10 +599,10 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
-				text: Some(spanned_vec![Node::Text("[foo] bar".into())]),
+				text: Some(spanned_vec![text!("[foo] bar")]),
 				title: None,
 			}
 		);
@@ -608,10 +619,10 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_link(res),
 			Link {
 				url: Url::parse("https://wnelson.dev").unwrap(),
-				text: Some(spanned_vec![Node::Text("foo [bar_baz]".into())]),
+				text: Some(spanned_vec![text!("foo [bar_baz]")]),
 				title: None,
 			}
 		);

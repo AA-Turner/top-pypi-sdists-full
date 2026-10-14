@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: jupyter_server_fileid
-Version: 0.9.3
+Version: 0.10.0
 Summary: Jupyter Server extension providing an implementation of the File ID service.
 Project-URL: Home, https://github.com/jupyter-server/jupyter_server_fileid
 Author-email: "David L. Qiu" <david@qiu.dev>
@@ -39,17 +39,18 @@ Classifier: Framework :: Jupyter
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.7
-Requires-Dist: jupyter-events>=0.5.0
-Requires-Dist: jupyter-server<3,>=1.15
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
+Requires-Dist: jupyter-events>=0.9.0
+Requires-Dist: jupyter-server<3,>=2.10
 Provides-Extra: cli
 Requires-Dist: click; extra == 'cli'
 Provides-Extra: test
-Requires-Dist: jupyter-server[test]<3,>=1.15; extra == 'test'
+Requires-Dist: jupyter-server[test]<3,>=2.10; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-jupyter; extra == 'test'

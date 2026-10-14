@@ -5,6 +5,7 @@ Implements the charge intent for Tempo payments.
 
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from collections.abc import Callable
@@ -20,7 +21,8 @@ from mpp import Credential, Receipt
 from mpp._defaults import DEFAULT_TIMEOUT
 from mpp._validation import Validation
 from mpp.errors import VerificationError
-from mpp.methods.tempo._defaults import PATH_USD, rpc_url_for_chain
+from mpp.methods.tempo._defaults import PATH_USD, fee_tokens_for_chain, rpc_url_for_chain
+from mpp.methods.tempo._rpc import _tip20_balance
 from mpp.methods.tempo.fee_payer_policy import get_policy
 from mpp.methods.tempo.schemas import (
     ChargeRequest,
@@ -29,7 +31,7 @@ from mpp.methods.tempo.schemas import (
     Split,
     TransactionCredentialPayload,
 )
-from mpp.store import Store
+from mpp.store import MemoryStore, Store
 
 if TYPE_CHECKING:
     import httpx
@@ -279,17 +281,7 @@ def _match_transfer_calldata(call_data_hex: str, request: ChargeRequest) -> bool
         return False
 
     selector = call_data_hex[:SELECTOR_HEX_LEN].lower()
-    expected_memo = request.methodDetails.memo
-
-    if expected_memo:
-        if selector != TRANSFER_WITH_MEMO_SELECTOR:
-            return False
-        decoded = _decode_static_call_args(
-            call_data_hex,
-            ("address", "uint256", "bytes32"),
-            TRANSFER_WITH_MEMO_CALL_DATA_HEX_LEN,
-        )
-    elif selector == TRANSFER_WITH_MEMO_SELECTOR:
+    if selector == TRANSFER_WITH_MEMO_SELECTOR:
         decoded = _decode_static_call_args(
             call_data_hex,
             ("address", "uint256", "bytes32"),
@@ -314,14 +306,6 @@ def _match_transfer_calldata(call_data_hex: str, request: ChargeRequest) -> bool
         return False
     if decoded_amount != int(request.amount):
         return False
-
-    if expected_memo:
-        decoded_memo = "0x" + decoded[2].hex()
-        memo_clean = expected_memo.lower()
-        if not memo_clean.startswith("0x"):
-            memo_clean = "0x" + memo_clean
-        if decoded_memo.lower() != memo_clean:
-            return False
 
     return True
 
@@ -411,7 +395,7 @@ def _validate_normalized_calls(calls: list[tuple[str, int, str]], request: Charg
     expected = get_transfers(
         int(request.amount),
         request.recipient,
-        request.methodDetails.memo,
+        None,
         request.methodDetails.splits,
     )
 
@@ -497,9 +481,10 @@ class ChargeIntent:
             http_client: Optional httpx client for making RPC calls.
                 If provided, the caller is responsible for closing it.
             timeout: Request timeout in seconds (default: 30).
-            store: Optional key-value store for tx hash replay protection.
-                When provided, each verified hash is recorded and subsequent
-                attempts to reuse it are rejected.
+            store: Key-value store for tx hash replay protection. Defaults to
+                an in-memory store capped at 10,000 entries on first settlement.
+                New payments fail at capacity without evicting used hashes. Use a shared persistent
+                store across server replicas and restarts.
             validate_sender: Optional callback invoked when a hash-credential
                 transfer's sender differs from the expected sender; return
                 ``True`` to accept (e.g. smart-account / relayer flows).
@@ -647,6 +632,10 @@ class ChargeIntent:
             VerificationError: If verification fails or the transaction hash
                 was already used.
         """
+        # Defer the default so Mpp can inject its configured shared store.
+        if self._store is None:
+            self._store = MemoryStore(max_entries=10_000)
+
         req, payload = self._prepare_credential(credential, request)
 
         if isinstance(payload, HashCredentialPayload):
@@ -659,7 +648,7 @@ class ChargeIntent:
                     realm=credential.challenge.realm,
                     source=credential.source,
                 )
-            except Exception:
+            except (Exception, asyncio.CancelledError):
                 if store_key is not None and self._store is not None:
                     await self._store.delete(store_key)
                 raise
@@ -840,16 +829,11 @@ class ChargeIntent:
                 "Transaction must contain a Transfer log matching request parameters"
             )
 
-        # Only verify challenge binding when using auto-generated attribution memos.
-        # Explicit memos (set by the server) are strictly matched by _verify_transfer_logs
-        # but are NOT challenge-bound. Callers that set explicit memos are responsible
-        # for ensuring memo uniqueness per challenge to prevent cross-challenge hash reuse.
-        if request.methodDetails.memo is None:
-            self._assert_challenge_bound_memo(
-                matched_logs,
-                challenge_id=challenge_id,
-                realm=realm,
-            )
+        self._assert_challenge_bound_memo(
+            matched_logs,
+            challenge_id=challenge_id,
+            realm=realm,
+        )
 
         return matched_logs
 
@@ -933,7 +917,7 @@ class ChargeIntent:
         expected = get_transfers(
             int(request.amount),
             request.recipient,
-            request.methodDetails.memo,
+            None,
             request.methodDetails.splits,
         )
 
@@ -1062,8 +1046,19 @@ class ChargeIntent:
 
         if request.methodDetails.feePayer:
             if self.fee_payer is not None:
+                # Gas is paid in a supported fee token, not the charge currency:
+                # Tempo only accepts fee tokens with Fee AMM liquidity.
+                from mpp.methods.tempo.fee_payer_envelope import decode_fee_payer_envelope
+
+                fields, _, _, _ = decode_fee_payer_envelope(
+                    bytes.fromhex(raw_tx.removeprefix("0x"))
+                )
+                max_fee = int.from_bytes(fields[2], "big") * int.from_bytes(fields[3], "big")
+                # Gas prices are attodollars; TIP-20 balances are microdollars.
+                required_balance = max(1, (max_fee + 10**12 - 1) // 10**12)
+                fee_token = await self._resolve_fee_token(client, request, required_balance)
                 raw_tx, simulate_payload = self._cosign_as_fee_payer(
-                    raw_tx, request.currency, request=request
+                    raw_tx, fee_token, request=request
                 )
             else:
                 fee_payer_url = request.methodDetails.feePayerUrl
@@ -1102,23 +1097,10 @@ class ChargeIntent:
             reserved_tx_hash = _raw_transaction_hash(raw_tx)
             store_key = f"mpp:charge:{reserved_tx_hash.lower()}"
             if not await self._store.put_if_absent(store_key, reserved_tx_hash):
-                # Already reserved: return the existing receipt without re-broadcasting.
-                receipt_data = await self._fetch_transaction_receipt(client, reserved_tx_hash)
-                self._verify_receipt_transfers(
-                    receipt_data,
-                    request,
-                    challenge_id=challenge_id,
-                    realm=realm,
-                )
-                return Receipt.success(reserved_tx_hash)
+                raise VerificationError("Transaction hash already used")
 
         try:
-            # We pay the gas, so when we can faithfully build a simulate payload,
-            # simulate the co-signed tx and bail if it would revert (any error
-            # releases the reservation below). Auth-bearing txs return
-            # simulate_payload=None because simulating them without their
-            # authorization fields would be a divergent transaction; those are
-            # broadcast without the pre-broadcast revert check.
+            # Locally sponsored transactions must pass simulation before broadcast.
             if simulate_payload is not None:
                 await self._simulate_before_broadcast(client, simulate_payload, rpc_url)
 
@@ -1133,54 +1115,90 @@ class ChargeIntent:
             )
             response.raise_for_status()
             result = response.json()
-        except Exception:
+
+            if "error" in result:
+                if _is_already_known_transaction_error(result):
+                    tx_hash = reserved_tx_hash or _raw_transaction_hash(raw_tx)
+                    receipt_data = await self._fetch_transaction_receipt(client, tx_hash)
+                    self._verify_receipt_transfers(
+                        receipt_data,
+                        request,
+                        challenge_id=challenge_id,
+                        realm=realm,
+                    )
+                    return Receipt.success(tx_hash)
+
+                raise VerificationError(f"Transaction submission failed: {_rpc_error_msg(result)}")
+
+            receipt_data = result.get("result")
+            if not receipt_data:
+                raise VerificationError("No transaction receipt returned")
+            if not isinstance(receipt_data, dict):
+                raise VerificationError("Invalid transaction receipt")
+
+            self._verify_receipt_transfers(
+                receipt_data,
+                request,
+                challenge_id=challenge_id,
+                realm=realm,
+            )
+
+            receipt_tx_hash = receipt_data.get("transactionHash")
+            if not receipt_tx_hash:
+                raise VerificationError("No transaction hash returned")
+            if not isinstance(receipt_tx_hash, str):
+                raise VerificationError("Invalid transaction hash returned")
+
+            if reserved_tx_hash is not None and receipt_tx_hash.lower() != reserved_tx_hash.lower():
+                raise VerificationError(
+                    "Receipt transaction hash does not match submitted transaction"
+                )
+
+            return Receipt.success(receipt_tx_hash)
+        except (Exception, asyncio.CancelledError):
+            # Only successful verification consumes a payment. Failed or cancelled
+            # attempts must let retries acquire the reservation and verify again.
             if self._store is not None and store_key is not None:
                 await self._store.delete(store_key)
             raise
 
-        if "error" in result:
-            if _is_already_known_transaction_error(result):
-                tx_hash = reserved_tx_hash or _raw_transaction_hash(raw_tx)
-                receipt_data = await self._fetch_transaction_receipt(client, tx_hash)
-                self._verify_receipt_transfers(
-                    receipt_data,
-                    request,
-                    challenge_id=challenge_id,
-                    realm=realm,
-                )
-                return Receipt.success(tx_hash)
+    async def _resolve_fee_token(
+        self, client: Any, request: ChargeRequest, required_balance: int = 1
+    ) -> str:
+        """Choose the token a local fee payer pays gas in.
 
-            if self._store is not None and store_key is not None:
-                await self._store.delete(store_key)
-            raise VerificationError(f"Transaction submission failed: {_rpc_error_msg(result)}")
-
-        receipt_data = result.get("result")
-        if not receipt_data:
-            raise VerificationError("No transaction receipt returned")
-        if not isinstance(receipt_data, dict):
-            raise VerificationError("Invalid transaction receipt")
-
-        self._verify_receipt_transfers(
-            receipt_data,
-            request,
-            challenge_id=challenge_id,
-            realm=realm,
+        Uses the configured ``fee_token``, else the first allowed fee token the
+        fee payer holds enough of to cover the gas budget, else the first allowed fee token.
+        """
+        fee_payer = self.fee_payer
+        if fee_payer is None:
+            raise VerificationError("No fee payer account configured")
+        chain_id = request.methodDetails.chainId
+        if chain_id is None:
+            chain_id = getattr(self._method, "chain_id", None)
+        allowed = getattr(self._method, "allowed_fee_tokens", None) or (
+            fee_tokens_for_chain(chain_id) if chain_id is not None else (PATH_USD,)
         )
-
-        receipt_tx_hash = receipt_data.get("transactionHash")
-        if not receipt_tx_hash:
-            raise VerificationError("No transaction hash returned")
-        if not isinstance(receipt_tx_hash, str):
-            raise VerificationError("Invalid transaction hash returned")
-
-        if reserved_tx_hash is not None and receipt_tx_hash.lower() != reserved_tx_hash.lower():
-            raise VerificationError("Receipt transaction hash does not match submitted transaction")
-
-        return Receipt.success(receipt_tx_hash)
+        configured = getattr(self._method, "fee_token", None)
+        if configured is not None:
+            if configured.lower() not in {token.lower() for token in allowed}:
+                raise VerificationError("fee-sponsored transaction feeToken is not allowed")
+            return configured
+        rpc_url = self._get_rpc_url()
+        for token in allowed:
+            try:
+                if (
+                    await _tip20_balance(rpc_url, token, fee_payer.address, client=client)
+                    >= required_balance
+                ):
+                    return token
+            except Exception:
+                continue
+        return allowed[0]
 
     def _cosign_as_fee_payer(
         self, raw_tx: str, fee_token: str | None = None, request: ChargeRequest | None = None
-    ) -> tuple[str, dict[str, Any] | None]:
+    ) -> tuple[str, dict[str, Any]]:
         """Co-sign a client-signed transaction as fee payer.
 
         Deserializes the client's 0x78 fee payer envelope, optionally validates
@@ -1188,13 +1206,8 @@ class ChargeIntent:
         Returns ``(raw_0x76_hex, simulate_payload)`` where ``simulate_payload``
         is the ``tempo_simulateV1`` request for the co-signed tx.
 
-        ``simulate_payload`` is ``None`` when the tx carries a
-        ``key_authorization`` or a non-empty ``tempo_authorization_list``: those
-        sender-signed fields are preserved verbatim as opaque RLP for the
-        broadcast tx, but cannot yet be faithfully re-serialized into the
-        ``tempo_simulateV1`` JSON (``keyAuthorization`` / ``aaAuthorizationList``,
-        possibly with P256/WebAuthn signatures). Skipping is preferable to
-        simulating a transaction that differs from the one we broadcast.
+        Authorization-bearing envelopes are rejected before signing because
+        their authorization fields cannot yet be faithfully simulated.
         """
         from pytempo import Call, TempoTransaction
         from pytempo.models import Signature, as_address
@@ -1209,6 +1222,12 @@ class ChargeIntent:
             decoded, sender_addr_bytes, sender_sig, key_auth = decode_fee_payer_envelope(all_bytes)
         except Exception as err:
             raise VerificationError("Failed to deserialize client transaction") from err
+
+        if key_auth is not None or decoded[12]:
+            raise VerificationError(
+                "Authorization-bearing transactions cannot be simulated and are not "
+                "supported by local fee-payer cosigning"
+            )
 
         # Cosigning recovers the sender via secp256k1 ECDSA, so only a raw
         # 65-byte signature is supported; other envelopes (keychain, P256,
@@ -1326,13 +1345,6 @@ class ChargeIntent:
 
         raw_cosigned = "0x" + cosigned.encode().hex()
 
-        # Skip pre-broadcast simulation when the tx carries sender-signed
-        # authorization fields we cannot faithfully serialize into the
-        # tempo_simulateV1 JSON; simulating a divergent tx would be worse than
-        # not simulating at all.
-        if cosigned.key_authorization is not None or cosigned.tempo_authorization_list:
-            return raw_cosigned, None
-
         return raw_cosigned, self._build_simulate_payload(cosigned, recovered_address)
 
     def _build_simulate_payload(self, tx: Any, sender: str) -> dict[str, Any]:
@@ -1345,8 +1357,8 @@ class ChargeIntent:
         Must not be called for a tx that carries a ``key_authorization`` or a
         non-empty ``tempo_authorization_list``: those fields cannot yet be
         faithfully serialized here, so the resulting payload would describe a
-        different transaction than the one broadcast (``_cosign_as_fee_payer``
-        returns ``None`` for such txs instead of calling this).
+        different transaction than the one broadcast. Local cosigning rejects
+        these envelopes before applying the sponsor signature.
         """
         if getattr(tx, "key_authorization", None) is not None or getattr(
             tx, "tempo_authorization_list", ()

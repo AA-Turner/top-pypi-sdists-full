@@ -13,9 +13,9 @@ use crate::{
 	Input,
 	error::ParseError,
 	inline::{
-		bold, code, code_block, emoji, italic,
+		code, code_block, emoji,
 		link::{self, detection},
-		mention, spoiler, strikethrough, timestamp, underline,
+		mention, timestamp,
 	},
 	span::TraceOk,
 };
@@ -50,12 +50,6 @@ where
 			Grammar::InlineBlock | Grammar::Block | Grammar::Quote | Grammar::QuoteRest => {
 				alt((line_ending, eof)).process::<OM>(input)
 			}
-			Grammar::Bold => tag(bold::DELIMITER).process::<OM>(input),
-			Grammar::UnderscoreItalic => tag(italic::UNDERSCORE_DELIMITER).process::<OM>(input),
-			Grammar::AsteriskItalic => tag(italic::ASTERISK_DELIMITER).process::<OM>(input),
-			Grammar::Spoiler => tag(spoiler::DELIMITER).process::<OM>(input),
-			Grammar::Strikethrough => tag(strikethrough::DELIMITER).process::<OM>(input),
-			Grammar::Underline => tag(underline::DELIMITER).process::<OM>(input),
 			Grammar::AutoLink => tag(&[link::auto::TERMINAL][..]).process::<OM>(input),
 			Grammar::MaskedLinkText => tag(&[link::masked::TEXT_OPENER][..]).process::<OM>(input),
 			Grammar::MaskedLinkLink => tag(&[link::masked::LINK_OPENER][..]).process::<OM>(input),

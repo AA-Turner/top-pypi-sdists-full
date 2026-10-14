@@ -20,6 +20,8 @@ class PatchedIssueRequest:
         offering (Union[None, UUID, Unset]):
         is_reported_manually (Union[Unset, bool]): Set true if issue is created by regular user via portal. Default:
             False.
+        first_comment (Union[Unset, str]): Opening message, posted as the first public comment of an issue reported on
+            behalf of another user.
     """
 
     summary: Union[Unset, str] = UNSET
@@ -27,6 +29,7 @@ class PatchedIssueRequest:
     assignee: Union[None, Unset, str] = UNSET
     offering: Union[None, UUID, Unset] = UNSET
     is_reported_manually: Union[Unset, bool] = False
+    first_comment: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,6 +53,8 @@ class PatchedIssueRequest:
 
         is_reported_manually = self.is_reported_manually
 
+        first_comment = self.first_comment
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -63,6 +68,8 @@ class PatchedIssueRequest:
             field_dict["offering"] = offering
         if is_reported_manually is not UNSET:
             field_dict["is_reported_manually"] = is_reported_manually
+        if first_comment is not UNSET:
+            field_dict["first_comment"] = first_comment
 
         return field_dict
 
@@ -101,12 +108,15 @@ class PatchedIssueRequest:
 
         is_reported_manually = d.pop("is_reported_manually", UNSET)
 
+        first_comment = d.pop("first_comment", UNSET)
+
         patched_issue_request = cls(
             summary=summary,
             description=description,
             assignee=assignee,
             offering=offering,
             is_reported_manually=is_reported_manually,
+            first_comment=first_comment,
         )
 
         patched_issue_request.additional_properties = d

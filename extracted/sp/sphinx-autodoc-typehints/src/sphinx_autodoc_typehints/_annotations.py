@@ -33,10 +33,24 @@ _PYDATA_ANNOTS_TYPING = {
     "AnyStr",
     "Callable",
     "ClassVar",
+    "Concatenate",
+    "Final",
     "Literal",
+    "LiteralString",
+    "Never",
     "NoReturn",
+    "NotRequired",
     "Optional",
+    "ReadOnly",
+    "Required",
+    "Self",
     "Tuple",
+    "TypeAlias",
+    "TypeForm",
+    "TypeGuard",
+    "TypeIs",
+    "Unpack",
+    *({"ParamSpecArgs", "ParamSpecKwargs"} if sys.version_info < (3, 13) else set()),
     *({"Union"} if sys.version_info < (3, 14) else set()),
 }
 # The types module documents these as ``py:data`` through 3.12 and as ``py:class`` from 3.13 on.
@@ -229,7 +243,7 @@ def _format_node(  # ruff:ignore[complex-structure, too-many-return-statements, 
         return f":py:class:`{newtype_prefix}{newtype_qualified}` ({supertype})"
     if full_name == "typing.Annotated":
         return (yield annotation.__origin__)
-    if full_name in {"typing.TypeVar", "typing.ParamSpec"}:
+    if full_name in {"typing.TypeVar", "typing.ParamSpec"} and not isinstance(annotation, type):
         params = {k: getattr(annotation, f"__{k}__") for k in ("bound", "covariant", "contravariant")}
         params = {k: v for k, v in params.items() if v}
         if "bound" in params:
@@ -259,7 +273,7 @@ def _format_node(  # ruff:ignore[complex-structure, too-many-return-statements, 
         for arg in args:
             fmt.append((yield arg))  # ruff:ignore[manual-list-comprehension]  # yield is illegal inside a comprehension
         formatted_args = f"\\[\\[{', '.join(fmt[:-1])}], {fmt[-1]}]"
-    elif full_name == "typing.Literal":
+    elif full_name == "typing.Literal" and args:
         literal_parts = [_format_literal_arg(arg, config) for arg in args]
         if short_literals:
             return f"\\{' | '.join(literal_parts)}"

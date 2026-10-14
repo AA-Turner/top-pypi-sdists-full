@@ -602,10 +602,11 @@ class ImageMappingTypeDef(TypedDict):
 
 
 class RegistryMappingTypeDef(TypedDict):
-    upstreamRegistryUrl: NotRequired[str]
-    ecrRepositoryPrefix: NotRequired[str]
+    upstreamRegistryUrl: str
+    ecrRepositoryPrefix: str
     upstreamRepositoryPrefix: NotRequired[str]
     ecrAccountId: NotRequired[str]
+    credentialArn: NotRequired[str]
 
 
 class CreateMultipartReadSetUploadRequestTypeDef(TypedDict):

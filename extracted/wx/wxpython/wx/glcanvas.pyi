@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -40,76 +43,43 @@ _FourFloats: TypeAlias = Tuple[float, float, float, float]
 These classes enable viewing and interacting with an OpenGL context in a wx.Window.
 """
 #-- begin-_glcanvas --#
+import wx.siplib
 
 import wx
+WX_GL_RGBA: int
+WX_GL_BUFFER_SIZE: int
+WX_GL_LEVEL: int
+WX_GL_DOUBLEBUFFER: int
+WX_GL_STEREO: int
+WX_GL_AUX_BUFFERS: int
+WX_GL_MIN_RED: int
+WX_GL_MIN_GREEN: int
+WX_GL_MIN_BLUE: int
+WX_GL_MIN_ALPHA: int
+WX_GL_DEPTH_SIZE: int
+WX_GL_STENCIL_SIZE: int
+WX_GL_MIN_ACCUM_RED: int
+WX_GL_MIN_ACCUM_GREEN: int
+WX_GL_MIN_ACCUM_BLUE: int
+WX_GL_MIN_ACCUM_ALPHA: int
+WX_GL_SAMPLE_BUFFERS: int
+WX_GL_SAMPLES: int
+WX_GL_FRAMEBUFFER_SRGB: int
+WX_GL_MAJOR_VERSION: int
+WX_GL_MINOR_VERSION: int
+WX_GL_CORE_PROFILE: int
+WX_GL_COMPAT_PROFILE: int
+WX_GL_FORWARD_COMPAT: int
+WX_GL_ES2: int
+WX_GL_DEBUG: int
+WX_GL_ROBUST_ACCESS: int
+WX_GL_NO_RESET_NOTIFY: int
+WX_GL_LOSE_ON_RESET: int
+WX_GL_RESET_ISOLATION: int
+WX_GL_RELEASE_FLUSH: int
+WX_GL_RELEASE_NONE: int
 
-class _enum_22(IntEnum):
-    WX_GL_RGBA = auto()
-    WX_GL_BUFFER_SIZE = auto()
-    WX_GL_LEVEL = auto()
-    WX_GL_DOUBLEBUFFER = auto()
-    WX_GL_STEREO = auto()
-    WX_GL_AUX_BUFFERS = auto()
-    WX_GL_MIN_RED = auto()
-    WX_GL_MIN_GREEN = auto()
-    WX_GL_MIN_BLUE = auto()
-    WX_GL_MIN_ALPHA = auto()
-    WX_GL_DEPTH_SIZE = auto()
-    WX_GL_STENCIL_SIZE = auto()
-    WX_GL_MIN_ACCUM_RED = auto()
-    WX_GL_MIN_ACCUM_GREEN = auto()
-    WX_GL_MIN_ACCUM_BLUE = auto()
-    WX_GL_MIN_ACCUM_ALPHA = auto()
-    WX_GL_SAMPLE_BUFFERS = auto()
-    WX_GL_SAMPLES = auto()
-    WX_GL_FRAMEBUFFER_SRGB = auto()
-    WX_GL_MAJOR_VERSION = auto()
-    WX_GL_MINOR_VERSION = auto()
-    WX_GL_CORE_PROFILE = auto()
-    WX_GL_COMPAT_PROFILE = auto()
-    WX_GL_FORWARD_COMPAT = auto()
-    WX_GL_ES2 = auto()
-    WX_GL_DEBUG = auto()
-    WX_GL_ROBUST_ACCESS = auto()
-    WX_GL_NO_RESET_NOTIFY = auto()
-    WX_GL_LOSE_ON_RESET = auto()
-    WX_GL_RESET_ISOLATION = auto()
-    WX_GL_RELEASE_FLUSH = auto()
-    WX_GL_RELEASE_NONE = auto()
-WX_GL_RGBA = _enum_22.WX_GL_RGBA
-WX_GL_BUFFER_SIZE = _enum_22.WX_GL_BUFFER_SIZE
-WX_GL_LEVEL = _enum_22.WX_GL_LEVEL
-WX_GL_DOUBLEBUFFER = _enum_22.WX_GL_DOUBLEBUFFER
-WX_GL_STEREO = _enum_22.WX_GL_STEREO
-WX_GL_AUX_BUFFERS = _enum_22.WX_GL_AUX_BUFFERS
-WX_GL_MIN_RED = _enum_22.WX_GL_MIN_RED
-WX_GL_MIN_GREEN = _enum_22.WX_GL_MIN_GREEN
-WX_GL_MIN_BLUE = _enum_22.WX_GL_MIN_BLUE
-WX_GL_MIN_ALPHA = _enum_22.WX_GL_MIN_ALPHA
-WX_GL_DEPTH_SIZE = _enum_22.WX_GL_DEPTH_SIZE
-WX_GL_STENCIL_SIZE = _enum_22.WX_GL_STENCIL_SIZE
-WX_GL_MIN_ACCUM_RED = _enum_22.WX_GL_MIN_ACCUM_RED
-WX_GL_MIN_ACCUM_GREEN = _enum_22.WX_GL_MIN_ACCUM_GREEN
-WX_GL_MIN_ACCUM_BLUE = _enum_22.WX_GL_MIN_ACCUM_BLUE
-WX_GL_MIN_ACCUM_ALPHA = _enum_22.WX_GL_MIN_ACCUM_ALPHA
-WX_GL_SAMPLE_BUFFERS = _enum_22.WX_GL_SAMPLE_BUFFERS
-WX_GL_SAMPLES = _enum_22.WX_GL_SAMPLES
-WX_GL_FRAMEBUFFER_SRGB = _enum_22.WX_GL_FRAMEBUFFER_SRGB
-WX_GL_MAJOR_VERSION = _enum_22.WX_GL_MAJOR_VERSION
-WX_GL_MINOR_VERSION = _enum_22.WX_GL_MINOR_VERSION
-WX_GL_CORE_PROFILE = _enum_22.WX_GL_CORE_PROFILE
-WX_GL_COMPAT_PROFILE = _enum_22.WX_GL_COMPAT_PROFILE
-WX_GL_FORWARD_COMPAT = _enum_22.WX_GL_FORWARD_COMPAT
-WX_GL_ES2 = _enum_22.WX_GL_ES2
-WX_GL_DEBUG = _enum_22.WX_GL_DEBUG
-WX_GL_ROBUST_ACCESS = _enum_22.WX_GL_ROBUST_ACCESS
-WX_GL_NO_RESET_NOTIFY = _enum_22.WX_GL_NO_RESET_NOTIFY
-WX_GL_LOSE_ON_RESET = _enum_22.WX_GL_LOSE_ON_RESET
-WX_GL_RESET_ISOLATION = _enum_22.WX_GL_RESET_ISOLATION
-WX_GL_RELEASE_FLUSH = _enum_22.WX_GL_RELEASE_FLUSH
-WX_GL_RELEASE_NONE = _enum_22.WX_GL_RELEASE_NONE
-
-class GLAttribsBase:
+class GLAttribsBase(wx.siplib.wrapper):
     """
     GLAttribsBase() -> None
     
@@ -408,17 +378,17 @@ class GLContextAttrs(GLAttribsBase):
 # end of class GLContextAttrs
 
 
-class GLContext(Object):
+class GLContext(wx.Object):
     """
-    GLContext(win, other=nullptr, ctxAttrs=nullptr) -> None
+    GLContext(win, other=None, ctxAttrs=None) -> None
     
     An instance of a wxGLContext represents the state of an OpenGL state
     machine and the connection between OpenGL and the system.
     """
 
-    def __init__(self, win: GLCanvas, other: GLContext=nullptr, ctxAttrs: GLContextAttrs=nullptr) -> None:
+    def __init__(self, win: GLCanvas, other: Optional[GLContext]=None, ctxAttrs: Optional[GLContextAttrs]=None) -> None:
         """
-        GLContext(win, other=nullptr, ctxAttrs=nullptr) -> None
+        GLContext(win, other=None, ctxAttrs=None) -> None
         
         An instance of a wxGLContext represents the state of an OpenGL state
         machine and the connection between OpenGL and the system.
@@ -450,42 +420,38 @@ class GLContext(Object):
 # end of class GLContext
 
 
-class GLCanvas(Window):
+class GLCanvas(wx.Window):
     """
     GLCanvas() -> None
-    GLCanvas(parent, dispAttrs, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=GLCanvasName, palette=NullPalette) -> None
+    GLCanvas(parent, dispAttrs, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=GLCanvasName, palette=wx.NullPalette) -> None
     GLCanvas(parent, id=wx.ID_ANY, attribList=None, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name='GLCanvas', palette=wx.NullPalette)
     
     wxGLCanvas is a class for displaying OpenGL graphics.
     """
 
-    class _SwapInterval(IntEnum):
+    class SwapInterval(IntEnum):
         NotSet = auto()
         Set = auto()
         NonAdaptive = auto()
-    SwapInterval: TypeAlias = Union[_SwapInterval, int]
-    NotSet = _SwapInterval.NotSet
-    Set = _SwapInterval.Set
-    NonAdaptive = _SwapInterval.NonAdaptive
 
     @overload
-    def __init__(self, parent: Window, dispAttrs: GLAttributes, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=GLCanvasName, palette: Palette=NullPalette) -> None:
+    def __init__(self, parent: wx.Window, dispAttrs: GLAttributes, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=GLCanvasName, palette: wx.Palette=wx.NullPalette) -> None:
         ...
 
     @overload
-    def __init__(self, TransferThis: Windowparent, id: int=ID_ANY, attribList: Optional[List[int]]=None, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str="GLCanvas", palette: Palette=NullPalette) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, attribList: Optional[List[int]]=None, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str="GLCanvas", palette: wx.Palette=wx.NullPalette) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         GLCanvas() -> None
-        GLCanvas(parent, dispAttrs, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=GLCanvasName, palette=NullPalette) -> None
+        GLCanvas(parent, dispAttrs, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=GLCanvasName, palette=wx.NullPalette) -> None
         GLCanvas(parent, id=wx.ID_ANY, attribList=None, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name='GLCanvas', palette=wx.NullPalette)
         
         wxGLCanvas is a class for displaying OpenGL graphics.
         """
-    DefaultSwapInterval: constexprint
+    DefaultSwapInterval: int
 
     def GetSwapInterval(self) -> int:
         """
@@ -567,15 +533,10 @@ class GLCanvas(Window):
         EGL).
         """
 
-    def CreateAccessible(self) -> Accessible:
-        """
-        CreateAccessible() -> Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
-        GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
+        GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
 # end of class GLCanvas
 

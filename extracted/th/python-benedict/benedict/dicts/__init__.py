@@ -10,10 +10,11 @@ from collections.abc import (
 )
 from typing import (
     Any,
+    Self,
     cast,
 )
 
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 from benedict.core import clean as _clean
 from benedict.core import clone as _clone
@@ -294,7 +295,9 @@ class benedict(KeyattrDict[_K, _V], KeypathDict[_V], IODict[_K, _V], ParseDict[_
     def pop(self, key: _KPT, *args: Any) -> _V:  # type: ignore[override]
         return cast("_V", self._cast(super().pop(key, *args)))
 
-    def remove(self, keys: Iterable[_KPT], *args: Any, deep: bool = False) -> None:
+    def remove(
+        self, keys: _KPT | Iterable[_KPT], *args: Any, deep: bool = False
+    ) -> None:
         """
         Remove multiple keys from the current dict instance.
         It is possible to pass a single key or more keys (as list or *args).

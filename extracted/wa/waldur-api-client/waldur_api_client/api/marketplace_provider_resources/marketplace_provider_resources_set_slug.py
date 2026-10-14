@@ -58,7 +58,9 @@ def sync_detailed(
 ) -> Response[Status]:
     """Set resource slug
 
-     Updates the slug for a resource. Requires staff permissions.
+     Updates the slug of a resource. Requires staff or the RESOURCE.SET_SLUG permission, which no role
+    holds unless the deployment grants it. Other than staff, a holder cannot change the slug once the
+    resource's creation order is executing or the resource exists in the backend.
 
     Args:
         uuid (UUID):
@@ -92,7 +94,9 @@ def sync(
 ) -> Status:
     """Set resource slug
 
-     Updates the slug for a resource. Requires staff permissions.
+     Updates the slug of a resource. Requires staff or the RESOURCE.SET_SLUG permission, which no role
+    holds unless the deployment grants it. Other than staff, a holder cannot change the slug once the
+    resource's creation order is executing or the resource exists in the backend.
 
     Args:
         uuid (UUID):
@@ -121,7 +125,9 @@ async def asyncio_detailed(
 ) -> Response[Status]:
     """Set resource slug
 
-     Updates the slug for a resource. Requires staff permissions.
+     Updates the slug of a resource. Requires staff or the RESOURCE.SET_SLUG permission, which no role
+    holds unless the deployment grants it. Other than staff, a holder cannot change the slug once the
+    resource's creation order is executing or the resource exists in the backend.
 
     Args:
         uuid (UUID):
@@ -153,7 +159,9 @@ async def asyncio(
 ) -> Status:
     """Set resource slug
 
-     Updates the slug for a resource. Requires staff permissions.
+     Updates the slug of a resource. Requires staff or the RESOURCE.SET_SLUG permission, which no role
+    holds unless the deployment grants it. Other than staff, a holder cannot change the slug once the
+    resource's creation order is executing or the resource exists in the backend.
 
     Args:
         uuid (UUID):

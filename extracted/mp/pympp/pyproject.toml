@@ -1,6 +1,6 @@
 [project]
 name = "pympp"
-version = "0.11.0"
+version = "0.14.0"
 description = "Python SDK for the Machine Payments Protocol (MPP)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,34 +36,60 @@ tempo = [
     "eth-hash[pycryptodome]>=0.7",
     "attrs>=23.0",
     "rlp>=4.0",
+    "pyjwt==2.15.1",
+    "propcache==0.5.2",
+    "urllib3==2.8.0",
+    "yarl==1.24.5",
 ]
 stripe = [
     "pydantic>=2.0",
+    "pytempo>=0.2.1",
+    "eth-account>=0.11",
+    "eth-abi>=5.0,<6",
+    "eth-hash[pycryptodome]>=0.7",
+    "attrs>=23.0",
+    "rlp>=4.0",
+    "pyjwt==2.15.1",
+    "propcache==0.5.2",
+    "stripe>=8.0.0",
+    "urllib3==2.8.0",
+    "yarl==1.24.5",
 ]
 server = ["pydantic>=2.0"]
 redis = ["redis>=5.0"]
 sqlite = ["aiosqlite>=0.20"]
-mcp = ["mcp>=1.1,<2"]
+mcp = [
+    "anyio>=4.5",
+    "mcp>=1.1,<2",
+    "propcache==0.5.2",
+    "pyjwt==2.15.1",
+    "uvicorn==0.52.4",
+    "yarl==1.24.5",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "hypothesis>=6.0",
-    "ruff>=0.4",
+    "ruff==0.16.6",
     "starlette>=0.37",
 ]
 
 [dependency-groups]
 dev = [
+    "trio>=0.30",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "hypothesis>=6.0",
-    "ruff>=0.4",
+    "ruff==0.16.6",
     "pytest-cov>=7.0.0",
+    "coverage==7.16.0",
     "pytest-httpx>=0.36.0",
-    "pyright>=1.1",
+    "pyright==1.1.413",
+    "pyproject-hooks==1.2.0",
     "eth-abi>=5.0,<6",
-    "build>=1.0",
+    "build==1.6.0",
     "twine>=6.0",
+    "urllib3==2.8.0",
     "aiosqlite>=0.20",
     "redis>=5.0",
     "starlette>=0.37",

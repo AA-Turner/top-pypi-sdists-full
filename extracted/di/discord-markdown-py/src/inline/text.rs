@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use nom::character::streaming::none_of;
-use nom::combinator::{not, recognize};
+use nom::combinator::{not, recognize, rest, verify};
 use nom::error::ErrorKind;
 use nom::sequence::preceded;
 use nom::{Input as _, Mode, Offset as _, Parser};
@@ -12,8 +12,8 @@ use tracing::Level;
 
 use crate::Input;
 use crate::context::Context;
-use crate::context::TerminalOutput;
 use crate::error::ParseError;
+use crate::range::delim;
 use crate::span::TraceOk;
 
 use super::emoji;
@@ -36,6 +36,7 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
+		let allowed = self.outer.context.allowed_rules;
 		self.outer
 			.context
 			.guard_terminal_sequence(|| {
@@ -43,11 +44,14 @@ where
 					(
 						not(emoji::unicode::emoji()),
 						not(self.outer.context.allowed_start_sequences()),
+						// a modifier delimiter, which the inline parser records instead
+						not(verify(rest, move |rest: &Input| {
+							delim::starts_delimiter(rest, allowed)
+						})),
 					),
 					recognize(none_of("\\")),
 				)
 			})
-			.map(TerminalOutput::inner)
 			.process::<OM>(input)
 	}
 }

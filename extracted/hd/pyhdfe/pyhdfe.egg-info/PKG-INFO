@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyhdfe
-Version: 0.2.0
+Version: 0.2.1
 Summary: High dimensional fixed effect absorption with Python 3
 Home-page: https://github.com/jeffgortmaker/pyhdfe
 Author: Jeff Gortmaker
@@ -8,7 +8,6 @@ Author-email: jeff@jeffgortmaker.com
 License: MIT
 Project-URL: Documentation, http://pyhdfe.readthedocs.io/en/latest
 Project-URL: Tracker, https://github.com/jeffgortmaker/pyhdfe/issues
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -19,11 +18,42 @@ Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.6
-Provides-Extra: tests
-Provides-Extra: docs
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: numpy>=1.12.0
+Requires-Dist: scipy>=1.0.0
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: sphinx==2.0.0; extra == "docs"
+Requires-Dist: ipython; extra == "docs"
+Requires-Dist: astunparse; extra == "docs"
+Requires-Dist: sphinx-rtd-theme==0.4.3; extra == "docs"
+Requires-Dist: nbsphinx==0.5.0; extra == "docs"
+Requires-Dist: jinja2~=2.11; extra == "docs"
+Requires-Dist: docutils==0.17; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 An overview of the package, examples, and other documentation can be found on `Read the Docs <https://pyhdfe.readthedocs.io/en/stable/>`_.
 
@@ -39,7 +69,7 @@ Development of the package has been guided by code made publicly available by ma
 Installation
 ------------
 
-The PyHDFE package has been tested on `Python <https://www.python.org/downloads/>`_ versions 3.6 through 3.9. The `SciPy instructions <https://scipy.org/install/>`_ for installing related packages is a good guide for how to install a scientific Python environment. A good choice is the `Anaconda Distribution <https://www.anaconda.com/download>`_, since, along with many other packages that are useful for scientific computing, it comes packaged with PyHDFE's only required dependencies: `NumPy <https://numpy.org/>`_ and `SciPy <https://scipy.org/>`_.
+The PyHDFE package has been tested on `Python <https://www.python.org/downloads/>`_ versions 3.6 through 3.15. The `SciPy instructions <https://scipy.org/install/>`_ for installing related packages is a good guide for how to install a scientific Python environment. A good choice is the `Anaconda Distribution <https://www.anaconda.com/download>`_, since, along with many other packages that are useful for scientific computing, it comes packaged with PyHDFE's only required dependencies: `NumPy <https://numpy.org/>`_ and `SciPy <https://scipy.org/>`_.
 
 You can install the current release of PyHDFE with `pip <https://pip.pypa.io/en/latest/>`_::
 
@@ -60,4 +90,3 @@ Bugs and Requests
 -----------------
 
 Please use the `GitHub issue tracker <https://github.com/jeffgortmaker/pyhdfe/issues>`_ to submit bugs or to request features.
-

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cramjam
-Version: 2.13.0
+Version: 2.14.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -16,7 +16,9 @@ Requires-Dist: pytest>=9.0.3 ; extra == 'dev'
 Requires-Dist: pytest-xdist ; extra == 'dev'
 Requires-Dist: pytest-benchmark ; extra == 'dev'
 Requires-Dist: hypothesis>=6.165.10 ; extra == 'dev'
+Requires-Dist: cramjam-pure-rust==2.14.0 ; extra == 'pure-rust'
 Provides-Extra: dev
+Provides-Extra: pure-rust
 License-File: LICENSE
 Keywords: compression,decompression,snappy,zstd,bz2,gzip,lz4,brotli,deflate,blosc2
 License-Expression: MIT
@@ -43,6 +45,20 @@ Project-URL: repository, https://github.com/milesgranger/pyrus-cramjam
 ```commandline
 pip install --upgrade cramjam  # Requires no Python or system dependencies!
 ```
+
+#### Pure-Rust backend
+
+By default zstd, lz4, bzip2, xz and deflate/gzip/zlib use their C libraries.
+To use [libcramjam](https://github.com/cramjam/libcramjam)'s pure-Rust
+implementations instead (same API, no C), install the add-on and select it
+before `cramjam` is imported:
+
+```commandline
+pip install --upgrade "cramjam[pure-rust]"
+export CRAMJAM_BACKEND=pure-rust  # `cramjam.backend` reports which is active
+```
+
+Output is interchangeable between backends, but the compressed bytes may differ.
 
 ## Development
 

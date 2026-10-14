@@ -399,7 +399,7 @@ bool wxGridCellEditor::IsAcceptedKey(wxKeyEvent& event)
     if ((ctrl || alt) && !(ctrl && alt))
         return false;
 
-    if ( static_cast<int>(event.GetUnicodeKey()) == WXK_NONE )
+    if ( event.GetUnicodeChar() == WXK_NONE )
         return false;
 
     return true;
@@ -574,11 +574,10 @@ void wxGridCellTextEditor::StartingKey(wxKeyEvent& event)
     // a valid character, so not a whole lot of testing needs to be done.
 
     wxTextCtrl* tc = Text();
-    int ch;
 
     bool isPrintable;
 
-    ch = event.GetUnicodeKey();
+    wxUniChar ch = event.GetUnicodeChar();
     if ( ch != WXK_NONE )
         isPrintable = true;
     else
@@ -587,7 +586,7 @@ void wxGridCellTextEditor::StartingKey(wxKeyEvent& event)
         isPrintable = ch >= WXK_SPACE && ch < WXK_START;
     }
 
-    switch (ch)
+    switch ( ch.GetValue() )
     {
         case WXK_DELETE:
             // Delete the initial character when starting to edit with DELETE.
@@ -604,7 +603,7 @@ void wxGridCellTextEditor::StartingKey(wxKeyEvent& event)
 
         default:
             if ( isPrintable )
-                tc->WriteText(static_cast<wxChar>(ch));
+                tc->WriteText(ch);
             break;
     }
 }
@@ -832,7 +831,7 @@ bool wxGridCellNumberEditor::IsAcceptedKey(wxKeyEvent& event)
 {
     if ( wxGridCellEditor::IsAcceptedKey(event) )
     {
-        int keycode = event.GetKeyCode();
+        int keycode = event.GetUnicodeChar();
         switch ( keycode )
         {
             // Accept +/- because they can be part of the number and space just
@@ -854,7 +853,7 @@ bool wxGridCellNumberEditor::IsAcceptedKey(wxKeyEvent& event)
 
 void wxGridCellNumberEditor::StartingKey(wxKeyEvent& event)
 {
-    const wxChar keycode = event.GetUnicodeKey();
+    const wxUniChar keycode = event.GetUnicodeChar();
     if ( !HasRange() )
     {
         if ( wxIsdigit(keycode) || keycode == '+' || keycode == '-')
@@ -1021,7 +1020,7 @@ void wxGridCellFloatEditor::Reset()
 
 void wxGridCellFloatEditor::StartingKey(wxKeyEvent& event)
 {
-    const wxChar keycode = event.GetUnicodeKey();
+    const wxUniChar keycode = event.GetUnicodeChar();
 
     if ( wxIsdigit(keycode) || keycode == '+' || keycode == '-'
          || keycode == wxNumberFormatter::GetDecimalSeparator() )
@@ -1155,7 +1154,7 @@ bool wxGridCellFloatEditor::IsAcceptedKey(wxKeyEvent& event)
 {
     if ( wxGridCellEditor::IsAcceptedKey(event) )
     {
-        const wxChar keycode = event.GetUnicodeKey();
+        const wxUniChar keycode = event.GetUnicodeChar();
         if ( wxIsascii(keycode) )
         {
             // accept digits, 'e' as in '1e+6', also '-', '+', and '.'
@@ -1350,7 +1349,7 @@ bool wxGridCellBoolEditor::IsAcceptedKey(wxKeyEvent& event)
 {
     if ( wxGridCellEditor::IsAcceptedKey(event) )
     {
-        switch ( event.GetUnicodeKey() )
+        switch ( event.GetKeyCode() )
         {
             case WXK_SPACE:
             case '+':
@@ -1364,7 +1363,7 @@ bool wxGridCellBoolEditor::IsAcceptedKey(wxKeyEvent& event)
 
 void wxGridCellBoolEditor::StartingKey(wxKeyEvent& event)
 {
-    switch ( event.GetUnicodeKey() )
+    switch ( event.GetKeyCode() )
     {
         case WXK_SPACE:
             CBox()->SetValue(!CBox()->GetValue());
@@ -1476,6 +1475,10 @@ void wxGridCellChoiceEditor::Create(wxWindow* parent,
                                style);
 
     wxGridCellEditor::Create(parent, id, evtHandler);
+
+    auto const dismissEditor = [this](wxCommandEvent&) { DismissEditor(); };
+    m_control->Bind(wxEVT_COMBOBOX_CLOSEUP, dismissEditor);
+    m_control->Bind(wxEVT_TEXT_ENTER, dismissEditor);
 }
 
 void wxGridCellChoiceEditor::SetSize(const wxRect& rect)
@@ -1498,13 +1501,9 @@ void wxGridCellChoiceEditor::BeginEdit(int row, int col, wxGrid* grid)
     wxASSERT_MSG(m_control,
                  wxT("The wxGridCellEditor must be created first!"));
 
-    wxGridCellEditorEvtHandler* evtHandler = nullptr;
-    if (m_control)
-    {
-        // This event handler is needed to properly dismiss the editor when the popup is closed
-        m_control->Bind(wxEVT_COMBOBOX_CLOSEUP, &wxGridCellChoiceEditor::OnComboCloseUp, this);
-        evtHandler = wxDynamicCast(m_control->GetEventHandler(), wxGridCellEditorEvtHandler);
-    }
+    wxGridCellEditorEvtHandler* const
+        evtHandler = wxDynamicCast(m_control->GetEventHandler(),
+                                   wxGridCellEditorEvtHandler);
 
     // Don't immediately end if we get a kill focus event within BeginEdit
     if (evtHandler)
@@ -1574,6 +1573,11 @@ void wxGridCellChoiceEditor::Reset()
     }
 }
 
+void wxGridCellChoiceEditor::StartingClick()
+{
+    Combo()->Popup();
+}
+
 void wxGridCellChoiceEditor::SetParameters(const wxString& params)
 {
     if ( params.empty() )
@@ -1603,16 +1607,17 @@ wxString wxGridCellChoiceEditor::GetValue() const
   return Combo()->GetValue();
 }
 
-void wxGridCellChoiceEditor::OnComboCloseUp(wxCommandEvent& WXUNUSED(evt))
+void wxGridCellChoiceEditor::DismissEditor()
 {
-    wxGridCellEditorEvtHandler* evtHandler = wxDynamicCast(m_control->GetEventHandler(),
-                                                           wxGridCellEditorEvtHandler);
+    wxGridCellEditorEvtHandler* const
+        evtHandler = wxDynamicCast(m_control->GetEventHandler(),
+                                   wxGridCellEditorEvtHandler);
 
     if ( !evtHandler )
         return;
 
-    // Close the grid editor when the combobox closes, otherwise it leaves the
-    // dropdown arrow visible in the cell.
+    // Close the grid editor through the regular deferred path to avoid
+    // leaving the dropdown arrow visible in the cell.
     evtHandler->DismissEditor();
 }
 

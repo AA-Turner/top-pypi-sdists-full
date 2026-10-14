@@ -62,10 +62,13 @@ def test_player_loop_policy_reflect_reverses(page):
     widget = Player(length=3, interval=100, loop_policy='reflect')
     serve_component(page, widget)
 
+    # The player keeps advancing after reversing, so record the value at
+    # which each change of direction happens
+    directions = []
+    widget.param.watch(lambda e: directions.append((e.new, widget.value)), 'direction')
+
     page.locator('.play').click()
-    wait_until(lambda: widget.direction == -1, page)
-    wait_until(lambda: widget.direction == 1, page)
-    assert widget.value == 0
+    wait_until(lambda: directions[:3] == [(1, 0), (-1, 2), (1, 0)], page)
 
 
 def test_player_reverse(page):
@@ -213,3 +216,20 @@ def test_discrete_player_minimal_shows_label(page):
     serve_component(page, widget)
 
     expect(page.locator('.discrete-player')).to_contain_text('b')
+
+
+@pytest.mark.parametrize('variant', ['full', 'minimal'])
+@pytest.mark.parametrize('player', [
+    lambda variant: Player(length=10, variant=variant),
+    lambda variant: DiscretePlayer(options=[1, 2, 3], variant=variant),
+])
+def test_player_focus(page, player, variant):
+    widget = player(variant)
+    serve_component(page, widget)
+
+    slider = page.locator('.MuiSlider-thumb input')
+    expect(slider).not_to_be_focused()
+
+    widget.focus()
+
+    expect(slider).to_be_focused()

@@ -1,17 +1,15 @@
-"""Which country x crop combinations can be pre-season forecast from S2S now?
+"""Which country x crop combinations can be forecast from S2S now?
 
 Scans the geoprepare output tree for merged crop CSVs, derives each combo's
 planting month and season shape from the crop-calendar columns in the data,
-and reports the state of its NEXT season's pre-season S2S window:
+and reports the state of the S2S window of its current or next season:
 
-    open        a USABLE init (>= MIN_OFFSET months of season visibility,
-                i.e. issued no earlier than ``planting - MAX_USABLE_OFFSET``)
-                is already available -> the pooled model can run today.
-    too_early   the window has not reached a usable init yet (June-type
-                truncated inits are excluded on purpose -- proven harmful);
-                reports the month it becomes usable.
-    in_season   planting has passed; the pre-season lens is closed and the
-                in-season CID system owns the forecast.
+    open        the window is open: from ``planting - MAX_USABLE_OFFSET``
+                (June-type truncated inits are excluded on purpose -- proven
+                harmful) until the window closes after planting (see
+                ``window_state``). ``phase`` says whether planting has passed.
+    too_early   the window has not reached a usable init yet; reports the
+                month it becomes usable.
 
 Data checks per combo: S2S per-region CSVs present (and their latest init),
 and a materialized statistics file (yields) so the combo can contribute
@@ -22,6 +20,7 @@ Usage::
     from geocif.experiments import s2s_eligibility
     df = s2s_eligibility.run(parser=parser)          # or path_config_files
 """
+import calendar
 import glob
 import re
 from datetime import date
@@ -38,6 +37,12 @@ logger = logging.getLogger(__name__)
 # months): issued at most 4 months before planting (leads reach init+6).
 MAX_USABLE_OFFSET = 4
 PRE_WINDOW = 6  # the full pre-season window is planting-6 .. planting-1
+# The S2S model's season is planting .. planting+SEASON_LEN-1. An init issued
+# in month m forecasts months m+1 .. m+6 (lead L is month m+L; NOAA's ``L`` is
+# "months since reference time"), so the last init that still sees a season
+# month is issued in the season's second-to-last month, and S2S coverage of
+# the season ends with its last month.
+SEASON_LEN = 4
 
 
 def planting_and_span(merged_csv):
@@ -94,34 +99,66 @@ def s2s_status(s2s_dir):
     return len(files), f"{ymax}-{mmax:02d}" if mmax else f"{ymax}-01"
 
 
-def window_state(planting, wraps, today=None, latest_init=None):
-    """Eligibility of the NEXT season's pre-season window."""
+def _shift_month(year, month, k):
+    """(year, month) ``k`` months after (or, for k < 0, before) year-month."""
+    t = year * 12 + (month - 1) + k
+    return t // 12, t % 12 + 1
+
+
+def _month_end(year, month):
+    return date(year, month, calendar.monthrange(year, month)[1])
+
+
+def close_offset(planting, harvest_month=None):
+    """Months after planting whose last day closes the S2S window.
+
+    The EARLIER of the end of S2S coverage of the season (its last month,
+    ``SEASON_LEN - 1`` months after planting) and the end of the harvest
+    month. A harvest month equal to the planting month reads as a full-year
+    season and does not bind.
+    """
+    k = SEASON_LEN - 1
+    if harvest_month:
+        k = min(k, (int(harvest_month) - planting) % 12 or 12)
+    return k
+
+
+def window_state(planting, wraps, today=None, latest_init=None,
+                 harvest_month=None):
+    """State of the S2S window for the current season, else the next one.
+
+    The window opens ``MAX_USABLE_OFFSET`` months before planting and stays
+    open AFTER planting until ``close_offset``: the end of the harvest month
+    or the end of S2S coverage of the season, whichever is earlier. It
+    used to close on the 1st of the planting month; inits issued after
+    planting still forecast the season's remaining months, so the cutoff
+    went. A season whose window has closed rolls over to the next one.
+
+    ``phase`` is ``pre_season`` before planting and ``in_season`` after.
+    """
     today = today or date.today()
-    # next planting date
+    # Next planting, unless the previous planting's window is still open.
     py = today.year if today.month <= planting else today.year + 1
+    k_close = close_offset(planting, harvest_month)
+    if today <= _month_end(*_shift_month(py - 1, planting, k_close)):
+        py -= 1
     plant = date(py, planting, 1)
     harvest_year = py + 1 if wraps else py
-    # usable window: planting - MAX_USABLE_OFFSET .. planting - 1
-    um = planting - MAX_USABLE_OFFSET
-    uy = py
-    if um <= 0:
-        um += 12
-        uy -= 1
+    uy, um = _shift_month(py, planting, -MAX_USABLE_OFFSET)
     usable_from = date(uy, um, 1)
-    if today >= plant:
-        status = "in_season"
-    elif today >= usable_from:
-        status = "open"
-    else:
-        status = "too_early"
+    closes = _month_end(*_shift_month(py, planting, k_close))
+    status = "open" if today >= usable_from else "too_early"
+    phase = "in_season" if today >= plant else "pre_season"
     # is a usable init actually PUBLISHED? (S2S data reaches latest_init)
     init_ready = False
     if status == "open" and latest_init:
         ly, lm = (int(x) for x in latest_init.split("-"))
         init_ready = date(ly, lm, 1) >= usable_from
-    return {"status": status, "planting": f"{py}-{planting:02d}",
+    return {"status": status, "phase": phase,
+            "planting": f"{py}-{planting:02d}",
             "harvest_year": harvest_year,
             "usable_from": f"{uy}-{um:02d}",
+            "closes": closes.isoformat(),
             "usable_init_published": bool(init_ready)}
 
 

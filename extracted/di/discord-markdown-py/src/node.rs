@@ -1,63 +1,50 @@
-use std::{borrow::Cow, iter::empty, mem::take};
+use std::mem::take;
 
+use derive_where::derive_where;
 use tracing::Level;
 
+pub use element::Element;
+pub use id::{Id, Ids};
 pub use iter::Iter;
+pub use modifier::Modifier;
+pub use parsed::{ParsedNode, ParsedNodes, SpannedParsedNode, merge_text};
 
-use crate::{
-	block::{quote, small},
-	inline::{bold, code, italic, spoiler, strikethrough, underline},
-	unparse::Unparse,
-};
+use crate::unparse::Unparse;
 
 use super::{
-	block::{Heading, List, Small},
-	inline::{
-		code_block::CodeBlock, emoji::Emoji, link::Link, mention::Mention, timestamp::Timestamp,
-	},
 	rule::{Rule, RuleSet},
 	span::{Span, Spanned},
 };
 
+mod element;
+mod id;
 mod iter;
+pub mod modifier;
+mod parsed;
+#[cfg(feature = "serde")]
+mod repr;
+
+/// A vec of `N`, each wrapped in a span, and wrapped in a span itself.
+pub type Sequence<S, N> = Spanned<Vec<Spanned<N, S>>, S>;
 
 /// A node containing markdown content.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Untagged, so that either half serializes as a node of its own type.
+#[derive_where(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize, serde::Deserialize),
-	serde(tag = "type", content = "value", rename_all = "snake_case",)
+	serde(untagged, bound = "", from = "repr::Repr<'data, S>")
 )]
 pub enum Node<'data, S: Span> {
-	// inline
-	Bold(SpannedNodes<'data, S>),
-	Italic(SpannedNodes<'data, S>),
-	Underline(SpannedNodes<'data, S>),
-	Strikethrough(SpannedNodes<'data, S>),
-	Spoiler(SpannedNodes<'data, S>),
-	Emoji(Emoji<'data>),
-	Timestamp(Timestamp),
-	Mention(Mention),
-	Link(Link<'data, S>),
-	Code(Cow<'data, str>),
-	CodeBlock(CodeBlock<'data>),
-	Text(Cow<'data, str>),
-
-	// block
-	Heading(Heading<'data, S>),
-	List(List<'data, S>),
-	/// Plain Node content.
-	Paragraph(SpannedNodes<'data, S>),
-	Quote(SpannedNodes<'data, S>),
-	Small(Small<'data, S>),
-	/// New line.
-	Empty,
+	Modifier(Modifier<'data, S>),
+	Element(Element<'data, S, Node<'data, S>>),
 }
 
 /// Node wrapped in a span.
 pub type SpannedNode<'data, S> = Spanned<Node<'data, S>, S>;
 /// A vec of nodes, all of which are wrapped in a span.
-pub type SpannedNodes<'data, S> = Spanned<Vec<SpannedNode<'data, S>>, S>;
+pub type SpannedNodes<'data, S> = Sequence<S, Node<'data, S>>;
 
 impl<'data, S> Node<'data, S>
 where
@@ -66,26 +53,15 @@ where
 	/// Returns an iterator over all child nodes of this node. Yields no items if this node has no
 	/// children.
 	pub fn children(&self) -> impl Iterator<Item = &Node<'data, S>> {
-		match self {
-			Node::Bold(children)
-			| Node::Italic(children)
-			| Node::Underline(children)
-			| Node::Strikethrough(children)
-			| Node::Spoiler(children)
-			| Node::Paragraph(children)
-			| Node::Heading(Heading {
-				content: children, ..
-			})
-			| Node::Small(Small { content: children })
-			| Node::Quote(children) => Box::new(children.iter().map(|span| &span.value))
-				as Box<dyn Iterator<Item = &Node<S>>>,
-			Node::List(List { items, .. }) => Box::new(
-				items
-					.iter()
-					.flat_map(|item| item.content.iter().map(|span| &span.value)),
-			),
-			_ => Box::new(empty()),
-		}
+		let (content, element) = match self {
+			Self::Modifier(modifier) => (Some(modifier.content()), None),
+			Self::Element(element) => (None, Some(element)),
+		};
+
+		content
+			.into_iter()
+			.chain(element.into_iter().flat_map(Element::sequences))
+			.flat_map(|items| items.iter().map(|span| &span.value))
 	}
 
 	/// Returns an iterator over this node and all child nodes, at every depth.
@@ -93,7 +69,7 @@ where
 	/// Depth matters to [`Self::content`] and [`Self::rules`]: a markup wrapper's own [`Self::text`]
 	/// is [`None`], so stopping at the direct children made `**_text_**` look textless.
 	#[must_use]
-	pub fn iter<'node: 'data>(&'node self) -> Iter<'data, 'node, S> {
+	pub fn iter<'node>(&'node self) -> Iter<'data, 'node, S> {
 		Iter {
 			node: Some(self),
 			// TODO: it's a bit awkward to re-box after this technically returns a pre-boxed iterator
@@ -101,40 +77,57 @@ where
 		}
 	}
 
+	/// The [`Rule`] that this node corresponds to. Returns [`None`] if this is a base rule.
+	#[must_use]
+	pub fn rule(&self) -> Option<Rule> {
+		match self {
+			Self::Modifier(modifier) => Some(modifier.kind().rule()),
+			Self::Element(element) => element.rule(),
+		}
+	}
+
+	/// All [`Rule`]s that this node contains, including itself.
+	#[must_use]
+	pub fn rules(&self) -> RuleSet {
+		self.iter().filter_map(Node::rule).collect()
+	}
+
+	/// Text content of this node (does not include children). Returns [`None`] if this node has no
+	/// text content.
+	#[must_use]
+	pub fn text(&self) -> Option<String> {
+		match self {
+			Self::Modifier(_) => None,
+			Self::Element(element) => element.text(),
+		}
+	}
+
+	/// Text content of this node _and_ its children.
+	#[must_use]
+	pub fn content(&self) -> String {
+		self.iter().filter_map(Node::text).collect()
+	}
+
 	/// Recursively flattens this node's children, collapsing any markup made redundant by
 	/// `active` -- the markup its ancestors already apply.
 	///
-	/// Markup is the only thing `active` crosses. A block container or a link owns its own inline
-	/// content, which its own [`flatten`] has already flattened, so an italic inside a heading
-	/// inside an italic keeps both.
-	fn flatten_children(&mut self, mut active: RuleSet) {
-		let rule = self.rule();
-
-		let (Self::Bold(nodes)
-		| Self::Italic(nodes)
-		| Self::Underline(nodes)
-		| Self::Strikethrough(nodes)
-		| Self::Spoiler(nodes)) = self
-		else {
-			return;
-		};
-
-		// only markup descends, so only markup joins the set
-		active.extend(rule);
-
-		let mut nested = false;
-		for node in &mut nodes.value {
-			node.flatten_children(active);
-			nested |= node.is_nested_in(active);
+	/// Only markup joins `active`, but it crosses block containers, so a block-level italic
+	/// collapses the italics in the paragraphs and lists it wraps. A link owns its own inline
+	/// content, which its own [`flatten`] has already flattened, so `active` stops there.
+	pub fn flatten_children(&mut self, mut active: RuleSet) {
+		match self {
+			Self::Modifier(modifier) => {
+				active.insert(modifier.kind().rule());
+				flatten_against(&mut modifier.content_mut().value, active);
+			}
+			// with nothing active, a block's content is exactly as its own `flatten` left it
+			Self::Element(_) if active.is_empty() => {}
+			Self::Element(element) => {
+				for content in element.sequences_mut() {
+					flatten_against(&mut content.value, active);
+				}
+			}
 		}
-
-		// a collapsed child's own children were flattened against this same set, so one round is
-		// enough -- nothing spliced in can be redundant again
-		if nested {
-			collapse_nested(&mut nodes.value, active);
-		}
-
-		merge_siblings(&mut nodes.value);
 	}
 
 	/// Whether an ancestor already applies this node's markup.
@@ -149,95 +142,22 @@ where
 		}
 
 		match self {
-			Self::Bold(nodes)
-			| Self::Italic(nodes)
-			| Self::Underline(nodes)
-			| Self::Strikethrough(nodes)
-			| Self::Spoiler(nodes) => Some(take(&mut nodes.value)),
-			_ => None,
+			Self::Modifier(modifier) => Some(take(&mut modifier.content_mut().value)),
+			Self::Element(_) => None,
 		}
 	}
 
 	fn is_empty(&self) -> bool {
 		match self {
-			Self::Bold(nodes)
-			| Self::Italic(nodes)
-			| Self::Underline(nodes)
-			| Self::Strikethrough(nodes)
-			| Self::Spoiler(nodes) => nodes.is_empty(),
+			Self::Modifier(modifier) => modifier.content().is_empty(),
 			// TODO: should we flatten code?
-			Self::Text(content) => content.is_empty(),
-			_ => false,
+			Self::Element(Element::Text(content)) => content.is_empty(),
+			Self::Element(_) => false,
 		}
-	}
-
-	/// The [`Rule`] that this node corresponds to. Returns [`None`] if this is a base rule.
-	#[must_use]
-	pub fn rule(&self) -> Option<Rule> {
-		Some(match self {
-			Self::Text(_) | Self::Paragraph(_) | Self::Empty => return None,
-			Self::Bold(_) => Rule::Bold,
-			Self::Code(_) => Rule::Code,
-			Self::CodeBlock(_) => Rule::CodeBlock,
-			Self::Emoji(_) => Rule::Emoji,
-			Self::Italic(_) => Rule::Italic,
-			Self::Link(_) => Rule::Link,
-			Self::Mention(_) => Rule::Mention,
-			Self::Spoiler(_) => Rule::Spoiler,
-			Self::Strikethrough(_) => Rule::Strikethrough,
-			Self::Timestamp(_) => Rule::Timestamp,
-			Self::Underline(_) => Rule::Underline,
-			Self::Heading(_) => Rule::Heading,
-			Self::List(_) => Rule::List,
-			Self::Quote(_) => Rule::Quote,
-			Self::Small(_) => Rule::Small,
-		})
-	}
-
-	/// All [`Rule`]s that this node contains, including itself.
-	#[must_use]
-	pub fn rules(&self) -> RuleSet {
-		self.iter().filter_map(Node::rule).collect()
-	}
-
-	/// Text content of this node (does not include children). Returns [`None`] if this node has no
-	/// text content.
-	#[must_use]
-	pub fn text(&self) -> Option<String> {
-		Some(match self {
-			Self::Code(code) => code.clone().into_owned(),
-			Self::CodeBlock(CodeBlock { content, .. }) => content.clone(),
-			Self::Emoji(Emoji::Unicode(code_point)) => code_point.to_string(),
-			Self::Link(Link {
-				text: None, url, ..
-			}) => url.to_string(),
-			Self::Mention(mention) => mention.to_string(),
-			Self::Text(text) => text.clone().into_owned(),
-			Self::Bold(_)
-			| Self::Italic(_)
-			| Self::Underline(_)
-			| Self::Strikethrough(_)
-			| Self::Spoiler(_)
-			| Self::Heading(_)
-			| Self::Timestamp(_)
-			| Self::List(_)
-			| Self::Paragraph(_)
-			| Self::Quote(_)
-			| Self::Small(_)
-			| Self::Empty
-			| Self::Emoji(Emoji::Custom(_))
-			| Self::Link(Link { text: Some(_), .. }) => return None,
-		})
-	}
-
-	/// Text content of this node _and_ its children.
-	#[must_use]
-	pub fn content(&self) -> String {
-		self.iter().filter_map(Node::text).collect()
 	}
 }
 
-impl<'data, 'node: 'data, S> IntoIterator for &'node Node<'data, S>
+impl<'data, 'node, S> IntoIterator for &'node Node<'data, S>
 where
 	S: Span,
 {
@@ -255,27 +175,8 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		match self {
-			// Inline nodes
-			Self::Bold(children) => bold::unparse(children, f),
-			Self::Italic(children) => italic::unparse(children, f),
-			Self::Underline(children) => underline::unparse(children, f),
-			Self::Strikethrough(children) => strikethrough::unparse(children, f),
-			Self::Spoiler(children) => spoiler::unparse(children, f),
-			Self::Emoji(emoji) => Unparse::fmt(emoji, f),
-			Self::Timestamp(timestamp) => Unparse::fmt(timestamp, f),
-			Self::Mention(mention) => Unparse::fmt(mention, f),
-			Self::Link(link) => Unparse::fmt(link, f),
-			Self::Code(code) => code::unparse(code, f),
-			Self::CodeBlock(code_block) => Unparse::fmt(code_block, f),
-			Self::Text(text) => f.write_str(text),
-
-			// Block nodes
-			Self::Heading(heading) => Unparse::fmt(heading, f),
-			Self::List(list) => Unparse::fmt(list, f),
-			Self::Paragraph(children) => Unparse::fmt(children, f),
-			Self::Quote(children) => quote::unparse(children, f),
-			Self::Small(small) => small::unparse(&small.content, f),
-			Self::Empty => f.write_str("\n"),
+			Self::Modifier(modifier) => Unparse::fmt(modifier, f),
+			Self::Element(element) => Unparse::fmt(element, f),
 		}
 	}
 }
@@ -302,6 +203,26 @@ where
 {
 	flatten(&mut nodes);
 	nodes
+}
+
+/// Flattens each of `nodes` against `active`, then collapses and merges them.
+fn flatten_against<S>(nodes: &mut Vec<SpannedNode<'_, S>>, active: RuleSet)
+where
+	S: Span,
+{
+	let mut nested = false;
+	for node in nodes.iter_mut() {
+		node.value.flatten_children(active);
+		nested |= node.value.is_nested_in(active);
+	}
+
+	// a collapsed child's own children were flattened against this same set, so one round is
+	// enough -- nothing spliced in can be redundant again
+	if nested {
+		collapse_nested(nodes, active);
+	}
+
+	merge_siblings(nodes);
 }
 
 /// Splices the children of every redundant node into `nodes`. Rebuilt in one pass rather than
@@ -339,22 +260,9 @@ where
 		};
 
 		for node in nodes {
-			match (&mut current_node.value, &mut node.value) {
-				(Node::Italic(current_children), Node::Italic(children))
-				| (Node::Bold(current_children), Node::Bold(children))
-				| (Node::Underline(current_children), Node::Underline(children))
-				| (Node::Strikethrough(current_children), Node::Strikethrough(children)) => {
-					current_children.span.merge(&children.span);
-					current_children.extend(take(&mut children.value));
-					merge_siblings(&mut current_children.value);
-				}
-				(Node::Text(current_content), Node::Text(content)) => {
-					current_content.to_mut().push_str(&take(content));
-				}
-				_ => {
-					current_node = node;
-					continue;
-				}
+			if !merge_into(&mut current_node.value, &mut node.value) {
+				current_node = node;
+				continue;
 			}
 
 			current_node.span.merge(&node.span);
@@ -364,11 +272,38 @@ where
 	nodes.retain(|item| !item.value.is_empty());
 }
 
+/// Moves `next` into `current` if the two are the same kind of node and merge, leaving `next`
+/// empty.
+fn merge_into<'data, S>(current: &mut Node<'data, S>, next: &mut Node<'data, S>) -> bool
+where
+	S: Span,
+{
+	match (current, next) {
+		(Node::Modifier(current), Node::Modifier(next)) => {
+			let kind = next.kind();
+			if current.kind() != kind || !kind.merges() {
+				return false;
+			}
+
+			let (current_children, children) = (current.content_mut(), next.content_mut());
+			current_children.span.merge(&children.span);
+			current_children.extend(take(&mut children.value));
+			merge_siblings(&mut current_children.value);
+			true
+		}
+		(Node::Element(Element::Text(current_content)), Node::Element(Element::Text(content))) => {
+			current_content.to_mut().push_str(&take(content));
+			true
+		}
+		_ => false,
+	}
+}
+
 #[cfg(test)]
 mod test {
-	use super::{Node, SpannedNode, SpannedNodes, flatten};
+	use super::{Element, Modifier, Node, SpannedNode, SpannedNodes, flatten};
 	use crate::span::{Span, Spanned, TrackedSpan};
-	use crate::{bold, italic, link, spanned_vec, spoiler, text, underline};
+	use crate::{bold, italic, link, spoiler, strikethrough, text, underline};
 
 	/// Wraps untracked nodes, which need no spans, so they can be flattened.
 	fn unspanned(nodes: Vec<Node<'static, ()>>) -> Vec<SpannedNode<'static, ()>> {
@@ -399,7 +334,7 @@ mod test {
 
 	fn text_of<'node>(node: &'node SpannedNode<'static, TrackedSpan>) -> &'node str {
 		match &node.value {
-			Node::Text(content) => content,
+			Node::Element(Element::Text(content)) => content,
 			other => panic!("expected text, got {other:?}"),
 		}
 	}
@@ -408,8 +343,8 @@ mod test {
 		node: &'node SpannedNode<'static, TrackedSpan>,
 	) -> &'node SpannedNodes<'static, TrackedSpan> {
 		match &node.value {
-			Node::Bold(children) | Node::Italic(children) => children,
-			other => panic!("expected markup, got {other:?}"),
+			Node::Modifier(modifier) => modifier.content(),
+			other @ Node::Element(_) => panic!("expected markup, got {other:?}"),
 		}
 	}
 
@@ -420,10 +355,8 @@ mod test {
 		assert_eq!(flattened(bold!(bold!("a"))), bold!("a"));
 		assert_eq!(flattened(underline!(underline!("a"))), underline!("a"));
 		assert_eq!(
-			flattened(Node::Strikethrough(spanned_vec![Node::Strikethrough(
-				spanned_vec![text!("a")]
-			)])),
-			Node::Strikethrough(spanned_vec![text!("a")])
+			flattened(strikethrough!(strikethrough!("a"))),
+			strikethrough!("a")
 		);
 		assert_eq!(flattened(spoiler!(spoiler!("a"))), spoiler!("a"));
 	}
@@ -497,18 +430,18 @@ mod test {
 	fn merging_markup_widens_the_node_and_its_children() {
 		let mut nodes = vec![
 			spanned(
-				Node::Bold(Spanned {
+				Node::Modifier(Modifier::Bold(Spanned {
 					value: vec![spanned(text!("a"), 2, 3)],
 					span: TrackedSpan::new(2, 3),
-				}),
+				})),
 				0,
 				5,
 			),
 			spanned(
-				Node::Bold(Spanned {
+				Node::Modifier(Modifier::Bold(Spanned {
 					value: vec![spanned(text!("b"), 7, 8)],
 					span: TrackedSpan::new(7, 8),
-				}),
+				})),
 				5,
 				10,
 			),
@@ -533,17 +466,17 @@ mod test {
 	#[test]
 	fn collapsing_keeps_the_promoted_child_span() {
 		let mut nodes = vec![spanned(
-			Node::Italic(Spanned {
+			Node::Modifier(Modifier::Italic(Spanned {
 				value: vec![spanned(
-					Node::Italic(Spanned {
+					Node::Modifier(Modifier::Italic(Spanned {
 						value: vec![spanned(text!("a"), 3, 4)],
 						span: TrackedSpan::new(3, 4),
-					}),
+					})),
 					2,
 					5,
 				)],
 				span: TrackedSpan::new(1, 6),
-			}),
+			})),
 			0,
 			7,
 		)];

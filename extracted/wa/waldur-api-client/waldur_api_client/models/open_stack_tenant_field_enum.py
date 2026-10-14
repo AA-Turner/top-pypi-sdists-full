@@ -19,6 +19,7 @@ class OpenStackTenantFieldEnum(str, Enum):
     EXTERNAL_NETWORK_REF_UUID = "external_network_ref_uuid"
     INTERNAL_NETWORK_ID = "internal_network_id"
     IS_LIMIT_BASED = "is_limit_based"
+    IS_MANAGED = "is_managed"
     IS_USAGE_BASED = "is_usage_based"
     MARKETPLACE_CATEGORY_NAME = "marketplace_category_name"
     MARKETPLACE_CATEGORY_UUID = "marketplace_category_uuid"

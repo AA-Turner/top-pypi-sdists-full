@@ -18,12 +18,14 @@ class CatalogSummary:
         name (Union[Unset, str]): Catalog name (e.g., EESSI, Spack)
         version (Union[Unset, str]): Catalog version (e.g., 2023.06, 0.21.0)
         description (Union[Unset, str]):
+        supports_cpu_target_restrictions (Union[Unset, bool]):
     """
 
     uuid: Union[Unset, UUID] = UNSET
     name: Union[Unset, str] = UNSET
     version: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
+    supports_cpu_target_restrictions: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,6 +39,8 @@ class CatalogSummary:
 
         description = self.description
 
+        supports_cpu_target_restrictions = self.supports_cpu_target_restrictions
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -48,6 +52,8 @@ class CatalogSummary:
             field_dict["version"] = version
         if description is not UNSET:
             field_dict["description"] = description
+        if supports_cpu_target_restrictions is not UNSET:
+            field_dict["supports_cpu_target_restrictions"] = supports_cpu_target_restrictions
 
         return field_dict
 
@@ -67,11 +73,14 @@ class CatalogSummary:
 
         description = d.pop("description", UNSET)
 
+        supports_cpu_target_restrictions = d.pop("supports_cpu_target_restrictions", UNSET)
+
         catalog_summary = cls(
             uuid=uuid,
             name=name,
             version=version,
             description=description,
+            supports_cpu_target_restrictions=supports_cpu_target_restrictions,
         )
 
         catalog_summary.additional_properties = d

@@ -21,6 +21,7 @@ def _get_kwargs(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -62,6 +63,8 @@ def _get_kwargs(
     params["customer_uuid"] = json_customer_uuid
 
     params["is_escalated"] = is_escalated
+
+    params["is_open"] = is_open
 
     params["is_parent"] = is_parent
 
@@ -168,6 +171,7 @@ def sync_detailed(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -200,6 +204,7 @@ def sync_detailed(
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         is_escalated (Union[Unset, bool]):
+        is_open (Union[Unset, bool]):
         is_parent (Union[Unset, bool]):
         is_routed (Union[Unset, bool]):
         key (Union[Unset, str]):
@@ -239,6 +244,7 @@ def sync_detailed(
         customer=customer,
         customer_uuid=customer_uuid,
         is_escalated=is_escalated,
+        is_open=is_open,
         is_parent=is_parent,
         is_routed=is_routed,
         key=key,
@@ -280,6 +286,7 @@ def sync(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -312,6 +319,7 @@ def sync(
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         is_escalated (Union[Unset, bool]):
+        is_open (Union[Unset, bool]):
         is_parent (Union[Unset, bool]):
         is_routed (Union[Unset, bool]):
         key (Union[Unset, str]):
@@ -352,6 +360,7 @@ def sync(
         customer=customer,
         customer_uuid=customer_uuid,
         is_escalated=is_escalated,
+        is_open=is_open,
         is_parent=is_parent,
         is_routed=is_routed,
         key=key,
@@ -387,6 +396,7 @@ async def asyncio_detailed(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -419,6 +429,7 @@ async def asyncio_detailed(
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         is_escalated (Union[Unset, bool]):
+        is_open (Union[Unset, bool]):
         is_parent (Union[Unset, bool]):
         is_routed (Union[Unset, bool]):
         key (Union[Unset, str]):
@@ -458,6 +469,7 @@ async def asyncio_detailed(
         customer=customer,
         customer_uuid=customer_uuid,
         is_escalated=is_escalated,
+        is_open=is_open,
         is_parent=is_parent,
         is_routed=is_routed,
         key=key,
@@ -497,6 +509,7 @@ async def asyncio(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -529,6 +542,7 @@ async def asyncio(
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         is_escalated (Union[Unset, bool]):
+        is_open (Union[Unset, bool]):
         is_parent (Union[Unset, bool]):
         is_routed (Union[Unset, bool]):
         key (Union[Unset, str]):
@@ -570,6 +584,7 @@ async def asyncio(
             customer=customer,
             customer_uuid=customer_uuid,
             is_escalated=is_escalated,
+            is_open=is_open,
             is_parent=is_parent,
             is_routed=is_routed,
             key=key,
@@ -606,6 +621,7 @@ def sync_all(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -642,6 +658,7 @@ def sync_all(
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         is_escalated (Union[Unset, bool]):
+        is_open (Union[Unset, bool]):
         is_parent (Union[Unset, bool]):
         is_routed (Union[Unset, bool]):
         key (Union[Unset, str]):
@@ -683,6 +700,7 @@ def sync_all(
         customer=customer,
         customer_uuid=customer_uuid,
         is_escalated=is_escalated,
+        is_open=is_open,
         is_parent=is_parent,
         is_routed=is_routed,
         key=key,
@@ -757,6 +775,7 @@ async def asyncio_all(
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     is_escalated: Union[Unset, bool] = UNSET,
+    is_open: Union[Unset, bool] = UNSET,
     is_parent: Union[Unset, bool] = UNSET,
     is_routed: Union[Unset, bool] = UNSET,
     key: Union[Unset, str] = UNSET,
@@ -793,6 +812,7 @@ async def asyncio_all(
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         is_escalated (Union[Unset, bool]):
+        is_open (Union[Unset, bool]):
         is_parent (Union[Unset, bool]):
         is_routed (Union[Unset, bool]):
         key (Union[Unset, str]):
@@ -834,6 +854,7 @@ async def asyncio_all(
         customer=customer,
         customer_uuid=customer_uuid,
         is_escalated=is_escalated,
+        is_open=is_open,
         is_parent=is_parent,
         is_routed=is_routed,
         key=key,

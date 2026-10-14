@@ -815,7 +815,9 @@ class AgentsGenerator:
         adapter name by the time an adapter invokes a wrap closure at run time).
         """
         if native_delegates_to_core is None:
-            native_delegates_to_core = (getattr(self, "framework", None) or "") == "praisonai"
+            native_delegates_to_core = self._delegates_tool_timeout_to_core(
+                getattr(self, "framework", None)
+            )
         return _wrap_with_timeout(
             tool,
             timeout_seconds,
@@ -824,6 +826,18 @@ class AgentsGenerator:
             owner_key=self._timeout_owner_key,
             native_delegates_to_core=native_delegates_to_core,
         )
+
+    def _delegates_tool_timeout_to_core(self, framework) -> bool:
+        """Whether ``framework``'s adapter declares ``SUPPORTS_CORE_TOOL_TIMEOUT``."""
+        if not framework:
+            return False
+        from .framework_adapters.registry import adapter_capability
+
+        return adapter_capability(
+            str(framework),
+            "SUPPORTS_CORE_TOOL_TIMEOUT",
+            registry=getattr(self, "_adapter_registry", None),
+        ) is True
 
     def close(self):
         """Release the owned tool-timeout executor; safe to call repeatedly."""
@@ -982,6 +996,8 @@ class AgentsGenerator:
             spec = ApprovalSpec.from_cli(MockArgs(cli_config))
             if spec.enabled:
                 agent_overrides['approval'] = spec.to_dict()
+                if cli_config.get('permissions_config'):
+                    agent_overrides['approval']['permissions'] = dict(cli_config['permissions_config'])
             
         # Handle guardrail separately
         if 'guardrail' in cli_config:
@@ -1133,7 +1149,7 @@ class AgentsGenerator:
             )
         except Exception:
             resolved_framework = _requested_framework
-        native = resolved_framework == "praisonai"
+        native = self._delegates_tool_timeout_to_core(resolved_framework)
 
         uniform = self._resolve_uniform_tool_timeout(config)
         wrap = None
@@ -1625,6 +1641,50 @@ class AgentsGenerator:
                 "Use the sequential/hierarchical praisonai path for the "
                 "stream-json bridge."
             )
+
+    def build_agents(self):
+        """Build the agent objects from the YAML spec *without running them*.
+
+        This is the "build only" counterpart to
+        :meth:`generate_crew_and_kickoff` and exists for callers that need the
+        constructed :class:`~praisonaiagents.Agent` instances rather than a run
+        result -- e.g. the ``praisonai eval`` evaluators, which drive an agent
+        themselves. It reuses the same :meth:`_prepare_for_run` normalisation so
+        the agents are identical to what a real run would build.
+
+        Returns:
+            list: The constructed agent instances (empty list if none defined).
+        """
+        config = self._load_config()
+        prep = self._prepare_for_run(config)
+        adapter = prep['adapter']
+        builder = getattr(adapter, "_build_agents_and_tasks", None)
+        if not callable(builder):
+            raise NotImplementedError(
+                f"Framework {adapter.name!r} does not support building agents "
+                "without running them; use generate_crew_and_kickoff()."
+            )
+        model_name = adapter._pick_model(self.config_list)
+        # Thread the per-agent tool_timeout wrap resolver (stashed in _run_ctx by
+        # _prepare_for_run) exactly as the real run paths do, so agents built for
+        # evaluation carry the same heterogeneous per-agent timeout guards a
+        # normal run would apply — not a different (unguarded) tool policy.
+        run_ctx = getattr(self, "_run_ctx", None) or {}
+        agents, _tasks = builder(
+            prep['config'],
+            prep['topic'],
+            prep['tools_dict'],
+            getattr(self, 'agent_callback', None),
+            getattr(self, 'task_callback', None),
+            model_name,
+            agent_tool_wrap_resolver=run_ctx.get("_agent_tool_wrap_resolver"),
+            cli_config=self._dispatch_cli_config(),
+        )
+        # _build_agents_and_tasks returns a name->agent mapping; callers expect
+        # a flat list in definition order.
+        if isinstance(agents, dict):
+            return list(agents.values())
+        return list(agents) if agents else []
 
     def generate_crew_and_kickoff(self):
         """

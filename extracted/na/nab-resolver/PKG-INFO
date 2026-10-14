@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-resolver
-Version: 0.0.19
+Version: 0.0.20
 Summary: Generic PubGrub dependency-resolver core
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/

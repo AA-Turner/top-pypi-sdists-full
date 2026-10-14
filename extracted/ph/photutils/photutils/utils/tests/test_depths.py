@@ -7,20 +7,19 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.convolution import convolve
+from astropy.stats import SigmaClip
 from astropy.tests.helper import assert_quantity_allclose
-from astropy.utils.exceptions import (AstropyDeprecationWarning,
-                                      AstropyUserWarning)
+from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose
 
 from photutils.datasets import make_100gaussians_image
 from photutils.segmentation import SourceFinder, make_2dgaussian_kernel
-from photutils.utils._optional_deps import HAS_SKIMAGE
 from photutils.utils.depths import ImageDepth
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 bool_vals = (True, False)
 
 
-@pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
 class TestImageDepth:
     def setup_class(self):
         bkg = 5.0
@@ -30,7 +29,7 @@ class TestImageDepth:
 
         n_pixels = 10
         threshold = 3.2
-        finder = SourceFinder(n_pixels=n_pixels, progress_bar=False)
+        finder = SourceFinder(n_pixels=n_pixels)
         segment_map = finder(convolved_data, threshold)
         self.data = data
         self.mask = segment_map.make_source_mask()
@@ -95,18 +94,18 @@ class TestImageDepth:
                            progress_bar=False)
         mask = np.zeros(self.data.shape)
         mask[:, 100:] = True
-        match = r'Unable to generate .* non-overlapping apertures'
+        match = r'Unable to generate .* nonoverlapping apertures'
         with pytest.warns(AstropyUserWarning, match=match):
             depth(self.data, mask)
 
-        # Test for zero non-overlapping apertures before slow loop
+        # Test for zero nonoverlapping apertures before slow loop
         radius = 5
         depth = ImageDepth(radius, n_sigma=5.0, n_apertures=100, n_iters=2,
                            overlap=False, seed=123, zeropoint=23.9,
                            progress_bar=False)
         mask = np.zeros(self.data.shape)
         mask[:, 40:] = True
-        match = r'Unable to generate .* non-overlapping apertures'
+        match = r'Unable to generate .* nonoverlapping apertures'
         with pytest.warns(AstropyUserWarning, match=match):
             depth(self.data, mask)
 
@@ -179,10 +178,49 @@ class TestImageDepth:
                        mask_pad=-7.1, overlap=True, seed=123, zeropoint=23.9,
                        progress_bar=False)
 
+        match = 'n_apertures must be >= 1'
+        with pytest.raises(ValueError, match=match):
+            ImageDepth(4.0, n_sigma=5.0, n_apertures=0, n_iters=2,
+                       progress_bar=False)
+
+        match = 'n_iters must be >= 1'
+        with pytest.raises(ValueError, match=match):
+            ImageDepth(4.0, n_sigma=5.0, n_apertures=500, n_iters=0,
+                       progress_bar=False)
+
         match = 'sigma_clip must be a callable'
         with pytest.raises(TypeError, match=match):
             ImageDepth(4.0, n_sigma=5.0, n_apertures=500, n_iters=2,
                        sigma_clip='not_callable', progress_bar=False)
+
+    def test_repeated_calls(self):
+        """
+        Test that repeated calls with a fixed seed produce identical
+        results and do not accumulate state from previous calls.
+        """
+        depth = ImageDepth(4, n_sigma=5.0, n_apertures=100, n_iters=2,
+                           mask_pad=5, overlap=True, seed=123,
+                           zeropoint=23.9, progress_bar=False)
+        limits1 = depth(self.data, self.mask)
+        fluxes1 = depth.fluxes
+        apertures1 = depth.apertures
+
+        limits2 = depth(self.data, self.mask)
+        assert_allclose(limits2, limits1)
+
+        # The result attributes reflect only the most recent call
+        assert len(depth.fluxes) == 2
+        assert len(depth.apertures) == 2
+        assert len(depth.flux_limits) == 2
+        assert len(depth.mag_limits) == 2
+        assert len(depth.n_apertures_used) == 2
+
+        # A fresh per-call generator makes calls idempotent
+        for fluxes_a, fluxes_b in zip(fluxes1, depth.fluxes, strict=True):
+            assert_allclose(fluxes_a, fluxes_b)
+        for apers_a, apers_b in zip(apertures1, depth.apertures,
+                                    strict=True):
+            assert_allclose(apers_a.positions, apers_b.positions)
 
     def test_repr(self):
         """
@@ -193,6 +231,14 @@ class TestImageDepth:
                            zeropoint=23.9, progress_bar=False)
         cls_repr = repr(depth)
         assert cls_repr.startswith(f'{depth.__class__.__name__}')
+
+    def test_overlap_maxiters_deprecation(self):
+        """
+        Test that the unused overlap_maxiters keyword is deprecated.
+        """
+        match = "'overlap_maxiters' was deprecated in version 3.1"
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            ImageDepth(4, overlap_maxiters=10)
 
     def test_progress_bar(self):
         """
@@ -214,5 +260,33 @@ class TestImageDepth:
                            n_iters=2, mask_pad=5, overlap=True, seed=123,
                            zeropoint=23.9, progress_bar=False)
         match = 'attribute was deprecated'
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             _ = depth.napers
+
+    def test_user_sigma_clip_instance_not_called(self, monkeypatch):
+        """
+        Test that the user's SigmaClip instance is never called directly
+        (an internal copy must be used).
+
+        astropy SigmaClip stores internal state on the instance during
+        calls, so a shared instance is not safe to call concurrently
+        from multiple threads.
+        """
+        sigclip = SigmaClip(sigma=3.0, maxiters=5)
+        depth = ImageDepth(4, n_sigma=5.0, n_apertures=50, n_iters=1,
+                           mask_pad=5, overlap=True, seed=123,
+                           sigma_clip=sigclip, progress_bar=False)
+
+        called_ids = []
+        orig_call = SigmaClip.__call__
+
+        def spy(self, *args, **kwargs):
+            called_ids.append(id(self))
+            return orig_call(self, *args, **kwargs)
+
+        monkeypatch.setattr(SigmaClip, '__call__', spy)
+        limits = depth(self.data, self.mask)
+
+        assert np.isfinite(limits[0])
+        assert len(called_ids) > 0  # sigma clipping was exercised
+        assert id(sigclip) not in called_ids

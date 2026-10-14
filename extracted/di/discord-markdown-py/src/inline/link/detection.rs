@@ -24,6 +24,7 @@ use tracing::Level;
 use url::Url;
 
 use super::{Link, verify_url};
+use crate::node::ParsedNode;
 
 /// Host prefixes that are enough to know a run of text might be a link written without a scheme.
 ///
@@ -146,7 +147,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Link<'data, S>;
+	type Output = Link<S, ParsedNode<'data, S>>;
 	type Error = E;
 
 	#[tracing::instrument(name = "detection_parser", level = Level::TRACE, fields(ok, output))]
@@ -178,7 +179,7 @@ where
 #[must_use]
 pub fn detection<'ctx, 'data, S, E>(
 	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Link<'data, S>, Error = E> + 'ctx
+) -> impl Parser<Input<'data>, Output = Link<S, ParsedNode<'data, S>>, Error = E> + 'ctx
 where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
@@ -198,10 +199,11 @@ mod test {
 	use super::detection;
 	use crate::context::Context;
 	use crate::inline::link::Link;
+	use crate::node::ParsedNode;
 	use crate::test_utils::handle_nom_err;
 
 	/// Parse `s` as a detected link, expecting it to succeed.
-	fn parse(s: &str) -> (crate::Input<'_>, Link<'_, ()>) {
+	fn parse(s: &str) -> (crate::Input<'_>, Link<(), ParsedNode<'_, ()>>) {
 		detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
@@ -210,7 +212,7 @@ mod test {
 	}
 
 	/// Build the expectation for a text-less link.
-	fn url(s: &str) -> Link<'_, ()> {
+	fn url(s: &str) -> Link<(), ParsedNode<'_, ()>> {
 		Link {
 			text: None,
 			url: Url::parse(s).unwrap(),

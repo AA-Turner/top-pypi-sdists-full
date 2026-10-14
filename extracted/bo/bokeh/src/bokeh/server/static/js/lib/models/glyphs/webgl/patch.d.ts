@@ -37,7 +37,9 @@ export declare class PatchGL extends BaseGLGlyph {
     _nvertices: number;
     _ring_data: RingLineData[];
     private _pv_dirty;
+    private _pv_elements;
     private _topology?;
+    private _topology_scales?;
     constructor(regl_wrapper: ReglWrapper, glyph: PatchView);
     draw(_indices: number[], main_glyph: GlyphView, transform: Transform): void;
     _set_data(data_changed?: boolean): void;

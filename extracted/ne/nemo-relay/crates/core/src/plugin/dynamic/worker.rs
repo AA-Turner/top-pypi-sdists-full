@@ -103,6 +103,7 @@ use crate::plugin::{
     register_plugin_tracked,
 };
 
+use super::trust::DynamicPluginLoadTrust;
 use super::{
     DynamicPluginKind, DynamicPluginManifest, DynamicPluginManifestLoad,
     DynamicPluginTeardownOutcome, WorkerRuntime, deregister_tracked_registrations_checked,
@@ -198,20 +199,26 @@ pub fn load_worker_plugins<I>(specs: I) -> crate::plugin::Result<WorkerPluginAct
 where
     I: IntoIterator<Item = WorkerPluginLoadSpec>,
 {
-    load_worker_plugins_inner(specs, false)
+    load_worker_plugins_inner(specs, false, &HashMap::new(), &mut Vec::new())
 }
 
 /// Prepare workers without calling Register until their host component activates.
-pub(super) fn prepare_worker_plugins<I>(specs: I) -> crate::plugin::Result<WorkerPluginActivation>
+pub(super) fn prepare_worker_plugins_with_trust<I>(
+    specs: I,
+    trust: &HashMap<String, DynamicPluginLoadTrust>,
+    skipped: &mut Vec<super::DynamicPluginValidationReport>,
+) -> crate::plugin::Result<WorkerPluginActivation>
 where
     I: IntoIterator<Item = WorkerPluginLoadSpec>,
 {
-    load_worker_plugins_inner(specs, true)
+    load_worker_plugins_inner(specs, true, trust, skipped)
 }
 
 fn load_worker_plugins_inner<I>(
     specs: I,
     defer_registration: bool,
+    trust: &HashMap<String, DynamicPluginLoadTrust>,
+    skipped: &mut Vec<super::DynamicPluginValidationReport>,
 ) -> crate::plugin::Result<WorkerPluginActivation>
 where
     I: IntoIterator<Item = WorkerPluginLoadSpec>,
@@ -221,7 +228,14 @@ where
         plugin_registrations: Vec::new(),
     };
     for spec in specs {
-        let instance = load_one_worker_plugin(&spec, defer_registration)?;
+        let manifest = match trust.get(&spec.plugin_id) {
+            Some(trust) => match trust.manifest_for_load(&spec.manifest_ref, skipped)? {
+                Some(manifest) => Some(manifest),
+                None => continue,
+            },
+            None => None,
+        };
+        let instance = load_one_worker_plugin(&spec, defer_registration, manifest)?;
         let plugin_kind = instance.plugin_kind.clone();
         let registration_id = register_plugin_tracked(Arc::new(WorkerPluginAdapter {
             plugin_kind: plugin_kind.clone(),
@@ -488,6 +502,7 @@ fn panic_payload_message(payload: &(dyn std::any::Any + Send)) -> &str {
 fn load_one_worker_plugin(
     spec: &WorkerPluginLoadSpec,
     defer_registration: bool,
+    verified_manifest: Option<DynamicPluginManifest>,
 ) -> crate::plugin::Result<Arc<WorkerPluginInstance>> {
     log::info!(
         target: "nemo_relay.worker",
@@ -495,7 +510,10 @@ fn load_one_worker_plugin(
         plugin_id = spec.plugin_id.as_str();
         "Worker plugin is starting"
     );
-    let (manifest, manifest_ref) = DynamicPluginManifest::load_from_path(&spec.manifest_ref)?;
+    let (manifest, manifest_ref) = match verified_manifest {
+        Some(manifest) => (manifest, spec.manifest_ref.clone()),
+        None => DynamicPluginManifest::load_from_path(&spec.manifest_ref)?,
+    };
     if manifest.plugin.id.trim() != spec.plugin_id {
         return Err(PluginError::InvalidConfig(format!(
             "dynamic plugin manifest id '{}' does not match expected id '{}'",
@@ -2127,6 +2145,7 @@ impl WorkerPluginCallback {
         let (tx, rx) = mpsc::channel(16);
         let (next_ready_tx, next_ready_rx) = oneshot::channel();
         let (completion_tx, completion_rx) = watch::channel(false);
+        let plugin_id = self.plugin_kind.clone();
         self.runtime.spawn(async move {
             let _completion = WorkerStreamCompletionSignal(completion_tx);
             let _codec_capabilities = codec_capabilities;
@@ -2154,7 +2173,8 @@ impl WorkerPluginCallback {
                             break;
                         };
                         let result = match item {
-                            Ok(chunk) => json_from_stream_chunk(chunk),
+                            Ok(chunk) => json_from_stream_chunk(chunk)
+                                .map_err(|error| super::http_error::reported_by(error, &plugin_id, "worker")),
                             Err(err) => Err(FlowError::Internal(format!(
                                 "worker stream transport failed: {err}"
                             ))),
@@ -2359,7 +2379,7 @@ impl WorkerPluginCallback {
         }
         guard.finish();
         result
-            .map(|response| response.into_inner())
+            .map(|response| report_worker_response(response.into_inner(), &self.plugin_kind))
             .map_err(|err| worker_status_to_flow("worker invoke failed", err))
     }
 }
@@ -4158,7 +4178,7 @@ fn tool_execution_intercept_outcome_from_proto(
 fn flow_error_to_worker(err: FlowError) -> WorkerError {
     WorkerError {
         code: "host.runtime_error".into(),
-        message: err.to_string(),
+        message: super::http_error::to_message(&err),
         retryable: false,
     }
 }
@@ -4166,6 +4186,8 @@ fn flow_error_to_worker(err: FlowError) -> WorkerError {
 fn worker_error_to_flow(error: WorkerError) -> FlowError {
     if error.code == "worker.cancelled" {
         FlowError::Internal(format!("worker invocation cancelled: {}", error.message))
+    } else if let Some(failure) = super::http_error::upstream_from_message(&error.message) {
+        failure
     } else {
         FlowError::Internal(format!("{}: {}", error.code, error.message))
     }
@@ -4314,3 +4336,20 @@ fn unix_endpoint_display(path: &Path) -> String {
 #[cfg(test)]
 #[path = "../../../tests/unit/dynamic_worker_tests.rs"]
 mod tests;
+
+fn report_worker_response(mut response: InvokeResponse, plugin_id: &str) -> InvokeResponse {
+    let error = match response.result.as_mut() {
+        Some(invoke_response_result::Result::Error(error)) => Some(error),
+        Some(invoke_response_result::Result::Json(result)) => result.error.as_mut(),
+        _ => None,
+    };
+    if let Some(error) = error
+        && error.code != "worker.cancelled"
+        && let Some(failure) = super::http_error::upstream_from_message(&error.message)
+    {
+        error.message = super::http_error::to_message(&super::http_error::reported_by(
+            failure, plugin_id, "worker",
+        ));
+    }
+    response
+}

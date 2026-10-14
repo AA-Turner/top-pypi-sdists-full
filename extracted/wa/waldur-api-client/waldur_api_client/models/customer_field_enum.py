@@ -37,6 +37,7 @@ class CustomerFieldEnum(str, Enum):
     HOUSE_NR = "house_nr"
     IMAGE = "image"
     IS_SERVICE_PROVIDER = "is_service_provider"
+    IS_SERVICE_PROVIDER_MANAGER_ONLY = "is_service_provider_manager_only"
     LATITUDE = "latitude"
     LONGITUDE = "longitude"
     MAX_SERVICE_ACCOUNTS = "max_service_accounts"

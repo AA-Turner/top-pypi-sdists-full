@@ -47,8 +47,21 @@ exclude = [
   "fivetran_sdk/",
 ]
 
+# The wheel ships the gRPC-based SDK (production) together with the part it shares (common), which is why this
+# file sits above both.
+[tool.setuptools]
+packages = [
+  "fivetran_connector_sdk",
+  "fivetran_connector_sdk.protos",
+  "fivetran_connector_sdk_common",
+]
+
+[tool.setuptools.package-dir]
+fivetran_connector_sdk = "production/src/fivetran_connector_sdk"
+fivetran_connector_sdk_common = "common/src/fivetran_connector_sdk_common"
+
 [tool.setuptools.dynamic]
-version = {attr = "fivetran_connector_sdk.__version__"}
+version = {attr = "fivetran_connector_sdk_common.__version__"}
 
 [tool.hatch.build.targets.wheel]
 artifacts = [

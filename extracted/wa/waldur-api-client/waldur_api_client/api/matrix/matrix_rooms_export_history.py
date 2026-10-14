@@ -28,6 +28,10 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         response_202 = MatrixHistoryExport.from_dict(response.json())
 
         return response_202
+    if response.status_code == 200:
+        response_200 = MatrixHistoryExport.from_dict(response.json())
+
+        return response_200
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
 
 

@@ -47,8 +47,8 @@ __all__ = [
     'consume',
     'convolve',
     'dotproduct',
-    'first_true',
     'factor',
+    'first_true',
     'flatten',
     'grouper',
     'is_prime',
@@ -60,23 +60,23 @@ __all__ = [
     'ncycles',
     'nth',
     'nth_combination',
-    'padnone',
     'pad_none',
+    'padnone',
     'pairwise',
     'partition',
+    'polynomial_derivative',
     'polynomial_eval',
     'polynomial_from_roots',
-    'polynomial_derivative',
     'powerset',
     'prepend',
     'quantify',
-    'reshape',
-    'random_combination_with_replacement',
     'random_combination',
+    'random_combination_with_replacement',
     'random_derangement',
     'random_permutation',
     'random_product',
     'repeatfunc',
+    'reshape',
     'roundrobin',
     'running_max',
     'running_mean',
@@ -244,6 +244,8 @@ def quantify(iterable, pred=bool):
 
     >>> quantify([True, False, True])
     2
+    >>> quantify(range(100, 200), pred=lambda x: x<120)
+    20
 
     """
     return sum(map(pred, iterable))
@@ -339,10 +341,8 @@ def pairwise(iterable):
     """
     Wrapper for :func:`itertools.pairwise`.
 
-    .. warning::
-
-       This function is deprecated as of version 11.0.0. It will be removed in a future
-       major release.
+    .. deprecated:: 11.0.0
+       Will be removed in a future major release.
     """
     return itertools_pairwise(iterable)
 
@@ -434,11 +434,13 @@ def partition(pred, iterable):
     true_queue = deque()
 
     def gen(queue):
+        append_false = false_queue.append
+        append_true = true_queue.append
         while True:
             while queue:
                 yield queue.popleft()
             for value in iterator:
-                (true_queue if pred(value) else false_queue).append(value)
+                (append_true if pred(value) else append_false)(value)
                 break
             else:
                 return
@@ -545,19 +547,15 @@ def iter_except(function, exception, first=None):
     Like ``iter(function, sentinel)``, but uses an exception instead of a sentinel
     to end the loop.
 
-        >>> l = [0, 1, 2]
-        >>> list(iter_except(l.pop, IndexError))
-        [2, 1, 0]
+    Examples:
+        iter_except(functools.partial(heappop, h), IndexError)   # priority queue iterator
+        iter_except(d.popitem, KeyError)                         # non-blocking dict iterator
+        iter_except(d.popleft, IndexError)                       # non-blocking deque iterator
+        iter_except(q.get_nowait, Queue.Empty)                   # loop over a producer Queue
+        iter_except(s.pop, KeyError)                             # non-blocking set iterator
 
-    Multiple exceptions can be specified as a stopping condition:
-
-        >>> l = [1, 2, 3, '...', 4, 5, 6]
-        >>> list(iter_except(lambda: 1 + l.pop(), (IndexError, TypeError)))
-        [7, 6, 5]
-        >>> list(iter_except(lambda: 1 + l.pop(), (IndexError, TypeError)))
-        [4, 3, 2]
-        >>> list(iter_except(lambda: 1 + l.pop(), (IndexError, TypeError)))
-        []
+    Multiple exceptions can be specified as a stopping condition, for example
+    ``(IndexError, TypeError)``.
 
     """
     with suppress(exception):
@@ -599,7 +597,7 @@ def random_product(*iterables, repeat=1):
         >>> random_product('abcd', range(4), repeat=2)  # doctest:+SKIP
         ('a', 2, 'd', 3)
 
-    This equivalent to taking a random selection from
+    This is equivalent to taking a random selection from
     ``itertools.product(*args, repeat=repeat)``.
 
     """
@@ -616,7 +614,7 @@ def random_permutation(iterable, r=None):
         >>> random_permutation(range(5))  # doctest:+SKIP
         (3, 4, 0, 1, 2)
 
-    This equivalent to taking a random selection from
+    This is equivalent to taking a random selection from
     ``itertools.permutations(iterable, r)``.
 
     """
@@ -631,7 +629,7 @@ def random_combination(iterable, r):
         >>> random_combination(range(5), 3)  # doctest:+SKIP
         (2, 3, 4)
 
-    This equivalent to taking a random selection from
+    This is equivalent to taking a random selection from
     ``itertools.combinations(iterable, r)``.
 
     """
@@ -648,7 +646,7 @@ def random_combination_with_replacement(iterable, r):
         >>> random_combination_with_replacement(range(3), 5) # doctest:+SKIP
         (0, 0, 1, 2, 2)
 
-    This equivalent to taking a random selection from
+    This is equivalent to taking a random selection from
     ``itertools.combinations_with_replacement(iterable, r)``.
 
     """
@@ -717,7 +715,7 @@ def convolve(signal, kernel):
         >>> list(convolve([1, -1, -20], [1, -3]))
         [1, -4, -17, 60]
 
-    Examples of popular kinds of kernels:
+    Examples of useful kernels:
 
     * The kernel ``[0.25, 0.25, 0.25, 0.25]`` computes a moving average.
       For image data, this blurs the image and reduces noise.
@@ -726,11 +724,12 @@ def convolve(signal, kernel):
     * The kernel ``[1, -2, 1]`` estimates the second derivative of a
       function evaluated at evenly spaced inputs.
 
-    Convolutions are mathematically commutative; however, the inputs are
-    evaluated differently.  The signal is consumed lazily and can be
-    infinite. The kernel is fully consumed before the calculations begin.
+    Convolutions are mathematically commutative. However, the input iterables are
+    evaluated differently by this function. *signal* is consumed lazily and can be
+    infinite. *kernel* is fully consumed before calculations begin.
 
     Supports all numeric types: int, float, complex, Decimal, Fraction.
+    Note that empty input iterables will produce meaningless output.
 
     References:
 
@@ -867,7 +866,6 @@ def iter_index(iterable, value, start=0, stop=None):
     """Yield the index of each place in *iterable* that *value* occurs,
     beginning with index *start* and ending before index *stop*.
 
-
     >>> list(iter_index('AABCADEAF', 'A'))
     [0, 1, 4, 7]
     >>> list(iter_index('AABCADEAF', 'A', 1))  # start index is inclusive
@@ -875,7 +873,7 @@ def iter_index(iterable, value, start=0, stop=None):
     >>> list(iter_index('AABCADEAF', 'A', 1, 7))  # stop index is not inclusive
     [1, 4]
 
-    The behavior for non-scalar *values* matches the built-in Python types.
+    The behavior for non-scalar *value* arguments matches the built-in Python types.
 
     >>> list(iter_index('ABCDABCD', 'AB'))
     [0, 4]
@@ -883,6 +881,12 @@ def iter_index(iterable, value, start=0, stop=None):
     []
     >>> list(iter_index([[0, 1], [2, 3], [0, 1], [2, 3]], [0, 1]))
     [0, 2]
+
+    For ``range`` objects (and other objects whose ``index`` method's behavior doesn't
+    match that of ``list``), wrap *iterable* with ``iter``:
+
+    >>> list(iter_index(iter(range(5)), 2))
+    [2]
 
     See :func:`locate` for a more general means of finding the indexes
     associated with particular values.
@@ -1456,6 +1460,7 @@ def running_mean(iterable, *, maxlen=None):
     if maxlen is None:
         return map(truediv, accumulate(iterator), count(1))
 
+    maxlen = _index(maxlen)
     if maxlen <= 0:
         raise ValueError('Window size should be positive')
 
@@ -1463,14 +1468,18 @@ def running_mean(iterable, *, maxlen=None):
 
 
 def _windowed_running_min(iterator, maxlen):
-    sis = deque()  # Strictly increasing subsequence
+    # Monotonically increasing subsequence of potential minimums,
+    # ordered by arrival time, with the window minimum at s[0]
+    # and the newest value at s[-1].
+    s = deque()
+
     for index, value in enumerate(iterator):
-        if sis and sis[0][0] == index - maxlen:
-            sis.popleft()
-        while sis and not sis[-1][1] < value:  # Remove non-increasing values
-            sis.pop()
-        sis.append((index, value))  # Most recent value at position -1
-        yield sis[0][1]  # Window minimum at position 0
+        if s and s[0][0] == index - maxlen:
+            s.popleft()
+        while s and value < s[-1][1]:
+            s.pop()
+        s.append((index, value))
+        yield s[0][1]
 
 
 def running_min(iterable, *, maxlen=None):
@@ -1497,6 +1506,7 @@ def running_min(iterable, *, maxlen=None):
     if maxlen is None:
         return accumulate(iterator, func=min)
 
+    maxlen = _index(maxlen)
     if maxlen <= 0:
         raise ValueError('Window size should be positive')
 
@@ -1504,14 +1514,18 @@ def running_min(iterable, *, maxlen=None):
 
 
 def _windowed_running_max(iterator, maxlen):
-    sds = deque()  # Strictly decreasing subsequence
+    # Monotonically decreasing subsequence of potential maximums,
+    # ordered by arrival time, with the window maximum at s[0]
+    # and the newest value at s[-1].
+    s = deque()
+
     for index, value in enumerate(iterator):
-        if sds and sds[0][0] == index - maxlen:
-            sds.popleft()
-        while sds and not sds[-1][1] > value:  # Remove non-decreasing values
-            sds.pop()
-        sds.append((index, value))  # Most recent value at position -1
-        yield sds[0][1]  # Window maximum at position 0
+        if s and s[0][0] == index - maxlen:
+            s.popleft()
+        while s and value > s[-1][1]:
+            s.pop()
+        s.append((index, value))
+        yield s[0][1]
 
 
 def running_max(iterable, *, maxlen=None):
@@ -1538,6 +1552,7 @@ def running_max(iterable, *, maxlen=None):
     if maxlen is None:
         return accumulate(iterator, func=max)
 
+    maxlen = _index(maxlen)
     if maxlen <= 0:
         raise ValueError('Window size should be positive')
 
@@ -1566,6 +1581,9 @@ def running_statistics(iterable, *, maxlen=None):
     Supports numeric types such as int, float, Decimal, and Fraction,
     but not complex numbers which are unorderable.
     """
+
+    if maxlen is not None:
+        maxlen = _index(maxlen)
 
     # fmt: off
     t0, t1, t2, t3 = tee(iterable, 4)

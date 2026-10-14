@@ -10,6 +10,10 @@ from trajectory._testing import client_for
 
 def test_api_version_is_sent_by_original_and_copied_clients_with_overrides() -> None:
   with client_for({}, 200) as (client, requests):
+    # Spotless writes the API contract version into the client; read it so contract bumps don't
+    # break this test.
+    api_version = client.default_headers["Trajectory-API-Version"]
+    assert api_version
     client.agents.with_raw_response.list()
     client.copy().agents.with_raw_response.list()
     overridden = client.copy(default_headers={"trajectory-api-version": "test-version"})
@@ -21,12 +25,12 @@ def test_api_version_is_sent_by_original_and_copied_clients_with_overrides() -> 
     client.agents.with_raw_response.list()
 
   assert [request.headers.get_list("Trajectory-API-Version") for request in requests] == [
-    ["2026-10-07"],
-    ["2026-10-07"],
+    [api_version],
+    [api_version],
     ["test-version"],
     ["test-version"],
     ["request-version"],
-    ["2026-10-07"],
+    [api_version],
   ]
 
 

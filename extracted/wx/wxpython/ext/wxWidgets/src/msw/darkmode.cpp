@@ -33,11 +33,13 @@
 
 #ifndef WX_PRECOMP
     #include "wx/app.h"
+    #include "wx/dc.h"
     #include "wx/settings.h"
 #endif
 
 #include "wx/dynlib.h"
 #include "wx/module.h"
+#include "wx/renderer.h"
 
 #include "wx/msw/darkmode.h"
 #include "wx/msw/uxtheme.h"
@@ -135,8 +137,6 @@ wxDarkModeSettings::~wxDarkModeSettings() = default;
 static const char* TRACE_DARKMODE = "msw-darkmode";
 #endif // wxUSE_LOG_TRACE
 
-#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
-
 namespace
 {
 
@@ -153,6 +153,7 @@ PreferredAppMode gs_appMode = AppMode_Default;
 
 // The initial dark mode state.
 bool gs_wasActiveOnStartup  = false;
+bool gs_wasActiveOnStartupIsSet = false;
 
 // The return value for HasChanged().
 bool gs_hasChanged = false;
@@ -160,7 +161,7 @@ bool gs_hasChanged = false;
 template <typename T>
 bool TryLoadByOrd(T& func, const wxDynamicLibrary& lib, int ordinal)
 {
-    func = (T)::GetProcAddress(lib.GetLibHandle(), MAKEINTRESOURCEA(ordinal));
+    func = (T)lib.GetByOrdinal(ordinal);
     if ( !func )
     {
         wxLogTrace(TRACE_DARKMODE,
@@ -184,12 +185,21 @@ namespace wxMSWImpl
 // don't appear in the SDK headers at all.
 //
 // Note that, not being public, they use C++ bool type and not Win32 BOOL.
+void (WINAPI *gs_RefreshImmersiveColorPolicyState)() = nullptr;
 bool (WINAPI *gs_ShouldAppsUseDarkMode)() = nullptr;
 bool (WINAPI *gs_AllowDarkModeForWindow)(HWND hwnd, bool allow) = nullptr;
 PreferredAppMode (WINAPI *gs_SetPreferredAppMode)(PreferredAppMode appMode) = nullptr;
+void (WINAPI *gs_FlushMenuThemes)() = nullptr;
 
 // Wrappers for the undocumented functions, to make sure we never dereference
 // a null function pointer.
+
+void RefreshImmersiveColorPolicyState()
+{
+    if ( gs_RefreshImmersiveColorPolicyState == nullptr )
+        return;
+    gs_RefreshImmersiveColorPolicyState();
+}
 
 bool ShouldAppsUseDarkMode()
 {
@@ -212,6 +222,13 @@ PreferredAppMode SetPreferredAppMode(PreferredAppMode appMode)
     return gs_SetPreferredAppMode(appMode);
 }
 
+void FlushMenuThemes()
+{
+    if ( gs_FlushMenuThemes == nullptr )
+        return;
+    gs_FlushMenuThemes();
+}
+
 bool InitDarkMode()
 {
     // Enable dark mode for Windows 10 1903 (build 18362) and later.
@@ -229,9 +246,11 @@ bool InitDarkMode()
 
     // These functions are not only undocumented but are not even exported by
     // name, and have to be resolved using their ordinals.
-    return TryLoadByOrd(gs_ShouldAppsUseDarkMode, dllUxTheme, 132) &&
+    return TryLoadByOrd(gs_RefreshImmersiveColorPolicyState, dllUxTheme, 104) &&
+           TryLoadByOrd(gs_ShouldAppsUseDarkMode, dllUxTheme, 132) &&
            TryLoadByOrd(gs_AllowDarkModeForWindow, dllUxTheme, 133) &&
-           TryLoadByOrd(gs_SetPreferredAppMode, dllUxTheme, 135);
+           TryLoadByOrd(gs_SetPreferredAppMode, dllUxTheme, 135) &&
+           TryLoadByOrd(gs_FlushMenuThemes, dllUxTheme, 136);
 }
 
 // This function is only used in this file as it's more clear than using
@@ -267,13 +286,30 @@ bool ShouldUseDarkMode()
 // Public API
 // ----------------------------------------------------------------------------
 
-bool wxApp::MSWEnableDarkMode(int flags, wxDarkModeSettings* settings)
+bool wxApp::MSWEnableDarkMode(DarkMode flags, wxDarkModeSettings* settings)
 {
     if ( !wxMSWImpl::InitDarkMode() )
         return false;
 
-    const PreferredAppMode mode = flags & DarkMode_Always ? AppMode_ForceDark
-                                                          : AppMode_AllowDark;
+    PreferredAppMode mode = PreferredAppMode::AppMode_Default;
+    switch ( flags )
+    {
+        case DarkMode_Auto:
+            mode = PreferredAppMode::AppMode_AllowDark;
+            break;
+
+        case DarkMode_Always:
+            mode = PreferredAppMode::AppMode_ForceDark;
+            break;
+
+        case DarkMode_Never:
+            mode = PreferredAppMode::AppMode_ForceLight;
+            break;
+    }
+
+    wxCHECK_MSG( mode != PreferredAppMode::AppMode_Default, false,
+                 "invalid dark mode flags specified" );
+
     const DWORD rc = wxMSWImpl::SetPreferredAppMode(mode);
 
     // It's supposed to return the old mode normally.
@@ -284,8 +320,21 @@ bool wxApp::MSWEnableDarkMode(int flags, wxDarkModeSettings* settings)
                    mode, rc);
     }
 
+    // Update the active state so that ShouldAppsUseDarkMode() called by
+    // wxMSWDarkMode::IsActive() returns the correct value even if no windows
+    // had been created yet.
+    wxMSWImpl::RefreshImmersiveColorPolicyState();
+
     gs_appMode = mode;
-    gs_wasActiveOnStartup = wxMSWDarkMode::IsActive();
+
+    // Initialize gs_wasActiveOnStartup only one time and only before a window
+    // is created. If we first reach here after a window was created, then
+    // dark mode was not active upon startup.
+    if ( !gs_wasActiveOnStartupIsSet && wxTopLevelWindows.IsEmpty() )
+    {
+        gs_wasActiveOnStartup = wxMSWDarkMode::IsActive();
+        gs_wasActiveOnStartupIsSet = true;
+    }
 
     // Set up the settings to use, allocating a default one if none specified.
     if ( !settings )
@@ -293,28 +342,27 @@ bool wxApp::MSWEnableDarkMode(int flags, wxDarkModeSettings* settings)
 
     wxDarkModeModule::SetSettings(settings);
 
+    // If we were called after the main window was created, propagate the
+    // change.
+    wxWindow* topWindow = GetTopWindow();
+    if ( topWindow != nullptr )
+        ::SendMessage(topWindow->GetHWND(), WM_SYSCOLORCHANGE, 0, 0);
+
     return true;
 }
 
 wxApp::AppearanceResult wxApp::SetAppearance(Appearance appearance)
 {
-    // We currently can't change the appearance of the existing windows because
-    // we initialize/create them differently depending on the mode value in a
-    // lot of places, so don't even try as we risk finishing with a horrible
-    // mix of light and dark mode elements.
-    if ( !wxTopLevelWindows.empty() || gs_appMode != AppMode_Default )
-        return AppearanceResult::CannotChange;
-
-    int flags = 0;
+    DarkMode flags = DarkMode_Auto;
     switch ( appearance )
     {
         case Appearance::System:
-            flags = DarkMode_Auto;
+            // Already set to this value.
             break;
 
         case Appearance::Light:
-            // Nothing to do, this is the default.
-            return AppearanceResult::Ok;
+            flags = DarkMode_Never;
+            break;
 
         case Appearance::Dark:
             flags = DarkMode_Always;
@@ -388,14 +436,14 @@ wxColour wxDarkModeSettings::GetColour(wxSystemColour index)
             // Selected text background in File Open dialog
             return wxColour(isWindows10 ? 0xd77800 : 0xd47800);
 
+        case wxSYS_COLOUR_3DLIGHT:
         case wxSYS_COLOUR_BTNHIGHLIGHT:
-            return wxColour(0x777777);
+            return wxColour(0x303030);
 
         case wxSYS_COLOUR_INACTIVECAPTIONTEXT:
             return wxColour(0xaaaaaa);
 
         case wxSYS_COLOUR_3DDKSHADOW:
-        case wxSYS_COLOUR_3DLIGHT:
         case wxSYS_COLOUR_ACTIVEBORDER:
         case wxSYS_COLOUR_DESKTOP:
         case wxSYS_COLOUR_GRADIENTACTIVECAPTION:
@@ -465,6 +513,10 @@ void ConfigureTLW(HWND hwnd)
 {
     BOOL useDarkMode = wxMSWImpl::ShouldUseDarkMode();
 
+    // The value of DWMWA_USE_IMMERSIVE_DARK_MODE is 20 since Windows 10 v2004
+    // ("20H1", build 19041). Before that it was 19.
+    auto DWMWA_USE_IMMERSIVE_DARK_MODE = wxCheckOsVersion(10, 0, 19041) ? 20 : 19;
+
     HRESULT hr = wxDarkModeModule::GetDwmSetWindowAttribute()
                  (
                     hwnd,
@@ -476,6 +528,19 @@ void ConfigureTLW(HWND hwnd)
         wxLogApiError("DwmSetWindowAttribute(USE_IMMERSIVE_DARK_MODE)", hr);
 
     wxMSWImpl::AllowDarkModeForWindow(hwnd, true);
+
+    // Purge cached theme data for existing menus so that menu colours are
+    // updated. This is needed when explicitly switching from dark to light.
+    wxMSWImpl::FlushMenuThemes();
+
+    // When explicitly switching modes, Windows 10 fails to repaint the title
+    // bar. Force it to repaint.
+    if ( wxGetWinVersion() < wxWinVersion_11 )
+    {
+        bool isActive = ::GetActiveWindow() == hwnd;
+        ::SendMessage(hwnd, WM_NCACTIVATE, !isActive, 0);
+        ::SendMessage(hwnd, WM_NCACTIVATE, isActive, 0);
+    }
 }
 
 void SetTheme(HWND hwnd, const wchar_t* themeName, const wchar_t* themeId)
@@ -493,10 +558,7 @@ void AllowForWindow(HWND hwnd, const wchar_t* themeName, const wchar_t* themeId)
     if ( wxMSWImpl::AllowDarkModeForWindow(hwnd, true) )
         wxLogTrace(TRACE_DARKMODE, "Allow dark mode for %p failed", hwnd);
 
-    if ( themeName || themeId )
-    {
-        SetTheme(hwnd, themeName, themeId);
-    }
+    SetTheme(hwnd, themeName, themeId);
 
     // Some native controls need this message to switch themes, such as
     // buttons, tooltips and controls with scroll bars
@@ -673,7 +735,7 @@ HandleMenuMessage(WXLRESULT* result,
             // which is one pixel too small), so we have to draw over it here
             // to get rid of it.
             {
-                *result = w->MSWDefWindowProc(nMsg, wParam, lParam);
+                *result = w->wxWindow::MSWWindowProc(nMsg, wParam, lParam);
 
                 HWND hwnd = GetHwndOf(w);
                 WindowHDC hdc(hwnd);
@@ -785,12 +847,383 @@ void NotifySysColorChange()
         gs_hasChanged = true;
 }
 
+// This subclass procedure draws check box controls.
+static LRESULT CALLBACK CommonDialogCheckBoxProc(HWND hwnd, UINT uMsg,
+    WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass,
+    DWORD_PTR WXUNUSED(dwRefData))
+{
+    switch (uMsg)
+    {
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = ::BeginPaint(hwnd, &ps);
+            RECT rcClient;
+            ::GetClientRect(hwnd, &rcClient);
+
+            // Clear background.
+            AutoHBRUSH hBgBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).GetPixel());
+            ::FillRect(hdc, &rcClient, hBgBrush);
+
+            // Get foreground colour
+            auto fgIdx = ::IsWindowEnabled(hwnd) ? wxSYS_COLOUR_BTNTEXT : wxSYS_COLOUR_GRAYTEXT;
+            auto fgCol = wxSystemSettings::GetColour(fgIdx).GetPixel();
+
+            // Get the box size
+            SIZE boxSize = { 13, 13 };
+            HTHEME hTheme = ::OpenThemeData(hwnd, L"BUTTON");
+            if ( hTheme )
+            {
+                ::GetThemePartSize(hTheme, hdc, BP_CHECKBOX, CBS_UNCHECKEDNORMAL,
+                    nullptr, TS_TRUE, &boxSize);
+                ::CloseThemeData(hTheme);
+            }
+
+            // Draw the box.
+            RECT rcBox = { };
+            rcBox.top = (rcClient.bottom - boxSize.cy) / 2;
+            rcBox.right = boxSize.cx;
+            rcBox.bottom = rcBox.top + boxSize.cy;
+            AutoHBRUSH hFgBrush(fgCol);
+            ::FrameRect(hdc, &rcBox, hFgBrush);
+
+            // Set the font.
+            HFONT hFont = (HFONT)::SendMessage(hwnd, WM_GETFONT, 0, 0);
+            HFONT hOldFont = (HFONT)::SelectObject(hdc, hFont);
+
+            // Draw check mark, if checked.
+            ::SetBkMode(hdc, TRANSPARENT);
+            ::SetTextColor(hdc, fgCol);
+            if ( ::SendMessage(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED )
+            {
+                // Draw a Unicode check mark character.
+                ::DrawTextW(hdc, L"\x2714", -1, &rcBox, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            }
+
+            // Draw the text.
+            const auto text = L" " + wxGetWindowText(hwnd);
+            RECT textRect = rcClient;
+            textRect.left = boxSize.cx;
+            ::DrawTextW(hdc, text.wc_str(), -1, &textRect, DT_SINGLELINE | DT_VCENTER);
+
+            // Draw focus rectangle
+            if ( ::GetFocus() == hwnd )
+            {
+                ::SetBkColor(hdc, 0);
+                ::SetTextColor(hdc, 0xffffff);
+                textRect.left++;
+                ::DrawFocusRect(hdc, &textRect);
+            }
+
+            ::SelectObject(hdc, hOldFont);
+            ::EndPaint(hwnd, &ps);
+            return 0;
+        }
+
+        case WM_NCDESTROY:
+            ::RemoveWindowSubclass(hwnd, CommonDialogCheckBoxProc, uIdSubclass);
+            break;
+    }
+
+    return ::DefSubclassProc(hwnd, uMsg, wParam, lParam);
+}
+
+// This subclass procedure draws ComboBox controls. It handles WM_DRAWITEM in
+// both the dialog and the ComboBox. The WM_DRAWITEM for a ComboBox goes to
+// the dialog, whereas the WM_DRAWITEM for the ComboLBox goes to the ComboBox.
+static LRESULT CALLBACK CommonDialogComboBoxProc(HWND hwnd, UINT uMsg,
+    WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass,
+    DWORD_PTR WXUNUSED(dwRefData))
+{
+    switch ( uMsg )
+    {
+        // For a ComboBox (ODT_COMBOBOX), draw the selected item shown at the
+        // top. For a ComboLBox (ODT_LISTBOX), draw an item in the list.
+        case WM_DRAWITEM:
+        {
+            auto dis = (DRAWITEMSTRUCT*)lParam;
+            // If this is an empty ComboLBox, do nothing.
+            if ( dis->CtlType == ODT_LISTBOX && dis->itemID == (UINT)-1 )
+                return true;
+
+            // Determine background and text colours.
+            wxSystemColour bg = wxSYS_COLOUR_WINDOW;
+            wxSystemColour fg = wxSYS_COLOUR_WINDOWTEXT;
+            bool isSelected = (dis->itemState & ODS_SELECTED) != 0;
+            bool hasFocus = (dis->itemState & ODS_FOCUS) != 0;
+            if ( dis->CtlType == ODT_COMBOBOX )
+            {
+                if ( isSelected && hasFocus )
+                {
+                    bg = wxSYS_COLOUR_HIGHLIGHT;
+                    fg = wxSYS_COLOUR_HIGHLIGHTTEXT;
+                }
+            }
+            else
+            {
+                if ( isSelected )
+                    bg = wxSYS_COLOUR_LISTBOXHIGHLIGHT;
+                else
+                    bg = wxSYS_COLOUR_LISTBOX;
+                fg = wxSYS_COLOUR_LISTBOXTEXT;
+            }
+
+            // Paint background
+            AutoHBRUSH hBrush(wxSystemSettings::GetColour(bg).GetPixel());
+            HDC hdc = dis->hDC;
+            ::FillRect(hdc, &dis->rcItem, hBrush);
+
+            // Draw text, if any.
+            if ( dis->itemID != (UINT)-1 )
+            {
+                wchar_t itemText[256] = { 0 };
+                HWND tHwnd = dis->CtlType == ODT_COMBOBOX ? dis->hwndItem : hwnd;
+                ::SendMessageW(tHwnd, CB_GETLBTEXT, dis->itemID, (LPARAM)itemText);
+                ::SetBkMode(hdc, TRANSPARENT);
+                ::SetTextColor(hdc, wxSystemSettings::GetColour(fg).GetPixel());
+                ::DrawTextW(hdc, itemText, -1, &dis->rcItem,
+                    DT_NOPREFIX | DT_SINGLELINE | DT_VCENTER);
+            }
+            return true;
+        }
+
+    case WM_NCDESTROY:
+        ::RemoveWindowSubclass(hwnd, CommonDialogComboBoxProc, uIdSubclass);
+        break;
+    }
+
+    return ::DefSubclassProc(hwnd, uMsg, wParam, lParam);
+}
+
+// Enable dark mode for a common dialog child control.
+static BOOL CALLBACK CommonDialogChild(HWND hwnd, LPARAM lParam)
+{
+    // Get control info.
+    const auto className = wxGetWindowClass(hwnd);
+    auto style = ::GetWindowLongPtrW(hwnd, GWL_STYLE);
+
+    if ( className == "ComboBox" )
+    {
+        // If the control is owner-draw, subclass it to draw the ComboLBox.
+        if ( style & CBS_OWNERDRAWFIXED )
+            ::SetWindowSubclass(hwnd, CommonDialogComboBoxProc, 1, 0);
+
+        // Handle the inner ComboLBox.
+        WinStruct<COMBOBOXINFO> info;
+        ::GetComboBoxInfo(hwnd, &info);
+        CommonDialogChild(info.hwndList, lParam);
+    }
+
+    // If available, apply DarkMode_DarkTheme. It makes most controls look good.
+    if ( HasDarkTheme() )
+    {
+        AllowForWindow(hwnd, L"DarkMode_DarkTheme");
+        return true;
+    }
+
+    // Special handling for controls needed for older Windows versions.
+
+    if ( className == "ComboBox" )
+        AllowForWindow(hwnd, L"CFD");
+    else
+        AllowForWindow(hwnd);
+
+    if ( className == "Button" )
+    {
+        // For the button types below, the text should be white but is black.
+        // Disable theme rendering and instead rely on the colors set by
+        // handling WM_CTLCOLORSTATIC.
+        auto bs = style & BS_TYPEMASK;
+        if ( bs == BS_AUTORADIOBUTTON || bs == BS_GROUPBOX || bs == BS_RADIOBUTTON )
+        {
+            ::SetWindowTheme(hwnd, L"", L"");
+        }
+
+        // Custom draw check boxes.
+        if ( bs == BS_AUTOCHECKBOX )
+            ::SetWindowSubclass(hwnd, CommonDialogCheckBoxProc, 1, 0);
+    }
+    else if ( className == "Edit" )
+    {
+        // The border looks bad. Change it to a simple border.
+        auto exStyle = ::GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        exStyle &= ~WS_EX_CLIENTEDGE;
+        ::SetWindowLongPtrW(hwnd, GWL_EXSTYLE, exStyle);
+        style |= WS_BORDER;
+        ::SetWindowLongPtrW(hwnd, GWL_STYLE, style);
+        ::SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+    }
+    return true;
+}
+
+UINT_PTR CALLBACK CommonDialogHookProc(HWND hwnd, UINT uiMsg, WPARAM wParam,
+    LPARAM WXUNUSED(lParam))
+{
+    if ( !IsActive() )
+        return 0;
+
+    switch ( uiMsg )
+    {
+        case WM_INITDIALOG:
+            // Enable dark for dialog window.
+            wxMSWDarkMode::ConfigureTLW(hwnd);
+            // Enable dark mode for children.
+            ::EnumChildWindows(hwnd, CommonDialogChild, 0);
+            // Subclass the dialog.
+            ::SetWindowSubclass(hwnd, CommonDialogComboBoxProc, 1, 0);
+            break;
+
+        case WM_CTLCOLORBTN:
+        case WM_CTLCOLORDLG:
+            return (INT_PTR)GetBackgroundBrush();
+
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORSTATIC:
+            ::SetBkColor((HDC)wParam,
+                wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW).GetPixel());
+            ::SetTextColor((HDC)wParam,
+                wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT).GetPixel());
+            return (INT_PTR)GetBackgroundBrush();
+    }
+
+    return 0;
+}
+
+bool HasDarkTheme()
+{
+    return wxCheckOsVersion(10, 0, 26200);
+}
+
+void DrawGauge(wxDC& dc, const wxRect& rect, int value, int max, int flags)
+{
+    // We hardcode the colours in this function currently, just as in the rest
+    // of the file which is not ideal.
+    const wxColour bkColour(0x131313);
+    const wxPen borderPen = wxMSWDarkMode::GetBorderPen();
+    const wxDCPenChanger penChanger(dc, borderPen);
+    const wxDCBrushChanger
+        brushChanger(dc, *wxTheBrushList->FindOrCreateBrush(bkColour));
+    wxRect paintRect(rect);
+
+    dc.DrawRectangle(paintRect);
+    paintRect.Inflate(-borderPen.GetWidth());
+
+    max = wxMax(0, max);
+    value = wxMax(0, wxMin(value, max));
+
+    if ( value > 0 )
+    {
+        const bool isVertical = (flags & wxCONTROL_SPECIAL) == wxCONTROL_SPECIAL;
+        const int barFilled = wxMulDivInt32
+            (
+             isVertical ? paintRect.GetHeight()
+                        : paintRect.GetWidth(),
+             value,
+             max
+            );
+
+        const wxColour barColour(0x5fcb6c);
+        dc.SetPen(*wxThePenList->FindOrCreatePen(barColour));
+        dc.SetBrush(*wxTheBrushList->FindOrCreateBrush(barColour));
+
+        if ( isVertical )
+        {
+           dc.DrawRectangle(paintRect.x, paintRect.GetBottom() - barFilled + 1,
+                            paintRect.GetWidth(), barFilled);
+        }
+        else
+        {
+           dc.DrawRectangle(paintRect.x, paintRect.y,
+                            barFilled, paintRect.GetHeight());
+        }
+    }
+}
+
 } // namespace wxMSWDarkMode
+
+// Return true if the window should have a gripper in the scroll bar corner.
+static bool HasGripper(HWND hwnd)
+{
+    // Check whether the top level parent has a sizing border or is maximized.
+    HWND topHwnd = ::GetAncestor(hwnd, GA_ROOT);
+    auto style = ::GetWindowLong(topHwnd, GWL_STYLE);
+    if ( (style & WS_THICKFRAME) == 0 || ::IsZoomed(topHwnd) )
+        return false;
+
+    // If this is a top level window, there is a gripper.
+    if ( hwnd == topHwnd )
+        return true;
+
+    // Check whether the scroll bar corner aligns with the top level window
+    // client area.
+    RECT winRect;
+    ::GetWindowRect(hwnd, &winRect);
+    RECT topRect;
+    ::GetClientRect(topHwnd, &topRect);
+    wxMapWindowPoints(topHwnd, HWND_DESKTOP, &topRect);
+    if ( winRect.bottom == topRect.bottom )
+    {
+        if ( ::GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_LAYOUTRTL )
+            return winRect.left == topRect.left;
+        else
+            return winRect.right == topRect.right;
+    }
+    return false;
+}
+
+void wxMSWImpl::PaintScrollBarCorner(wxWindow* w)
+{
+    HWND hwnd = GetHwndOf(w);
+    WinStruct<SCROLLBARINFO> sbiV, sbiH;
+
+    if ( !::GetScrollBarInfo(hwnd, OBJID_VSCROLL, &sbiV) ||
+         !::GetScrollBarInfo(hwnd, OBJID_HSCROLL, &sbiH) ||
+            (sbiV.rgstate[0] & STATE_SYSTEM_INVISIBLE) ||
+            (sbiH.rgstate[0] & STATE_SYSTEM_INVISIBLE))
+    {
+        return;
+    }
+
+    const RECT windowRect = wxGetWindowRect(hwnd);
+
+    RECT rectToPaint;
+
+    auto exStyle = ::GetWindowLong(hwnd, GWL_EXSTYLE);
+    if ( exStyle & WS_EX_LAYOUTRTL )
+        rectToPaint.left = windowRect.right - sbiV.rcScrollBar.right;
+    else
+        rectToPaint.left = sbiV.rcScrollBar.left - windowRect.left;
+    rectToPaint.top = sbiH.rcScrollBar.top - windowRect.top;
+    rectToPaint.right = rectToPaint.left + wxGetSystemMetrics(SM_CXVSCROLL, w);
+    rectToPaint.bottom = rectToPaint.top + wxGetSystemMetrics(SM_CYHSCROLL, w);
+
+    // Draw the background because the default colour is too light. In light
+    // mode, the scroll bar corner colour matches the adjacent scroll bars.
+    // Get the colour by sampling the corner of the arrow button above.
+    WindowHDC hdcWin(hwnd);
+    auto bg = ::GetPixel(hdcWin, rectToPaint.left, rectToPaint.top - 1);
+    AutoHBRUSH hBrush(bg);
+    ::FillRect(hdcWin, &rectToPaint, hBrush);
+
+    if ( HasGripper(hwnd) )
+    {
+        // Redraw the gripper we erased above.
+        wxUxThemeHandle theme(w, L"SCROLLBAR");
+        // Choose the left or right gripper according to the RTL mode.
+        // wxTextCtrl does not use WS_EX_LAYOUTRTL, so also check for another
+        // style that it uses.
+        auto state = (exStyle & (WS_EX_LAYOUTRTL | WS_EX_LEFTSCROLLBAR)) ?
+            SZB_LEFTALIGN : SZB_RIGHTALIGN;
+        theme.DrawBackground(hdcWin, rectToPaint, SBP_SIZEBOX, state);
+    }
+}
 
 #else // !wxUSE_DARK_MODE
 
 bool
-wxApp::MSWEnableDarkMode(int WXUNUSED(flags),
+wxApp::MSWEnableDarkMode(DarkMode WXUNUSED(flags),
                          wxDarkModeSettings* WXUNUSED(settings))
 {
     return false;
@@ -830,6 +1263,10 @@ bool HasChanged()
 }
 
 void ConfigureTLW(HWND WXUNUSED(hwnd))
+{
+}
+
+void SetTheme(HWND WXUNUSED(hwnd), const wchar_t* WXUNUSED(themeName), const wchar_t* WXUNUSED(themeId))
 {
 }
 
@@ -876,7 +1313,27 @@ void NotifySysColorChange()
 {
 }
 
+UINT_PTR CALLBACK CommonDialogHookProc(HWND WXUNUSED(hwnd),
+    UINT WXUNUSED(uiMsg), WPARAM WXUNUSED(wParam), LPARAM WXUNUSED(lParam))
+{
+    return 0;
+}
+
+bool HasDarkTheme()
+{
+    return false;
+}
+
+void DrawGauge(wxDC& WXUNUSED(dc), const wxRect& WXUNUSED(rect),
+    int WXUNUSED(value), int WXUNUSED(max), int WXUNUSED(flags))
+{
+}
+
 } // namespace wxMSWDarkMode
+
+void wxMSWImpl::PaintScrollBarCorner(wxWindow* WXUNUSED(w))
+{
+}
 
 #endif // wxUSE_DARK_MODE/!wxUSE_DARK_MODE
 

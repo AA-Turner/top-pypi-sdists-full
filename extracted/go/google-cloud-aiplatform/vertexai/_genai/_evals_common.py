@@ -22,6 +22,7 @@ import datetime
 import json
 import logging
 import os
+import random
 import threading
 import time
 from typing import Any, Callable, Literal, Optional, Union, cast
@@ -29,6 +30,7 @@ import uuid
 
 from google.api_core import exceptions as api_exceptions
 import vertexai
+from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 from google.genai._api_client import BaseApiClient
 from google.genai.models import Models
@@ -91,6 +93,11 @@ def _temp_logger_level(logger_name: str, level: int) -> None:  # type: ignore[mi
         logger_instance.setLevel(original_level)
 
 
+def _is_missing(value: Any) -> bool:
+    """Returns True for None or a scalar NaN, such as a missing DataFrame cell."""
+    return bool(pd.api.types.is_scalar(value) and pd.isna(value))
+
+
 def _get_api_client_with_location(
     api_client: BaseApiClient, location: Optional[str]
 ) -> BaseApiClient:
@@ -122,11 +129,52 @@ def _get_agent_engine_instance(
         client = vertexai.Client(
             project=api_client.project,
             location=api_client.location,
+            credentials=api_client._credentials,
+            http_options=api_client._http_options,
         )
         _thread_local_data.agent_engine_instances[agent_name] = (
             client.agent_engines.get(name=agent_name)
         )
     return _thread_local_data.agent_engine_instances[agent_name]
+
+
+def _is_retryable_error(e: Exception) -> bool:
+    """Returns True for transient errors that are safe to retry with backoff."""
+    if isinstance(e, genai_errors.APIError):
+        return e.code in _evals_constant.RETRYABLE_STATUS_CODES
+    return isinstance(
+        e, (api_exceptions.ResourceExhausted, api_exceptions.ServiceUnavailable)
+    )
+
+
+def _get_retry_backoff(
+    e: Exception, attempt: int, max_retries: int, operation: str
+) -> Optional[float]:
+    """Returns the seconds to wait before the next attempt, or None to stop.
+
+    Retryable errors back off exponentially with jitter. Other errors fail
+    fast, and the last attempt never waits.
+    """
+    if not _is_retryable_error(e) or attempt == max_retries - 1:
+        logger.error(
+            "Error during %s on attempt %d/%d: %s",
+            operation,
+            attempt + 1,
+            max_retries,
+            e,
+        )
+        return None
+    backoff = 2.0**attempt + random.uniform(0, 1)
+    logger.warning(
+        "Retryable error during %s on attempt %d/%d: %s. Retrying in %.1f"
+        " seconds...",
+        operation,
+        attempt + 1,
+        max_retries,
+        e,
+        backoff,
+    )
+    return backoff
 
 
 def _generate_content_with_retry(
@@ -191,29 +239,11 @@ def _generate_content_with_retry(
                         }
                 else:
                     return response
-        except api_exceptions.ResourceExhausted as e:
-            logger.warning(
-                "Resource Exhausted error on attempt %d/%d: %s. Retrying in %s"
-                " seconds...",
-                attempt + 1,
-                max_retries,
-                e,
-                2**attempt,
-            )
-            if attempt == max_retries - 1:
-                return {"error": f"Resource exhausted after retries: {e}"}
-            time.sleep(2**attempt)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(
-                "Unexpected error during generate_content on attempt %d/%d: %s",
-                attempt + 1,
-                max_retries,
-                e,
-            )
-
-            if attempt == max_retries - 1:
-                return {"error": f"Failed after retries: {e}"}
-            time.sleep(1)
+            backoff = _get_retry_backoff(e, attempt, max_retries, "generate_content")
+            if backoff is None:
+                return {"error": f"Failed on attempt {attempt + 1}/{max_retries}: {e}"}
+            time.sleep(backoff)
     return {"error": f"Failed to generate content after {max_retries} retries"}
 
 
@@ -659,12 +689,12 @@ def _execute_inference_concurrently(
     max_workers = AGENT_MAX_WORKERS if agent_engine or agent else MAX_WORKERS
     with tqdm(total=len(prompt_dataset), desc=progress_desc) as pbar:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for index, row in prompt_dataset.iterrows():
+            for index, (_, row) in enumerate(prompt_dataset.iterrows()):
                 try:
                     if (
                         has_agent_data
                         and AGENT_DATA in row.index
-                        and row.get(AGENT_DATA) is not None
+                        and not _is_missing(row.get(AGENT_DATA))
                     ):
                         agent_data_obj = row[AGENT_DATA]
                         if isinstance(agent_data_obj, dict):
@@ -888,7 +918,7 @@ def _run_litellm_inference(
 
     with tqdm(total=len(prompt_dataset), desc=f"LiteLLM Inference ({model})") as pbar:
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            for index, row in prompt_dataset.iterrows():
+            for index, (_, row) in enumerate(prompt_dataset.iterrows()):
                 messages = _convert_prompt_row_to_litellm_messages(row)
                 future = executor.submit(
                     _call_litellm_completion, model=model, messages=messages
@@ -2352,28 +2382,11 @@ def _execute_agent_run_with_retry(
                 if event and CONTENT in event and PARTS in event[CONTENT]:
                     responses.append(event)
             return responses
-        except api_exceptions.ResourceExhausted as e:
-            logger.warning(
-                "Resource Exhausted error on attempt %d/%d: %s. Retrying in %s"
-                " seconds...",
-                attempt + 1,
-                max_retries,
-                e,
-                2**attempt,
-            )
-            if attempt == max_retries - 1:
-                return {"error": f"Resource exhausted after retries: {e}"}
-            time.sleep(2**attempt)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(
-                "Unexpected error during agent engine run on attempt %d/%d: %s",
-                attempt + 1,
-                max_retries,
-                e,
-            )
-            if attempt == max_retries - 1:
-                return {"error": f"Failed after retries: {e}"}
-            time.sleep(1)
+            backoff = _get_retry_backoff(e, attempt, max_retries, "agent engine run")
+            if backoff is None:
+                return {"error": f"Failed on attempt {attempt + 1}/{max_retries}: {e}"}
+            time.sleep(backoff)
     return {"error": f"Failed to get agent run results after {max_retries} retries"}
 
 
@@ -2403,7 +2416,7 @@ async def _execute_local_agent_run_with_retry_async(
     # Lazy-import ADK dependencies to avoid top-level import failures when
     # google-adk is not installed.
     from google.adk.runners import Runner
-    from google.adk.sessions import InMemorySessionService
+    from google.adk.sessions.in_memory_session_service import InMemorySessionService
 
     # Multi-turn agent scraping with user simulation.
     if user_simulator_config or "conversation_plan" in row:
@@ -2475,28 +2488,13 @@ async def _execute_local_agent_run_with_retry_async(
                     if event and CONTENT in event and PARTS in event[CONTENT]:
                         events.append(event)
                 return events
-            except api_exceptions.ResourceExhausted as e:
-                logger.warning(
-                    "Resource Exhausted error on attempt %d/%d: %s. Retrying"
-                    " in %s seconds...",
-                    attempt + 1,
-                    max_retries,
-                    e,
-                    2**attempt,
-                )
-                if attempt == max_retries - 1:
-                    return {"error": f"Resource exhausted after retries: {e}"}
-                await asyncio.sleep(2**attempt)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.error(
-                    "Unexpected error during agent run on attempt %d/%d: %s",
-                    attempt + 1,
-                    max_retries,
-                    e,
-                )
-                if attempt == max_retries - 1:
-                    return {"error": f"Failed after retries: {e}"}
-                await asyncio.sleep(1)
+                backoff = _get_retry_backoff(e, attempt, max_retries, "agent run")
+                if backoff is None:
+                    return {
+                        "error": f"Failed on attempt {attempt + 1}/{max_retries}: {e}"
+                    }
+                await asyncio.sleep(backoff)
         return {"error": f"Failed to get agent run results after {max_retries} retries"}
 
 
@@ -2652,7 +2650,7 @@ def _drop_empty_columns(df: "pd.DataFrame") -> "pd.DataFrame":
     def is_empty(x: Any) -> bool:
         if isinstance(x, (list, dict)):
             return not x
-        return pd.isna(x)  # type: ignore[no-any-return]
+        return _is_missing(x)
 
     cols_to_drop = [col for col in df.columns if df[col].apply(is_empty).all()]
     return df.drop(columns=cols_to_drop)
@@ -2951,6 +2949,8 @@ def _create_evaluation_set_from_dataframe(
         if _evals_constant.RESPONSE in row or agent_data_obj or intermediate_events:
             # Resolve the oneof conflict: prioritize agent_data over flat text
             response_text = row.get(_evals_constant.RESPONSE) or None
+            if _is_missing(response_text):
+                response_text = None
 
             if agent_data_obj and response_text:
                 logger.info(
@@ -3005,7 +3005,7 @@ def _create_evaluation_set_from_dataframe(
             prompt = types.EvaluationPrompt(
                 prompt_template_data=types.PromptTemplateData(values=values)
             )
-        elif _evals_constant.PROMPT in row:
+        elif not _is_missing(row.get(_evals_constant.PROMPT)):
             prompt = types.EvaluationPrompt(text=row[_evals_constant.PROMPT])
 
         eval_item_requests.append(
@@ -3013,7 +3013,7 @@ def _create_evaluation_set_from_dataframe(
                 prompt=prompt or None,
                 golden_response=(
                     types.CandidateResponse(text=row[_evals_constant.REFERENCE])
-                    if _evals_constant.REFERENCE in row
+                    if not _is_missing(row.get(_evals_constant.REFERENCE))
                     else None
                 ),
                 candidate_responses=(

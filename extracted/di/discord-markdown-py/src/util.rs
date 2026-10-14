@@ -128,46 +128,6 @@ where
 	alt((recognize((take_until("\n"), char('\n'))), rest)).parse_complete(data)
 }
 
-/// A parser that defers to `parser`, or fails outright if there is none.
-pub fn maybe<'data, P, O, E>(parser: Option<P>) -> impl Parser<Input<'data>, Output = O, Error = E>
-where
-	P: Parser<Input<'data>, Output = O, Error = E>,
-	E: ParseError<Input<'data>>,
-{
-	Maybe {
-		parser,
-		_output: PhantomData,
-		_error: PhantomData,
-	}
-}
-
-struct Maybe<P, O, E> {
-	parser: Option<P>,
-	_output: PhantomData<O>,
-	_error: PhantomData<E>,
-}
-
-impl<'data, P, O, E> Parser<Input<'data>> for Maybe<P, O, E>
-where
-	P: Parser<Input<'data>, Output = O, Error = E>,
-	E: ParseError<Input<'data>>,
-{
-	type Output = O;
-	type Error = E;
-
-	fn process<OM: OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		match &mut self.parser {
-			Some(parser) => parser.process::<OM>(input),
-			None => Err(nom::Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input, ErrorKind::Fail)
-			}))),
-		}
-	}
-}
-
 #[cfg(test)]
 mod test {
 	use super::balanced_span;

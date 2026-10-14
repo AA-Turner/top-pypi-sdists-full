@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -46,6 +49,8 @@ such as :ref:`wx.ListCtrl`, :ref:`wx.TreeCtrl`, etc.
 import wx
 #-- end-_dataview --#
 #-- begin-dataview --#
+import wx.dataview
+import wx.siplib
 DVC_DEFAULT_RENDERER_SIZE: int
 DVC_DEFAULT_WIDTH: int
 DVC_TOGGLE_DEFAULT_WIDTH: int
@@ -59,36 +64,36 @@ DV_VERT_RULES: int
 DV_ROW_LINES: int
 DV_VARIABLE_LINE_HEIGHT: int
 
-class _DataViewCellMode(IntEnum):
-    DATAVIEW_CELL_INERT = auto()
-    DATAVIEW_CELL_ACTIVATABLE = auto()
-    DATAVIEW_CELL_EDITABLE = auto()
-DataViewCellMode: TypeAlias = Union[_DataViewCellMode, int]
-DATAVIEW_CELL_INERT = _DataViewCellMode.DATAVIEW_CELL_INERT
-DATAVIEW_CELL_ACTIVATABLE = _DataViewCellMode.DATAVIEW_CELL_ACTIVATABLE
-DATAVIEW_CELL_EDITABLE = _DataViewCellMode.DATAVIEW_CELL_EDITABLE
+@final
+class DataViewCellMode(int, metaclass=wx.siplib.enumtype):
+    DATAVIEW_CELL_INERT: ClassVar[DataViewCellMode]
+    DATAVIEW_CELL_ACTIVATABLE: ClassVar[DataViewCellMode]
+    DATAVIEW_CELL_EDITABLE: ClassVar[DataViewCellMode]
+DATAVIEW_CELL_INERT: DataViewCellMode
+DATAVIEW_CELL_ACTIVATABLE: DataViewCellMode
+DATAVIEW_CELL_EDITABLE: DataViewCellMode
 
-class _DataViewCellRenderState(IntEnum):
-    DATAVIEW_CELL_SELECTED = auto()
-    DATAVIEW_CELL_PRELIT = auto()
-    DATAVIEW_CELL_INSENSITIVE = auto()
-    DATAVIEW_CELL_FOCUSED = auto()
-DataViewCellRenderState: TypeAlias = Union[_DataViewCellRenderState, int]
-DATAVIEW_CELL_SELECTED = _DataViewCellRenderState.DATAVIEW_CELL_SELECTED
-DATAVIEW_CELL_PRELIT = _DataViewCellRenderState.DATAVIEW_CELL_PRELIT
-DATAVIEW_CELL_INSENSITIVE = _DataViewCellRenderState.DATAVIEW_CELL_INSENSITIVE
-DATAVIEW_CELL_FOCUSED = _DataViewCellRenderState.DATAVIEW_CELL_FOCUSED
+@final
+class DataViewCellRenderState(int, metaclass=wx.siplib.enumtype):
+    DATAVIEW_CELL_SELECTED: ClassVar[DataViewCellRenderState]
+    DATAVIEW_CELL_PRELIT: ClassVar[DataViewCellRenderState]
+    DATAVIEW_CELL_INSENSITIVE: ClassVar[DataViewCellRenderState]
+    DATAVIEW_CELL_FOCUSED: ClassVar[DataViewCellRenderState]
+DATAVIEW_CELL_SELECTED: DataViewCellRenderState
+DATAVIEW_CELL_PRELIT: DataViewCellRenderState
+DATAVIEW_CELL_INSENSITIVE: DataViewCellRenderState
+DATAVIEW_CELL_FOCUSED: DataViewCellRenderState
 
-class _DataViewColumnFlags(IntFlag):
-    DATAVIEW_COL_RESIZABLE = auto()
-    DATAVIEW_COL_SORTABLE = auto()
-    DATAVIEW_COL_REORDERABLE = auto()
-    DATAVIEW_COL_HIDDEN = auto()
-DataViewColumnFlags: TypeAlias = Union[_DataViewColumnFlags, int]
-DATAVIEW_COL_RESIZABLE = _DataViewColumnFlags.DATAVIEW_COL_RESIZABLE
-DATAVIEW_COL_SORTABLE = _DataViewColumnFlags.DATAVIEW_COL_SORTABLE
-DATAVIEW_COL_REORDERABLE = _DataViewColumnFlags.DATAVIEW_COL_REORDERABLE
-DATAVIEW_COL_HIDDEN = _DataViewColumnFlags.DATAVIEW_COL_HIDDEN
+@final
+class DataViewColumnFlags(int, metaclass=wx.siplib.enumtype):
+    DATAVIEW_COL_RESIZABLE: ClassVar[DataViewColumnFlags]
+    DATAVIEW_COL_SORTABLE: ClassVar[DataViewColumnFlags]
+    DATAVIEW_COL_REORDERABLE: ClassVar[DataViewColumnFlags]
+    DATAVIEW_COL_HIDDEN: ClassVar[DataViewColumnFlags]
+DATAVIEW_COL_RESIZABLE: DataViewColumnFlags
+DATAVIEW_COL_SORTABLE: DataViewColumnFlags
+DATAVIEW_COL_REORDERABLE: DataViewColumnFlags
+DATAVIEW_COL_HIDDEN: DataViewColumnFlags
 wxEVT_DATAVIEW_SELECTION_CHANGED: int
 wxEVT_DATAVIEW_ITEM_ACTIVATED: int
 wxEVT_DATAVIEW_ITEM_COLLAPSING: int
@@ -109,7 +114,7 @@ wxEVT_DATAVIEW_ITEM_BEGIN_DRAG: int
 wxEVT_DATAVIEW_ITEM_DROP_POSSIBLE: int
 wxEVT_DATAVIEW_ITEM_DROP: int
 
-class DataViewItem:
+class DataViewItem(wx.siplib.wrapper):
     """
     DataViewItem() -> None
     DataViewItem(item) -> None
@@ -174,12 +179,12 @@ class DataViewItem:
         __hash__() -> int
         """
 
-    def __eq__(self, other: DataViewItem) -> bool:
+    def __eq__(self, other: DataViewItem, /) -> bool:
         """
         __eq__(other) -> bool
         """
 
-    def __ne__(self, other: DataViewItem) -> bool:
+    def __ne__(self, other: DataViewItem, /) -> bool:
         """
         __ne__(other) -> bool
         """
@@ -188,7 +193,7 @@ class DataViewItem:
 # end of class DataViewItem
 
 
-class DataViewItemAttr:
+class DataViewItemAttr(wx.siplib.wrapper):
     """
     DataViewItemAttr() -> None
     
@@ -211,7 +216,7 @@ class DataViewItemAttr:
         Call this to indicate that the item shall be displayed in bold text.
         """
 
-    def SetColour(self, colour: wx.Colour) -> None:
+    def SetColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetColour(colour) -> None
         
@@ -219,7 +224,7 @@ class DataViewItemAttr:
         colour.
         """
 
-    def SetBackgroundColour(self, colour: wx.Colour) -> None:
+    def SetBackgroundColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetBackgroundColour(colour) -> None
         
@@ -307,7 +312,7 @@ class DataViewItemAttr:
     @property
     def BackgroundColour(self) -> wx.Colour: ...
     @BackgroundColour.setter
-    def BackgroundColour(self, value: wx.Colour, /) -> None: ...
+    def BackgroundColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def Bold(self) -> bool: ...
     @Bold.setter
@@ -315,7 +320,7 @@ class DataViewItemAttr:
     @property
     def Colour(self) -> wx.Colour: ...
     @Colour.setter
-    def Colour(self, value: wx.Colour, /) -> None: ...
+    def Colour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def Italic(self) -> bool: ...
     @Italic.setter
@@ -337,7 +342,7 @@ class DataViewIconText(wx.Object):
         ...
 
     @overload
-    def __init__(self, text: str='', bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> None:
+    def __init__(self, text: str='', bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle()) -> None:
         """
         DataViewIconText(text='', bitmap=wx.BitmapBundle()) -> None
         DataViewIconText(other) -> None
@@ -367,7 +372,7 @@ class DataViewIconText(wx.Object):
         Gets the text.
         """
 
-    def SetBitmapBundle(self, bitmap: wx.BitmapBundle) -> None:
+    def SetBitmapBundle(self, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetBitmapBundle(bitmap) -> None
         
@@ -390,7 +395,7 @@ class DataViewIconText(wx.Object):
     @property
     def BitmapBundle(self) -> wx.BitmapBundle: ...
     @BitmapBundle.setter
-    def BitmapBundle(self, value: wx.BitmapBundle, /) -> None: ...
+    def BitmapBundle(self, value: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], /) -> None: ...
     @property
     def Icon(self) -> wx.Icon: ...
     @Icon.setter
@@ -416,7 +421,7 @@ class DataViewCheckIconText(DataViewIconText):
         ...
 
     @overload
-    def __init__(self, text: str='', icon: wx.BitmapBundle=wx.BitmapBundle(), checkedState: wx.CheckBoxState=wx.CHK_UNDETERMINED) -> None:
+    def __init__(self, text: str='', icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), checkedState: Union[wx.CheckBoxState, int]=wx.CHK_UNDETERMINED) -> None:
         """
         DataViewCheckIconText(text='', icon=wx.BitmapBundle(), checkedState=wx.CHK_UNDETERMINED) -> None
         DataViewCheckIconText(other) -> None
@@ -425,7 +430,7 @@ class DataViewCheckIconText(DataViewIconText):
         data transfer.
         """
 
-    def SetCheckedState(self, state: wx.CheckBoxState) -> None:
+    def SetCheckedState(self, state: Union[wx.CheckBoxState, int]) -> None:
         """
         SetCheckedState(state) -> None
         
@@ -441,11 +446,11 @@ class DataViewCheckIconText(DataViewIconText):
     @property
     def CheckedState(self) -> wx.CheckBoxState: ...
     @CheckedState.setter
-    def CheckedState(self, value: wx.CheckBoxState, /) -> None: ...
+    def CheckedState(self, value: Union[wx.CheckBoxState, int], /) -> None: ...
 # end of class DataViewCheckIconText
 
 
-class DataViewModelNotifier:
+class DataViewModelNotifier(wx.siplib.wrapper):
     """
     DataViewModelNotifier() -> None
     
@@ -567,7 +572,7 @@ class DataViewModel(wx.RefCounter):
         Adds a wxDataViewModelNotifier to the model.
         """
 
-    def ChangeValue(self, variant: DVCVariant, item: DataViewItem, col: int) -> bool:
+    def ChangeValue(self, variant: Any, item: DataViewItem, col: int) -> bool:
         """
         ChangeValue(variant, item, col) -> bool
         
@@ -619,9 +624,9 @@ class DataViewModel(wx.RefCounter):
         item.
         """
 
-    def GetValue(self, item: DataViewItem, col: int) -> DVCVariant:
+    def GetValue(self, item: DataViewItem, col: int) -> Any:
         """
-        GetValue(item, col) -> DVCVariant
+        GetValue(item, col) -> Any
         
         Override this to indicate the value of item.
         """
@@ -718,7 +723,7 @@ class DataViewModel(wx.RefCounter):
         changed.
         """
 
-    def SetValue(self, variant: DVCVariant, item: DataViewItem, col: int) -> bool:
+    def SetValue(self, variant: Any, item: DataViewItem, col: int) -> bool:
         """
         SetValue(variant, item, col) -> bool
         
@@ -786,14 +791,14 @@ class DataViewListModel(DataViewModel):
         Returns the position of given item.
         """
 
-    def GetValueByRow(self, row: int, col: int) -> DVCVariant:
+    def GetValueByRow(self, row: int, col: int) -> Any:
         """
-        GetValueByRow(row, col) -> DVCVariant
+        GetValueByRow(row, col) -> Any
         
         Override this to allow getting values from the model.
         """
 
-    def SetValueByRow(self, variant: DVCVariant, row: int, col: int) -> bool:
+    def SetValueByRow(self, variant: Any, row: int, col: int) -> bool:
         """
         SetValueByRow(variant, row, col) -> bool
         
@@ -979,14 +984,14 @@ class DataViewRenderer(wx.Object):
     This class is used by wxDataViewCtrl to render the individual cells.
     """
 
-    def __init__(self, varianttype: str, mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewRenderer(varianttype, mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
         This class is used by wxDataViewCtrl to render the individual cells.
         """
 
-    def EnableEllipsize(self, mode: wx.EllipsizeMode=wx.ELLIPSIZE_MIDDLE) -> None:
+    def EnableEllipsize(self, mode: Union[wx.EllipsizeMode, int]=wx.ELLIPSIZE_MIDDLE) -> None:
         """
         EnableEllipsize(mode=wx.ELLIPSIZE_MIDDLE) -> None
         
@@ -1029,12 +1034,12 @@ class DataViewRenderer(wx.Object):
         Returns pointer to the owning wxDataViewColumn.
         """
 
-    def GetValue(self) -> DVCVariant:
+    def GetValue(self) -> Any:
         """
-        GetValue() -> DVCVariant
+        GetValue() -> Any
         
-        This methods retrieves the value from the renderer in order to
-        transfer the value back to the data model.
+        This method retrieves the value from the renderer in order to transfer
+        the value back to the data model.
         """
 
     def GetVariantType(self) -> str:
@@ -1067,7 +1072,7 @@ class DataViewRenderer(wx.Object):
         Sets the owning wxDataViewColumn.
         """
 
-    def SetValue(self, value: DVCVariant) -> bool:
+    def SetValue(self, value: Any) -> bool:
         """
         SetValue(value) -> bool
         
@@ -1082,7 +1087,7 @@ class DataViewRenderer(wx.Object):
         are rendered.
         """
 
-    def Validate(self, value: DVCVariant) -> bool:
+    def Validate(self, value: Any) -> bool:
         """
         Validate(value) -> bool
         
@@ -1095,17 +1100,17 @@ class DataViewRenderer(wx.Object):
         HasEditorCtrl() -> bool
         """
 
-    def CreateEditorCtrl(self, parent: wx.Window, labelRect: wx.Rect, value: DVCVariant) -> wx.Window:
+    def CreateEditorCtrl(self, parent: wx.Window, labelRect: Union[wx.Rect, _FourInts], value: Any) -> wx.Window:
         """
         CreateEditorCtrl(parent, labelRect, value) -> wx.Window
         """
 
-    def GetValueFromEditorCtrl(self, editor: wx.Window) -> DVCVariant:
+    def GetValueFromEditorCtrl(self, editor: wx.Window) -> Any:
         """
-        GetValueFromEditorCtrl(editor) -> DVCVariant
+        GetValueFromEditorCtrl(editor) -> Any
         """
 
-    def StartEditing(self, item: DataViewItem, labelRect: wx.Rect) -> bool:
+    def StartEditing(self, item: DataViewItem, labelRect: Union[wx.Rect, _FourInts]) -> bool:
         """
         StartEditing(item, labelRect) -> bool
         """
@@ -1158,7 +1163,7 @@ class DataViewCustomRenderer(DataViewRenderer):
     to write a new renderer.
     """
 
-    def __init__(self, varianttype: str=DataViewCustomRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str=DataViewCustomRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewCustomRenderer(varianttype=DataViewCustomRenderer.GetDefaultType(), mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1174,14 +1179,14 @@ class DataViewCustomRenderer(DataViewRenderer):
         Returns the wxVariant type used with this renderer.
         """
 
-    def ActivateCell(self, cell: wx.Rect, model: DataViewModel, item: DataViewItem, col: int, mouseEvent: wx.MouseEvent) -> bool:
+    def ActivateCell(self, cell: Union[wx.Rect, _FourInts], model: DataViewModel, item: DataViewItem, col: int, mouseEvent: wx.MouseEvent) -> bool:
         """
         ActivateCell(cell, model, item, col, mouseEvent) -> bool
         
         Override this to react to cell activation.
         """
 
-    def CreateEditorCtrl(self, parent: wx.Window, labelRect: wx.Rect, value: DVCVariant) -> wx.Window:
+    def CreateEditorCtrl(self, parent: wx.Window, labelRect: Union[wx.Rect, _FourInts], value: Any) -> wx.Window:
         """
         CreateEditorCtrl(parent, labelRect, value) -> wx.Window
         
@@ -1203,9 +1208,9 @@ class DataViewCustomRenderer(DataViewRenderer):
         Return size required to show content.
         """
 
-    def GetValueFromEditorCtrl(self, editor: wx.Window) -> DVCVariant:
+    def GetValueFromEditorCtrl(self, editor: wx.Window) -> Any:
         """
-        GetValueFromEditorCtrl(editor) -> DVCVariant
+        GetValueFromEditorCtrl(editor) -> Any
         
         Override this so that the renderer can get the value from the editor
         control (pointed to by editor):
@@ -1219,28 +1224,28 @@ class DataViewCustomRenderer(DataViewRenderer):
         renderer supports in-place editing.
         """
 
-    def LeftClick(self, cursor: wx.Point, cell: wx.Rect, model: DataViewModel, item: DataViewItem, col: int) -> bool:
+    def LeftClick(self, cursor: Union[wx.Point, _TwoInts], cell: Union[wx.Rect, _FourInts], model: DataViewModel, item: DataViewItem, col: int) -> bool:
         """
         LeftClick(cursor, cell, model, item, col) -> bool
         
         Override this to react to a left click.
         """
 
-    def Activate(self, cell: wx.Rect, model: DataViewModel, item: DataViewItem, col: int) -> bool:
+    def Activate(self, cell: Union[wx.Rect, _FourInts], model: DataViewModel, item: DataViewItem, col: int) -> bool:
         """
         Activate(cell, model, item, col) -> bool
         
         Override this to react to the activation of a cell.
         """
 
-    def Render(self, cell: wx.Rect, dc: wx.DC, state: int) -> bool:
+    def Render(self, cell: Union[wx.Rect, _FourInts], dc: wx.DC, state: int) -> bool:
         """
         Render(cell, dc, state) -> bool
         
         Override this to render the cell.
         """
 
-    def RenderText(self, text: str, xoffset: int, cell: wx.Rect, dc: wx.DC, state: int) -> None:
+    def RenderText(self, text: str, xoffset: int, cell: Union[wx.Rect, _FourInts], dc: wx.DC, state: int) -> None:
         """
         RenderText(text, xoffset, cell, dc, state) -> None
         
@@ -1248,7 +1253,7 @@ class DataViewCustomRenderer(DataViewRenderer):
         render simple text.
         """
 
-    def StartDrag(self, cursor: wx.Point, cell: wx.Rect, model: DataViewModel, item: DataViewItem, col: int) -> bool:
+    def StartDrag(self, cursor: Union[wx.Point, _TwoInts], cell: Union[wx.Rect, _FourInts], model: DataViewModel, item: DataViewItem, col: int) -> bool:
         """
         StartDrag(cursor, cell, model, item, col) -> bool
         
@@ -1275,7 +1280,7 @@ class DataViewTextRenderer(DataViewRenderer):
     wxDataViewTextRenderer is used for rendering text.
     """
 
-    def __init__(self, varianttype: str=DataViewTextRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str=DataViewTextRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewTextRenderer(varianttype=DataViewTextRenderer.GetDefaultType(), mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1307,7 +1312,7 @@ class DataViewIconTextRenderer(DataViewRenderer):
     small icon next to it as it is typically done in a file manager.
     """
 
-    def __init__(self, varianttype: str=DataViewIconTextRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str=DataViewIconTextRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewIconTextRenderer(varianttype=DataViewIconTextRenderer.GetDefaultType(), mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1334,7 +1339,7 @@ class DataViewCheckIconTextRenderer(DataViewRenderer):
     checkbox.
     """
 
-    def __init__(self, mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewCheckIconTextRenderer(mode=DATAVIEW_CELL_ACTIVATABLE, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1366,7 +1371,7 @@ class DataViewProgressRenderer(DataViewRenderer):
     This class is used by wxDataViewCtrl to render progress bars.
     """
 
-    def __init__(self, label: str='', varianttype: str=DataViewProgressRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, label: str='', varianttype: str=DataViewProgressRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewProgressRenderer(label='', varianttype=DataViewProgressRenderer.GetDefaultType(), mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1390,7 +1395,7 @@ class DataViewSpinRenderer(DataViewCustomRenderer):
     This is a specialized renderer for rendering integer values.
     """
 
-    def __init__(self, min: int, max: int, mode: DataViewCellMode=DATAVIEW_CELL_EDITABLE, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, min: int, max: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_EDITABLE, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewSpinRenderer(min, max, mode=DATAVIEW_CELL_EDITABLE, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1406,7 +1411,7 @@ class DataViewToggleRenderer(DataViewRenderer):
     This class is used by wxDataViewCtrl to render toggle controls.
     """
 
-    def __init__(self, varianttype: str=DataViewToggleRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str=DataViewToggleRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewToggleRenderer(varianttype=DataViewToggleRenderer.GetDefaultType(), mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1439,7 +1444,7 @@ class DataViewChoiceRenderer(DataViewRenderer):
     in it.
     """
 
-    def __init__(self, choices: List[str], mode: DataViewCellMode=DATAVIEW_CELL_EDITABLE, alignment: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, choices: List[str], mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_EDITABLE, alignment: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewChoiceRenderer(choices, mode=DATAVIEW_CELL_EDITABLE, alignment=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1472,7 +1477,7 @@ class DataViewDateRenderer(DataViewRenderer):
     This class is used by wxDataViewCtrl to render calendar controls.
     """
 
-    def __init__(self, varianttype: str=DataViewDateRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str=DataViewDateRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewDateRenderer(varianttype=DataViewDateRenderer.GetDefaultType(), mode=DATAVIEW_CELL_ACTIVATABLE, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1496,7 +1501,7 @@ class DataViewBitmapRenderer(DataViewRenderer):
     This class is used by wxDataViewCtrl to render bitmaps.
     """
 
-    def __init__(self, varianttype: str=DataViewBitmapRenderer.GetDefaultType(), mode: DataViewCellMode=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
+    def __init__(self, varianttype: str=DataViewBitmapRenderer.GetDefaultType(), mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, align: int=DVR_DEFAULT_ALIGNMENT) -> None:
         """
         DataViewBitmapRenderer(varianttype=DataViewBitmapRenderer.GetDefaultType(), mode=DATAVIEW_CELL_INERT, align=DVR_DEFAULT_ALIGNMENT) -> None
         
@@ -1522,11 +1527,11 @@ class DataViewColumn(wx.SettableHeaderColumn):
     """
 
     @overload
-    def __init__(self, bitmap: wx.BitmapBundle, renderer: DataViewRenderer, model_column: int, width: int=DVC_DEFAULT_WIDTH, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> None:
+    def __init__(self, bitmap: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image], renderer: DataViewRenderer, model_column: int, width: int=DVC_DEFAULT_WIDTH, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> None:
         ...
 
     @overload
-    def __init__(self, title: str, renderer: DataViewRenderer, model_column: int, width: int=DVC_DEFAULT_WIDTH, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> None:
+    def __init__(self, title: str, renderer: DataViewRenderer, model_column: int, width: int=DVC_DEFAULT_WIDTH, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> None:
         """
         DataViewColumn(title, renderer, model_column, width=DVC_DEFAULT_WIDTH, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> None
         DataViewColumn(bitmap, renderer, model_column, width=DVC_DEFAULT_WIDTH, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> None
@@ -1570,7 +1575,7 @@ class DataViewColumn(wx.SettableHeaderColumn):
     SortOrder = property(IsSortOrderAscending, SetSortOrder)
 # end of class DataViewColumn
 
-DataViewCtrlNameStr: str
+DataViewCtrlNameStr: bytes
 
 class DataViewCtrl(wx.Control):
     """
@@ -1582,7 +1587,7 @@ class DataViewCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=DataViewCtrlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> None:
         ...
 
     @overload
@@ -1596,11 +1601,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def AppendBitmapColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendBitmapColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def AppendBitmapColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendBitmapColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendBitmapColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         AppendBitmapColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1609,11 +1614,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def PrependBitmapColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependBitmapColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def PrependBitmapColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependBitmapColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         PrependBitmapColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         PrependBitmapColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1622,11 +1627,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def AppendDateColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendDateColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def AppendDateColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendDateColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendDateColumn(label, model_column, mode=DATAVIEW_CELL_ACTIVATABLE, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         AppendDateColumn(label, model_column, mode=DATAVIEW_CELL_ACTIVATABLE, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1635,11 +1640,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def PrependDateColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependDateColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def PrependDateColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependDateColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         PrependDateColumn(label, model_column, mode=DATAVIEW_CELL_ACTIVATABLE, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         PrependDateColumn(label, model_column, mode=DATAVIEW_CELL_ACTIVATABLE, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1648,11 +1653,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def AppendIconTextColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendIconTextColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def AppendIconTextColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendIconTextColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendIconTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         AppendIconTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1661,11 +1666,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def PrependIconTextColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependIconTextColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def PrependIconTextColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependIconTextColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         PrependIconTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         PrependIconTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1674,11 +1679,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def AppendProgressColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=80, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendProgressColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=80, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def AppendProgressColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=80, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendProgressColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=80, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendProgressColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=80, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         AppendProgressColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=80, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1687,11 +1692,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def PrependProgressColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=80, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependProgressColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=80, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def PrependProgressColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=80, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependProgressColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=80, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         PrependProgressColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=80, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         PrependProgressColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=80, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1700,11 +1705,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def AppendTextColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendTextColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def AppendTextColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendTextColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         AppendTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1713,11 +1718,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def PrependTextColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependTextColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def PrependTextColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependTextColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_NOT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         PrependTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         PrependTextColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_NOT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1726,11 +1731,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def AppendToggleColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=30, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendToggleColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=30, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def AppendToggleColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=30, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendToggleColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=30, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendToggleColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=30, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         AppendToggleColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=30, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1739,11 +1744,11 @@ class DataViewCtrl(wx.Control):
         """
 
     @overload
-    def PrependToggleColumn(self, label: wx.Bitmap, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=30, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependToggleColumn(self, label: wx.Bitmap, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=30, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         ...
 
     @overload
-    def PrependToggleColumn(self, label: str, model_column: int, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=30, align: wx.Alignment=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def PrependToggleColumn(self, label: str, model_column: int, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=30, align: Union[wx.Alignment, int]=wx.ALIGN_CENTER, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         PrependToggleColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=30, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         PrependToggleColumn(label, model_column, mode=DATAVIEW_CELL_INERT, width=30, align=wx.ALIGN_CENTER, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
@@ -1758,7 +1763,7 @@ class DataViewCtrl(wx.Control):
         Call to allow using multiple columns for sorting.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=DataViewCtrlNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, validator=wx.DefaultValidator, name=DataViewCtrlNameStr) -> bool
         
@@ -1828,7 +1833,7 @@ class DataViewCtrl(wx.Control):
         Enable drag operations using the given format.
         """
 
-    def EnableDropTargets(self, formats: VectorwxDataFormat) -> bool:
+    def EnableDropTargets(self, formats: List[wx.DataFormat]) -> bool:
         """
         EnableDropTargets(formats) -> bool
         
@@ -1842,9 +1847,9 @@ class DataViewCtrl(wx.Control):
         Enable drop operations using the given format.
         """
 
-    def EnsureVisible(self, item: DataViewItem, column: DataViewColumn=nullptr) -> None:
+    def EnsureVisible(self, item: DataViewItem, column: Optional[DataViewColumn]=None) -> None:
         """
-        EnsureVisible(item, column=nullptr) -> None
+        EnsureVisible(item, column=None) -> None
         
         Call this to ensure that the given item is visible.
         """
@@ -1919,9 +1924,9 @@ class DataViewCtrl(wx.Control):
         Returns indentation.
         """
 
-    def GetItemRect(self, item: DataViewItem, col: DataViewColumn=nullptr) -> wx.Rect:
+    def GetItemRect(self, item: DataViewItem, col: Optional[DataViewColumn]=None) -> wx.Rect:
         """
-        GetItemRect(item, col=nullptr) -> wx.Rect
+        GetItemRect(item, col=None) -> wx.Rect
         
         Returns item rectangle.
         """
@@ -1977,7 +1982,7 @@ class DataViewCtrl(wx.Control):
         Returns true if any items are currently selected.
         """
 
-    def HitTest(self, point: wx.Point) -> Any:
+    def HitTest(self, point: Union[wx.Point, _TwoInts]) -> Any:
         """
         HitTest(point) -> Any
         
@@ -2021,7 +2026,7 @@ class DataViewCtrl(wx.Control):
         Select all items.
         """
 
-    def SetAlternateRowColour(self, colour: wx.Colour) -> bool:
+    def SetAlternateRowColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> bool:
         """
         SetAlternateRowColour(colour) -> bool
         
@@ -2107,13 +2112,8 @@ class DataViewCtrl(wx.Control):
         Return the topmost visible item.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2186,11 +2186,11 @@ class DataViewEvent(wx.NotifyEvent):
     """
 
     @overload
-    def __init__(self, evtType: EventType, dvc: DataViewCtrl, column: DataViewColumn, item: DataViewItem=DataViewItem()) -> None:
+    def __init__(self, evtType: int, dvc: DataViewCtrl, column: wx.dataview.DataViewColumn, item: DataViewItem=DataViewItem()) -> None:
         ...
 
     @overload
-    def __init__(self, evtType: EventType, dvc: DataViewCtrl, item: DataViewItem) -> None:
+    def __init__(self, evtType: int, dvc: DataViewCtrl, item: DataViewItem) -> None:
         ...
 
     @overload
@@ -2216,7 +2216,7 @@ class DataViewEvent(wx.NotifyEvent):
         field is unavailable for this event.
         """
 
-    def GetDataViewColumn(self) -> DataViewColumn:
+    def GetDataViewColumn(self) -> wx.dataview.DataViewColumn:
         """
         GetDataViewColumn() -> DataViewColumn
         
@@ -2238,9 +2238,9 @@ class DataViewEvent(wx.NotifyEvent):
         Returns the position of a context menu event in client coordinates.
         """
 
-    def GetValue(self) -> DVCVariant:
+    def GetValue(self) -> Any:
         """
-        GetValue() -> DVCVariant
+        GetValue() -> Any
         
         Returns a reference to a value.
         """
@@ -2260,7 +2260,7 @@ class DataViewEvent(wx.NotifyEvent):
         Sets the column index associated with this event.
         """
 
-    def SetValue(self, value: DVCVariant) -> None:
+    def SetValue(self, value: Any) -> None:
         """
         SetValue(value) -> None
         
@@ -2373,7 +2373,7 @@ class DataViewEvent(wx.NotifyEvent):
         GetDragFlags() -> int
         """
 
-    def SetDropEffect(self, effect: wx.DragResult) -> None:
+    def SetDropEffect(self, effect: Union[wx.DragResult, int]) -> None:
         """
         SetDropEffect(effect) -> None
         """
@@ -2402,7 +2402,7 @@ class DataViewEvent(wx.NotifyEvent):
     @DataSize.setter
     def DataSize(self, value: int, /) -> None: ...
     @property
-    def DataViewColumn(self) -> DataViewColumn: ...
+    def DataViewColumn(self) -> wx.dataview.DataViewColumn: ...
     @property
     def DragFlags(self) -> int: ...
     @DragFlags.setter
@@ -2410,33 +2410,33 @@ class DataViewEvent(wx.NotifyEvent):
     @property
     def DropEffect(self) -> wx.DragResult: ...
     @DropEffect.setter
-    def DropEffect(self, value: wx.DragResult, /) -> None: ...
+    def DropEffect(self, value: Union[wx.DragResult, int], /) -> None: ...
     @property
     def Item(self) -> DataViewItem: ...
     @property
     def Model(self) -> DataViewModel: ...
     @property
-    def Position(self) -> int: ...
+    def Position(self) -> wx.Point: ...
     @Position.setter
-    def Position(self, value: int, /) -> None: ...
+    def Position(self, value: wx.Point, /) -> None: ...
     @property
     def ProposedDropIndex(self) -> int: ...
     @property
-    def Value(self) -> DVCVariant: ...
+    def Value(self) -> Any: ...
     @Value.setter
-    def Value(self, value: DVCVariant, /) -> None: ...
+    def Value(self, value: Any, /) -> None: ...
 # end of class DataViewEvent
 
 
-class DataViewValueAdjuster:
+class DataViewValueAdjuster(wx.siplib.wrapper):
     """
     This class can be used with wxDataViewRenderer::SetValueAdjuster() to
     customize rendering of model values with standard renderers.
     """
 
-    def MakeHighlighted(self, value: DVCVariant) -> DVCVariant:
+    def MakeHighlighted(self, value: Any) -> Any:
         """
-        MakeHighlighted(value) -> DVCVariant
+        MakeHighlighted(value) -> Any
         
         Change value for rendering when highlighted.
         """
@@ -2453,7 +2453,7 @@ class DataViewListCtrl(DataViewCtrl):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> None:
         ...
 
     @overload
@@ -2515,28 +2515,28 @@ class DataViewListCtrl(DataViewCtrl):
         the store with the type string.
         """
 
-    def AppendTextColumn(self, label: str, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendTextColumn(self, label: str, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendTextColumn(label, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_LEFT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         
         Appends a text column to the control and the store.
         """
 
-    def AppendToggleColumn(self, label: str, mode: DataViewCellMode=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendToggleColumn(self, label: str, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_ACTIVATABLE, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendToggleColumn(label, mode=DATAVIEW_CELL_ACTIVATABLE, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_LEFT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         
         Appends a toggle column to the control and the store.
         """
 
-    def AppendProgressColumn(self, label: str, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendProgressColumn(self, label: str, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendProgressColumn(label, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_LEFT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         
         Appends a progress column to the control and the store.
         """
 
-    def AppendIconTextColumn(self, label: str, mode: DataViewCellMode=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: wx.Alignment=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
+    def AppendIconTextColumn(self, label: str, mode: Union[DataViewCellMode, int]=DATAVIEW_CELL_INERT, width: int=wx.COL_WIDTH_DEFAULT, align: Union[wx.Alignment, int]=wx.ALIGN_LEFT, flags: int=DATAVIEW_COL_RESIZABLE) -> DataViewColumn:
         """
         AppendIconTextColumn(label, mode=DATAVIEW_CELL_INERT, width=wx.COL_WIDTH_DEFAULT, align=wx.ALIGN_LEFT, flags=DATAVIEW_COL_RESIZABLE) -> DataViewColumn
         
@@ -2571,21 +2571,21 @@ class DataViewListCtrl(DataViewCtrl):
         the store with the type string.
         """
 
-    def AppendItem(self, values: VariantVector, data: UIntPtr=0) -> None:
+    def AppendItem(self, values: List[Any], data: int=0) -> None:
         """
         AppendItem(values, data=0) -> None
         
         Appends an item (i.e. a row) to the control.
         """
 
-    def PrependItem(self, values: VariantVector, data: UIntPtr=0) -> None:
+    def PrependItem(self, values: List[Any], data: int=0) -> None:
         """
         PrependItem(values, data=0) -> None
         
         Prepends an item (i.e. a row) to the control.
         """
 
-    def InsertItem(self, row: int, values: VariantVector, data: UIntPtr=0) -> None:
+    def InsertItem(self, row: int, values: List[Any], data: int=0) -> None:
         """
         InsertItem(row, values, data=0) -> None
         
@@ -2613,23 +2613,23 @@ class DataViewListCtrl(DataViewCtrl):
         Returns the number of items (=rows) in the control.
         """
 
-    def GetItemData(self, item: DataViewItem) -> UIntPtr:
+    def GetItemData(self, item: DataViewItem) -> int:
         """
-        GetItemData(item) -> UIntPtr
+        GetItemData(item) -> int
         
         Returns the client data associated with the item.
         """
 
-    def SetValue(self, value: DVCVariant, row: int, col: int) -> None:
+    def SetValue(self, value: Any, row: int, col: int) -> None:
         """
         SetValue(value, row, col) -> None
         
         Sets the value in the store and update the control.
         """
 
-    def GetValue(self, row: int, col: int) -> DVCVariant:
+    def GetValue(self, row: int, col: int) -> Any:
         """
-        GetValue(row, col) -> DVCVariant
+        GetValue(row, col) -> Any
         
         Returns the value from the store.
         """
@@ -2662,14 +2662,14 @@ class DataViewListCtrl(DataViewCtrl):
         Returns the value from the store.
         """
 
-    def SetItemData(self, item: DataViewItem, data: UIntPtr) -> None:
+    def SetItemData(self, item: DataViewItem, data: int) -> None:
         """
         SetItemData(item, data) -> None
         
         Associates a client data pointer with the given item.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=DV_ROW_LINES, validator=wx.DefaultValidator) -> bool
         
@@ -2691,13 +2691,8 @@ class DataViewListCtrl(DataViewCtrl):
         Returns the wxDataViewItem at the given row.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2747,21 +2742,21 @@ class DataViewListStore(DataViewIndexListModel):
         Appends a data column.
         """
 
-    def AppendItem(self, values: VariantVector, data: UIntPtr=0) -> None:
+    def AppendItem(self, values: List[Any], data: int=0) -> None:
         """
         AppendItem(values, data=0) -> None
         
         Appends an item (=row) and fills it with values.
         """
 
-    def PrependItem(self, values: VariantVector, data: UIntPtr=0) -> None:
+    def PrependItem(self, values: List[Any], data: int=0) -> None:
         """
         PrependItem(values, data=0) -> None
         
         Prepends an item (=row) and fills it with values.
         """
 
-    def InsertItem(self, row: int, values: VariantVector, data: UIntPtr=0) -> None:
+    def InsertItem(self, row: int, values: List[Any], data: int=0) -> None:
         """
         InsertItem(row, values, data=0) -> None
         
@@ -2789,28 +2784,28 @@ class DataViewListStore(DataViewIndexListModel):
         Returns the number of items (=rows) in the control.
         """
 
-    def GetItemData(self, item: DataViewItem) -> UIntPtr:
+    def GetItemData(self, item: DataViewItem) -> int:
         """
-        GetItemData(item) -> UIntPtr
+        GetItemData(item) -> int
         
         Returns the client data associated with the item.
         """
 
-    def SetItemData(self, item: DataViewItem, data: UIntPtr) -> None:
+    def SetItemData(self, item: DataViewItem, data: int) -> None:
         """
         SetItemData(item, data) -> None
         
         Sets the client data associated with the item.
         """
 
-    def GetValueByRow(self, row: int, col: int) -> DVCVariant:
+    def GetValueByRow(self, row: int, col: int) -> Any:
         """
-        GetValueByRow(row, col) -> DVCVariant
+        GetValueByRow(row, col) -> Any
         
         Overridden from wxDataViewIndexListModel.
         """
 
-    def SetValueByRow(self, value: DVCVariant, row: int, col: int) -> bool:
+    def SetValueByRow(self, value: Any, row: int, col: int) -> bool:
         """
         SetValueByRow(value, row, col) -> bool
         
@@ -2831,7 +2826,7 @@ class DataViewTreeCtrl(DataViewCtrl):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DV_NO_HEADER|DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DV_NO_HEADER|DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> None:
         ...
 
     @overload
@@ -2851,21 +2846,21 @@ class DataViewTreeCtrl(DataViewCtrl):
         Returns the store.
         """
 
-    def AppendContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: ClientData=nullptr) -> DataViewItem:
+    def AppendContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: Optional[Any]=None) -> DataViewItem:
         """
-        AppendContainer(parent, text, icon=-1, expanded=-1, data=nullptr) -> DataViewItem
+        AppendContainer(parent, text, icon=-1, expanded=-1, data=None) -> DataViewItem
         
         Appends a container to the given parent.
         """
 
-    def AppendItem(self, parent: DataViewItem, text: str, icon: int=-1, data: ClientData=nullptr) -> DataViewItem:
+    def AppendItem(self, parent: DataViewItem, text: str, icon: int=-1, data: Optional[Any]=None) -> DataViewItem:
         """
-        AppendItem(parent, text, icon=-1, data=nullptr) -> DataViewItem
+        AppendItem(parent, text, icon=-1, data=None) -> DataViewItem
         
         Appends an item to the given parent.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=DV_NO_HEADER|DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=DV_NO_HEADER|DV_ROW_LINES, validator: wx.Validator=wx.DefaultValidator) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=DV_NO_HEADER|DV_ROW_LINES, validator=wx.DefaultValidator) -> bool
         
@@ -2907,9 +2902,9 @@ class DataViewTreeCtrl(DataViewCtrl):
         Returns the image list.
         """
 
-    def GetItemData(self, item: DataViewItem) -> ClientData:
+    def GetItemData(self, item: DataViewItem) -> Any:
         """
-        GetItemData(item) -> ClientData
+        GetItemData(item) -> Any
         
         Calls the identical method from wxDataViewTreeStore.
         """
@@ -2949,17 +2944,17 @@ class DataViewTreeCtrl(DataViewCtrl):
         Calls the identical method from wxDataViewTreeStore.
         """
 
-    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: ClientData=nullptr) -> DataViewItem:
+    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: Optional[Any]=None) -> DataViewItem:
         """
-        InsertContainer(parent, previous, text, icon=-1, expanded=-1, data=nullptr) -> DataViewItem
+        InsertContainer(parent, previous, text, icon=-1, expanded=-1, data=None) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
         """
 
-    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, data: ClientData=nullptr) -> DataViewItem:
+    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, data: Optional[Any]=None) -> DataViewItem:
         """
-        InsertItem(parent, previous, text, icon=-1, data=nullptr) -> DataViewItem
+        InsertItem(parent, previous, text, icon=-1, data=None) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
@@ -2972,17 +2967,17 @@ class DataViewTreeCtrl(DataViewCtrl):
         Returns true if item is a container.
         """
 
-    def PrependContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: ClientData=nullptr) -> DataViewItem:
+    def PrependContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: Optional[Any]=None) -> DataViewItem:
         """
-        PrependContainer(parent, text, icon=-1, expanded=-1, data=nullptr) -> DataViewItem
+        PrependContainer(parent, text, icon=-1, expanded=-1, data=None) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
         """
 
-    def PrependItem(self, parent: DataViewItem, text: str, icon: int=-1, data: ClientData=nullptr) -> DataViewItem:
+    def PrependItem(self, parent: DataViewItem, text: str, icon: int=-1, data: Optional[Any]=None) -> DataViewItem:
         """
-        PrependItem(parent, text, icon=-1, data=nullptr) -> DataViewItem
+        PrependItem(parent, text, icon=-1, data=None) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
@@ -2995,21 +2990,21 @@ class DataViewTreeCtrl(DataViewCtrl):
         Sets the image list.
         """
 
-    def SetItemData(self, item: DataViewItem, data: ClientData) -> None:
+    def SetItemData(self, item: DataViewItem, data: Any) -> None:
         """
         SetItemData(item, data) -> None
         
         Calls the identical method from wxDataViewTreeStore.
         """
 
-    def SetItemExpandedIcon(self, item: DataViewItem, icon: wx.BitmapBundle) -> None:
+    def SetItemExpandedIcon(self, item: DataViewItem, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetItemExpandedIcon(item, icon) -> None
         
         Calls the identical method from wxDataViewTreeStore.
         """
 
-    def SetItemIcon(self, item: DataViewItem, icon: wx.BitmapBundle) -> None:
+    def SetItemIcon(self, item: DataViewItem, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetItemIcon(item, icon) -> None
         
@@ -3023,13 +3018,8 @@ class DataViewTreeCtrl(DataViewCtrl):
         Calls the identical method from wxDataViewTreeStore.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -3060,16 +3050,16 @@ class DataViewTreeStore(DataViewModel):
         API.
         """
 
-    def AppendContainer(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
+    def AppendContainer(self, parent: DataViewItem, text: str, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), expanded: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), data: Optional[Any]=None) -> DataViewItem:
         """
-        AppendContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem
+        AppendContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem
         
         Append a container.
         """
 
-    def AppendItem(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
+    def AppendItem(self, parent: DataViewItem, text: str, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), data: Optional[Any]=None) -> DataViewItem:
         """
-        AppendItem(parent, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem
+        AppendItem(parent, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem
         
         Append an item.
         """
@@ -3102,9 +3092,9 @@ class DataViewTreeStore(DataViewModel):
         Return the number of children of item.
         """
 
-    def GetItemData(self, item: DataViewItem) -> ClientData:
+    def GetItemData(self, item: DataViewItem) -> Any:
         """
-        GetItemData(item) -> ClientData
+        GetItemData(item) -> Any
         
         Returns the client data associated with the item.
         """
@@ -3137,49 +3127,49 @@ class DataViewTreeStore(DataViewModel):
         Returns the nth child item of item.
         """
 
-    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
+    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), expanded: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), data: Optional[Any]=None) -> DataViewItem:
         """
-        InsertContainer(parent, previous, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem
+        InsertContainer(parent, previous, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem
         
         Inserts a container after previous.
         """
 
-    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
+    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), data: Optional[Any]=None) -> DataViewItem:
         """
-        InsertItem(parent, previous, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem
+        InsertItem(parent, previous, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem
         
         Inserts an item after previous.
         """
 
-    def PrependContainer(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
+    def PrependContainer(self, parent: DataViewItem, text: str, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), expanded: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), data: Optional[Any]=None) -> DataViewItem:
         """
-        PrependContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem
+        PrependContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem
         
         Inserts a container before the first child item or parent.
         """
 
-    def PrependItem(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
+    def PrependItem(self, parent: DataViewItem, text: str, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), data: Optional[Any]=None) -> DataViewItem:
         """
-        PrependItem(parent, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem
+        PrependItem(parent, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem
         
         Inserts an item before the first child item or parent.
         """
 
-    def SetItemData(self, item: DataViewItem, data: ClientData) -> None:
+    def SetItemData(self, item: DataViewItem, data: Any) -> None:
         """
         SetItemData(item, data) -> None
         
         Sets the client data associated with the item.
         """
 
-    def SetItemExpandedIcon(self, item: DataViewItem, icon: wx.BitmapBundle) -> None:
+    def SetItemExpandedIcon(self, item: DataViewItem, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetItemExpandedIcon(item, icon) -> None
         
         Sets the expanded icon for the item.
         """
 
-    def SetItemIcon(self, item: DataViewItem, icon: wx.BitmapBundle) -> None:
+    def SetItemIcon(self, item: DataViewItem, icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetItemIcon(item, icon) -> None
         
@@ -3187,6 +3177,14 @@ class DataViewTreeStore(DataViewModel):
         """
 # end of class DataViewTreeStore
 
+
+class DataViewItemArray(wx.siplib.wrapper):
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int, /) -> DataViewItem: ...
+    def __contains__(self, obj: DataViewItem, /) -> bool: ...
+    def __iter__(self) -> Iterator[DataViewItem]: ...
+    def index(self, obj: DataViewItem) -> int: ...
+    def append(self, obj: DataViewItem) -> None: ...
 
 NullDataViewItem = DataViewItem()
 class DataViewItemObjectMapper(object):
@@ -3243,25 +3241,25 @@ PyDataViewVirtualListModel = wx.deprecated(DataViewVirtualListModel)
 PyDataViewCustomRenderer = wx.deprecated(DataViewCustomRenderer,
                                          "Use DataViewCustomRenderer instead")
 
-EVT_DATAVIEW_SELECTION_CHANGED         = wx.PyEventBinder( wxEVT_DATAVIEW_SELECTION_CHANGED, 1)
-EVT_DATAVIEW_ITEM_ACTIVATED            = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_ACTIVATED, 1)
-EVT_DATAVIEW_ITEM_COLLAPSED            = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_COLLAPSED, 1)
-EVT_DATAVIEW_ITEM_EXPANDED             = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_EXPANDED, 1)
-EVT_DATAVIEW_ITEM_COLLAPSING           = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_COLLAPSING, 1)
-EVT_DATAVIEW_ITEM_EXPANDING            = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_EXPANDING, 1)
-EVT_DATAVIEW_ITEM_START_EDITING        = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_START_EDITING, 1)
-EVT_DATAVIEW_ITEM_EDITING_STARTED      = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_EDITING_STARTED, 1)
-EVT_DATAVIEW_ITEM_EDITING_DONE         = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_EDITING_DONE, 1)
-EVT_DATAVIEW_ITEM_VALUE_CHANGED        = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_VALUE_CHANGED, 1)
-EVT_DATAVIEW_ITEM_CONTEXT_MENU         = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_CONTEXT_MENU, 1)
-EVT_DATAVIEW_COLUMN_HEADER_CLICK       = wx.PyEventBinder( wxEVT_DATAVIEW_COLUMN_HEADER_CLICK, 1)
-EVT_DATAVIEW_COLUMN_HEADER_RIGHT_CLICK = wx.PyEventBinder( wxEVT_DATAVIEW_COLUMN_HEADER_RIGHT_CLICK, 1)
-EVT_DATAVIEW_COLUMN_SORTED             = wx.PyEventBinder( wxEVT_DATAVIEW_COLUMN_SORTED, 1)
-EVT_DATAVIEW_COLUMN_REORDERED          = wx.PyEventBinder( wxEVT_DATAVIEW_COLUMN_REORDERED, 1)
-EVT_DATAVIEW_ITEM_BEGIN_DRAG           = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_BEGIN_DRAG, 1)
-EVT_DATAVIEW_ITEM_DROP_POSSIBLE        = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_DROP_POSSIBLE, 1)
-EVT_DATAVIEW_ITEM_DROP                 = wx.PyEventBinder( wxEVT_DATAVIEW_ITEM_DROP, 1)
-EVT_DATAVIEW_CACHE_HINT                = wx.PyEventBinder( wxEVT_DATAVIEW_CACHE_HINT, 1 )
+EVT_DATAVIEW_SELECTION_CHANGED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_ACTIVATED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_COLLAPSED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_EXPANDED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_COLLAPSING: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_EXPANDING: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_START_EDITING: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_EDITING_STARTED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_EDITING_DONE: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_VALUE_CHANGED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_CONTEXT_MENU: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_COLUMN_HEADER_CLICK: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_COLUMN_HEADER_RIGHT_CLICK: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_COLUMN_SORTED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_COLUMN_REORDERED: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_BEGIN_DRAG: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_DROP_POSSIBLE: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_ITEM_DROP: wx.PyEventBinder[DataViewEvent]
+EVT_DATAVIEW_CACHE_HINT: wx.PyEventBinder[DataViewEvent]
 
 # deprecated wxEVT aliases
 wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED          = wxEVT_DATAVIEW_SELECTION_CHANGED
@@ -3285,22 +3283,14 @@ wxEVT_COMMAND_DATAVIEW_ITEM_DROP_POSSIBLE         = wxEVT_DATAVIEW_ITEM_DROP_POS
 wxEVT_COMMAND_DATAVIEW_ITEM_DROP                  = wxEVT_DATAVIEW_ITEM_DROP
 #-- end-dataview --#
 #-- begin-treelist --#
-
-class _enum_53(IntEnum):
-    TL_SINGLE = auto()
-    TL_MULTIPLE = auto()
-    TL_CHECKBOX = auto()
-    TL_3STATE = auto()
-    TL_USER_3STATE = auto()
-    TL_NO_HEADER = auto()
-    TL_DEFAULT_STYLE = auto()
-TL_SINGLE = _enum_53.TL_SINGLE
-TL_MULTIPLE = _enum_53.TL_MULTIPLE
-TL_CHECKBOX = _enum_53.TL_CHECKBOX
-TL_3STATE = _enum_53.TL_3STATE
-TL_USER_3STATE = _enum_53.TL_USER_3STATE
-TL_NO_HEADER = _enum_53.TL_NO_HEADER
-TL_DEFAULT_STYLE = _enum_53.TL_DEFAULT_STYLE
+import wx.siplib
+TL_SINGLE: int
+TL_MULTIPLE: int
+TL_CHECKBOX: int
+TL_3STATE: int
+TL_USER_3STATE: int
+TL_NO_HEADER: int
+TL_DEFAULT_STYLE: int
 wxEVT_TREELIST_SELECTION_CHANGED: int
 wxEVT_TREELIST_ITEM_EXPANDING: int
 wxEVT_TREELIST_ITEM_EXPANDED: int
@@ -3309,7 +3299,7 @@ wxEVT_TREELIST_ITEM_ACTIVATED: int
 wxEVT_TREELIST_ITEM_CONTEXT_MENU: int
 wxEVT_TREELIST_COLUMN_SORTED: int
 
-class TreeListItem:
+class TreeListItem(wx.siplib.wrapper):
     """
     TreeListItem() -> None
     
@@ -3345,19 +3335,19 @@ class TreeListItem:
         __hash__() -> int
         """
 
-    def __eq__(self, other: TreeListItem) -> bool:
+    def __eq__(self, other: TreeListItem, /) -> bool:
         """
         __eq__(other) -> bool
         """
 
-    def __ne__(self, other: TreeListItem) -> bool:
+    def __ne__(self, other: TreeListItem, /) -> bool:
         """
         __ne__(other) -> bool
         """
 # end of class TreeListItem
 
 
-class TreeListItemComparator:
+class TreeListItemComparator(wx.siplib.wrapper):
     """
     TreeListItemComparator() -> None
     
@@ -3379,7 +3369,7 @@ class TreeListItemComparator:
         """
 # end of class TreeListItemComparator
 
-TreeListCtrlNameStr: str
+TreeListCtrlNameStr: bytes
 
 class TreeListCtrl(wx.Window):
     """
@@ -3390,7 +3380,7 @@ class TreeListCtrl(wx.Window):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=TL_DEFAULT_STYLE, name: str=TreeListCtrlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=TL_DEFAULT_STYLE, name: str=...) -> None:
         ...
 
     @overload
@@ -3417,7 +3407,7 @@ class TreeListCtrl(wx.Window):
         Sets the image list.
         """
 
-    def AppendColumn(self, title: str, width: int=wx.COL_WIDTH_AUTOSIZE, align: wx.Alignment=wx.ALIGN_LEFT, flags: int=wx.COL_RESIZABLE) -> int:
+    def AppendColumn(self, title: str, width: int=wx.COL_WIDTH_AUTOSIZE, align: Union[wx.Alignment, int]=wx.ALIGN_LEFT, flags: int=wx.COL_RESIZABLE) -> int:
         """
         AppendColumn(title, width=wx.COL_WIDTH_AUTOSIZE, align=wx.ALIGN_LEFT, flags=wx.COL_RESIZABLE) -> int
         
@@ -3466,23 +3456,23 @@ class TreeListCtrl(wx.Window):
         Get the width appropriate for showing the given text.
         """
 
-    def AppendItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: ClientData=nullptr) -> TreeListItem:
+    def AppendItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: Optional[Any]=None) -> TreeListItem:
         """
-        AppendItem(parent, text, imageClosed=-1, imageOpened=-1, data=nullptr) -> TreeListItem
+        AppendItem(parent, text, imageClosed=-1, imageOpened=-1, data=None) -> TreeListItem
         
         Same as InsertItem() with wxTLI_LAST.
         """
 
-    def InsertItem(self, parent: TreeListItem, previous: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: ClientData=nullptr) -> TreeListItem:
+    def InsertItem(self, parent: TreeListItem, previous: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: Optional[Any]=None) -> TreeListItem:
         """
-        InsertItem(parent, previous, text, imageClosed=-1, imageOpened=-1, data=nullptr) -> TreeListItem
+        InsertItem(parent, previous, text, imageClosed=-1, imageOpened=-1, data=None) -> TreeListItem
         
         Insert a new item into the tree.
         """
 
-    def PrependItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: ClientData=nullptr) -> TreeListItem:
+    def PrependItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: Optional[Any]=None) -> TreeListItem:
         """
-        PrependItem(parent, text, imageClosed=-1, imageOpened=-1, data=nullptr) -> TreeListItem
+        PrependItem(parent, text, imageClosed=-1, imageOpened=-1, data=None) -> TreeListItem
         
         Same as InsertItem() with wxTLI_FIRST.
         """
@@ -3570,14 +3560,14 @@ class TreeListCtrl(wx.Window):
         Set the images for the given item.
         """
 
-    def GetItemData(self, item: TreeListItem) -> ClientData:
+    def GetItemData(self, item: TreeListItem) -> Any:
         """
-        GetItemData(item) -> ClientData
+        GetItemData(item) -> Any
         
         Get the data associated with the given item.
         """
 
-    def SetItemData(self, item: TreeListItem, data: ClientData) -> None:
+    def SetItemData(self, item: TreeListItem, data: Any) -> None:
         """
         SetItemData(item, data) -> None
         
@@ -3662,14 +3652,14 @@ class TreeListCtrl(wx.Window):
         Call this to ensure that the given item is visible.
         """
 
-    def CheckItem(self, item: TreeListItem, state: wx.CheckBoxState=wx.CHK_CHECKED) -> None:
+    def CheckItem(self, item: TreeListItem, state: Union[wx.CheckBoxState, int]=wx.CHK_CHECKED) -> None:
         """
         CheckItem(item, state=wx.CHK_CHECKED) -> None
         
         Change the item checked state.
         """
 
-    def CheckItemRecursively(self, item: TreeListItem, state: wx.CheckBoxState=wx.CHK_CHECKED) -> None:
+    def CheckItemRecursively(self, item: TreeListItem, state: Union[wx.CheckBoxState, int]=wx.CHK_CHECKED) -> None:
         """
         CheckItemRecursively(item, state=wx.CHK_CHECKED) -> None
         
@@ -3698,7 +3688,7 @@ class TreeListCtrl(wx.Window):
         Return the checked state of the item.
         """
 
-    def AreAllChildrenInState(self, item: TreeListItem, state: wx.CheckBoxState) -> bool:
+    def AreAllChildrenInState(self, item: TreeListItem, state: Union[wx.CheckBoxState, int]) -> bool:
         """
         AreAllChildrenInState(item, state) -> bool
         
@@ -3741,20 +3731,15 @@ class TreeListCtrl(wx.Window):
         Return the view part of this control as wxDataViewCtrl.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=TL_DEFAULT_STYLE, name: str=TreeListCtrlNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=TL_DEFAULT_STYLE, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=TL_DEFAULT_STYLE, name=TreeListCtrlNameStr) -> bool
         
         Create the control window.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -3771,11 +3756,11 @@ class TreeListCtrl(wx.Window):
     @property
     def Selections(self) -> Any: ...
     @property
-    def SortColumn(self) -> int: ...
+    def View(self) -> wx.Window: ...
+    @property
+    def SortColumn(self) -> Tuple[bool, int, bool]: ...
     @SortColumn.setter
     def SortColumn(self, value: int, /) -> None: ...
-    @property
-    def View(self) -> wx.Window: ...
 # end of class TreeListCtrl
 
 
@@ -3824,13 +3809,13 @@ class TreeListEvent(wx.NotifyEvent):
 TLI_FIRST: TreeListItem
 TLI_LAST: TreeListItem
 
-EVT_TREELIST_SELECTION_CHANGED = wx.PyEventBinder( wxEVT_TREELIST_SELECTION_CHANGED )
-EVT_TREELIST_ITEM_EXPANDING =    wx.PyEventBinder( wxEVT_TREELIST_ITEM_EXPANDING )
-EVT_TREELIST_ITEM_EXPANDED =     wx.PyEventBinder( wxEVT_TREELIST_ITEM_EXPANDED )
-EVT_TREELIST_ITEM_CHECKED =      wx.PyEventBinder( wxEVT_TREELIST_ITEM_CHECKED )
-EVT_TREELIST_ITEM_ACTIVATED =    wx.PyEventBinder( wxEVT_TREELIST_ITEM_ACTIVATED )
-EVT_TREELIST_ITEM_CONTEXT_MENU = wx.PyEventBinder( wxEVT_TREELIST_ITEM_CONTEXT_MENU )
-EVT_TREELIST_COLUMN_SORTED =     wx.PyEventBinder( wxEVT_TREELIST_COLUMN_SORTED )
+EVT_TREELIST_SELECTION_CHANGED: wx.PyEventBinder[Any]
+EVT_TREELIST_ITEM_EXPANDING: wx.PyEventBinder[Any]
+EVT_TREELIST_ITEM_EXPANDED: wx.PyEventBinder[Any]
+EVT_TREELIST_ITEM_CHECKED: wx.PyEventBinder[Any]
+EVT_TREELIST_ITEM_ACTIVATED: wx.PyEventBinder[Any]
+EVT_TREELIST_ITEM_CONTEXT_MENU: wx.PyEventBinder[Any]
+EVT_TREELIST_COLUMN_SORTED: wx.PyEventBinder[Any]
 
 # deprecated wxEVT aliases
 wxEVT_COMMAND_TREELIST_SELECTION_CHANGED  = wxEVT_TREELIST_SELECTION_CHANGED

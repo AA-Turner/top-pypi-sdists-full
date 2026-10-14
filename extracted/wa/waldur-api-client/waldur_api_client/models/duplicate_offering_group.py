@@ -7,6 +7,8 @@ from attrs import field as _attrs_field
 
 if TYPE_CHECKING:
     from ..models.duplicate_offering_candidate import DuplicateOfferingCandidate
+    from ..models.offering_merge_issue import OfferingMergeIssue
+    from ..models.offering_merge_suggested_mapping import OfferingMergeSuggestedMapping
 
 
 T = TypeVar("T", bound="DuplicateOfferingGroup")
@@ -23,6 +25,11 @@ class DuplicateOfferingGroup:
         customer_uuid (Union[None, UUID]):
         offering_type (str):
         recommended_keeper_id (int):
+        keeper_uuid (UUID): The recommended keeper: the target of the merge that resolves the group.
+        duplicate_uuids (list[UUID]): Every other offering of the group: the sources of that merge.
+        suggested_mapping (OfferingMergeSuggestedMapping):
+        blockers (list['OfferingMergeIssue']): What would refuse that merge with the suggested mapping.
+        warnings (list['OfferingMergeIssue']): What that merge would ask staff to acknowledge.
         orphan_count (int):
         candidates (list['DuplicateOfferingCandidate']):
     """
@@ -34,6 +41,11 @@ class DuplicateOfferingGroup:
     customer_uuid: Union[None, UUID]
     offering_type: str
     recommended_keeper_id: int
+    keeper_uuid: UUID
+    duplicate_uuids: list[UUID]
+    suggested_mapping: "OfferingMergeSuggestedMapping"
+    blockers: list["OfferingMergeIssue"]
+    warnings: list["OfferingMergeIssue"]
     orphan_count: int
     candidates: list["DuplicateOfferingCandidate"]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -63,6 +75,25 @@ class DuplicateOfferingGroup:
 
         recommended_keeper_id = self.recommended_keeper_id
 
+        keeper_uuid = str(self.keeper_uuid)
+
+        duplicate_uuids = []
+        for duplicate_uuids_item_data in self.duplicate_uuids:
+            duplicate_uuids_item = str(duplicate_uuids_item_data)
+            duplicate_uuids.append(duplicate_uuids_item)
+
+        suggested_mapping = self.suggested_mapping.to_dict()
+
+        blockers = []
+        for blockers_item_data in self.blockers:
+            blockers_item = blockers_item_data.to_dict()
+            blockers.append(blockers_item)
+
+        warnings = []
+        for warnings_item_data in self.warnings:
+            warnings_item = warnings_item_data.to_dict()
+            warnings.append(warnings_item)
+
         orphan_count = self.orphan_count
 
         candidates = []
@@ -81,6 +112,11 @@ class DuplicateOfferingGroup:
                 "customer_uuid": customer_uuid,
                 "offering_type": offering_type,
                 "recommended_keeper_id": recommended_keeper_id,
+                "keeper_uuid": keeper_uuid,
+                "duplicate_uuids": duplicate_uuids,
+                "suggested_mapping": suggested_mapping,
+                "blockers": blockers,
+                "warnings": warnings,
                 "orphan_count": orphan_count,
                 "candidates": candidates,
             }
@@ -91,6 +127,8 @@ class DuplicateOfferingGroup:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.duplicate_offering_candidate import DuplicateOfferingCandidate
+        from ..models.offering_merge_issue import OfferingMergeIssue
+        from ..models.offering_merge_suggested_mapping import OfferingMergeSuggestedMapping
 
         d = dict(src_dict)
         tenant_id = d.pop("tenant_id")
@@ -143,6 +181,31 @@ class DuplicateOfferingGroup:
 
         recommended_keeper_id = d.pop("recommended_keeper_id")
 
+        keeper_uuid = UUID(d.pop("keeper_uuid"))
+
+        duplicate_uuids = []
+        _duplicate_uuids = d.pop("duplicate_uuids")
+        for duplicate_uuids_item_data in _duplicate_uuids:
+            duplicate_uuids_item = UUID(duplicate_uuids_item_data)
+
+            duplicate_uuids.append(duplicate_uuids_item)
+
+        suggested_mapping = OfferingMergeSuggestedMapping.from_dict(d.pop("suggested_mapping"))
+
+        blockers = []
+        _blockers = d.pop("blockers")
+        for blockers_item_data in _blockers:
+            blockers_item = OfferingMergeIssue.from_dict(blockers_item_data)
+
+            blockers.append(blockers_item)
+
+        warnings = []
+        _warnings = d.pop("warnings")
+        for warnings_item_data in _warnings:
+            warnings_item = OfferingMergeIssue.from_dict(warnings_item_data)
+
+            warnings.append(warnings_item)
+
         orphan_count = d.pop("orphan_count")
 
         candidates = []
@@ -160,6 +223,11 @@ class DuplicateOfferingGroup:
             customer_uuid=customer_uuid,
             offering_type=offering_type,
             recommended_keeper_id=recommended_keeper_id,
+            keeper_uuid=keeper_uuid,
+            duplicate_uuids=duplicate_uuids,
+            suggested_mapping=suggested_mapping,
+            blockers=blockers,
+            warnings=warnings,
             orphan_count=orphan_count,
             candidates=candidates,
         )

@@ -45,8 +45,8 @@ def sync_detailed(
 ) -> Response[ConstanceSettings]:
     """Get all overridable settings
 
-     Returns all settings that can be overridden in the database via the Constance backend. Requires
-    admin permissions.
+     Returns all settings that can be overridden in the database via the Constance backend. Staff receive
+    every value. Support users receive the same keys, with secret_field values blanked.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -71,8 +71,8 @@ def sync(
 ) -> ConstanceSettings:
     """Get all overridable settings
 
-     Returns all settings that can be overridden in the database via the Constance backend. Requires
-    admin permissions.
+     Returns all settings that can be overridden in the database via the Constance backend. Staff receive
+    every value. Support users receive the same keys, with secret_field values blanked.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -93,8 +93,8 @@ async def asyncio_detailed(
 ) -> Response[ConstanceSettings]:
     """Get all overridable settings
 
-     Returns all settings that can be overridden in the database via the Constance backend. Requires
-    admin permissions.
+     Returns all settings that can be overridden in the database via the Constance backend. Staff receive
+    every value. Support users receive the same keys, with secret_field values blanked.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -117,8 +117,8 @@ async def asyncio(
 ) -> ConstanceSettings:
     """Get all overridable settings
 
-     Returns all settings that can be overridden in the database via the Constance backend. Requires
-    admin permissions.
+     Returns all settings that can be overridden in the database via the Constance backend. Staff receive
+    every value. Support users receive the same keys, with secret_field values blanked.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

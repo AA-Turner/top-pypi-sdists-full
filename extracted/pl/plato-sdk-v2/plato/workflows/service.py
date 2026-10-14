@@ -165,6 +165,9 @@ class WorkflowService:
         checkpoint machinery. Called with a label when a workflow reaches a
         terminal status, and passed through to each runtime so phase boundaries
         and merged call results also request prompt journal checkpoints.
+    llm:
+        Optional direct model call for the script ``llm()`` primitive. When
+        omitted, ``llm()`` raises ``WorkflowError``.
     """
 
     def __init__(
@@ -182,6 +185,7 @@ class WorkflowService:
         max_total_calls: int = 1000,
         schema_retries: int = 2,
         checkpoint_requested: Callable[[str], None] | None = None,
+        llm: Callable[..., Awaitable[Any]] | None = None,
     ) -> None:
         if runtime_factory is None and (backend is None or journal_dir is None):
             raise ValueError("WorkflowService requires either runtime_factory or backend + journal_dir")
@@ -194,6 +198,7 @@ class WorkflowService:
         self._max_total_calls = max_total_calls
         self._schema_retries = schema_retries
         self._checkpoint_requested = checkpoint_requested
+        self._llm = llm
         self.token = token
         self.host = host
         self.port = port
@@ -237,6 +242,7 @@ class WorkflowService:
             max_total_calls=self._max_total_calls,
             cancel_event=submission.cancel_event,
             checkpoint_requested=self._checkpoint_requested,
+            llm=self._llm,
         )
         return WorkflowExecution(runtime=runtime, journal=journal, budget=budget, events_path=journal.path)
 

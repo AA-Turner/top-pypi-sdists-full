@@ -7,14 +7,30 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class BatchProgress(UniversalBaseModel):
-    canceled_items: typing.Optional[int] = None
-    failed_items: typing.Optional[int] = None
-    percent_complete: typing.Optional[float] = None
-    processing_items: typing.Optional[int] = None
-    queued_items: typing.Optional[int] = None
-    skipped_items: typing.Optional[int] = None
-    succeeded_items: typing.Optional[int] = None
-    total_items: typing.Optional[int] = None
+    failed_items: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The number of items that failed.
+    """
+
+    processing_items: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The number of items that are in processing now.
+    """
+
+    stage: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The processing stage that the batch is in.
+    """
+
+    succeeded_items: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The number of items that were processed successfully.
+    """
+
+    total_items: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The number of items in the batch.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

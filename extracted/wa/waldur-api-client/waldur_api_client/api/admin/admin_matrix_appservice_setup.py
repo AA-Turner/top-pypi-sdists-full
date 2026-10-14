@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Union
+from typing import Any, Union, cast
 
 import httpx
 
@@ -31,19 +31,22 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> MatrixAppserviceSetupResponse:
+) -> Union[Any, MatrixAppserviceSetupResponse]:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
     if response.status_code == 200:
         response_200 = MatrixAppserviceSetupResponse.from_dict(response.json())
 
         return response_200
+    if response.status_code == 409:
+        response_409 = cast(Any, None)
+        return response_409
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
 
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[MatrixAppserviceSetupResponse]:
+) -> Response[Union[Any, MatrixAppserviceSetupResponse]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -56,11 +59,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     body: MatrixAppserviceSetupRequest,
-) -> Response[MatrixAppserviceSetupResponse]:
+) -> Response[Union[Any, MatrixAppserviceSetupResponse]]:
     """Setup Matrix appservice registration
 
      Generates fresh appservice tokens (rotating any existing ones), enables the appservice, and returns
-    registration YAML.
+    registration YAML. Returns 409 when the deployment owns the tokens; see MATRIX_TOKENS_MANAGED_BY.
 
     Args:
         body (MatrixAppserviceSetupRequest):
@@ -70,7 +73,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[MatrixAppserviceSetupResponse]
+        Response[Union[Any, MatrixAppserviceSetupResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -88,11 +91,11 @@ def sync(
     *,
     client: AuthenticatedClient,
     body: MatrixAppserviceSetupRequest,
-) -> MatrixAppserviceSetupResponse:
+) -> Union[Any, MatrixAppserviceSetupResponse]:
     """Setup Matrix appservice registration
 
      Generates fresh appservice tokens (rotating any existing ones), enables the appservice, and returns
-    registration YAML.
+    registration YAML. Returns 409 when the deployment owns the tokens; see MATRIX_TOKENS_MANAGED_BY.
 
     Args:
         body (MatrixAppserviceSetupRequest):
@@ -102,7 +105,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        MatrixAppserviceSetupResponse
+        Union[Any, MatrixAppserviceSetupResponse]
     """
 
     return sync_detailed(
@@ -115,11 +118,11 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     body: MatrixAppserviceSetupRequest,
-) -> Response[MatrixAppserviceSetupResponse]:
+) -> Response[Union[Any, MatrixAppserviceSetupResponse]]:
     """Setup Matrix appservice registration
 
      Generates fresh appservice tokens (rotating any existing ones), enables the appservice, and returns
-    registration YAML.
+    registration YAML. Returns 409 when the deployment owns the tokens; see MATRIX_TOKENS_MANAGED_BY.
 
     Args:
         body (MatrixAppserviceSetupRequest):
@@ -129,7 +132,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[MatrixAppserviceSetupResponse]
+        Response[Union[Any, MatrixAppserviceSetupResponse]]
     """
 
     kwargs = _get_kwargs(
@@ -145,11 +148,11 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     body: MatrixAppserviceSetupRequest,
-) -> MatrixAppserviceSetupResponse:
+) -> Union[Any, MatrixAppserviceSetupResponse]:
     """Setup Matrix appservice registration
 
      Generates fresh appservice tokens (rotating any existing ones), enables the appservice, and returns
-    registration YAML.
+    registration YAML. Returns 409 when the deployment owns the tokens; see MATRIX_TOKENS_MANAGED_BY.
 
     Args:
         body (MatrixAppserviceSetupRequest):
@@ -159,7 +162,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        MatrixAppserviceSetupResponse
+        Union[Any, MatrixAppserviceSetupResponse]
     """
 
     return (

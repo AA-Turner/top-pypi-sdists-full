@@ -34,6 +34,12 @@ MAIN_STREAM = "main"
 #: has no source.
 READER_SOURCE = "reader"
 READER_STREAM = "reader"
+#: A request the main agent sent the daemon's WRITER (`probe ask --writer`),
+#: read from the mailbox's `requests/` folder: a META event on its own stream,
+#: with this source and this `tool`, shown whole.
+REQUEST_STREAM = "request"
+REQUEST_SOURCE = "request"
+REQUEST_TOOL = "probe-request"
 
 
 @dataclass
@@ -53,7 +59,7 @@ class Event:
     cwd: str | None = None
     #: A daemon tag the model sees with the event (`.probe.config` `read`).
     note: str | None = None
-    #: Who made it, when not the harness: `READER_SOURCE`.
+    #: Who made it, when not the harness: `READER_SOURCE`, `REQUEST_SOURCE`.
     source: str | None = None
 
     @property

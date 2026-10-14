@@ -58,6 +58,7 @@ from tinker.lib.public_interfaces.training_client import (
 import fireworks.training.sdk.patches  # noqa: F401  (applies LoraConfig.alpha + others)
 from fireworks.training.sdk._comms import Comms, comms_context
 from fireworks.training.sdk.routing import RoutingReferences, RoutingMatrixFormat
+from fireworks.training.sdk.decision import SamplerCheckpointMetadata
 from fireworks.training.sdk._constants import (
     CLEANUP_DEPLOYMENT_ON_CLOSE_DELETE,
     CLEANUP_DEPLOYMENT_ON_CLOSE_SCALE_TO_ZERO,
@@ -128,6 +129,7 @@ class _CreateModelResponse(types.CreateModelResponse):
     supports_router_replay: bool | None = None
     supports_target_logprob_support: bool | None = None
     supports_rdma_weight_sync: bool = False
+    rdma_weight_sync_enabled: bool | None = None
     model_config = {"protected_namespaces": ()}
 
     @field_validator("comms", mode="before")
@@ -141,7 +143,7 @@ class _CreateModelResponse(types.CreateModelResponse):
     def _known_routing_matrix_format(cls, value):
         return "parquet_v1" if value == "parquet_v1" else "base64_inline"
 
-    @field_validator("supports_router_replay", "supports_target_logprob_support", mode="before")
+    @field_validator("supports_router_replay", "supports_target_logprob_support", "rdma_weight_sync_enabled", mode="before")
     @classmethod
     def _known_router_replay_capability(cls, value: Any) -> bool | None:
         # Only a real bool is a decision; anything else is "unknown" so the
@@ -1581,11 +1583,13 @@ def _target_logprob_support(loss_fn_config: dict[str, float | str | bool] | None
         if old_key in config:
             raise ValueError(
                 f"loss_fn_config.{old_key} is unsupported; use loss_fn_config.target_logprob_support "
-                "with 'full_vocabulary' or 'sampling_support'"
+                "with 'full_vocabulary', 'sampling_support' or 'candidates'"
             )
     support = config.get("target_logprob_support", "full_vocabulary")
-    if not isinstance(support, str) or support not in ("full_vocabulary", "sampling_support"):
-        raise ValueError("loss_fn_config.target_logprob_support must be 'full_vocabulary' or 'sampling_support'")
+    if not isinstance(support, str) or support not in ("full_vocabulary", "sampling_support", "candidates"):
+        raise ValueError(
+            "loss_fn_config.target_logprob_support must be 'full_vocabulary', 'sampling_support' or 'candidates'"
+        )
     return support
 
 
@@ -1638,6 +1642,7 @@ class FiretitanTrainingClient(TrainingClient):
         supports_router_replay: bool | None = None,
         supports_target_logprob_support: bool | None = None,
         supports_rdma_weight_sync: bool = False,
+        rdma_weight_sync_enabled: bool | None = None,
     ):
         if comms not in ("v1", "v2"):
             raise ValueError("comms must be 'v1' or 'v2'")
@@ -1653,6 +1658,7 @@ class FiretitanTrainingClient(TrainingClient):
         self.supports_router_replay = supports_router_replay if isinstance(supports_router_replay, bool) else None
         self.supports_target_logprob_support = supports_target_logprob_support is True
         self._trainer_supports_rdma_weight_sync = supports_rdma_weight_sync is True
+        self._trainer_rdma_weight_sync_enabled = rdma_weight_sync_enabled
         super().__init__(holder=holder, model_seq_id=model_seq_id, model_id=model_id)
         # Full CP resource name of the serverless training run this model is, i.e.
         # accounts/<a>/trainingRuns/<run_id>. ``run_id`` is exposed as a property
@@ -1700,28 +1706,45 @@ class FiretitanTrainingClient(TrainingClient):
         backend = self._require_sampler_backend()
         sampler = backend.sampler if isinstance(backend, _RdmaSamplerBackend) else backend
         self._rdma_weight_sync_available = False
+        trainer_support = self._trainer_supports_rdma_weight_sync
+        trainer_enabled = self._trainer_rdma_weight_sync_enabled
+        required = trainer_enabled is True or trainer_support or isinstance(backend, _RdmaSamplerBackend)
+        if not isinstance(sampler, _TinkerSamplerBackend):
+            if required:
+                raise RuntimeError("RDMA weight sync is enabled but the sampler backend does not support RDMA")
+            return sampler
+        eligible = sampler.allow_rdma and self._lora_rank == 0 and self.run_name is None and not sampler.cmek_resource
+        if not eligible and not required:
+            # Legacy LoRA/session deployments need not expose base-model hotload
+            # status. The rollout enforces its flag at FILE publication as well.
+            return sampler
+        state = sampler.deploy_mgr.hotload_check_status(sampler.deployment_id, sampler.base_model)
+        replicas = state.get("replicas", [])
+        receiver_support = [replica.get("supports_rdma_weight_sync") is True for replica in replicas]
+        receiver_enabled = [replica.get("rdma_weight_sync_enabled") for replica in replicas]
+        required = required or any(receiver_support) or any(flag is True for flag in receiver_enabled)
+        if not required:
+            # Both sides disabled, or legacy FILE runtimes with no RDMA advertisement.
+            return sampler
         if (
-            isinstance(sampler, _TinkerSamplerBackend)
-            and sampler.allow_rdma
-            and getattr(self, "_trainer_supports_rdma_weight_sync", False) is True
-            and self._lora_rank == 0
-            and self.run_name is None
-            and not sampler.cmek_resource
+            trainer_enabled is False
+            or not trainer_support
+            or not receiver_support
+            or not all(receiver_support)
+            or any(flag is False for flag in receiver_enabled)
         ):
-            state = sampler.deploy_mgr.hotload_check_status(sampler.deployment_id, sampler.base_model)
-            replicas = state.get("replicas", [])
-            # The existing shard fan-out merges ledgers without a shared tip
-            # and drops RDMA publication/completion bodies. Its status response
-            # identifies that path even when only one shard answered. Keep it
-            # on the supported FILE protocol without changing the gateway.
-            if "replica_distribution" in state:
-                return sampler
-            if replicas and all(replica.get("supports_rdma_weight_sync") is True for replica in replicas):
-                if not isinstance(backend, _RdmaSamplerBackend):
-                    backend = self._sampler_backend = _RdmaSamplerBackend(sampler)
-                self._rdma_weight_sync_available = True
-                return backend
-        return sampler
+            raise RuntimeError(
+                "RDMA weight sync is enabled but trainer and rollout replicas do not all support it; "
+                "check both RDMA flags and startup checks. FILE fallback is not allowed."
+            )
+        if not eligible or "replica_distribution" in state:
+            raise RuntimeError(
+                "RDMA weight sync is enabled but this configuration cannot use RDMA; FILE fallback is not allowed"
+            )
+        if not isinstance(backend, _RdmaSamplerBackend):
+            backend = self._sampler_backend = _RdmaSamplerBackend(sampler)
+        self._rdma_weight_sync_available = True
+        return backend
 
     @property
     def supports_rdma_weight_sync(self) -> bool:
@@ -1905,8 +1928,9 @@ class FiretitanTrainingClient(TrainingClient):
         loss_fn_config: dict[str, float | str | bool] | None = None,
     ) -> APIFuture[types.ForwardBackwardOutput]:
         """Compute a forward pass, using Fireworks' JSON path with parallel chunks."""
-        if _target_logprob_support(loss_fn_config) == "sampling_support":
-            raise ValueError("target_logprob_support='sampling_support' requires forward_backward, not forward")
+        support = _target_logprob_support(loss_fn_config)
+        if support != "full_vocabulary":
+            raise ValueError(f"target_logprob_support='{support}' requires forward_backward, not forward")
         holder = getattr(self, "holder", None)
         client_config = getattr(holder, "_client_config", None)
         if getattr(client_config, "fwd_via_fwdbwd", False) and getattr(
@@ -2695,13 +2719,13 @@ class FiretitanTrainingClient(TrainingClient):
         return _validate_checkpoint_ref(checkpoint_name)
 
     def weight_sync(self) -> APIFuture[WeightSyncResponse]:
-        """Sync weights using RDMA when both runtimes support it, otherwise save/hotload.
+        """Sync weights using the configured transport; enabled RDMA never falls back to FILE.
 
         Rechecks inference support before each publication without reconnecting.
         The pending future includes negotiation, publication and rollout activation,
         ordered with training operations. FILE results have optimizer_version=None
-        because legacy sampler saves do not report it. Errors after an RDMA
-        publication is accepted are surfaced without an unsafe FILE retry.
+        because legacy sampler saves do not report it. RDMA negotiation, API, and
+        publication errors are surfaced without a FILE retry.
 
         Save resumable checkpoints separately with ``save_state()``.
         """
@@ -2729,11 +2753,10 @@ class FiretitanTrainingClient(TrainingClient):
                     except APIStatusError as exc:
                         if exc.status_code not in (404, 405):
                             raise
-                        # An older trainer has no operation at this route: no
-                        # publication was accepted and the same seq_id is safe.
-                        self._trainer_supports_rdma_weight_sync = False
-                        self._rdma_weight_sync_available = False
-                        backend = backend.sampler
+                        raise RuntimeError(
+                            "RDMA weight sync was selected but the trainer RDMA API is unavailable (404/405); "
+                            "use a compatible trainer image. FILE fallback is not allowed."
+                        ) from exc
 
                 if not isinstance(backend, _RdmaSamplerBackend):
                     saved = await self._save_sampler_snapshot(
@@ -2769,6 +2792,7 @@ class FiretitanTrainingClient(TrainingClient):
         checkpoint_type: str | None = None,
         ttl_seconds: int | None = None,
         export_precision: ExportPrecision | None = None,
+        metadata: SamplerCheckpointMetadata | None = None,
     ) -> SaveSamplerResult:
         """save_weights_for_sampler with checkpoint_type and session_id suffixing.
 
@@ -2799,6 +2823,9 @@ class FiretitanTrainingClient(TrainingClient):
         match the model architecture or downstream serving precision; validate
         serving load and inference before promotion.
 
+        ``metadata.decision_calibration`` carries held-out decision temperatures into the
+        checkpoint's ``decision.json``.
+
         Returns:
             :class:`SaveSamplerResult` with the trainer-returned public sampler
             identity in ``path`` and the requested snapshot name in
@@ -2820,6 +2847,7 @@ class FiretitanTrainingClient(TrainingClient):
                 resolved_export_precision=resolved_export_precision,
                 ttl_seconds=ttl_seconds,
                 request_id=request_id,
+                metadata=metadata,
             )
         ).result()
 
@@ -2832,11 +2860,14 @@ class FiretitanTrainingClient(TrainingClient):
         ttl_seconds: int | None = None,
         request_id: int,
         take_turn: bool = True,
+        metadata: SamplerCheckpointMetadata | None = None,
     ) -> SaveSamplerResult:
         """Shared sampler save and bookkeeping for explicit saves and weight_sync."""
         extra_body: dict[str, Any] = {"checkpoint_type": resolved_checkpoint_type}
         if resolved_export_precision is not None:
             extra_body["export_precision"] = resolved_export_precision
+        if metadata is not None:
+            extra_body["metadata"] = metadata.model_dump(mode="json")
         request = types.SaveWeightsForSamplerRequest(
             model_id=self._guaranteed_model_id(),
             path=actual_name,
@@ -2905,6 +2936,7 @@ class FiretitanTrainingClient(TrainingClient):
         *,
         checkpoint_type: str | None = None,
         export_precision: ExportPrecision | None = None,
+        metadata: SamplerCheckpointMetadata | None = None,
     ) -> APIFuture[types.SaveWeightsForSamplerResponse]:
         """Save sampler weights and return a FireTitan snapshot identity.
 
@@ -2927,6 +2959,8 @@ class FiretitanTrainingClient(TrainingClient):
         }
         if export_precision is not None:
             save_kwargs["export_precision"] = export_precision
+        if metadata is not None:
+            save_kwargs["metadata"] = metadata
         result = self.save_weights_for_sampler_ext(name, **save_kwargs)
         return _ImmediateAPIFuture(types.SaveWeightsForSamplerResponse(path=result.path))
 
@@ -2937,6 +2971,7 @@ class FiretitanTrainingClient(TrainingClient):
         *,
         checkpoint_type: str | None = None,
         export_precision: ExportPrecision | None = None,
+        metadata: SamplerCheckpointMetadata | None = None,
     ) -> APIFuture[types.SaveWeightsForSamplerResponse]:
         save_kwargs: dict[str, Any] = {
             "ttl_seconds": ttl_seconds,
@@ -2944,6 +2979,8 @@ class FiretitanTrainingClient(TrainingClient):
         }
         if export_precision is not None:
             save_kwargs["export_precision"] = export_precision
+        if metadata is not None:
+            save_kwargs["metadata"] = metadata
         return await asyncio.to_thread(self.save_weights_for_sampler, name, **save_kwargs)
 
     def create_sampling_client(
@@ -3318,7 +3355,11 @@ class FiretitanServiceClient(ServiceClient):
                 from fireworks.training.sdk.fireworks_client import FireworksClient
 
                 base_url = _fireworks_api_root_url(getattr(self, "_managed_base_url", None))
-                account = FireworksClient(api_key=api_key, base_url=base_url).account_id
+                account = FireworksClient(
+                    api_key=api_key,
+                    base_url=base_url,
+                    additional_headers=getattr(self, "_managed_additional_headers", None),
+                ).account_id
             except Exception:
                 account = None
         self._cp_account_id = account
@@ -3925,6 +3966,7 @@ class FiretitanServiceClient(ServiceClient):
             supports_router_replay=getattr(response, "supports_router_replay", None),
             supports_target_logprob_support=getattr(response, "supports_target_logprob_support", None),
             supports_rdma_weight_sync=response.supports_rdma_weight_sync,
+            rdma_weight_sync_enabled=response.rdma_weight_sync_enabled,
         )
         self._training_clients.append(training_client)
         return training_client

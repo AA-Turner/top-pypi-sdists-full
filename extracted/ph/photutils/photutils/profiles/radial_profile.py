@@ -4,26 +4,28 @@ Tools for generating radial profiles.
 """
 
 import warnings
+from functools import cached_property
 
 import numpy as np
 from astropy.modeling.fitting import TRFLSQFitter
 from astropy.modeling.models import Gaussian1D, Moffat1D
 from astropy.stats import gaussian_sigma_to_fwhm
-from astropy.utils import lazyproperty
 from astropy.utils.exceptions import AstropyUserWarning
 
+from photutils.aperture.core import _update_method_subpixels_docstring
 from photutils.profiles.core import ProfileBase
 
 __all__ = ['RadialProfile']
 
 
+@_update_method_subpixels_docstring
 class RadialProfile(ProfileBase):
     """
     Class to create a radial profile using concentric circular annulus
     apertures.
 
     The radial profile represents the azimuthally-averaged flux in
-    circular annuli apertures as a function of radius.
+    circular annulus apertures as a function of radius.
 
     For this class, the input radii represent the edges of the radial
     bins. This differs from the `CurveOfGrowth` class, where the input
@@ -34,62 +36,55 @@ class RadialProfile(ProfileBase):
 
     Parameters
     ----------
-    data : 2D `~numpy.ndarray`
+    data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
         The 2D data array. The data should be background-subtracted.
-        Non-finite values (e.g., NaN or inf) in the ``data`` or
+        Nonfinite values (e.g., NaN or inf) in the ``data`` or
         ``error`` array are automatically masked.
 
     xycen : tuple of 2 floats
         The ``(x, y)`` pixel coordinate of the source center.
 
-    radii : 1D float `~numpy.ndarray`
+    radii : 1D array_like of float
         An array of radii defining the *edges* of the radial bins.
         ``radii`` must be strictly increasing with a minimum value
         greater than or equal to zero, and contain at least 2 values.
-        The radial spacing does not need to be constant. The output
-        `radius` attribute will be defined at the bin centers.
+        The radial spacing does not need to be constant. ``radii`` must
+        be in pixels and cannot be a `~astropy.units.Quantity`. The
+        output `radius` attribute will be defined at the bin centers.
 
-    error : 2D `~numpy.ndarray`, optional
+    error : 2D `~numpy.ndarray` or `~astropy.units.Quantity`, optional
         The 1-sigma errors of the input ``data``. ``error`` is assumed
         to include all sources of error, including the Poisson error of
         the sources (see `~photutils.utils.calc_total_error`). ``error``
-        must have the same shape as the input ``data``. Non-finite
-        values (e.g., NaN or inf) in the ``data`` or ``error`` array are
-        automatically masked.
+        must have the same shape as the input ``data``. If ``data`` is a
+        `~astropy.units.Quantity`, then ``error`` must have the same
+        units. Nonfinite values (e.g., NaN or inf) in the ``data`` or
+        ``error`` array are automatically masked.
 
     mask : 2D bool `~numpy.ndarray`, optional
         A boolean mask with the same shape as ``data`` where a `True`
         value indicates the corresponding element of ``data`` is masked.
         Masked data are excluded from all calculations.
 
-    method : {'exact', 'center', 'subpixel'}, optional
-        The method used to determine the overlap of the aperture on the
-        pixel grid:
+    <method_subpixels_descriptions>
 
-        * ``'exact'`` (default):
-          The exact fractional overlap of the aperture and each pixel is
-          calculated. The aperture weights will contain values between 0
-          and 1.
+    Raises
+    ------
+    TypeError
+        If ``radii`` is a `~astropy.units.Quantity`.
 
-        * ``'center'``:
-          A pixel is considered to be entirely in or out of the aperture
-          depending on whether its center is in or out of the aperture.
-          The aperture weights will contain values only of 0 (out) and 1
-          (in).
+    ValueError
+        If ``data`` is not a 2D array, if ``radii`` is not a 1D array
+        with at least two values, has a negative value, or is not
+        strictly increasing, if ``error`` or ``mask`` does not have the
+        same shape as ``data``, if ``data`` and ``error`` do not have
+        the same units, or if ``method`` or ``subpixels`` is invalid.
 
-        * ``'subpixel'``:
-          A pixel is divided into subpixels (see the ``subpixels``
-          keyword), each of which are considered to be entirely in or
-          out of the aperture depending on whether its center is in
-          or out of the aperture. If ``subpixels=1``, this method is
-          equivalent to ``'center'``. The aperture weights will contain
-          values between 0 and 1.
-
-    subpixels : int, optional
-        For the ``'subpixel'`` method, resample pixels by this factor
-        in each dimension. That is, each pixel is divided into
-        ``subpixels**2`` subpixels. This keyword is ignored unless
-        ``method='subpixel'``.
+    Warns
+    -----
+    `~astropy.utils.exceptions.AstropyUserWarning`
+        If the ``data`` or ``error`` array contains nonfinite values
+        that are not already masked by ``mask``.
 
     See Also
     --------
@@ -100,6 +95,9 @@ class RadialProfile(ProfileBase):
     If the minimum of ``radii`` is zero, then a circular aperture
     with radius equal to ``radii[1]`` will be used for the innermost
     aperture.
+
+    A radial bin whose pixels are all masked has zero unmasked area,
+    and its profile and profile error values are NaN.
 
     Examples
     --------
@@ -126,11 +124,11 @@ class RadialProfile(ProfileBase):
     >>> edge_radii = np.arange(25)
     >>> rp = RadialProfile(data, xycen, edge_radii, error=error)
 
-    >>> print(rp.radius)  # doctest: +FLOAT_CMP
+    >>> print(rp.radius)
     [ 0.5  1.5  2.5  3.5  4.5  5.5  6.5  7.5  8.5  9.5 10.5 11.5 12.5 13.5
      14.5 15.5 16.5 17.5 18.5 19.5 20.5 21.5 22.5 23.5]
 
-    >>> print(rp.profile)  # doctest: +FLOAT_CMP
+    >>> print(rp.profile)
     [ 4.30187860e+01  4.02502046e+01  3.57758011e+01  3.16071235e+01
       2.61511082e+01  2.10539746e+01  1.63701300e+01  1.16674718e+01
       8.12828014e+00  5.78962699e+00  3.59342666e+00  2.35353336e+00
@@ -138,11 +136,11 @@ class RadialProfile(ProfileBase):
       5.11484374e-02 -9.82041768e-02  2.37482124e-02 -3.66602855e-02
       6.84802299e-02  1.72239596e-01 -3.86056497e-02  7.30423743e-02]
 
-    >>> print(rp.profile_error)  # doctest: +FLOAT_CMP
-    [1.18479813 0.68404352 0.52985783 0.4478116  0.39493271 0.35723008
-     0.32860388 0.30591356 0.28735575 0.27181133 0.25854415 0.24704749
-     0.23695963 0.22801451 0.22001149 0.21279603 0.20624688 0.20026744
-     0.19477961 0.18971954 0.18503438 0.18068002 0.17661928 0.17282057]
+    >>> print(rp.profile_error)
+    [0.9901437  0.64531698 0.51234751 0.43720335 0.38782635 0.35176132
+     0.32440232 0.3025968  0.28456077 0.26947982 0.25644723 0.24531375
+     0.23540592 0.2266079  0.21875692 0.21164247 0.20525699 0.19930521
+     0.19389598 0.18892207 0.18429087 0.1800127  0.17593986 0.17221504]
 
     Plot the radial profile, including the raw data profile.
 
@@ -169,7 +167,7 @@ class RadialProfile(ProfileBase):
         xycen = centroid_2dg(data)
 
         # Create the radial profile
-        edge_radii = np.arange(26)
+        edge_radii = np.arange(25)
         rp = RadialProfile(data, xycen, edge_radii, error=error)
 
         # Plot the radial profile
@@ -203,7 +201,7 @@ class RadialProfile(ProfileBase):
         xycen = centroid_2dg(data)
 
         # Create the radial profile
-        edge_radii = np.arange(26)
+        edge_radii = np.arange(25)
         rp = RadialProfile(data, xycen, edge_radii, error=error)
 
         # Plot the radial profile
@@ -238,7 +236,7 @@ class RadialProfile(ProfileBase):
         xycen = centroid_2dg(data)
 
         # Create the radial profile
-        edge_radii = np.arange(26)
+        edge_radii = np.arange(25)
         rp = RadialProfile(data, xycen, edge_radii, error=error)
 
         norm = simple_norm(data, 'sqrt')
@@ -251,14 +249,14 @@ class RadialProfile(ProfileBase):
     Fit 1D Gaussian and Moffat models to the normalized radial profile.
 
     >>> rp.normalize()
-    >>> rp.gaussian_fit  # doctest: +FLOAT_CMP
-    <Gaussian1D(amplitude=0.98231088, mean=0., stddev=4.67512776)>
-    >>> rp.moffat_fit  # doctest: +ELLIPSIS
+    >>> rp.gaussian_fit
+    <Gaussian1D(amplitude=0.98231087, mean=0., stddev=4.67512787)>
+    >>> rp.moffat_fit
     <Moffat1D(amplitude=..., x_0=0., gamma=..., alpha=...)>
-    >>> print(rp.gaussian_fwhm)  # doctest: +FLOAT_CMP
-    11.009084813327846
-    >>> print(rp.moffat_fwhm)  # doctest: +FLOAT_CMP
-    10.868426507928344
+    >>> print(rp.gaussian_fwhm)
+    11.009084813327853
+    >>> print(rp.moffat_fwhm)
+    10.868426520785151
 
     Plot the fitted 1D Gaussian and Moffat models on the radial profile.
 
@@ -285,7 +283,7 @@ class RadialProfile(ProfileBase):
         xycen = centroid_2dg(data)
 
         # Create the radial profile
-        edge_radii = np.arange(26)
+        edge_radii = np.arange(25)
         rp = RadialProfile(data, xycen, edge_radii, error=error)
 
         # Plot the radial profile
@@ -301,30 +299,23 @@ class RadialProfile(ProfileBase):
     # Define y-axis label used by `~photutils.profiles.ProfileBase.plot`
     _ylabel = 'Radial Profile'
 
-    # Define the fit properties that should be invalidated when the
-    # profile normalization is changed, so they are always consistent
-    # with the current profile.
-    _fit_properties = ('_profile_nanmask', 'gaussian_fit',
-                       'gaussian_profile', 'gaussian_fwhm', 'moffat_fit',
-                       'moffat_profile', 'moffat_fwhm')
-
-    @lazyproperty
+    @cached_property
     def radius(self):
         """
         The profile radius (bin centers) in pixels as a 1D
         `~numpy.ndarray`.
 
         The returned radius values are defined as the arithmetic means
-        of the input radial-bins edges (``radii``).
+        of the input radial-bin edges (``radii``).
 
         For logarithmically-spaced input ``radii``, one could instead
         use a radius array defined using the geometric mean of the bin
-        edges, i.e. ``np.sqrt(radii[:-1] * radii[1:])``.
+        edges, i.e., ``np.sqrt(radii[:-1] * radii[1:])``.
         """
         # Define the radial bin centers from the radial bin edges
         return (self.radii[:-1] + self.radii[1:]) / 2
 
-    @lazyproperty
+    @cached_property
     def apertures(self):
         """
         A list of the circular annulus apertures used to measure the
@@ -350,21 +341,22 @@ class RadialProfile(ProfileBase):
 
         return apertures
 
-    @lazyproperty
+    @cached_property
     def _flux(self):
         """
-        The flux in a circular annulus.
+        The flux in each circular annulus (or aperture) as a 1D array.
         """
         return np.diff(self._photometry[0])
 
-    @lazyproperty
+    @cached_property
     def _flux_err(self):
         """
-        The flux error in a circular annulus.
+        The flux error in each circular annulus (or aperture) as a 1D
+        array.
         """
         return np.sqrt(np.diff(self._photometry[1] ** 2))
 
-    @lazyproperty
+    @cached_property
     def area(self):
         """
         The unmasked area in each circular annulus (or aperture) as a
@@ -372,20 +364,23 @@ class RadialProfile(ProfileBase):
         """
         return np.diff(self._photometry[2])
 
-    @lazyproperty
-    def profile(self):
+    @cached_property
+    def _raw_profile(self):
         """
-        The radial profile as a 1D `~numpy.ndarray`.
+        The raw (unnormalized) radial profile as a 1D `~numpy.ndarray`,
+        or a `~astropy.units.Quantity` if the input ``data`` has units.
         """
         # Ignore divide-by-zero RuntimeWarning
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             return self._flux / self.area
 
-    @lazyproperty
-    def profile_error(self):
+    @cached_property
+    def _raw_profile_error(self):
         """
-        The radial profile errors as a 1D `~numpy.ndarray`.
+        The raw (unnormalized) radial profile errors as a 1D
+        `~numpy.ndarray`, or a `~astropy.units.Quantity` if the input
+        ``data`` has units.
 
         If no ``error`` array was provided, an empty array with shape
         ``(0,)`` is returned.
@@ -398,33 +393,42 @@ class RadialProfile(ProfileBase):
             warnings.simplefilter('ignore', RuntimeWarning)
             return self._flux_err / self.area
 
-    @lazyproperty
+    @cached_property
     def _profile_nanmask(self):
-        return np.isfinite(self.profile)
+        return np.isfinite(self._raw_profile)
 
-    @lazyproperty
-    def gaussian_fit(self):
+    def _normalize_fit(self, raw_fit):
         """
-        The fitted 1D Gaussian to the radial profile as a
-        `~astropy.modeling.functional_models.Gaussian1D` model.
+        Return a copy of a raw fit with its amplitude divided by the
+        current profile normalization.
+        """
+        fit = raw_fit.copy()
+        # The amplitude has units if the input data has units
+        amplitude = raw_fit.amplitude.quantity
+        if amplitude is None:
+            amplitude = raw_fit.amplitude.value
+        fit.amplitude = amplitude / self.normalization_value
+        return fit
 
-        The cached fit is automatically invalidated when the profile
-        normalization is changed, so the fit is always consistent with
-        the current profile.
+    @cached_property
+    def _raw_gaussian_fit(self):
         """
-        profile = self.profile[self._profile_nanmask]
+        The 1D Gaussian fitted to the raw (unnormalized) radial profile,
+        or `None` if the profile is entirely nonfinite or masked.
+        """
+        profile = self._raw_profile[self._profile_nanmask]
         radius = self.radius[self._profile_nanmask]
 
         if len(profile) == 0:
-            msg = ('The radial profile is entirely non-finite or masked; '
-                   'cannot fit a Gaussian.')
+            msg = ('The radial profile is entirely nonfinite or masked. '
+                   'Cannot fit a Gaussian.')
             warnings.warn(msg, AstropyUserWarning)
             return None
 
         amplitude = np.max(profile)
         sum_profile = np.sum(profile)
         if sum_profile == 0:
-            msg = ('The profile sum is zero; the Gaussian fit initial '
+            msg = ('The profile sum is zero, so the Gaussian fit initial '
                    'guess may be inaccurate.')
             warnings.warn(msg, AstropyUserWarning)
             std = 1.0  # fallback to avoid zero initial guess
@@ -437,67 +441,103 @@ class RadialProfile(ProfileBase):
         gaussian_fit = fitter(g_init, radius, profile)
 
         if radius.min() > 0.3 * gaussian_fit.stddev.value:
-            msg = ('Gaussian fit may be unreliable because the input '
-                   'radii do not extend close to the source center.')
+            msg = ('Gaussian fit may be unreliable because the smallest '
+                   'radius with a finite profile value is larger than '
+                   '0.3 times the fitted standard deviation.')
             warnings.warn(msg, AstropyUserWarning)
 
         return gaussian_fit
 
-    @lazyproperty
+    @property
+    def gaussian_fit(self):
+        """
+        The fitted 1D Gaussian to the radial profile as a
+        `~astropy.modeling.functional_models.Gaussian1D` model.
+
+        The model amplitude reflects the current profile normalization
+        (the Gaussian amplitude scales linearly with the profile
+        values). The mean and standard deviation are independent of the
+        normalization.
+
+        The fit uses only the finite profile values, and the Gaussian
+        mean is fixed at zero (the source center).
+
+        Returns `None` if the profile is entirely nonfinite or masked.
+
+        Warns
+        -----
+        `~astropy.utils.exceptions.AstropyUserWarning`
+            If the profile is entirely nonfinite or masked, if the sum
+            of the profile is zero, or if the smallest bin center with a
+            finite profile value is larger than 0.3 times the fitted
+            standard deviation (e.g., the input radii do not extend
+            close to the source center or the inner bins are masked).
+            The fitter can also emit its own warning if the fit may not
+            have converged.
+        """
+        raw_fit = self._raw_gaussian_fit
+        if raw_fit is None:
+            return None
+        return self._normalize_fit(raw_fit)
+
+    @property
     def gaussian_profile(self):
         """
         The fitted 1D Gaussian profile to the radial profile as a 1D
-        `~numpy.ndarray`.
+        `~numpy.ndarray`, or a `~astropy.units.Quantity` if the input
+        ``data`` has units.
 
-        The cached profile is automatically invalidated when the profile
-        normalization is changed.
+        The values reflect the current profile normalization.
 
-        Returns `None` if the fit failed (e.g., the profile is entirely
-        non-finite or masked).
+        Returns `None` if the profile is entirely nonfinite or masked.
         """
-        if self.gaussian_fit is None:
+        if self._raw_gaussian_profile is None:
             return None
-        return self.gaussian_fit(self.radius)
+        return self._raw_gaussian_profile / self.normalization_value
 
-    @lazyproperty
+    @cached_property
+    def _raw_gaussian_profile(self):
+        """
+        The raw-fit 1D Gaussian evaluated at the profile radii, or
+        `None` if the profile is entirely nonfinite or masked.
+        """
+        if self._raw_gaussian_fit is None:
+            return None
+        return self._raw_gaussian_fit(self.radius)
+
+    @property
     def gaussian_fwhm(self):
         """
-        The full-width at half-maximum (FWHM) in pixels of the 1D
+        The full width at half maximum (FWHM) in pixels of the 1D
         Gaussian fitted to the radial profile.
 
-        The cached value is automatically invalidated when the profile
-        normalization is changed.
+        The FWHM is independent of the profile normalization.
 
-        Returns `None` if the fit failed (e.g., the profile is entirely
-        non-finite or masked).
+        Returns `None` if the profile is entirely nonfinite or masked.
         """
-        if self.gaussian_fit is None:
+        if self._raw_gaussian_fit is None:
             return None
-        return self.gaussian_fit.stddev.value * gaussian_sigma_to_fwhm
+        return self._raw_gaussian_fit.stddev.value * gaussian_sigma_to_fwhm
 
-    @lazyproperty
-    def moffat_fit(self):
+    @cached_property
+    def _raw_moffat_fit(self):
         """
-        The fitted 1D Moffat to the radial profile as a
-        `~astropy.modeling.functional_models.Moffat1D` model.
-
-        The cached fit is automatically invalidated when the profile
-        normalization is changed, so the fit is always consistent with
-        the current profile.
+        The 1D Moffat fitted to the raw (unnormalized) radial profile,
+        or `None` if the profile is entirely nonfinite or masked.
         """
-        profile = self.profile[self._profile_nanmask]
+        profile = self._raw_profile[self._profile_nanmask]
         radius = self.radius[self._profile_nanmask]
 
         if len(profile) == 0:
-            msg = ('The radial profile is entirely non-finite or masked; '
-                   'cannot fit a Moffat.')
+            msg = ('The radial profile is entirely nonfinite or masked. '
+                   'Cannot fit a Moffat.')
             warnings.warn(msg, AstropyUserWarning)
             return None
 
         amplitude = np.max(profile)
         sum_profile = np.sum(profile)
         if sum_profile == 0:
-            msg = ('The profile sum is zero; the Moffat fit initial '
+            msg = ('The profile sum is zero, so the Moffat fit initial '
                    'guess may be inaccurate.')
             warnings.warn(msg, AstropyUserWarning)
             gamma = 1.0  # fallback to avoid zero initial guess
@@ -516,112 +556,140 @@ class RadialProfile(ProfileBase):
         fitter = TRFLSQFitter()
         return fitter(m_init, radius, profile)
 
-    @lazyproperty
+    @property
+    def moffat_fit(self):
+        """
+        The fitted 1D Moffat to the radial profile as a
+        `~astropy.modeling.functional_models.Moffat1D` model.
+
+        The model amplitude reflects the current profile normalization
+        (the Moffat amplitude scales linearly with the profile
+        values). The core width and power index are independent of the
+        normalization.
+
+        The fit uses only the finite profile values. The Moffat ``x_0``
+        is fixed at zero (the source center) and ``alpha`` is bounded to
+        the range [1, 25].
+
+        Returns `None` if the profile is entirely nonfinite or masked.
+
+        Warns
+        -----
+        `~astropy.utils.exceptions.AstropyUserWarning`
+            If the profile is entirely nonfinite or masked, or if the
+            sum of the profile is zero. The fitter can also emit its own
+            warning if the fit may not have converged.
+        """
+        raw_fit = self._raw_moffat_fit
+        if raw_fit is None:
+            return None
+        return self._normalize_fit(raw_fit)
+
+    @property
     def moffat_profile(self):
         """
         The fitted 1D Moffat profile to the radial profile as a 1D
-        `~numpy.ndarray`.
+        `~numpy.ndarray`, or a `~astropy.units.Quantity` if the input
+        ``data`` has units.
 
-        The cached profile is automatically invalidated when the profile
-        normalization is changed.
+        The values reflect the current profile normalization.
 
-        Returns `None` if the fit failed (e.g., the profile is entirely
-        non-finite or masked).
+        Returns `None` if the profile is entirely nonfinite or masked.
         """
-        if self.moffat_fit is None:
+        if self._raw_moffat_profile is None:
             return None
-        return self.moffat_fit(self.radius)
+        return self._raw_moffat_profile / self.normalization_value
 
-    @lazyproperty
+    @cached_property
+    def _raw_moffat_profile(self):
+        """
+        The raw-fit 1D Moffat evaluated at the profile radii, or
+        `None` if the profile is entirely nonfinite or masked.
+        """
+        if self._raw_moffat_fit is None:
+            return None
+        return self._raw_moffat_fit(self.radius)
+
+    @property
     def moffat_fwhm(self):
         """
-        The full-width at half-maximum (FWHM) in pixels of the 1D Moffat
+        The full width at half maximum (FWHM) in pixels of the 1D Moffat
         fitted to the radial profile.
 
-        The cached value is automatically invalidated when the profile
-        normalization is changed.
+        The FWHM is independent of the profile normalization.
 
-        Returns `None` if the fit failed (e.g., the profile is entirely
-        non-finite or masked).
+        Returns `None` if the profile is entirely nonfinite or masked.
         """
-        if self.moffat_fit is None:
+        if self._raw_moffat_fit is None:
             return None
-        return self.moffat_fit.fwhm
+        return self._raw_moffat_fit.fwhm
 
-    @lazyproperty
+    @cached_property
     def _data_profile(self):
         """
-        The raw data profile returned as 1D arrays (`~numpy.ndarray`) of
-        radii and data values.
+        The raw (unnormalized) data profile returned as 1D arrays
+        of radii (`~numpy.ndarray`) and data values (`~numpy.ndarray`,
+        or `~astropy.units.Quantity` if the input ``data`` has units).
 
-        Returns the radii and values of the unmasked data points within
-        the maximum radius defined by the input radii. Pixels flagged
-        in ``self.mask`` (including auto-masked non-finite values) are
-        excluded.
+        Returns the radii and values of the unmasked data points between
+        the minimum and maximum radii defined by the input radii. Pixels
+        flagged in ``self.mask`` (including auto-masked nonfinite
+        values) are excluded.
         """
         shape = self.data.shape
+        min_radius = np.min(self.radii)
         max_radius = np.max(self.radii)
+        # The bounding box must include the pixels whose centers lie
+        # exactly at max_radius, so the (exclusive) upper slice bounds
+        # are floor(center + max_radius) + 1
         x_min = int(max(np.floor(self.xycen[0] - max_radius), 0))
-        x_max = int(min(np.ceil(self.xycen[0] + max_radius), shape[1]))
+        x_max = int(min(np.floor(self.xycen[0] + max_radius) + 1, shape[1]))
         y_min = int(max(np.floor(self.xycen[1] - max_radius), 0))
-        y_max = int(min(np.ceil(self.xycen[1] + max_radius), shape[0]))
+        y_max = int(min(np.floor(self.xycen[1] + max_radius) + 1, shape[0]))
         yidx, xidx = np.indices((y_max - y_min, x_max - x_min))
         xidx += x_min
         yidx += y_min
 
         # Calculate the radii of the pixels from the center and select
-        # those within the maximum radius defined by the input radii
+        # those between the minimum and maximum radii defined by the
+        # input radii
         radii = np.hypot(xidx - self.xycen[0], yidx - self.xycen[1])
-        within = radii <= max_radius
+        within = (radii >= min_radius) & (radii <= max_radius)
         radii = radii[within]
         yidx_sub = yidx[within]
         xidx_sub = xidx[within]
 
-        # Exclude masked pixels (user mask and auto-masked non-finite
+        # Exclude masked pixels (user mask and auto-masked nonfinite
         # values)
         valid = ~self.mask[yidx_sub, xidx_sub]
         radii = radii[valid]
         data_values = self.data[yidx_sub[valid], xidx_sub[valid]]
+        if self.unit is not None:
+            data_values = data_values << self.unit
 
         return radii, data_values
 
-    @lazyproperty
+    @cached_property
     def data_radius(self):
         """
-        The radii of the raw data profile as a 1D `~numpy.ndarray`.
+        The radial distances in pixels of the raw data points from the
+        source center as a 1D `~numpy.ndarray`.
+
+        All unmasked pixels whose centers lie between the minimum and
+        maximum of the input ``radii``, inclusive, are included.
         """
         return self._data_profile[0]
 
-    @lazyproperty
+    @property
     def data_profile(self):
         """
-        The raw data profile as a 1D `~numpy.ndarray`.
-        """
-        return self._data_profile[1]
+        The raw data values of the pixels at `data_radius` as a 1D
+        `~numpy.ndarray`, or a `~astropy.units.Quantity` if the input
+        ``data`` has units.
 
-    def _invalidate_fit_cache(self):
+        The values reflect the current profile normalization. If
+        `~photutils.profiles.ProfileBase.normalize` has been called, the
+        raw data values are divided by the same normalization applied to
+        ``profile``.
         """
-        Remove cached Gaussian and Moffat fit lazy properties so they
-        are recomputed on next access using the current profile.
-        """
-        for key in self._fit_properties:
-            self.__dict__.pop(key, None)
-
-    def _normalize_hook(self, normalization):
-        """
-        Also normalize ``data_profile`` if it has been computed, and
-        invalidate fit caches so they are recomputed on next access.
-        """
-        if 'data_profile' in self.__dict__:
-            self.__dict__['data_profile'] = self.data_profile / normalization
-        self._invalidate_fit_cache()
-
-    def _unnormalize_hook(self):
-        """
-        Also unnormalize ``data_profile`` if it has been computed, and
-        invalidate fit caches so they are recomputed on next access.
-        """
-        if 'data_profile' in self.__dict__:
-            self.__dict__['data_profile'] = (self.data_profile
-                                             * self.normalization_value)
-        self._invalidate_fit_cache()
+        return self._data_profile[1] / self.normalization_value

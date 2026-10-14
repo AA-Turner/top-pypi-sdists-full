@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-beam
-Version: 6.3.0
+Version: 6.3.1
 Summary: Provider package apache-airflow-providers-apache-beam for Apache Airflow
 Keywords: airflow-provider,apache.beam,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -28,14 +27,13 @@ Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-beam>=2.76.0
 Requires-Dist: pyarrow>=16.1.0; python_version < '3.14'
 Requires-Dist: pyarrow>=22.0.0; python_version >= '3.14'
-Requires-Dist: numpy>=1.22.4; python_version<'3.11'
-Requires-Dist: numpy>=1.23.2; python_version<'3.12' and python_version>='3.11'
+Requires-Dist: numpy>=1.23.2; python_version<'3.12'
 Requires-Dist: numpy>=1.26.0; python_version>='3.12' and python_version<'3.14'
 Requires-Dist: numpy>=2.4.3; python_version>='3.14'
 Requires-Dist: apache-beam[gcp]>=2.76.0 ; extra == "google"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -71,7 +69,7 @@ Import-Namespace: airflow.providers.apache
 
 Package ``apache-airflow-providers-apache-beam``
 
-Release: ``6.3.0``
+Release: ``6.3.1``
 
 
 `Apache Beam <https://beam.apache.org/>`__.
@@ -84,7 +82,7 @@ This is a provider package for ``apache.beam`` provider. All classes for this pr
 are in ``airflow.providers.apache.beam`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.1/>`_.
 
 Installation
 ------------
@@ -93,7 +91,7 @@ You can install this package on top of an existing Airflow installation (see ``R
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-apache-beam``
 
-The package supports the following python versions: 3.10,3.11,3.12,3.13,3.14
+The package supports the following python versions: 3.11,3.12,3.13,3.14
 
 Requirements
 ------------
@@ -106,8 +104,7 @@ PIP package                                 Version required
 ``apache-beam``                             ``>=2.76.0``
 ``pyarrow``                                 ``>=16.1.0; python_version < "3.14"``
 ``pyarrow``                                 ``>=22.0.0; python_version >= "3.14"``
-``numpy``                                   ``>=1.22.4; python_version < "3.11"``
-``numpy``                                   ``>=1.23.2; python_version < "3.12" and python_version >= "3.11"``
+``numpy``                                   ``>=1.23.2; python_version < "3.12"``
 ``numpy``                                   ``>=1.26.0; python_version >= "3.12" and python_version < "3.14"``
 ``numpy``                                   ``>=2.4.3; python_version >= "3.14"``
 ==========================================  ==================================================================
@@ -141,5 +138,5 @@ Extra       Dependencies
 ==========  ============================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-beam/6.3.1/changelog.html>`_.
 

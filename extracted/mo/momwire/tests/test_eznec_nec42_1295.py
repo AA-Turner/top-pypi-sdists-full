@@ -101,18 +101,31 @@ def test_the_fixtures_are_the_captures_as_written():
 @pytest.mark.parametrize(
     "prog, dialect, basis",
     [
+        # The shipped names (momwire#1443): the basis is read past `nec42`.
+        ("momwire-nec42", "nec4", None),
+        ("momwire-nec42.exe", "nec4", None),
+        ("C:\\EZNEC 7.0\\Docs\\momwire-nec42.exe", "nec4", None),
+        ("momwire-nec42-sinusoidal.exe", "nec4", "sinusoidal"),
+        ("Momwire-NEC42-Sinusoidal-Galerkin.EXE", "nec4", "sinusoidal-galerkin"),
+        ("/opt/bin/momwire-nec42-bspline-d1", "nec4", "bspline-d1"),
+        ("momwire-nec42-razor-2p.exe", "nec4", "razor-2p"),
+        ("momwire-nec42-", "nec4", ""),
+        ("momwire-nec42x", "nec4", "x"),
+        # A renamed copy carrying `nec4` but not `nec42` reads as it did
+        # before momwire#1443, past `nec4`.
         ("momwire-nec4", "nec4", None),
         ("momwire-nec4.exe", "nec4", None),
         ("C:\\EZNEC 7.0\\Docs\\momwire-nec4.exe", "nec4", None),
         ("momwire-nec4-sinusoidal.exe", "nec4", "sinusoidal"),
         ("Momwire-NEC4-Sinusoidal-Galerkin.EXE", "nec4", "sinusoidal-galerkin"),
         ("/opt/bin/momwire-nec4-bspline-d1", "nec4", "bspline-d1"),
+        ("My-NEC4-engine.exe", "nec4", "engine"),
         # Copies the README cannot stop someone making: each NAMES its basis,
         # so each reaches the refusal rather than the default.
         ("momwire-nec4-razor-2p.exe", "nec4", "razor-2p"),
         ("momwire-nec4-", "nec4", ""),
         ("momwire-nec4-rzaor", "nec4", "rzaor"),
-        ("momwire-nec42.exe", "nec4", "2"),
+        ("momwire-nec43.exe", "nec4", "3"),
         # The capture shim's own name: a nec4 name with an unknown suffix.
         ("momwire-nec4-capture.exe", "nec4", "capture"),
         # The NEC-5 family is untouched.
@@ -132,10 +145,12 @@ def test_the_name_picks_the_slot_and_the_basis(prog, dialect, basis):
 @pytest.mark.parametrize(
     "prog, dialect, basis",
     [
+        ("momwire-nec42.exe", "nec4", _serve.BASIS),
+        ("momwire-nec42-sinusoidal.exe", "nec4", "sinusoidal"),
+        ("momwire-nec42-razor-2p.exe", "nec4", "razor-2p"),
+        ("momwire-nec42-.exe", "nec4", ""),
         ("momwire-nec4.exe", "nec4", _serve.BASIS),
         ("momwire-nec4-sinusoidal.exe", "nec4", "sinusoidal"),
-        ("momwire-nec4-razor-2p.exe", "nec4", "razor-2p"),
-        ("momwire-nec4-.exe", "nec4", ""),
         ("momwire-eznec.exe", "nec5", _serve.BASIS),
         ("momwire-eznec-razor-2p.exe", "nec5", "razor-2p"),
         ("momwire-eznec-engine.exe", "nec5", _serve.BASIS),
@@ -178,7 +193,7 @@ def test_a_nec4_named_daemon_serves_the_nec4_slot(monkeypatch):
         "momwire.eznec._resident.serve_main",
         lambda argv: seen.update(argv=argv) or 0,
     )
-    assert _entry_module().run(["momwire-nec4-pulse.exe", "--serve"]) == 0
+    assert _entry_module().run(["momwire-nec42-pulse.exe", "--serve"]) == 0
     assert seen["argv"] == ["--serve", "--basis", "pulse", "--dialect", "nec4"]
 
 
@@ -216,7 +231,10 @@ def test_every_nec4_console_script_names_a_basis_the_slot_serves():
     family = {
         k: v for k, v in scripts.items() if dialect_from_program_name(k) == "nec4"
     }
-    assert "momwire-nec4" in family and "momwire-nec4-sinusoidal" in family
+    assert "momwire-nec42" in family and "momwire-nec42-sinusoidal" in family
+    # momwire#1443: the old `momwire-nec4*` launchers are not shipped; every
+    # script in the family carries the `nec42` SimNEC recognises.
+    assert all("nec42" in k for k in family), sorted(family)
     assert set(family.values()) == {"momwire_eznec_client:main"}
     bases = {nec4_basis_from_program_name(k) for k in family} - {None}
     assert bases == set(NEC2_BASES)
@@ -358,33 +376,41 @@ def test_the_nec2_dialect_still_refuses_what_nec4_adds():
 
 
 # momwire#1317: GN 2 naming a Sommerfeld-table file, the way the licensed
-# NEC-4.2 was run on it (spaced fields), against the same card without one.
-# On probe p7, the 7 MHz GN 2 dipole: 0231's 10-wavelength height makes a
-# cold Sommerfeld solve several times dearer for the same question.
+# NEC-4.2 was run on it (spaced fields), against the same card without one;
+# momwire#1443: the same on every GN type, since SimNEC appends NOFILE to
+# every GN card and the licensed engine moved no printed digit on any of
+# -1/0/1/2/3 for it.  On probe p7, the 7 MHz GN 2 dipole: 0231's
+# 10-wavelength height makes a cold Sommerfeld solve several times dearer for
+# the same question.
 _GN2_WRITTEN = "GN 2,0,0,0,13.,.005"
-_GN2_BARE = "GN 2 0 0 0 13. .005 0 0 0 0"
+_GN_TYPES = (-1, 0, 1, 2, 3)
+_GN_FILE_NAMES = ("NOFILE", "SOMEX10.NEC")
 
 
-def _gn2(trailer: str | None) -> str:
-    card = _GN2_BARE if trailer is None else f"{_GN2_BARE} {trailer}"
+def _gn(trailer: str | None, ground_type: int = 2) -> str:
+    bare = f"GN {ground_type} 0 0 0 13. .005 0 0 0 0"
+    card = bare if trailer is None else f"{bare} {trailer}"
     (path,) = (FIXTURES / "probes").glob("p7_*.nec")
     text = path.read_bytes().decode("latin-1")
     assert _GN2_WRITTEN in text
     return text.replace(_GN2_WRITTEN, card)
 
 
-@pytest.mark.parametrize("name", ["NOFILE", "SOMEX10.NEC"])
-def test_nec4_reads_gn2_without_its_sommerfeld_table_file(name):
+@pytest.mark.parametrize("name", _GN_FILE_NAMES)
+@pytest.mark.parametrize("ground_type", _GN_TYPES)
+def test_nec4_reads_every_gn_without_its_sommerfeld_table_file(ground_type, name):
     """The file is a cache the licensed engine computes when it cannot open
-    it, so the card means what it means without the name."""
-    assert parse_nec4(_gn2(name)) == parse_nec4(_gn2(None))
-    assert parse_nec4(_gn2(name)).ground == ("finite", 13.0, 0.005)
+    it, so the card means what it means without the name, on every type."""
+    named = parse_nec4(_gn(name, ground_type))
+    assert named == parse_nec4(_gn(None, ground_type))
+    if ground_type in (2, 3):
+        assert named.ground == ("finite", 13.0, 0.005)
 
 
-@pytest.mark.parametrize("name", ["NOFILE", "SOMEX10.NEC"])
+@pytest.mark.parametrize("name", _GN_FILE_NAMES)
 def test_nec2_still_refuses_a_gn_file_name(name):
     with pytest.raises(DeckError) as exc:
-        parse(_gn2(name), dialect="nec2")
+        parse(_gn(name), dialect="nec2")
     assert str(exc.value) == (
         f"GN carries a trailing token {name!r}; this engine's nec2 dialect "
         f"has no Sommerfeld-table file field on GN (momwire#1084 adds that "
@@ -400,12 +426,13 @@ def test_nec2_still_refuses_a_gn_file_name(name):
     ],
     ids=["gn3", "gn1"],
 )
-def test_nec4_refuses_a_file_name_on_any_other_gn_type(old, new):
+def test_nec4_reads_a_captured_gn_with_nofile_appended(old, new):
+    """SimNEC's shape on EZNEC's own cards (momwire#1443): NOFILE appended to
+    the GN line as written, comma fields and all, reads as the bare card."""
     capture = "0232" if old.startswith("GN 3") else "0229"
     text = deck_text(capture)
     line = next(ln for ln in text.splitlines() if ln.startswith(old))
-    with pytest.raises(DeckError, match=r"reads a Sommerfeld-table file name on GN 2"):
-        parse_nec4(text.replace(line, new))
+    assert parse_nec4(text.replace(line, new)) == parse_nec4(text)
 
 
 # --------------------------------------------------------------------------
@@ -429,10 +456,13 @@ def _aip_row_of(text: str, basis: str):
     return row
 
 
-def test_a_gn2_file_name_moves_no_bit_of_the_solve():
-    bare = _aip_row_of(_gn2(None), "bspline")
-    for name in ("NOFILE", "SOMEX10.NEC"):
-        named = _aip_row_of(_gn2(name), "bspline")
+@pytest.mark.parametrize("ground_type", _GN_TYPES)
+def test_a_gn_file_name_moves_no_bit_of_the_solve(ground_type):
+    """The licensed engine's black-box evidence (momwire#1443): the same
+    impedance with and without NOFILE on every GN type.  Here, bit for bit."""
+    bare = _aip_row_of(_gn(None, ground_type), "bspline")
+    for name in _GN_FILE_NAMES:
+        named = _aip_row_of(_gn(name, ground_type), "bspline")
         assert named.impedance == bare.impedance, name
         assert named.current == bare.current, name
 

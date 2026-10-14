@@ -6,24 +6,39 @@ use nom::{
 	sequence::separated_pair,
 };
 
+use derive_where::derive_where;
+
 use crate::{
-	Input, block::inline_block, context::Context, error::ParseError, grammar::Grammar,
-	node::SpannedNodes, span::Span, unparse::Unparse,
+	Input,
+	block::inline_block,
+	context::Context,
+	error::ParseError,
+	grammar::Grammar,
+	node::{Node, ParsedNode, Sequence},
+	span::Span,
+	unparse::Unparse,
 };
 
 /// The maximum level a heading is allowed to be.
 pub const MAX_HEADING_LEVEL: usize = 3;
 
 /// A heading element.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Heading<'data, S: Span> {
+#[derive_where(Debug, Clone, PartialEq, Eq; N)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(bound(
+		serialize = "N: serde::Serialize",
+		deserialize = "N: serde::Deserialize<'de>"
+	))
+)]
+pub struct Heading<S: Span, N> {
 	/// The heading level, up to [`MAX_HEADING_LEVEL`].
 	pub level: u8,
-	pub content: SpannedNodes<'data, S>,
+	pub content: Sequence<S, N>,
 }
 
-impl<S: Span> Unparse for Heading<'_, S> {
+impl<S: Span> Unparse for Heading<S, Node<'_, S>> {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(
 			f,
@@ -40,7 +55,7 @@ impl<S: Span> Unparse for Heading<'_, S> {
 /// If the data does not begin with heading content.
 pub fn heading<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = Heading<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = Heading<S, ParsedNode<'data, S>>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -60,13 +75,30 @@ mod test {
 	use nom::{Finish, Parser};
 
 	use crate::{
-		bold, italic, link, spanned_vec,
-		test_utils::handle_nom_err,
+		bold, italic, link,
+		range::Content,
+		spanned_vec,
+		test_utils::{handle_nom_err, resolved_node},
 		text,
-		{context::Context, inline::timestamp::Timestamp, node::Node},
+		{
+			context::Context,
+			inline::timestamp::Timestamp,
+			node::{Element, Node, ParsedNode},
+		},
 	};
 
 	use super::{Heading, heading};
+
+	/// Resolve the delimiters in a heading, as a whole parse would.
+	fn resolved_heading(heading: Heading<(), ParsedNode<'_, ()>>) -> Heading<(), Node<'_, ()>> {
+		match resolved_node(
+			ParsedNode::Element(Element::Heading(heading)),
+			Content::Blocks,
+		) {
+			Node::Element(Element::Heading(heading)) => heading,
+			other => panic!("expected a heading, got {other:?}"),
+		}
+	}
 
 	#[test]
 	fn basic_heading() {
@@ -78,7 +110,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_heading(res),
 			Heading {
 				level: 1,
 				content: spanned_vec![text!("foo")]
@@ -96,7 +128,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_heading(res),
 			Heading {
 				level: 2,
 				content: spanned_vec![link!("https://wnelson.dev")]
@@ -114,7 +146,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved_heading(res),
 			Heading {
 				level: 3,
 				content: spanned_vec![
@@ -122,10 +154,10 @@ mod test {
 					text!(" "),
 					bold!(link!("https://wnelson.dev")),
 					text!(" "),
-					Node::Timestamp(Timestamp {
+					Node::Element(Element::Timestamp(Timestamp {
 						value: 1234,
 						style: None
-					}),
+					})),
 					text!(" bar")
 				]
 			}

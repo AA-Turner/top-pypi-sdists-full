@@ -34,6 +34,8 @@ def _get_kwargs(
     project_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
+    security_group: Union[Unset, str] = UNSET,
+    security_group_uuid: Union[Unset, UUID] = UNSET,
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
@@ -102,6 +104,13 @@ def _get_kwargs(
     params["query"] = query
 
     params["runtime_state"] = runtime_state
+
+    params["security_group"] = security_group
+
+    json_security_group_uuid: Union[Unset, str] = UNSET
+    if not isinstance(security_group_uuid, Unset):
+        json_security_group_uuid = str(security_group_uuid)
+    params["security_group_uuid"] = json_security_group_uuid
 
     params["service_settings_name"] = service_settings_name
 
@@ -187,6 +196,8 @@ def sync_detailed(
     project_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
+    security_group: Union[Unset, str] = UNSET,
+    security_group_uuid: Union[Unset, UUID] = UNSET,
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
@@ -219,6 +230,8 @@ def sync_detailed(
         project_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
         runtime_state (Union[Unset, str]):
+        security_group (Union[Unset, str]):
+        security_group_uuid (Union[Unset, UUID]):
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
@@ -255,6 +268,8 @@ def sync_detailed(
         project_uuid=project_uuid,
         query=query,
         runtime_state=runtime_state,
+        security_group=security_group,
+        security_group_uuid=security_group_uuid,
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
@@ -293,6 +308,8 @@ def sync(
     project_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
+    security_group: Union[Unset, str] = UNSET,
+    security_group_uuid: Union[Unset, UUID] = UNSET,
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
@@ -325,6 +342,8 @@ def sync(
         project_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
         runtime_state (Union[Unset, str]):
+        security_group (Union[Unset, str]):
+        security_group_uuid (Union[Unset, UUID]):
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
@@ -362,6 +381,8 @@ def sync(
         project_uuid=project_uuid,
         query=query,
         runtime_state=runtime_state,
+        security_group=security_group,
+        security_group_uuid=security_group_uuid,
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
@@ -394,6 +415,8 @@ async def asyncio_detailed(
     project_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
+    security_group: Union[Unset, str] = UNSET,
+    security_group_uuid: Union[Unset, UUID] = UNSET,
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
@@ -426,6 +449,8 @@ async def asyncio_detailed(
         project_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
         runtime_state (Union[Unset, str]):
+        security_group (Union[Unset, str]):
+        security_group_uuid (Union[Unset, UUID]):
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
@@ -462,6 +487,8 @@ async def asyncio_detailed(
         project_uuid=project_uuid,
         query=query,
         runtime_state=runtime_state,
+        security_group=security_group,
+        security_group_uuid=security_group_uuid,
         service_settings_name=service_settings_name,
         service_settings_uuid=service_settings_uuid,
         state=state,
@@ -498,6 +525,8 @@ async def asyncio(
     project_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
+    security_group: Union[Unset, str] = UNSET,
+    security_group_uuid: Union[Unset, UUID] = UNSET,
     service_settings_name: Union[Unset, str] = UNSET,
     service_settings_uuid: Union[Unset, UUID] = UNSET,
     state: Union[Unset, list[CoreStates]] = UNSET,
@@ -530,6 +559,8 @@ async def asyncio(
         project_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
         runtime_state (Union[Unset, str]):
+        security_group (Union[Unset, str]):
+        security_group_uuid (Union[Unset, UUID]):
         service_settings_name (Union[Unset, str]):
         service_settings_uuid (Union[Unset, UUID]):
         state (Union[Unset, list[CoreStates]]):
@@ -568,6 +599,8 @@ async def asyncio(
             project_uuid=project_uuid,
             query=query,
             runtime_state=runtime_state,
+            security_group=security_group,
+            security_group_uuid=security_group_uuid,
             service_settings_name=service_settings_name,
             service_settings_uuid=service_settings_uuid,
             state=state,

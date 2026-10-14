@@ -51,8 +51,9 @@ def _gate():  # type: ignore[no-untyped-def]
 #: forwards both slots into a constructor, `wrap` forwards through `make` (a
 #: second hop), `row_of` forwards its window past declarations a two-word
 #: rule misread as a call's arguments (the certification harness's shape,
-#: review of #2196), `is_kaiser` only compares, and `scale` forwards inside
-#: an expression -- the last two are no helpers.
+#: review of #2196), `is_kaiser` only COMPARES its window with an
+#: enumerator (a slot all the same, #2227), and `scale` forwards inside an
+#: expression -- no helper.
 _HELPERS_REL = "native/tests/helpers.c"
 _HELPERS_C = """\
 static dp_spectrogram_state_t *
@@ -96,7 +97,7 @@ seeded (void)
   make (DP_SPECTROGRAM_DB, 8, 4, DP_PSD_WINDOW_HANN);
   wrap (DP_PSD_WINDOW_RECT);
   row_of (DP_PSD_WINDOW_KAISER, NULL, NULL);
-  is_kaiser (1);
+  is_kaiser (DP_PSD_WINDOW_KAISER);
   scale (1);
 }
 """
@@ -225,10 +226,11 @@ def test_named_arguments_pass_in_every_shape(tmp_path: Path) -> None:
     # Direct: seven calls in a.c (the printf is a string), the @code call in
     # s.h (its declaration is not a call), the fence in p.md, and the three
     # in helpers.c's bodies (make's, row_of's, scale's). Helpers: make twice
-    # (seeded and wrap's body), wrap once and row_of once; is_kaiser and
-    # scale are discovered as no helpers, and the definitions are no calls.
+    # (seeded and wrap's body), wrap once, row_of once and is_kaiser once
+    # (its compare is a slot, #2227); scale is no helper, and the definitions
+    # are no calls.
     assert (
-        "12 call(s) and 4 call(s) of 3 discovered helper(s) in 4 file(s)"
+        "12 call(s) and 5 call(s) of 4 discovered helper(s) in 4 file(s)"
         in r.stdout
     ), r.stdout
 
@@ -454,6 +456,16 @@ def test_fix_proves_the_rewrite_before_making_it() -> None:
     assert g._fix_span("w + 1", 0, 5, "K") is None
 
 
+def test_the_gates_own_examples_hold() -> None:
+    """The examples in the gate's docstrings are claims about its parser:
+    nothing else runs a script's doctests, so this does (#2227)."""
+    import doctest
+
+    r = doctest.testmod(_gate())
+    assert r.failed == 0
+    assert r.attempted >= 2, "the gate's examples were not found"
+
+
 def test_a_row_whose_function_is_never_called_fails(tmp_path: Path) -> None:
     """Fail-closed per row: a renamed function would otherwise check nothing
     and read as clean, however many calls the other rows found."""
@@ -636,19 +648,94 @@ def test_fix_names_a_helper_literal(tmp_path: Path) -> None:
     assert "  wrap (DP_PSD_WINDOW_RECT);" in fixed
 
 
-def test_a_compare_or_an_expression_is_no_helper(tmp_path: Path) -> None:
-    """`is_kaiser` only compares and `scale` forwards `w + 0`: neither is
-    discovered, so their literals are not this gate's (the baseline's
-    `is_kaiser (1)` and `scale (1)` pass)."""
+def test_a_compared_parameter_is_a_slot(tmp_path: Path) -> None:
+    """`is_kaiser` only compares its window with DP_PSD_WINDOW_KAISER. A
+    literal at its call is the #2097 renumbering hazard all the same, so the
+    compare makes the parameter a slot of that enumerator's enum (#2227):
+    `is_kaiser (3)` is refused and named. Before, it passed."""
     _seed(
         tmp_path,
-        **_helpers(
-            "  is_kaiser (1);\n  scale (1);", "  is_kaiser (3);\n  scale (3);"
-        ),
+        **_helpers("  is_kaiser (DP_PSD_WINDOW_KAISER);", "  is_kaiser (3);"),
     )
     r = _run(tmp_path)
+    assert r.returncode == 1, r.stdout
+    _finding(r, "is_kaiser window = 3 (write DP_PSD_WINDOW_RECT)")
+
+
+def test_an_expression_is_no_helper(tmp_path: Path) -> None:
+    """`scale` forwards `w + 0`, not `w`: no slot, so its literal is not
+    this gate's (the baseline's `scale (1)` passes)."""
+    _seed(tmp_path, **_helpers("  scale (1);", "  scale (3);"))
+    r = _run(tmp_path)
     assert r.returncode == 0, r.stdout
-    assert "of 3 discovered helper(s)" in r.stdout
+    assert "of 4 discovered helper(s)" in r.stdout
+
+
+#: Every compare shape: a reversed `==`, a `!=`, a `switch` on the
+#: parameter with gated `case` labels, and a compare with an enumerator no
+#: TABLE slot uses (`WFM_SYNTH_CHIRP`), which makes no slot.
+_COMPARE_C = """\
+static int
+rev (int mode)
+{
+  return DP_SPECTROGRAM_DB == mode;
+}
+
+static int
+neq (int mode)
+{
+  return mode != DP_SPECTROGRAM_POWER;
+}
+
+static int
+pick (int mode)
+{
+  switch (mode)
+    {
+    case DP_SPECTROGRAM_DB:
+      return 1;
+    default:
+      return 0;
+    }
+}
+
+static int
+ungated (int type)
+{
+  return type == WFM_SYNTH_CHIRP;
+}
+
+void
+call_them (void)
+{
+  rev (1);
+  neq (1);
+  pick (1);
+  ungated (1);
+}
+"""
+
+
+def test_every_compare_shape_is_a_slot_of_a_gated_enum(tmp_path: Path) -> None:
+    """A reversed `==`, a `!=` and a `switch` with gated `case` labels each
+    make the parameter a slot, so `rev (1)`, `neq (1)` and `pick (1)` are
+    refused. A compare with an enumerator of an enum no TABLE slot uses
+    makes none: the gate holds its own enums, not every enum in the tree.
+    The seed binds that enum in a header of its own, so `WFM_SYNTH_CHIRP` is
+    a real enumerator the gate could have taken, not an unknown name."""
+    rel = "native/tests/compare.c"
+    ungated_h = "/* SSOT: enum=wfm_kind */\nenum { WFM_SYNTH_CHIRP = 1 };\n"
+    _seed(
+        tmp_path,
+        **{rel: _COMPARE_C, f"{_HDR}/wfm/wfm_kind.h": ungated_h},
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1, r.stdout
+    for name, line in (("rev", 34), ("neq", 35), ("pick", 36)):
+        assert (
+            f"{rel}:{line}: {name} mode = 1 (write DP_SPECTROGRAM_DB)"
+        ) in r.stdout, r.stdout
+    assert "ungated" not in r.stdout, r.stdout
 
 
 def test_a_non_static_function_is_no_helper(tmp_path: Path) -> None:
@@ -662,7 +749,7 @@ def test_a_non_static_function_is_no_helper(tmp_path: Path) -> None:
     _seed(tmp_path, **{"native/tests/pub.c": pub})
     r = _run(tmp_path)
     assert r.returncode == 0, r.stdout
-    assert "of 3 discovered helper(s)" in r.stdout
+    assert "of 4 discovered helper(s)" in r.stdout
 
 
 def test_discovering_nothing_fails_closed(tmp_path: Path) -> None:
@@ -684,6 +771,207 @@ def test_a_helper_mentioned_in_a_comment_is_prose(tmp_path: Path) -> None:
     )
     r = _run(tmp_path)
     assert r.returncode == 0, r.stdout
+
+
+def test_a_quote_in_a_comment_hides_no_helper(tmp_path: Path) -> None:
+    """A quote inside a comment, then a string on the same line, must not
+    read as one string that swallows the comment's `*/`: blanked strings
+    first, the comment would then run to the next `*/` in the file and hide
+    every helper between (#2227). One left-to-right pass blanks each for
+    what it is, so the helpers are still found."""
+    src = '/* 5" */ static const char *k = "x";\n' + _HELPERS_C + "/* end */\n"
+    _seed(tmp_path, **{_HELPERS_REL: src})
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert "of 4 discovered helper(s)" in r.stdout, r.stdout
+
+
+def test_a_quote_in_a_comment_hides_no_call(tmp_path: Path) -> None:
+    """The same quote, ahead of a constructor call and a string on one
+    line: read strings-first, the call sat inside a "string" and its literal
+    window passed; read in one pass it is a call, and red (#2227)."""
+    src = _NAMED_C.replace(
+        "  return !a",
+        '  /* 5" */ x = dp_spectrogram_create (8, 4, 3, 0.0f,'
+        ' DP_SPECTROGRAM_POWER); s = "";\n  return !a',
+    )
+    _seed(tmp_path, **{"a.c": src})
+    r = _run(tmp_path)
+    assert r.returncode == 1, r.stdout
+    assert "dp_spectrogram_create window = 3" in r.stdout, r.stdout
+
+
+#: A helper whose one parameter reaches two enums: PSD's window and
+#: carrier_acq's view of it, which has no rect.
+_BOTH_C = """\
+static void
+both (int w)
+{
+  dp_psd_create (64, 1.0, w, 0.0f, 1, 1.0, 0, ACC_TRACE_MEAN, 0.1);
+  dp_carrier_acq_create (4e6, 1e5, 0.0, 4, w, 0.0f, NULL, 0, 1e-3, 0.9,
+                         2.0, true, 1000);
+}
+
+void
+call_both (void)
+{
+  both (LITERAL);
+}
+"""
+
+
+def test_a_parameter_feeding_two_enums_is_named_only_where_they_agree(
+    tmp_path: Path,
+) -> None:
+    """`both (1)` is Kaiser in both enums, so --fix names it; `both (3)` is
+    rect to PSD and no value of carrier_acq's view, so the finding says so
+    and --fix leaves it: first-enum-wins would have written
+    DP_PSD_WINDOW_RECT where carrier_acq refuses it (#2227)."""
+    rel = "native/tests/both.c"
+    _seed(tmp_path, **{rel: _BOTH_C.replace("LITERAL", "3")})
+    r = _run(tmp_path, "--fix")
+    assert r.returncode == 1, r.stdout
+    assert (
+        f"{rel}:12: both window = 3 (feeds carrier_acq_window (no such value),"
+        " psd_window (DP_PSD_WINDOW_RECT): name it by hand)"
+    ) in r.stdout, r.stdout
+    assert "both (3);" in (tmp_path / rel).read_text(encoding="utf-8")
+
+    agree = tmp_path / "agree"
+    _seed(agree, **{rel: _BOTH_C.replace("LITERAL", "1")})
+    r = _run(agree, "--fix")
+    assert r.returncode == 0, r.stdout
+    fixed = (agree / rel).read_text(encoding="utf-8")
+    assert "both (DP_PSD_WINDOW_KAISER);" in fixed
+
+
+#: A variadic helper: two named parameters, then `...`.
+_VARIADIC_C = """\
+static void
+logged (size_t n, int w, ...)
+{
+  dp_psd_create (n, 1.0, w, 0.0f, 1, 1.0, 0, ACC_TRACE_MEAN, 0.1);
+}
+
+void
+call_logged (void)
+{
+  logged (64, DP_PSD_WINDOW_HANN);
+  logged (64, LITERAL, "x", 3);
+}
+"""
+
+
+def test_a_variadic_helper_takes_at_least_its_named_arguments(
+    tmp_path: Path,
+) -> None:
+    """`...` is not a parameter: `logged (n, w, ...)` takes at least two
+    arguments, so a call with two and a call with four are both its calls,
+    and a literal at either is named. Counted as a third parameter, both
+    were arity findings and the literal went unnamed (#2227). Fewer than
+    two is still an arity finding: the named parameters are a minimum."""
+    rel = "native/tests/logged.c"
+    named = _VARIADIC_C.replace("LITERAL", "DP_PSD_WINDOW_HANN")
+    _seed(tmp_path, **{rel: named})
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stdout
+
+    lit = tmp_path / "lit"
+    _seed(lit, **{rel: _VARIADIC_C.replace("LITERAL", "3")})
+    r = _run(lit, "--fix")
+    assert r.returncode == 0, r.stdout
+    fixed = (lit / rel).read_text(encoding="utf-8")
+    assert 'logged (64, DP_PSD_WINDOW_RECT, "x", 3);' in fixed, fixed
+
+    short = tmp_path / "short"
+    _seed(short, **{rel: named.replace("logged (64, DP", "logged (DP", 1)})
+    r = _run(short)
+    assert r.returncode == 1, r.stdout
+    assert (
+        f"{rel}:10: logged called with 1 argument(s), its row says at least 2"
+    ) in r.stdout, r.stdout
+
+
+#: `sweep`'s loop declares its own `w`, shadowing the parameter. FIRST is
+#: where a forwarding call may go before the loop.
+_SHADOW_C = """\
+static void
+sweep (int w)
+{FIRST
+  for (int w = 0; w < 4; w++)
+    dp_spectrogram_create (8, 4, w, 0.0f, DP_SPECTROGRAM_POWER);
+}
+
+void
+call_sweep (void)
+{
+  sweep (1);
+}
+"""
+
+
+def test_a_local_that_shadows_a_parameter_teaches_no_helper(
+    tmp_path: Path,
+) -> None:
+    """The loop's `w` is a local, so `sweep` forwards nothing and
+    `sweep (1)` is not this gate's: read as the parameter, it made `sweep`
+    a helper, and `make format` would have rewritten the call to
+    `sweep (DP_PSD_WINDOW_KAISER)` (#2227). A parameter counts up to the
+    declaration that shadows it, not past it: forwarded before the loop,
+    `sweep` is a helper again and `sweep (1)` is refused."""
+    rel = "native/tests/sweep.c"
+    src = _SHADOW_C.replace("FIRST", "")
+    _seed(tmp_path, **{rel: src})
+    r = _run(tmp_path, "--fix")
+    assert r.returncode == 0, r.stdout
+    assert (tmp_path / rel).read_text(encoding="utf-8") == src
+
+    before = tmp_path / "before"
+    fwd = "\n  dp_spectrogram_create (8, 4, w, 0.0f, DP_SPECTROGRAM_POWER);"
+    _seed(before, **{rel: _SHADOW_C.replace("FIRST", fwd)})
+    r = _run(before)
+    assert r.returncode == 1, r.stdout
+    assert f"{rel}:12: sweep window = 1" in r.stdout, r.stdout
+
+
+#: `picky`'s `#if` and `#else` each open a brace, so read together its
+#: body never closes; `other` passes the GLOBAL `w` to PSD.
+_UNBALANCED_C = """\
+int w;
+
+static void
+picky (int w)
+{
+#if FAST
+  if (w > 0) {
+#else
+  if (w >= 0) {
+#endif
+    (void) w;
+  }
+}
+
+void
+other (void)
+{
+  dp_psd_create (64, 1.0, w, 0.0f, 1, 1.0, 0, ACC_TRACE_MEAN, 0.1);
+  picky (3);
+}
+"""
+
+
+def test_a_body_whose_braces_do_not_close_is_a_finding(tmp_path: Path) -> None:
+    """Read to the file's end, `picky`'s body took in `other` and its PSD
+    call, so `picky` became a helper and `--fix` rewrote `picky (3)` to
+    DP_PSD_WINDOW_RECT, exit 0 (#2227). A body discovery cannot read is a
+    finding instead, and the file is left alone."""
+    rel = "native/tests/picky.c"
+    _seed(tmp_path, **{rel: _UNBALANCED_C})
+    r = _run(tmp_path, "--fix")
+    assert r.returncode == 1, r.stdout
+    assert f"{rel}:4: picky: its braces do not close" in r.stdout, r.stdout
+    assert "picky window" not in r.stdout, r.stdout
+    assert (tmp_path / rel).read_text(encoding="utf-8") == _UNBALANCED_C
 
 
 def test_a_helper_name_in_another_file_is_not_checked(tmp_path: Path) -> None:
@@ -725,7 +1013,7 @@ def test_definitions_of_any_shape_are_not_calls(tmp_path: Path) -> None:
     _seed(tmp_path, **files)
     r = _run(tmp_path)
     assert r.returncode == 0, r.stdout
-    assert "12 call(s) and 4 call(s) of 3 discovered helper(s)" in r.stdout, (
+    assert "12 call(s) and 5 call(s) of 4 discovered helper(s)" in r.stdout, (
         r.stdout
     )
 
@@ -772,32 +1060,41 @@ _M = ("mode", "spectrogram_mode")
 
 
 def test_the_real_trees_helpers_are_discovered() -> None:
-    """Nine of the ten helpers #2191's hand table listed are found in the
-    real tree by data flow, each pinned whole: file, name, argument count,
-    and each slot's position, name and enum. A helper discovery stops
-    seeing (a definition shape it does not read) or reads differently is
-    red here, though the gate itself would still say OK; a NEW helper needs
-    no edit, since this is a subset. The tenth, `rows_are_the_psd`, and
-    `oracle`'s mode reach only a compare, so a literal mode at their calls
-    is no longer refused (#2227)."""
+    """All ten helpers #2191's hand table listed are found in the real tree
+    by data flow, each pinned whole: file, name, argument count, and each
+    slot's position, name and enum. A helper discovery stops seeing (a
+    definition shape it does not read) or reads differently is red here,
+    though the gate itself would still say OK; a NEW helper needs no edit,
+    since this is a subset. `ref_row` only COMPARES its mode with
+    DP_SPECTROGRAM_POWER; that compare is a slot (#2227), so `ref_row` is a
+    helper, and `rows_are_the_psd` and `oracle`'s mode, which forward into
+    it, are held again."""
     g = _gate()
+    names, errs = g._names(REPO)
+    assert errs == [], errs
+    gated = g._enumerators(names)
     want = {
         "native/tests/test_spectrogram_core.c": {
             "ref_psd": (3, {1: _W}),
+            "ref_row": (4, {1: _M}),
             "oneshot": (7, {0: _M, 3: _W}),
+            "rows_are_the_psd": (7, {1: _M}),
             "sections": (1, {0: _M}),
         },
         "native/validation/spectrogram_certify.c": {
             "row_of": (3, {0: _W}),
             "make": (4, {0: _M, 3: _W}),
             "ref_psd": (2, {1: _W}),
-            "oracle": (6, {3: _W}),
+            "ref_row": (4, {1: _M}),
+            "oracle": (6, {0: _M, 3: _W}),
             "partition": (11, {0: _M, 3: _W}),
         },
         "native/benchmarks/bench_spectrogram_core.c": {"add": (8, {7: _M})},
     }
     for rel, rows in want.items():
-        found = g.discover((REPO / rel).read_text(encoding="utf-8"))
+        text = (REPO / rel).read_text(encoding="utf-8")
+        found, unread = g.discover(text, gated)
+        assert unread == [], (rel, unread)
         for name, row in rows.items():
             assert found.get(name) == row, (rel, name, found.get(name))
 

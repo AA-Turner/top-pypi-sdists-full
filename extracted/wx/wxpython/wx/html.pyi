@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -76,34 +79,31 @@ HTML_COND_USER: int
 INT_MAX: int
 #-- end-htmldefs --#
 #-- begin-htmlcell --#
+import wx.html
+import wx.siplib
 
-class _HtmlSelectionState(IntEnum):
-    HTML_SEL_OUT = auto()
-    HTML_SEL_IN = auto()
-    HTML_SEL_CHANGING = auto()
-HtmlSelectionState: TypeAlias = Union[_HtmlSelectionState, int]
-HTML_SEL_OUT = _HtmlSelectionState.HTML_SEL_OUT
-HTML_SEL_IN = _HtmlSelectionState.HTML_SEL_IN
-HTML_SEL_CHANGING = _HtmlSelectionState.HTML_SEL_CHANGING
+@final
+class HtmlSelectionState(int, metaclass=wx.siplib.enumtype):
+    HTML_SEL_OUT: ClassVar[HtmlSelectionState]
+    HTML_SEL_IN: ClassVar[HtmlSelectionState]
+    HTML_SEL_CHANGING: ClassVar[HtmlSelectionState]
+HTML_SEL_OUT: HtmlSelectionState
+HTML_SEL_IN: HtmlSelectionState
+HTML_SEL_CHANGING: HtmlSelectionState
+HTML_FIND_EXACT: int
+HTML_FIND_NEAREST_BEFORE: int
+HTML_FIND_NEAREST_AFTER: int
 
-class _enum_27(IntEnum):
-    HTML_FIND_EXACT = auto()
-    HTML_FIND_NEAREST_BEFORE = auto()
-    HTML_FIND_NEAREST_AFTER = auto()
-HTML_FIND_EXACT = _enum_27.HTML_FIND_EXACT
-HTML_FIND_NEAREST_BEFORE = _enum_27.HTML_FIND_NEAREST_BEFORE
-HTML_FIND_NEAREST_AFTER = _enum_27.HTML_FIND_NEAREST_AFTER
+@final
+class HtmlScriptMode(int, metaclass=wx.siplib.enumtype):
+    HTML_SCRIPT_NORMAL: ClassVar[HtmlScriptMode]
+    HTML_SCRIPT_SUB: ClassVar[HtmlScriptMode]
+    HTML_SCRIPT_SUP: ClassVar[HtmlScriptMode]
+HTML_SCRIPT_NORMAL: HtmlScriptMode
+HTML_SCRIPT_SUB: HtmlScriptMode
+HTML_SCRIPT_SUP: HtmlScriptMode
 
-class _HtmlScriptMode(IntEnum):
-    HTML_SCRIPT_NORMAL = auto()
-    HTML_SCRIPT_SUB = auto()
-    HTML_SCRIPT_SUP = auto()
-HtmlScriptMode: TypeAlias = Union[_HtmlScriptMode, int]
-HTML_SCRIPT_NORMAL = _HtmlScriptMode.HTML_SCRIPT_NORMAL
-HTML_SCRIPT_SUB = _HtmlScriptMode.HTML_SCRIPT_SUB
-HTML_SCRIPT_SUP = _HtmlScriptMode.HTML_SCRIPT_SUP
-
-class HtmlSelection:
+class HtmlSelection(wx.siplib.wrapper):
     """
     HtmlSelection() -> None
     """
@@ -118,7 +118,7 @@ class HtmlSelection:
         ...
 
     @overload
-    def Set(self, fromPos: wx.Point, fromCell: HtmlCell, toPos: wx.Point, toCell: HtmlCell) -> None:
+    def Set(self, fromPos: Union[wx.Point, _TwoInts], fromCell: HtmlCell, toPos: Union[wx.Point, _TwoInts], toCell: HtmlCell) -> None:
         """
         Set(fromPos, fromCell, toPos, toCell) -> None
         Set(fromCell, toCell) -> None
@@ -197,7 +197,7 @@ class HtmlSelection:
 # end of class HtmlSelection
 
 
-class HtmlRenderingState:
+class HtmlRenderingState(wx.siplib.wrapper):
     """
     HtmlRenderingState() -> None
     
@@ -213,7 +213,7 @@ class HtmlRenderingState:
         itself differently e.g.
         """
 
-    def SetSelectionState(self, s: HtmlSelectionState) -> None:
+    def SetSelectionState(self, s: Union[HtmlSelectionState, int]) -> None:
         """
         SetSelectionState(s) -> None
         """
@@ -223,7 +223,7 @@ class HtmlRenderingState:
         GetSelectionState() -> HtmlSelectionState
         """
 
-    def SetFgColour(self, c: wx.Colour) -> None:
+    def SetFgColour(self, c: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetFgColour(c) -> None
         """
@@ -233,7 +233,7 @@ class HtmlRenderingState:
         GetFgColour() -> wx.Colour
         """
 
-    def SetBgColour(self, c: wx.Colour) -> None:
+    def SetBgColour(self, c: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetBgColour(c) -> None
         """
@@ -255,7 +255,7 @@ class HtmlRenderingState:
     @property
     def BgColour(self) -> wx.Colour: ...
     @BgColour.setter
-    def BgColour(self, value: wx.Colour, /) -> None: ...
+    def BgColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def BgMode(self) -> int: ...
     @BgMode.setter
@@ -263,27 +263,27 @@ class HtmlRenderingState:
     @property
     def FgColour(self) -> wx.Colour: ...
     @FgColour.setter
-    def FgColour(self, value: wx.Colour, /) -> None: ...
+    def FgColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def SelectionState(self) -> HtmlSelectionState: ...
     @SelectionState.setter
-    def SelectionState(self, value: HtmlSelectionState, /) -> None: ...
+    def SelectionState(self, value: Union[HtmlSelectionState, int], /) -> None: ...
 # end of class HtmlRenderingState
 
 
-class HtmlRenderingStyle:
+class HtmlRenderingStyle(wx.siplib.wrapper):
     """
     wxHtmlSelection is data holder with information about text selection.
     """
 
-    def GetSelectedTextColour(self, clr: wx.Colour) -> wx.Colour:
+    def GetSelectedTextColour(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> wx.Colour:
         """
         GetSelectedTextColour(clr) -> wx.Colour
         
         Returns the colour to use for the selected text.
         """
 
-    def GetSelectedTextBgColour(self, clr: wx.Colour) -> wx.Colour:
+    def GetSelectedTextBgColour(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> wx.Colour:
         """
         GetSelectedTextBgColour(clr) -> wx.Colour
         
@@ -292,7 +292,7 @@ class HtmlRenderingStyle:
 # end of class HtmlRenderingStyle
 
 
-class HtmlRenderingInfo:
+class HtmlRenderingInfo(wx.siplib.wrapper):
     """
     HtmlRenderingInfo() -> None
     
@@ -441,7 +441,7 @@ class HtmlCell(wx.Object):
         Returns cursor to show when mouse pointer is over the cell.
         """
 
-    def GetMouseCursorAt(self, window: HtmlWindowInterface, rePos: wx.Point) -> wx.Cursor:
+    def GetMouseCursorAt(self, window: HtmlWindowInterface, rePos: Union[wx.Point, _TwoInts]) -> wx.Cursor:
         """
         GetMouseCursorAt(window, rePos) -> wx.Cursor
         
@@ -500,7 +500,7 @@ class HtmlCell(wx.Object):
         Layouts the cell.
         """
 
-    def ProcessMouseClick(self, window: HtmlWindowInterface, pos: wx.Point, event: wx.MouseEvent) -> bool:
+    def ProcessMouseClick(self, window: HtmlWindowInterface, pos: Union[wx.Point, _TwoInts], event: wx.MouseEvent) -> bool:
         """
         ProcessMouseClick(window, pos, event) -> bool
         
@@ -682,14 +682,14 @@ class HtmlContainerCell(HtmlCell):
         Sets the container's vertical alignment.
         """
 
-    def SetBackgroundColour(self, clr: wx.Colour) -> None:
+    def SetBackgroundColour(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetBackgroundColour(clr) -> None
         
         Sets the background colour for this container.
         """
 
-    def SetBorder(self, clr1: wx.Colour, clr2: wx.Colour, border: int=1) -> None:
+    def SetBorder(self, clr1: Union[wx.Colour, _ThreeInts, _FourInts, str, None], clr2: Union[wx.Colour, _ThreeInts, _FourInts, str, None], border: int=1) -> None:
         """
         SetBorder(clr1, clr2, border=1) -> None
         
@@ -734,7 +734,7 @@ class HtmlContainerCell(HtmlCell):
     @property
     def BackgroundColour(self) -> wx.Colour: ...
     @BackgroundColour.setter
-    def BackgroundColour(self, value: wx.Colour, /) -> None: ...
+    def BackgroundColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
 # end of class HtmlContainerCell
 
 
@@ -775,7 +775,7 @@ class HtmlLinkInfo(wx.Object):
         Return HREF value of the <A> tag.
         """
 
-    def GetHtmlCell(self) -> HtmlCell:
+    def GetHtmlCell(self) -> wx.html.HtmlCell:
         """
         GetHtmlCell() -> HtmlCell
         
@@ -794,7 +794,7 @@ class HtmlLinkInfo(wx.Object):
     @property
     def Href(self) -> str: ...
     @property
-    def HtmlCell(self) -> HtmlCell: ...
+    def HtmlCell(self) -> wx.html.HtmlCell: ...
     @property
     def Target(self) -> str: ...
 # end of class HtmlLinkInfo
@@ -808,7 +808,7 @@ class HtmlColourCell(HtmlCell):
     foreground.
     """
 
-    def __init__(self, clr: wx.Colour, flags: int=HTML_CLR_FOREGROUND) -> None:
+    def __init__(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None], flags: int=HTML_CLR_FOREGROUND) -> None:
         """
         HtmlColourCell(clr, flags=HTML_CLR_FOREGROUND) -> None
         
@@ -921,8 +921,9 @@ class HtmlFilter(wx.Object):
 
 #-- end-htmlfilt --#
 #-- begin-htmltag --#
+import wx.siplib
 
-class HtmlTag:
+class HtmlTag(wx.siplib.wrapper):
     """
     This class represents a single HTML tag.
     """
@@ -1000,15 +1001,16 @@ class HtmlTag:
 
 #-- end-htmltag --#
 #-- begin-htmlpars --#
+import wx.siplib
 
-class _HtmlURLType(IntEnum):
-    HTML_URL_PAGE = auto()
-    HTML_URL_IMAGE = auto()
-    HTML_URL_OTHER = auto()
-HtmlURLType: TypeAlias = Union[_HtmlURLType, int]
-HTML_URL_PAGE = _HtmlURLType.HTML_URL_PAGE
-HTML_URL_IMAGE = _HtmlURLType.HTML_URL_IMAGE
-HTML_URL_OTHER = _HtmlURLType.HTML_URL_OTHER
+@final
+class HtmlURLType(int, metaclass=wx.siplib.enumtype):
+    HTML_URL_PAGE: ClassVar[HtmlURLType]
+    HTML_URL_IMAGE: ClassVar[HtmlURLType]
+    HTML_URL_OTHER: ClassVar[HtmlURLType]
+HTML_URL_PAGE: HtmlURLType
+HTML_URL_IMAGE: HtmlURLType
+HTML_URL_OTHER: HtmlURLType
 
 class HtmlTagHandler(wx.Object):
     """
@@ -1072,7 +1074,7 @@ class HtmlTagHandler(wx.Object):
 # end of class HtmlTagHandler
 
 
-class HtmlParser:
+class HtmlParser(wx.siplib.wrapper):
     """
     HtmlParser() -> None
     
@@ -1141,7 +1143,7 @@ class HtmlParser:
         Setups the parser for parsing the source string.
         """
 
-    def OpenURL(self, type: HtmlURLType, url: str) -> wx.FSFile:
+    def OpenURL(self, type: Union[HtmlURLType, int], url: str) -> wx.FSFile:
         """
         OpenURL(type, url) -> wx.FSFile
         
@@ -1204,24 +1206,25 @@ class HtmlParser:
 
 #-- end-htmlpars --#
 #-- begin-htmlwin --#
+import wx.siplib
 HW_SCROLLBAR_NEVER: int
 HW_SCROLLBAR_AUTO: int
 HW_NO_SELECTION: int
 HW_DEFAULT_STYLE: int
 
-class _HtmlOpeningStatus(IntEnum):
-    HTML_OPEN = auto()
-    HTML_BLOCK = auto()
-    HTML_REDIRECT = auto()
-HtmlOpeningStatus: TypeAlias = Union[_HtmlOpeningStatus, int]
-HTML_OPEN = _HtmlOpeningStatus.HTML_OPEN
-HTML_BLOCK = _HtmlOpeningStatus.HTML_BLOCK
-HTML_REDIRECT = _HtmlOpeningStatus.HTML_REDIRECT
+@final
+class HtmlOpeningStatus(int, metaclass=wx.siplib.enumtype):
+    HTML_OPEN: ClassVar[HtmlOpeningStatus]
+    HTML_BLOCK: ClassVar[HtmlOpeningStatus]
+    HTML_REDIRECT: ClassVar[HtmlOpeningStatus]
+HTML_OPEN: HtmlOpeningStatus
+HTML_BLOCK: HtmlOpeningStatus
+HTML_REDIRECT: HtmlOpeningStatus
 wxEVT_HTML_CELL_CLICKED: int
 wxEVT_HTML_CELL_HOVER: int
 wxEVT_HTML_LINK_CLICKED: int
 
-class HtmlWindowInterface:
+class HtmlWindowInterface(wx.siplib.wrapper):
     """
     HtmlWindowInterface() -> None
     
@@ -1229,14 +1232,14 @@ class HtmlWindowInterface:
     wxHtmlListBox) that is passed to wxHtmlWinParser.
     """
 
-    class _HTMLCursor(IntEnum):
-        HTMLCursor_Default = auto()
-        HTMLCursor_Link = auto()
-        HTMLCursor_Text = auto()
-    HTMLCursor: TypeAlias = Union[_HTMLCursor, int]
-    HTMLCursor_Default = _HTMLCursor.HTMLCursor_Default
-    HTMLCursor_Link = _HTMLCursor.HTMLCursor_Link
-    HTMLCursor_Text = _HTMLCursor.HTMLCursor_Text
+    @final
+    class HTMLCursor(int, metaclass=wx.siplib.enumtype):
+        HTMLCursor_Default: ClassVar[HtmlWindowInterface.HTMLCursor]
+        HTMLCursor_Link: ClassVar[HtmlWindowInterface.HTMLCursor]
+        HTMLCursor_Text: ClassVar[HtmlWindowInterface.HTMLCursor]
+    HTMLCursor_Default: ClassVar[HTMLCursor]
+    HTMLCursor_Link: ClassVar[HTMLCursor]
+    HTMLCursor_Text: ClassVar[HTMLCursor]
 
     def __init__(self) -> None:
         """
@@ -1260,14 +1263,14 @@ class HtmlWindowInterface:
         Called when a link is clicked.
         """
 
-    def OnHTMLOpeningURL(self, type: HtmlURLType, url: str) -> Tuple[HtmlOpeningStatus, str]:
+    def OnHTMLOpeningURL(self, type: Union[HtmlURLType, int], url: str) -> Tuple[HtmlOpeningStatus, str]:
         """
         OnHTMLOpeningURL(type, url) -> Tuple[HtmlOpeningStatus, str]
         
         Called when the parser needs to open another URL (e.g.
         """
 
-    def HTMLCoordsToWindow(self, cell: HtmlCell, pos: wx.Point) -> wx.Point:
+    def HTMLCoordsToWindow(self, cell: HtmlCell, pos: Union[wx.Point, _TwoInts]) -> wx.Point:
         """
         HTMLCoordsToWindow(cell, pos) -> wx.Point
         
@@ -1289,14 +1292,14 @@ class HtmlWindowInterface:
         Returns background colour to use by default.
         """
 
-    def SetHTMLBackgroundColour(self, clr: wx.Colour) -> None:
+    def SetHTMLBackgroundColour(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHTMLBackgroundColour(clr) -> None
         
         Sets window's background to colour clr.
         """
 
-    def SetHTMLBackgroundImage(self, bmpBg: wx.BitmapBundle) -> None:
+    def SetHTMLBackgroundImage(self, bmpBg: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]) -> None:
         """
         SetHTMLBackgroundImage(bmpBg) -> None
         
@@ -1310,7 +1313,7 @@ class HtmlWindowInterface:
         Sets status bar text.
         """
 
-    def GetHTMLCursor(self, type: HtmlWindowInterface.HTMLCursor) -> wx.Cursor:
+    def GetHTMLCursor(self, type: Union[HtmlWindowInterface.HTMLCursor, int]) -> wx.Cursor:
         """
         GetHTMLCursor(type) -> wx.Cursor
         
@@ -1319,7 +1322,7 @@ class HtmlWindowInterface:
     @property
     def HTMLBackgroundColour(self) -> wx.Colour: ...
     @HTMLBackgroundColour.setter
-    def HTMLBackgroundColour(self, value: wx.Colour, /) -> None: ...
+    def HTMLBackgroundColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def HTMLWindow(self) -> wx.Window: ...
 # end of class HtmlWindowInterface
@@ -1336,7 +1339,7 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=HW_DEFAULT_STYLE, name: str="htmlWindow") -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=HW_DEFAULT_STYLE, name: str="htmlWindow") -> None:
         ...
 
     @overload
@@ -1459,7 +1462,7 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
         Called when user clicks on hypertext link.
         """
 
-    def OnOpeningURL(self, type: HtmlURLType, url: str) -> Tuple[HtmlOpeningStatus, str]:
+    def OnOpeningURL(self, type: Union[HtmlURLType, int], url: str) -> Tuple[HtmlOpeningStatus, str]:
         """
         OnOpeningURL(type, url) -> Tuple[HtmlOpeningStatus, str]
         
@@ -1488,14 +1491,14 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
         Selects all text in the window.
         """
 
-    def SelectLine(self, pos: wx.Point) -> None:
+    def SelectLine(self, pos: Union[wx.Point, _TwoInts]) -> None:
         """
         SelectLine(pos) -> None
         
         Selects the line of text that pos points at.
         """
 
-    def SelectWord(self, pos: wx.Point) -> None:
+    def SelectWord(self, pos: Union[wx.Point, _TwoInts]) -> None:
         """
         SelectWord(pos) -> None
         
@@ -1582,9 +1585,9 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
         """
 
     @staticmethod
-    def GetDefaultHTMLCursor(type: HTMLCursor, window: wx.Window=nullptr) -> wx.Cursor:
+    def GetDefaultHTMLCursor(type: HTMLCursor, window: Optional[wx.Window]=None) -> wx.Cursor:
         """
-        GetDefaultHTMLCursor(type, window=nullptr) -> wx.Cursor
+        GetDefaultHTMLCursor(type, window=None) -> wx.Cursor
         
         Retrieves the default cursor for a given HTMLCursor type.
         """
@@ -1597,13 +1600,8 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
         Sets the default cursor for a given HTMLCursor type.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -1677,7 +1675,7 @@ class HtmlCellEvent(wx.CommandEvent):
     This event class is used for the events generated by wxHtmlWindow.
     """
 
-    def __init__(self, commandType: EventType, id: int, cell: HtmlCell, point: wx.Point, ev: wx.MouseEvent) -> None:
+    def __init__(self, commandType: int, id: int, cell: HtmlCell, point: Union[wx.Point, _TwoInts], ev: wx.MouseEvent) -> None:
         """
         HtmlCellEvent(commandType, id, cell, point, ev) -> None
         
@@ -1734,9 +1732,9 @@ class HtmlCellEvent(wx.CommandEvent):
 # end of class HtmlCellEvent
 
 
-EVT_HTML_CELL_CLICKED = wx.PyEventBinder( wxEVT_HTML_CELL_CLICKED, 1 )
-EVT_HTML_CELL_HOVER   = wx.PyEventBinder( wxEVT_HTML_CELL_HOVER, 1 )
-EVT_HTML_LINK_CLICKED = wx.PyEventBinder( wxEVT_HTML_LINK_CLICKED, 1 )
+EVT_HTML_CELL_CLICKED: wx.PyEventBinder[HtmlCellEvent]
+EVT_HTML_CELL_HOVER: wx.PyEventBinder[HtmlCellEvent]
+EVT_HTML_LINK_CLICKED: wx.PyEventBinder[HtmlLinkEvent]
 
 # deprecated wxEVT aliases
 wxEVT_COMMAND_HTML_CELL_CLICKED  = wxEVT_HTML_CELL_CLICKED
@@ -1744,14 +1742,10 @@ wxEVT_COMMAND_HTML_CELL_HOVER    = wxEVT_HTML_CELL_HOVER
 wxEVT_COMMAND_HTML_LINK_CLICKED  = wxEVT_HTML_LINK_CLICKED
 #-- end-htmlwin --#
 #-- begin-htmlprint --#
-
-class _enum_28(IntEnum):
-    PAGE_ODD = auto()
-    PAGE_EVEN = auto()
-    PAGE_ALL = auto()
-PAGE_ODD = _enum_28.PAGE_ODD
-PAGE_EVEN = _enum_28.PAGE_EVEN
-PAGE_ALL = _enum_28.PAGE_ALL
+import wx.siplib
+PAGE_ODD: int
+PAGE_EVEN: int
+PAGE_ALL: int
 
 class HtmlDCRenderer(wx.Object):
     """
@@ -1846,23 +1840,23 @@ class HtmlDCRenderer(wx.Object):
 
 class HtmlEasyPrinting(wx.Object):
     """
-    HtmlEasyPrinting(name="Printing", parentWindow=nullptr) -> None
+    HtmlEasyPrinting(name="Printing", parentWindow=None) -> None
     
     This class provides very simple interface to printing architecture.
     """
 
-    class _PromptMode(IntEnum):
-        Prompt_Never = auto()
-        Prompt_Once = auto()
-        Prompt_Always = auto()
-    PromptMode: TypeAlias = Union[_PromptMode, int]
-    Prompt_Never = _PromptMode.Prompt_Never
-    Prompt_Once = _PromptMode.Prompt_Once
-    Prompt_Always = _PromptMode.Prompt_Always
+    @final
+    class PromptMode(int, metaclass=wx.siplib.enumtype):
+        Prompt_Never: ClassVar[HtmlEasyPrinting.PromptMode]
+        Prompt_Once: ClassVar[HtmlEasyPrinting.PromptMode]
+        Prompt_Always: ClassVar[HtmlEasyPrinting.PromptMode]
+    Prompt_Never: ClassVar[PromptMode]
+    Prompt_Once: ClassVar[PromptMode]
+    Prompt_Always: ClassVar[PromptMode]
 
-    def __init__(self, name: str="Printing", parentWindow: wx.Window=nullptr) -> None:
+    def __init__(self, name: str="Printing", parentWindow: Optional[wx.Window]=None) -> None:
         """
-        HtmlEasyPrinting(name="Printing", parentWindow=nullptr) -> None
+        HtmlEasyPrinting(name="Printing", parentWindow=None) -> None
         
         This class provides very simple interface to printing architecture.
         """
@@ -2099,7 +2093,7 @@ class HtmlWinTagHandler(HtmlTagHandler):
         GetParser() -> HtmlWinParser
         """
     @property
-    def Parser(self) -> HtmlParser: ...
+    def Parser(self) -> HtmlWinParser: ...
     @Parser.setter
     def Parser(self, value: HtmlParser, /) -> None: ...
 # end of class HtmlWinTagHandler
@@ -2107,15 +2101,15 @@ class HtmlWinTagHandler(HtmlTagHandler):
 
 class HtmlWinParser(HtmlParser):
     """
-    HtmlWinParser(wndIface=nullptr) -> None
+    HtmlWinParser(wndIface=None) -> None
     
     This class is derived from wxHtmlParser and its main goal is to parse
     HTML input so that it can be displayed in wxHtmlWindow.
     """
 
-    def __init__(self, wndIface: HtmlWindowInterface=nullptr) -> None:
+    def __init__(self, wndIface: Optional[HtmlWindowInterface]=None) -> None:
         """
-        HtmlWinParser(wndIface=nullptr) -> None
+        HtmlWinParser(wndIface=None) -> None
         
         This class is derived from wxHtmlParser and its main goal is to parse
         HTML input so that it can be displayed in wxHtmlWindow.
@@ -2252,7 +2246,7 @@ class HtmlWinParser(HtmlParser):
         Containers).
         """
 
-    def SetActualColor(self, clr: wx.Colour) -> None:
+    def SetActualColor(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetActualColor(clr) -> None
         
@@ -2337,7 +2331,7 @@ class HtmlWinParser(HtmlParser):
         Sets actual hypertext link.
         """
 
-    def SetLinkColor(self, clr: wx.Colour) -> None:
+    def SetLinkColor(self, clr: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetLinkColor(clr) -> None
         
@@ -2346,7 +2340,7 @@ class HtmlWinParser(HtmlParser):
     @property
     def ActualColor(self) -> wx.Colour: ...
     @ActualColor.setter
-    def ActualColor(self, value: wx.Colour, /) -> None: ...
+    def ActualColor(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def Align(self) -> int: ...
     @Align.setter
@@ -2394,20 +2388,21 @@ class HtmlWinParser(HtmlParser):
     @property
     def LinkColor(self) -> wx.Colour: ...
     @LinkColor.setter
-    def LinkColor(self, value: wx.Colour, /) -> None: ...
+    def LinkColor(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def WindowInterface(self) -> HtmlWindowInterface: ...
 # end of class HtmlWinParser
 
 
-def HtmlWinParser_AddTagHandler(self, tagHandlerClass: Any) -> None:
+def HtmlWinParser_AddTagHandler(tagHandlerClass: Any) -> None:
     """
     HtmlWinParser_AddTagHandler(tagHandlerClass) -> None
     """
 #-- end-htmlwinpars --#
 #-- begin-helpdata --#
+import wx.siplib
 
-class HtmlBookRecord:
+class HtmlBookRecord(wx.siplib.wrapper):
     """
     HtmlBookRecord(bookfile, basepath, title, start) -> None
     
@@ -2496,7 +2491,7 @@ class HtmlBookRecord:
 # end of class HtmlBookRecord
 
 
-class HtmlHelpDataItem:
+class HtmlHelpDataItem(wx.siplib.wrapper):
     """
     HtmlHelpDataItem() -> None
     
@@ -2605,6 +2600,22 @@ class HtmlHelpData(wx.Object):
     def IndexArray(self) -> HtmlHelpDataItems: ...
 # end of class HtmlHelpData
 
+
+class HtmlBookRecArray(wx.siplib.wrapper):
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int, /) -> HtmlBookRecord: ...
+    def __contains__(self, obj: HtmlBookRecord, /) -> bool: ...
+    def __iter__(self) -> Iterator[HtmlBookRecord]: ...
+    def index(self, obj: HtmlBookRecord) -> int: ...
+    def append(self, obj: HtmlBookRecord) -> None: ...
+
+class HtmlHelpDataItems(wx.siplib.wrapper):
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int, /) -> HtmlHelpDataItem: ...
+    def __contains__(self, obj: HtmlHelpDataItem, /) -> bool: ...
+    def __iter__(self) -> Iterator[HtmlHelpDataItem]: ...
+    def index(self, obj: HtmlHelpDataItem) -> int: ...
+    def append(self, obj: HtmlHelpDataItem) -> None: ...
 #-- end-helpdata --#
 #-- begin-helpfrm --#
 HF_TOOLBAR: int
@@ -2623,21 +2634,21 @@ HF_DEFAULT_STYLE: int
 
 class HtmlHelpFrame(wx.Frame):
     """
-    HtmlHelpFrame(data=nullptr) -> None
-    HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr, config=nullptr, rootpath='') -> None
+    HtmlHelpFrame(data=None) -> None
+    HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None, config=None, rootpath='') -> None
     
     This class is used by wxHtmlHelpController to display help.
     """
 
     @overload
-    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: HtmlHelpData=nullptr, config: wx.ConfigBase=nullptr, rootpath: str='') -> None:
+    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: Optional[HtmlHelpData]=None, config: Optional[wx.ConfigBase]=None, rootpath: str='') -> None:
         ...
 
     @overload
-    def __init__(self, data: HtmlHelpData=nullptr) -> None:
+    def __init__(self, data: Optional[HtmlHelpData]=None) -> None:
         """
-        HtmlHelpFrame(data=nullptr) -> None
-        HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr, config=nullptr, rootpath='') -> None
+        HtmlHelpFrame(data=None) -> None
+        HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None, config=None, rootpath='') -> None
         
         This class is used by wxHtmlHelpController to display help.
         """
@@ -2650,9 +2661,9 @@ class HtmlHelpFrame(wx.Frame):
         window's toolbar.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, config: wx.ConfigBase=nullptr, rootpath: str='') -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, config: Optional[wx.ConfigBase]=None, rootpath: str='') -> bool:
         """
-        Create(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, config=nullptr, rootpath='') -> bool
+        Create(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, config=None, rootpath='') -> bool
         
         Creates the frame.
         """
@@ -2678,13 +2689,8 @@ class HtmlHelpFrame(wx.Frame):
         Sets the frame's title format.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2699,21 +2705,21 @@ class HtmlHelpFrame(wx.Frame):
 
 class HtmlHelpDialog(wx.Dialog):
     """
-    HtmlHelpDialog(data=nullptr) -> None
-    HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr) -> None
+    HtmlHelpDialog(data=None) -> None
+    HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None) -> None
     
     This class is used by wxHtmlHelpController to display help.
     """
 
     @overload
-    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: HtmlHelpData=nullptr) -> None:
+    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: Optional[HtmlHelpData]=None) -> None:
         ...
 
     @overload
-    def __init__(self, data: HtmlHelpData=nullptr) -> None:
+    def __init__(self, data: Optional[HtmlHelpData]=None) -> None:
         """
-        HtmlHelpDialog(data=nullptr) -> None
-        HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr) -> None
+        HtmlHelpDialog(data=None) -> None
+        HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None) -> None
         
         This class is used by wxHtmlHelpController to display help.
         """
@@ -2754,13 +2760,8 @@ class HtmlHelpDialog(wx.Dialog):
         Sets the dialog's title format.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2772,63 +2773,36 @@ class HtmlHelpDialog(wx.Dialog):
 
 #-- end-helpdlg --#
 #-- begin-helpwnd --#
-
-class _enum_26(IntEnum):
-    ID_HTML_PANEL = auto()
-    ID_HTML_BACK = auto()
-    ID_HTML_FORWARD = auto()
-    ID_HTML_UPNODE = auto()
-    ID_HTML_UP = auto()
-    ID_HTML_DOWN = auto()
-    ID_HTML_PRINT = auto()
-    ID_HTML_OPENFILE = auto()
-    ID_HTML_OPTIONS = auto()
-    ID_HTML_BOOKMARKSLIST = auto()
-    ID_HTML_BOOKMARKSADD = auto()
-    ID_HTML_BOOKMARKSREMOVE = auto()
-    ID_HTML_TREECTRL = auto()
-    ID_HTML_INDEXPAGE = auto()
-    ID_HTML_INDEXLIST = auto()
-    ID_HTML_INDEXTEXT = auto()
-    ID_HTML_INDEXBUTTON = auto()
-    ID_HTML_INDEXBUTTONALL = auto()
-    ID_HTML_NOTEBOOK = auto()
-    ID_HTML_SEARCHPAGE = auto()
-    ID_HTML_SEARCHTEXT = auto()
-    ID_HTML_SEARCHLIST = auto()
-    ID_HTML_SEARCHBUTTON = auto()
-    ID_HTML_SEARCHCHOICE = auto()
-    ID_HTML_COUNTINFO = auto()
-ID_HTML_PANEL = _enum_26.ID_HTML_PANEL
-ID_HTML_BACK = _enum_26.ID_HTML_BACK
-ID_HTML_FORWARD = _enum_26.ID_HTML_FORWARD
-ID_HTML_UPNODE = _enum_26.ID_HTML_UPNODE
-ID_HTML_UP = _enum_26.ID_HTML_UP
-ID_HTML_DOWN = _enum_26.ID_HTML_DOWN
-ID_HTML_PRINT = _enum_26.ID_HTML_PRINT
-ID_HTML_OPENFILE = _enum_26.ID_HTML_OPENFILE
-ID_HTML_OPTIONS = _enum_26.ID_HTML_OPTIONS
-ID_HTML_BOOKMARKSLIST = _enum_26.ID_HTML_BOOKMARKSLIST
-ID_HTML_BOOKMARKSADD = _enum_26.ID_HTML_BOOKMARKSADD
-ID_HTML_BOOKMARKSREMOVE = _enum_26.ID_HTML_BOOKMARKSREMOVE
-ID_HTML_TREECTRL = _enum_26.ID_HTML_TREECTRL
-ID_HTML_INDEXPAGE = _enum_26.ID_HTML_INDEXPAGE
-ID_HTML_INDEXLIST = _enum_26.ID_HTML_INDEXLIST
-ID_HTML_INDEXTEXT = _enum_26.ID_HTML_INDEXTEXT
-ID_HTML_INDEXBUTTON = _enum_26.ID_HTML_INDEXBUTTON
-ID_HTML_INDEXBUTTONALL = _enum_26.ID_HTML_INDEXBUTTONALL
-ID_HTML_NOTEBOOK = _enum_26.ID_HTML_NOTEBOOK
-ID_HTML_SEARCHPAGE = _enum_26.ID_HTML_SEARCHPAGE
-ID_HTML_SEARCHTEXT = _enum_26.ID_HTML_SEARCHTEXT
-ID_HTML_SEARCHLIST = _enum_26.ID_HTML_SEARCHLIST
-ID_HTML_SEARCHBUTTON = _enum_26.ID_HTML_SEARCHBUTTON
-ID_HTML_SEARCHCHOICE = _enum_26.ID_HTML_SEARCHCHOICE
-ID_HTML_COUNTINFO = _enum_26.ID_HTML_COUNTINFO
+ID_HTML_PANEL: int
+ID_HTML_BACK: int
+ID_HTML_FORWARD: int
+ID_HTML_UPNODE: int
+ID_HTML_UP: int
+ID_HTML_DOWN: int
+ID_HTML_PRINT: int
+ID_HTML_OPENFILE: int
+ID_HTML_OPTIONS: int
+ID_HTML_BOOKMARKSLIST: int
+ID_HTML_BOOKMARKSADD: int
+ID_HTML_BOOKMARKSREMOVE: int
+ID_HTML_TREECTRL: int
+ID_HTML_INDEXPAGE: int
+ID_HTML_INDEXLIST: int
+ID_HTML_INDEXTEXT: int
+ID_HTML_INDEXBUTTON: int
+ID_HTML_INDEXBUTTONALL: int
+ID_HTML_NOTEBOOK: int
+ID_HTML_SEARCHPAGE: int
+ID_HTML_SEARCHTEXT: int
+ID_HTML_SEARCHLIST: int
+ID_HTML_SEARCHBUTTON: int
+ID_HTML_SEARCHCHOICE: int
+ID_HTML_COUNTINFO: int
 
 class HtmlHelpWindow(wx.Window):
     """
-    HtmlHelpWindow(data=nullptr) -> None
-    HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=nullptr) -> None
+    HtmlHelpWindow(data=None) -> None
+    HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=None) -> None
     
     This class is used by wxHtmlHelpController to display help within a
     frame or dialog, but you can use it yourself to create an embedded
@@ -2836,21 +2810,21 @@ class HtmlHelpWindow(wx.Window):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle: int=HF_DEFAULT_STYLE, data: HtmlHelpData=nullptr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle: int=HF_DEFAULT_STYLE, data: Optional[HtmlHelpData]=None) -> None:
         ...
 
     @overload
-    def __init__(self, data: HtmlHelpData=nullptr) -> None:
+    def __init__(self, data: Optional[HtmlHelpData]=None) -> None:
         """
-        HtmlHelpWindow(data=nullptr) -> None
-        HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=nullptr) -> None
+        HtmlHelpWindow(data=None) -> None
+        HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=None) -> None
         
         This class is used by wxHtmlHelpController to display help within a
         frame or dialog, but you can use it yourself to create an embedded
         HTML help window.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle: int=HF_DEFAULT_STYLE) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle: int=HF_DEFAULT_STYLE) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE) -> bool
         
@@ -2892,7 +2866,7 @@ class HtmlHelpWindow(wx.Window):
         controller's data.
         """
 
-    def KeywordSearch(self, keyword: str, mode: wx.HelpSearchMode=wx.HELP_SEARCH_ALL) -> bool:
+    def KeywordSearch(self, keyword: str, mode: Union[wx.HelpSearchMode, int]=wx.HELP_SEARCH_ALL) -> bool:
         """
         KeywordSearch(keyword, mode=wx.HELP_SEARCH_ALL) -> bool
         
@@ -2937,13 +2911,8 @@ class HtmlHelpWindow(wx.Window):
         SetController(controller) -> None
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2986,6 +2955,7 @@ class HtmlHelpWindow(wx.Window):
 
 #-- end-helpwnd --#
 #-- begin-helpctrl --#
+import wx.siplib
 ID_HTML_HELPFRAME: int
 HF_EMBEDDED: int
 HF_DIALOG: int
@@ -2994,7 +2964,7 @@ HF_MODAL: int
 
 class HtmlHelpController(wx.HelpControllerBase):
     """
-    HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=nullptr) -> None
+    HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=None) -> None
     HtmlHelpController(parentWindow, style=HF_DEFAULT_STYLE) -> None
     
     This help controller provides an easy way of displaying HTML help in
@@ -3006,9 +2976,9 @@ class HtmlHelpController(wx.HelpControllerBase):
         ...
 
     @overload
-    def __init__(self, style: int=HF_DEFAULT_STYLE, parentWindow: wx.Window=nullptr) -> None:
+    def __init__(self, style: int=HF_DEFAULT_STYLE, parentWindow: Optional[wx.Window]=None) -> None:
         """
-        HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=nullptr) -> None
+        HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=None) -> None
         HtmlHelpController(parentWindow, style=HF_DEFAULT_STYLE) -> None
         
         This help controller provides an easy way of displaying HTML help in
@@ -3055,7 +3025,7 @@ class HtmlHelpController(wx.HelpControllerBase):
         Displays help window and focuses index panel.
         """
 
-    def KeywordSearch(self, keyword: str, mode: wx.HelpSearchMode=wx.HELP_SEARCH_ALL) -> bool:
+    def KeywordSearch(self, keyword: str, mode: Union[wx.HelpSearchMode, int]=wx.HELP_SEARCH_ALL) -> bool:
         """
         KeywordSearch(keyword, mode=wx.HELP_SEARCH_ALL) -> bool
         
@@ -3161,7 +3131,7 @@ class HtmlHelpController(wx.HelpControllerBase):
 # end of class HtmlHelpController
 
 
-class HtmlModalHelp:
+class HtmlModalHelp(wx.siplib.wrapper):
     """
     HtmlModalHelp(parent, helpFile, topic='', style=HF_DEFAULT_STYLE|HF_DIALOG|HF_MODAL) -> None
     
@@ -3182,7 +3152,7 @@ class HtmlModalHelp:
 #-- begin-htmllbox --#
 HLB_DEFAULT_STYLE: int
 HLB_MULTIPLE: int
-HtmlListBoxNameStr: str
+HtmlListBoxNameStr: bytes
 
 class HtmlListBox(wx.VListBox):
     """
@@ -3198,7 +3168,7 @@ class HtmlListBox(wx.VListBox):
         ...
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=HtmlListBoxNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> None:
         """
         HtmlListBox(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=HtmlListBoxNameStr) -> None
         HtmlListBox() -> None
@@ -3214,7 +3184,7 @@ class HtmlListBox(wx.VListBox):
         Returns the wxFileSystem used by the HTML parser of this object.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=HtmlListBoxNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=HtmlListBoxNameStr) -> bool
         
@@ -3222,14 +3192,9 @@ class HtmlListBox(wx.VListBox):
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
-        """
-
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
         """
     @property
     def FileSystem(self) -> wx.FileSystem: ...
@@ -3241,7 +3206,7 @@ class HtmlListBox(wx.VListBox):
         Called when the user clicks on hypertext link.
         """
 
-    def GetSelectedTextBgColour(self, colBg: wx.Colour) -> wx.Colour:
+    def GetSelectedTextBgColour(self, colBg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> wx.Colour:
         """
         GetSelectedTextBgColour(colBg) -> wx.Colour
         
@@ -3250,7 +3215,7 @@ class HtmlListBox(wx.VListBox):
         GetSelectedTextColour().
         """
 
-    def GetSelectedTextColour(self, colFg: wx.Colour) -> wx.Colour:
+    def GetSelectedTextColour(self, colFg: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> wx.Colour:
         """
         GetSelectedTextColour(colFg) -> wx.Colour
         
@@ -3276,7 +3241,7 @@ class HtmlListBox(wx.VListBox):
         """
 # end of class HtmlListBox
 
-SimpleHtmlListBoxNameStr: str
+SimpleHtmlListBoxNameStr: bytes
 
 class SimpleHtmlListBox(HtmlListBox, wx.ItemContainer):
     """
@@ -3292,7 +3257,7 @@ class SimpleHtmlListBox(HtmlListBox, wx.ItemContainer):
         ...
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, choices: List[str]=[], style: int=HLB_DEFAULT_STYLE, validator: wx.Validator=wx.DefaultValidator, name: str=SimpleHtmlListBoxNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, choices: List[str]=[], style: int=HLB_DEFAULT_STYLE, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> None:
         """
         SimpleHtmlListBox(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, choices=[], style=HLB_DEFAULT_STYLE, validator=wx.DefaultValidator, name=SimpleHtmlListBoxNameStr) -> None
         SimpleHtmlListBox() -> None
@@ -3301,20 +3266,15 @@ class SimpleHtmlListBox(HtmlListBox, wx.ItemContainer):
         HTML content in the listbox rows.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, choices: List[str]=[], style: int=HLB_DEFAULT_STYLE, validator: wx.Validator=wx.DefaultValidator, name: str=SimpleHtmlListBoxNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, choices: List[str]=[], style: int=HLB_DEFAULT_STYLE, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, choices=[], style=HLB_DEFAULT_STYLE, validator=wx.DefaultValidator, name=SimpleHtmlListBoxNameStr) -> bool
         
         Creates the HTML listbox for two-step construction.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """

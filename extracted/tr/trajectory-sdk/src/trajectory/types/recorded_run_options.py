@@ -9,8 +9,6 @@ from trajectory.types.training_algorithm import TrainingAlgorithm
 class RecordedRunOptions(BaseModel):
   """Recorded settings retain values outside the public launch limits."""
 
-  retries: int | None = None
-
   intelligent_density_training: bool | None = None
 
   algorithm: TrainingAlgorithm | None = None

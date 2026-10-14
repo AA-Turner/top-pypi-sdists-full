@@ -1911,6 +1911,7 @@ class Runtimes(_api_module.BaseModule):
             container_spec=config.container_spec,
             keep_alive_probe=keep_alive_probe,
             build_config=config.build_config,
+            agent_card=config.agent_card,
         )
         operation = self._create(config=api_config)
         logger.info(f"Create Agent Runtime backing LRO: {operation.name}")
@@ -1944,8 +1945,12 @@ class Runtimes(_api_module.BaseModule):
                 f"runtime=client.runtimes.get(name='{runtime.api_resource.name}')"
             )
         elif operation.error:
-            raise RuntimeError(
-                f"Operation {operation.name} failed to create Agent Runtime: {operation.error}"
+            _runtimes_utils._raise_for_operation_error(
+                operation=operation,
+                message=(
+                    f"Operation {operation.name} failed to create Agent Runtime:"
+                    f" {operation.error}"
+                ),
             )
         else:
             logger.warning("The operation returned an empty response.")
@@ -2226,6 +2231,7 @@ class Runtimes(_api_module.BaseModule):
         keep_alive_probe: Optional[dict[str, Any]] = None,
         traffic_config: Optional[types.ReasoningEngineTrafficConfigDict] = None,
         build_config: Optional[types.ReasoningEngineSpecBuildSpecDict] = None,
+        agent_card: Optional[dict[str, Any]] = None,
     ) -> types.UpdateRuntimeConfigDict:
         import sys
 
@@ -2400,14 +2406,15 @@ class Runtimes(_api_module.BaseModule):
                 agent=agent,
             )
 
-            if hasattr(agent, "agent_card"):
-                agent_card = getattr(agent, "agent_card")
-                if agent_card:
+            # An agent_card given in the config takes precedence; it is added below.
+            if agent_card is None and hasattr(agent, "agent_card"):
+                agent_object_card = getattr(agent, "agent_card")
+                if agent_object_card:
                     try:
                         from google.protobuf import json_format
 
                         runtime_spec["agent_card"] = json_format.MessageToDict(
-                            agent_card
+                            agent_object_card
                         )
                     except Exception as e:
                         raise ValueError(
@@ -2447,6 +2454,12 @@ class Runtimes(_api_module.BaseModule):
                 update_masks.append("spec.build_spec.service_account")
             if build_spec:
                 runtime_spec["build_spec"] = build_spec
+
+        if agent_card is not None:
+            if runtime_spec is None:
+                runtime_spec = {}
+            runtime_spec["agent_card"] = agent_card
+            update_masks.append("spec.agent_card")
 
         if runtime_spec is not None:
             config["spec"] = runtime_spec
@@ -2720,6 +2733,7 @@ class Runtimes(_api_module.BaseModule):
             keep_alive_probe=keep_alive_probe,
             traffic_config=traffic_config,
             build_config=config.build_config,
+            agent_card=config.agent_card,
         )
         operation = self._update(name=name, config=api_config)
         logger.info(f"Update Agent Runtime backing LRO: {operation.name}")
@@ -2747,8 +2761,12 @@ class Runtimes(_api_module.BaseModule):
                 f"runtime=client.runtimes.get(name='{runtime.api_resource.name}')"
             )
         elif operation.error:
-            raise RuntimeError(
-                f"Operation {operation.name} failed to update Agent Runtime: {operation.error}"
+            _runtimes_utils._raise_for_operation_error(
+                operation=operation,
+                message=(
+                    f"Operation {operation.name} failed to update Agent Runtime:"
+                    f" {operation.error}"
+                ),
             )
         if runtime.api_resource.spec:
             self._register_api_methods(runtime=runtime)

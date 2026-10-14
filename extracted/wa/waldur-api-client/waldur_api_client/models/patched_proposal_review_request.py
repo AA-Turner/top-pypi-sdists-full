@@ -18,13 +18,12 @@ class PatchedProposalReviewRequest:
         summary_private_comment (Union[Unset, str]):
         comment_project_title (Union[None, Unset, str]):
         comment_project_summary (Union[None, Unset, str]):
-        comment_project_is_confidential (Union[None, Unset, str]):
-        comment_project_has_civilian_purpose (Union[None, Unset, str]):
         comment_project_description (Union[None, Unset, str]):
-        comment_project_duration (Union[None, Unset, str]):
         comment_project_supporting_documentation (Union[None, Unset, str]):
         comment_resource_requests (Union[None, Unset, str]):
         comment_team (Union[None, Unset, str]):
+        override_workload_limit (Union[Unset, bool]): Create the review even if this takes the reviewer above their
+            maximum number of open assignments in the call's reviewer pool. The override is logged.
     """
 
     summary_score: Union[Unset, int] = UNSET
@@ -32,13 +31,11 @@ class PatchedProposalReviewRequest:
     summary_private_comment: Union[Unset, str] = UNSET
     comment_project_title: Union[None, Unset, str] = UNSET
     comment_project_summary: Union[None, Unset, str] = UNSET
-    comment_project_is_confidential: Union[None, Unset, str] = UNSET
-    comment_project_has_civilian_purpose: Union[None, Unset, str] = UNSET
     comment_project_description: Union[None, Unset, str] = UNSET
-    comment_project_duration: Union[None, Unset, str] = UNSET
     comment_project_supporting_documentation: Union[None, Unset, str] = UNSET
     comment_resource_requests: Union[None, Unset, str] = UNSET
     comment_team: Union[None, Unset, str] = UNSET
+    override_workload_limit: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,29 +57,11 @@ class PatchedProposalReviewRequest:
         else:
             comment_project_summary = self.comment_project_summary
 
-        comment_project_is_confidential: Union[None, Unset, str]
-        if isinstance(self.comment_project_is_confidential, Unset):
-            comment_project_is_confidential = UNSET
-        else:
-            comment_project_is_confidential = self.comment_project_is_confidential
-
-        comment_project_has_civilian_purpose: Union[None, Unset, str]
-        if isinstance(self.comment_project_has_civilian_purpose, Unset):
-            comment_project_has_civilian_purpose = UNSET
-        else:
-            comment_project_has_civilian_purpose = self.comment_project_has_civilian_purpose
-
         comment_project_description: Union[None, Unset, str]
         if isinstance(self.comment_project_description, Unset):
             comment_project_description = UNSET
         else:
             comment_project_description = self.comment_project_description
-
-        comment_project_duration: Union[None, Unset, str]
-        if isinstance(self.comment_project_duration, Unset):
-            comment_project_duration = UNSET
-        else:
-            comment_project_duration = self.comment_project_duration
 
         comment_project_supporting_documentation: Union[None, Unset, str]
         if isinstance(self.comment_project_supporting_documentation, Unset):
@@ -102,6 +81,8 @@ class PatchedProposalReviewRequest:
         else:
             comment_team = self.comment_team
 
+        override_workload_limit = self.override_workload_limit
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -115,20 +96,16 @@ class PatchedProposalReviewRequest:
             field_dict["comment_project_title"] = comment_project_title
         if comment_project_summary is not UNSET:
             field_dict["comment_project_summary"] = comment_project_summary
-        if comment_project_is_confidential is not UNSET:
-            field_dict["comment_project_is_confidential"] = comment_project_is_confidential
-        if comment_project_has_civilian_purpose is not UNSET:
-            field_dict["comment_project_has_civilian_purpose"] = comment_project_has_civilian_purpose
         if comment_project_description is not UNSET:
             field_dict["comment_project_description"] = comment_project_description
-        if comment_project_duration is not UNSET:
-            field_dict["comment_project_duration"] = comment_project_duration
         if comment_project_supporting_documentation is not UNSET:
             field_dict["comment_project_supporting_documentation"] = comment_project_supporting_documentation
         if comment_resource_requests is not UNSET:
             field_dict["comment_resource_requests"] = comment_resource_requests
         if comment_team is not UNSET:
             field_dict["comment_team"] = comment_team
+        if override_workload_limit is not UNSET:
+            field_dict["override_workload_limit"] = override_workload_limit
 
         return field_dict
 
@@ -159,28 +136,6 @@ class PatchedProposalReviewRequest:
 
         comment_project_summary = _parse_comment_project_summary(d.pop("comment_project_summary", UNSET))
 
-        def _parse_comment_project_is_confidential(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        comment_project_is_confidential = _parse_comment_project_is_confidential(
-            d.pop("comment_project_is_confidential", UNSET)
-        )
-
-        def _parse_comment_project_has_civilian_purpose(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        comment_project_has_civilian_purpose = _parse_comment_project_has_civilian_purpose(
-            d.pop("comment_project_has_civilian_purpose", UNSET)
-        )
-
         def _parse_comment_project_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -189,15 +144,6 @@ class PatchedProposalReviewRequest:
             return cast(Union[None, Unset, str], data)
 
         comment_project_description = _parse_comment_project_description(d.pop("comment_project_description", UNSET))
-
-        def _parse_comment_project_duration(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        comment_project_duration = _parse_comment_project_duration(d.pop("comment_project_duration", UNSET))
 
         def _parse_comment_project_supporting_documentation(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -228,19 +174,19 @@ class PatchedProposalReviewRequest:
 
         comment_team = _parse_comment_team(d.pop("comment_team", UNSET))
 
+        override_workload_limit = d.pop("override_workload_limit", UNSET)
+
         patched_proposal_review_request = cls(
             summary_score=summary_score,
             summary_public_comment=summary_public_comment,
             summary_private_comment=summary_private_comment,
             comment_project_title=comment_project_title,
             comment_project_summary=comment_project_summary,
-            comment_project_is_confidential=comment_project_is_confidential,
-            comment_project_has_civilian_purpose=comment_project_has_civilian_purpose,
             comment_project_description=comment_project_description,
-            comment_project_duration=comment_project_duration,
             comment_project_supporting_documentation=comment_project_supporting_documentation,
             comment_resource_requests=comment_resource_requests,
             comment_team=comment_team,
+            override_workload_limit=override_workload_limit,
         )
 
         patched_proposal_review_request.additional_properties = d

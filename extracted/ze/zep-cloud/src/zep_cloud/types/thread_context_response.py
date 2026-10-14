@@ -9,7 +9,9 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class ThreadContextResponse(UniversalBaseModel):
     context: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Context block containing relevant facts, entities, and messages/episodes from the user graph. Pass it through the model provider's untrusted-data channel.
+    The context block containing relevant facts, entities, and messages or
+    episodes from the user's graph. Pass it through the model provider's
+    untrusted-data channel.
     """
 
     if IS_PYDANTIC_V2:

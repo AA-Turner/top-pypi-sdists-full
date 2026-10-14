@@ -3,8 +3,10 @@
 isort:skip_file
 """
 
+import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_usage_pricer_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -15,8 +17,18 @@ class BillingAlertEvaluationRequested(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    CONTRACT_ID_FIELD_NUMBER: builtins.int
+    PRICED_USAGE_FIELD_NUMBER: builtins.int
+    contract_id: builtins.int
+    @property
+    def priced_usage(self) -> sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_usage_pricer_pb2.UsagePricerResponse: ...
     def __init__(
         self,
+        *,
+        contract_id: builtins.int = ...,
+        priced_usage: sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_usage_pricer_pb2.UsagePricerResponse | None = ...,
     ) -> None: ...
+    def HasField(self, field_name: typing.Literal["priced_usage", b"priced_usage"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "priced_usage", b"priced_usage"]) -> None: ...
 
 global___BillingAlertEvaluationRequested = BillingAlertEvaluationRequested

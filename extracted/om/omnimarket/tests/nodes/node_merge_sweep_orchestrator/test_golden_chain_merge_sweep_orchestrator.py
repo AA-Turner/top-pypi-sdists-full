@@ -41,11 +41,17 @@ def _operations(node: str) -> set[str]:
     return {e["operation"] for e in _contract(node)["handler_routing"]["handlers"]}
 
 
-def test_contract_declares_its_topics_and_no_shared_runtime_bus_block() -> None:
+def test_contract_declares_its_topics_on_the_bus_for_the_effects_runtime() -> None:
     contract = _contract()
     assert contract["name"] == NAME
     assert contract["node_type"] == "orchestrator"
-    assert "event_bus" not in contract
+    bus = contract["event_bus"]
+    assert bus["subscribe_topics"] == [
+        "onex.cmd.omnimarket.merge-sweep-run-requested.v1"
+    ]
+    assert bus["publish_topics"] == ["onex.evt.omnimarket.merge-sweep-run-completed.v1"]
+    assert "runtime_lanes" not in contract
+    assert contract["descriptor"]["runtime_profiles"] == ["effects"]
     dispatch = contract["runtime_dispatch"]
     assert (
         dispatch["command_topic"] == "onex.cmd.omnimarket.merge-sweep-run-requested.v1"
@@ -149,8 +155,9 @@ def test_without_a_supplement_the_unread_facts_are_named_and_the_sweep_is_incomp
     assert result.ok, result.why
     assert result.complete is False
     fields = {u.field for u in result.unread}
-    assert "merge-files" in fields
     assert any(f.startswith("files:") for f in fields)
+    # A merge with no changed-file list is counted once, under product.excluded.files_unread.
+    assert "merge-files" not in fields
 
 
 def test_the_runner_is_never_started_when_dispatch_is_off(tmp_path: Path) -> None:

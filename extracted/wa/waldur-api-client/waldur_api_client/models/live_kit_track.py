@@ -17,6 +17,11 @@ class LiveKitTrack:
         muted (bool):
         width (int):
         height (int):
+        source (str): What the track carries, as LiveKit names it: CAMERA, MICROPHONE, SCREEN_SHARE, SCREEN_SHARE_AUDIO
+            or UNKNOWN.
+        encryption (str): How the publisher encrypts the track's media end to end, as LiveKit names it: GCM (LiveKit's
+            end-to-end encryption, which Matrix calls in encrypted rooms use), CUSTOM (another scheme) or NONE (only
+            encrypted between the browser and LiveKit).
     """
 
     sid: str
@@ -25,6 +30,8 @@ class LiveKitTrack:
     muted: bool
     width: int
     height: int
+    source: str
+    encryption: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -40,6 +47,10 @@ class LiveKitTrack:
 
         height = self.height
 
+        source = self.source
+
+        encryption = self.encryption
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -50,6 +61,8 @@ class LiveKitTrack:
                 "muted": muted,
                 "width": width,
                 "height": height,
+                "source": source,
+                "encryption": encryption,
             }
         )
 
@@ -70,6 +83,10 @@ class LiveKitTrack:
 
         height = d.pop("height")
 
+        source = d.pop("source")
+
+        encryption = d.pop("encryption")
+
         live_kit_track = cls(
             sid=sid,
             name=name,
@@ -77,6 +94,8 @@ class LiveKitTrack:
             muted=muted,
             width=width,
             height=height,
+            source=source,
+            encryption=encryption,
         )
 
         live_kit_track.additional_properties = d

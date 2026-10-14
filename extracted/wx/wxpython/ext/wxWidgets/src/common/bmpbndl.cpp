@@ -202,6 +202,58 @@ private:
     wxDECLARE_NO_COPY_CLASS(wxBitmapBundleImplSet);
 };
 
+// Bundle implementation wrapping another bundle and returning disabled
+// versions of its bitmaps, generated on demand.
+class wxBitmapBundleImplDisabled : public wxBitmapBundleImpl
+{
+public:
+    explicit wxBitmapBundleImplDisabled(const wxBitmapBundle& src)
+        : m_src(src)
+    {
+    }
+
+    virtual wxSize GetDefaultSize() const override
+    {
+        return m_src.GetDefaultSize();
+    }
+
+    virtual wxSize GetPreferredBitmapSizeAtScale(double scale) const override
+    {
+        return m_src.GetPreferredBitmapSizeAtScale(scale);
+    }
+
+    virtual wxBitmap GetBitmap(const wxSize& size) override
+    {
+        for ( size_t n = 0; n < m_cache.size(); ++n )
+        {
+            if ( m_cache[n].size == size )
+                return m_cache[n].bitmap;
+        }
+
+        wxBitmap bitmap = m_src.GetBitmap(size);
+        wxBitmap::MakeDisabled(bitmap);
+
+        Entry entry;
+        entry.size = size;
+        entry.bitmap = bitmap;
+        m_cache.push_back(entry);
+
+        return bitmap;
+    }
+
+private:
+    struct Entry
+    {
+        wxSize size;
+        wxBitmap bitmap;
+    };
+
+    wxBitmapBundle m_src;
+    wxVector<Entry> m_cache;
+
+    wxDECLARE_NO_COPY_CLASS(wxBitmapBundleImplDisabled);
+};
+
 } // anonymous namespace
 
 // ============================================================================
@@ -451,6 +503,14 @@ wxBitmapBundle wxBitmapBundle::FromImpl(wxBitmapBundleImpl* impl)
     return wxBitmapBundle(impl);
 }
 
+wxBitmapBundle wxBitmapBundle::MakeDisabled() const
+{
+    if ( !IsOk() )
+        return wxBitmapBundle();
+
+    return wxBitmapBundle(new wxBitmapBundleImplDisabled(*this));
+}
+
 /* static */
 wxBitmapBundle wxBitmapBundle::FromIconBundle(const wxIconBundle& iconBundle)
 {
@@ -638,11 +698,11 @@ typedef wxVector<SizePrefWithCount> SizePrefs;
 
 void RecordSizePref(SizePrefs& prefs, const wxSize& size)
 {
-    for ( size_t n = 0; n < prefs.size(); ++n )
+    for ( auto& pref : prefs )
     {
-        if ( prefs[n].size == size )
+        if ( pref.size == size )
         {
-            prefs[n].count++;
+            pref.count++;
             return;
         }
     }
@@ -672,18 +732,18 @@ wxBitmapBundle::GetConsensusSizeFor(double scale,
     // different for different bitmap bundles, so record all their preferences
     // first.
     SizePrefs prefs;
-    for ( size_t n = 0; n < bundles.size(); ++n )
+    for ( const auto& bundle : bundles )
     {
-        RecordSizePref(prefs, bundles[n].GetPreferredBitmapSizeAtScale(scale));
+        RecordSizePref(prefs, bundle.GetPreferredBitmapSizeAtScale(scale));
     }
 
     // Now find the size preferred by most tools.
     int countMax = 0;
     wxSize sizePreferred;
-    for ( size_t n = 0; n < prefs.size(); ++n )
+    for ( const auto& pref : prefs )
     {
-        const int countThis = prefs[n].count;
-        const wxSize sizeThis = prefs[n].size;
+        const int countThis = pref.count;
+        const wxSize sizeThis = pref.size;
 
         if ( countThis > countMax )
         {
@@ -717,9 +777,9 @@ wxBitmapBundle::CreateImageList(const wxWindow* win,
 
     wxImageList* const iml = new wxImageList(size.x, size.y);
 
-    for ( size_t n = 0; n < bundles.size(); ++n )
+    for ( const auto& bundle : bundles )
     {
-        iml->Add(bundles[n].GetBitmap(size));
+        iml->Add(bundle.GetBitmap(size));
     }
 
     return iml;

@@ -38,6 +38,7 @@ from .literals import (
     LogLevelType,
     MtimeType,
     NfsVersionType,
+    ObjectMetadataType,
     ObjectStorageServerProtocolType,
     ObjectTagsType,
     ObjectVersionIdsType,
@@ -297,6 +298,7 @@ class OptionsTypeDef(TypedDict):
     TransferMode: NotRequired[TransferModeType]
     SecurityDescriptorCopyFlags: NotRequired[SmbSecurityDescriptorCopyFlagsType]
     ObjectTags: NotRequired[ObjectTagsType]
+    ObjectMetadata: NotRequired[ObjectMetadataType]
 
 
 class TaskScheduleTypeDef(TypedDict):

@@ -5,7 +5,7 @@ Tests for the cutouts module.
 
 import numpy as np
 import pytest
-from astropy.nddata import PartialOverlapError
+from astropy.nddata import NoOverlapError, PartialOverlapError
 from numpy.testing import assert_equal
 
 from photutils.aperture import BoundingBox
@@ -100,6 +100,19 @@ class TestCutoutImage:
                                           slice(457, 500, None))
         assert cutout.slices_cutout == (slice(0, 46, None),
                                         slice(0, 43, None))
+
+    @pytest.mark.parametrize('shape', [(31, 31), [31, 31],
+                                       np.array([31, 31])])
+    def test_cutout_edge_no_overlap(self, shape):
+        """
+        Test that a cutout ending exactly at the lower edge of the data
+        raises NoOverlapError for any array-like shape.
+        """
+        data = np.zeros((100, 100))
+        match = 'Arrays do not overlap'
+        for position in ((50, -16), (-16, 50)):
+            with pytest.raises(NoOverlapError, match=match):
+                CutoutImage(data, position, shape)
 
     def test_cutout_copy(self):
         """
@@ -213,6 +226,18 @@ class TestMakeCutouts:
         # No overlap
         assert not mask[2].any()
 
+    def test_half_pixel_positions(self):
+        """
+        Test that half-integer positions round half away from zero.
+        """
+        xpos = np.array([2.5])
+        ypos = np.array([3.5])
+        cutouts, mask = _make_cutouts(self.data, xpos, ypos, (3, 3))
+        assert mask[0].all()
+        # Centers round to (y, x) = (4, 3)
+        expected = self.data[3:6, 2:5]
+        np.testing.assert_array_equal(cutouts[0], expected)
+
     def test_even_shaped_cutout(self):
         """
         Test _make_cutouts with an even-shaped cutout.
@@ -222,7 +247,7 @@ class TestMakeCutouts:
         cutouts, mask = _make_cutouts(self.data, xpos, ypos, (4, 4))
         assert cutouts.shape == (1, 4, 4)
         assert mask[0].all()  # fully inside
-        # Half-widths: hy=2, hx=2; cutout rows [3..6], cols [3..6]
+        # Half-widths hy=2, hx=2 give cutout rows [3..6], cols [3..6]
         expected = self.data[3:7, 3:7]
         np.testing.assert_array_equal(cutouts[0], expected)
 

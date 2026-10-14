@@ -9,7 +9,7 @@ import pytest
 from mpp import Challenge, Credential, Receipt
 from mpp.events import ServerPaymentSuccessPayload
 from mpp.methods import CanOfferFn, PaymentSuccessHandler
-from mpp.methods.stripe import stripe
+from mpp.methods.stripe import spt
 from mpp.methods.tempo import tempo
 from mpp.server import ComposedChallenges, Mpp, compose, intent
 from tests import MockRequest
@@ -56,6 +56,51 @@ def create_server(*methods: ThirdPartyMethod) -> Mpp:
 
 def credential(challenge: Challenge) -> Credential:
     return Credential(challenge=challenge.to_echo(), payload={})
+
+
+async def test_generic_preparation_consumes_private_input_without_changing_protocol():
+    seen = []
+
+    class PreparedMethod(ThirdPartyMethod):
+        def prepare_intent(self, original, input):
+            private_value = input.pop("private_value", None)
+
+            @intent(name=original.name)
+            async def verify(credential, request):
+                seen.append(private_value)
+                return await original.verify(credential, request)
+
+            return verify, input
+
+    method = PreparedMethod("custom")
+    server = create_server(method)
+    events = []
+    server.on_payment_success(events.append)
+    for private_value in ("first", "second"):
+        unpaid = await server.charge(None, "1.50", private_value=private_value)
+        assert isinstance(unpaid, Challenge)
+        assert "private_value" not in unpaid.request
+        assert unpaid.request["transformedBy"] == "custom"
+        assert unpaid.request["amount"] == "150"
+        await server.charge(
+            credential(unpaid).to_authorization(), "1.50", private_value=private_value
+        )
+    assert seen == ["first", "second"]
+    assert all("private_value" not in event["request"] for event in events)
+    with pytest.raises(ValueError, match="unsupported compose option"):
+        server.compose((method, cast(Any, {"amount": "1.50", "typo": "bad"})))
+
+
+def test_invalid_preparation_result_is_rejected():
+    from mpp.server.method import prepare_intent
+
+    class BrokenMethod(ThirdPartyMethod):
+        def prepare_intent(self, original, input):
+            return original
+
+    method = BrokenMethod("broken")
+    with pytest.raises(TypeError, match="prepare_intent must return"):
+        prepare_intent(method, method.intents["charge"], {})
 
 
 @pytest.mark.asyncio
@@ -107,7 +152,7 @@ async def test_can_offer_checks_repeated_offers_but_not_direct_handlers_or_redem
         return request["amount"] == "200"
 
     method = ThirdPartyMethod("only", can_offer=can_offer)
-    server = create_server(method)
+    server = Mpp.create(method=method, realm="api.example.com", secret_key="secret")
 
     direct = await server.charge(None, "1.00")
     assert isinstance(direct, Challenge)
@@ -126,6 +171,17 @@ async def test_can_offer_checks_repeated_offers_but_not_direct_handlers_or_redem
     assert not isinstance(paid, ComposedChallenges)
     assert paid[1].reference == "only"
     assert amounts == ["100", "200"]
+
+
+@pytest.mark.asyncio
+async def test_implicit_charge_keeps_composed_result_when_one_method_is_filtered() -> None:
+    first = ThirdPartyMethod("first", can_offer=lambda _request: False)
+    second = ThirdPartyMethod("second", can_offer=lambda _request: True)
+
+    result = await create_server(first, second).charge(None, "1.00")
+
+    assert isinstance(result, ComposedChallenges)
+    assert [challenge.method for challenge in result.challenges] == ["second"]
 
 
 @pytest.mark.asyncio
@@ -237,7 +293,7 @@ def test_method_factories_preserve_hooks() -> None:
     def on_payment_success(_payload: ServerPaymentSuccessPayload) -> None:
         pass
 
-    stripe_method = stripe(
+    stripe_method = spt(
         intents={},
         currency="usd",
         recipient="acct_123",

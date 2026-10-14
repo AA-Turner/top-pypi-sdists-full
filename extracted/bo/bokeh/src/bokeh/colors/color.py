@@ -255,7 +255,7 @@ class RGB(Color):
         ''' Create an RGB color from a CSS color string.
 
         Args:
-            css_color (str) :
+            css_color_string (str) :
                 String containing RGBA values. Valid formats are "rgb(125, 123, 12)" or
                 "rgba(125, 123, 12, 0.1)". The RGB values can be in the range between 0 and 255 and
                 are allowed to have decimal points. The alpha value can be in range between 0 and 1.
@@ -381,7 +381,7 @@ class RGB(Color):
 
         '''
         h, l, s = colorsys.rgb_to_hls(self.r/255., self.g/255., self.b/255.)
-        return HSL(round(h*360), s, l, self.a)
+        return HSL(h*360, s, l, self.a)
 
     def to_rgb(self) -> RGB:
         ''' Return a RGB copy for this RGB color.
@@ -418,13 +418,13 @@ class HSL(Color):
         '''
 
         Args:
-            h (int) :
+            h (float) :
                 The Hue, in [0, 360]
 
-            s (int) :
+            s (float) :
                 The Saturation, in [0, 1]
 
-            l (int) :
+            l (float) :
                 The lightness, in [0, 1]
 
             a (float, optional) :

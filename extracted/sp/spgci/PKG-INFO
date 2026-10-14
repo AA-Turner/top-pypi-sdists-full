@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: spgci
-Version: 0.0.121
+Version: 0.0.122
 Summary: SPGCI is an API Client for the S&P Commodity Insights REST API
 License: Apache-2.0
 Author: S&P Global Commodity Insights
@@ -614,6 +614,23 @@ sm.calculate_ondemand_price(
 
 sm.get_reference_data_pipelines(pipeline_name="Colonial", origin_state="TX")
 # DataFrame of pipelines named "Colonial" originating in Texas.
+```
+
+### Refinery Cost and Margin Analysis (RCMA)
+
+```python
+import spgci as ci
+from datetime import date
+
+rcma = ci.Rcma()
+
+rcma.get_cost(
+    country="Germany",
+    subcategory="Operating Metrics ($/bbl)",
+    metric="Net Margin",
+    yield_date_gte=date(2026, 1, 1),
+)
+# DataFrame of quarterly net margin ($/bbl) for German refineries from 2026-Q1.
 ```
 
 ### Road Fuel

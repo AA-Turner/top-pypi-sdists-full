@@ -25,6 +25,7 @@ set(TEST_GUI_SRC
     graphics/clipper.cpp
     graphics/clippingbox.cpp
     graphics/svgattributes.cpp
+    graphics/svgfiledc.cpp
     graphics/coords.cpp
     graphics/graphbitmap.cpp
     graphics/graphmatrix.cpp
@@ -43,6 +44,7 @@ set(TEST_GUI_SRC
     controls/comboboxtest.cpp
     controls/dataviewctrltest.cpp
     controls/datepickerctrltest.cpp
+    controls/dirctrltest.cpp
     controls/frametest.cpp
     controls/gaugetest.cpp
     controls/gridtest.cpp
@@ -85,6 +87,7 @@ set(TEST_GUI_SRC
     controls/webtest.cpp
     controls/windowtest.cpp
     controls/dialogtest.cpp
+    docview/updateallviews.cpp
     events/clone.cpp
     events/enterleave.cpp
     # Duplicate this file here to test GUI event loops too.
@@ -110,10 +113,11 @@ set(TEST_GUI_SRC
     misc/safearrayconverttest.cpp
     misc/settings.cpp
     misc/textwrap.cpp
-    # This one is intentionally duplicated here (it is also part of
-    # non-GUI test) as sockets behave differently in console and GUI
-    # applications.
+    # These ones are intentionally duplicated here (they are also part of
+    # non-GUI test) as sockets and web requests behave differently in
+    # console and GUI applications.
     net/socket.cpp
+    net/webrequest_local.cpp
     persistence/tlw.cpp
     persistence/dataview.cpp
     rowheightcache/rowheightcachetest.cpp
@@ -234,6 +238,13 @@ wx_add_test(test_gui ${APP_TYPE} ${TEST_GUI_SRC}
     DATA ${TEST_GUI_DATA}
     RES_BUNDLE ${TEST_GUI_RES_BUNDLE}
     )
+
+# wxUIActionSimulator uses global input state, so this test must not run
+# concurrently with other CTest processes.
+if(TEST test_gui)
+    set_tests_properties(test_gui PROPERTIES RUN_SERIAL TRUE)
+endif()
+
 if(wxUSE_AUI)
     wx_exe_link_libraries(test_gui wxaui)
 endif()

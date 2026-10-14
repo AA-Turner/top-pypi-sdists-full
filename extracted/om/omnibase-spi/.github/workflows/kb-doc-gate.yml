@@ -35,8 +35,14 @@ on:
   pull_request:
     branches: [dev]
 
+# OMN-19641: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   kb-doc-gate:
-    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@f592ccdf053a06d8197b07657aa5e9b5dc0204ce
+    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@b89cf138007f7fbcbf7e054666751fbaa9d25ad2
     with:
       mode: strict

@@ -3,23 +3,25 @@ use std::{fmt::Debug, hash::Hash};
 use enumset::{EnumSet, EnumSetType, enum_set, enum_set_union};
 
 #[cfg(doc)]
-use super::node::Node;
+use super::node::{Element, Modifier, Node};
 
 use super::grammar::{Grammar, GrammarSet};
 
 /// A rule represents the various formatting concepts, as opposed to a [`Grammar`] which defines
 /// variants therein.
 ///
-/// For example: [`Rule::Italic`] represents the entire concept of italic,
-/// whereas [`Grammar::UnderscoreItalic`] and [`Grammar::AsteriskItalic`] represent
-/// the 2 (currently) supported ways that an italic node is defined. In most cases there is only
-/// 1 grammar for each rule.
+/// For example: [`Rule::Link`] represents the entire concept of a link, whereas
+/// [`Grammar::AutoLink`] and [`Grammar::MaskedLinkText`] are among the ways a link node is defined.
+///
+/// Rules are what a caller allows. How each is recognized varies: a [`ParsedRule`] has a parser,
+/// [`MODIFIER_RULES`] are resolved from delimiters after the parse (see [`crate::range`]), and
+/// [`GATE_RULES`] widen another rule.
 ///
 /// A rule maps roughly 1:1 with [`Node`] and can broadly be considered the content-less form of
 /// a node. However, there are some nodes that do not have a corresponding rule; these nodes are
 /// considered base nodes and have no semantic meaning as a rule. Current base nodes are
-/// [`Node::Text`], [`Node::Paragraph`], and [`Node::Empty`]. The inverse also exists: a
-/// [`MODIFIER_RULES`] member has no node and gates a variant of another rule.
+/// [`Element::Text`], [`Element::Paragraph`], and [`Element::Empty`]. The inverse also exists: a
+/// [`GATE_RULES`] member has no node and gates a variant of another rule.
 ///
 /// See [`RuleSet`] for information about what a collection of Rules means.
 #[derive(EnumSetType, Debug, PartialOrd, Ord, Hash)]
@@ -38,7 +40,7 @@ pub enum Rule {
 	/// Links carrying the `dev` scheme, e.g. `dev://branch/main`.
 	///
 	/// Without this rule a `dev` URL is not a URL, so every way of writing one is text. See
-	/// [`MODIFIER_RULES`].
+	/// [`GATE_RULES`].
 	DevLink,
 	Mention,
 	Strikethrough,
@@ -54,17 +56,71 @@ pub enum Rule {
 	Small,
 }
 
-impl Rule {
-	/// Grammars the correlate to this rule. For example, all link grammars are included if this is
-	/// [`Rule::Link`].
+/// A [`Rule`] with a parser of its own: one of [`INLINE_RULES`] or [`BLOCK_RULES`].
+///
+/// Declared in the order the parser tries them.
+#[derive(EnumSetType, Debug, PartialOrd, Ord, Hash)]
+pub enum ParsedRule {
+	// inline
+	Emoji,
+	Link,
+	Mention,
+	Timestamp,
+	CodeBlock,
+	Code,
+	// block
+	Heading,
+	List,
+	Quote,
+	Small,
+}
+
+/// A collection of [`ParsedRule`]s.
+pub type ParsedRuleSet = EnumSet<ParsedRule>;
+
+impl ParsedRule {
+	/// The rules parsed within a line.
+	pub const INLINE: ParsedRuleSet = enum_set!(
+		Self::Emoji | Self::Link | Self::Mention | Self::Timestamp | Self::CodeBlock | Self::Code
+	);
+
+	/// The rules parsed only at the start of a line.
+	pub const BLOCK: ParsedRuleSet =
+		enum_set!(Self::Heading | Self::List | Self::Quote | Self::Small);
+
+	/// The [`Rule`] that allows this one.
 	#[must_use]
-	pub const fn grammar(&self) -> GrammarSet {
+	pub const fn rule(self) -> Rule {
 		match self {
-			// `DevLink` gates a URL scheme, not a region of content.
-			Self::Heading | Self::List | Self::Small | Self::DevLink => GrammarSet::empty(),
+			Self::Emoji => Rule::Emoji,
+			Self::Link => Rule::Link,
+			Self::Mention => Rule::Mention,
+			Self::Timestamp => Rule::Timestamp,
+			Self::CodeBlock => Rule::CodeBlock,
+			Self::Code => Rule::Code,
+			Self::Heading => Rule::Heading,
+			Self::List => Rule::List,
+			Self::Quote => Rule::Quote,
+			Self::Small => Rule::Small,
+		}
+	}
+
+	/// The parsed rules that `rules` allows.
+	#[must_use]
+	pub fn allowed(rules: RuleSet) -> ParsedRuleSet {
+		ParsedRuleSet::all()
+			.iter()
+			.filter(|parsed| rules.contains(parsed.rule()))
+			.collect()
+	}
+
+	/// Grammars the correlate to this rule. For example, all link grammars are included if this is
+	/// [`ParsedRule::Link`].
+	#[must_use]
+	pub const fn grammar(self) -> GrammarSet {
+		match self {
+			Self::Heading | Self::List | Self::Small => GrammarSet::empty(),
 			Self::Quote => enum_set!(Grammar::Quote | Grammar::QuoteRest),
-			Self::Bold => enum_set!(Grammar::Bold),
-			Self::Italic => enum_set!(Grammar::AsteriskItalic | Grammar::UnderscoreItalic),
 			// TODO: is this accurate? masked link grammars are only valid inside masked links
 			Self::Link => {
 				enum_set!(
@@ -74,9 +130,6 @@ impl Rule {
 						| Grammar::LinkDetection
 				)
 			}
-			Self::Strikethrough => enum_set!(Grammar::Strikethrough),
-			Self::Underline => enum_set!(Grammar::Underline),
-			Self::Spoiler => enum_set!(Grammar::Spoiler),
 			Self::Code => enum_set!(Grammar::Code | Grammar::DoubleCode),
 			Self::CodeBlock => enum_set!(Grammar::CodeBlock),
 			Self::Timestamp => enum_set!(Grammar::Timestamp),
@@ -98,18 +151,26 @@ impl Rule {
 /// Set of [`Rule`]s that are considered "inline".
 ///
 /// Inline rules can appear anywhere, although a top-level inline rule will get wrapped in a
-/// [`Node::Paragraph`] which is the base "block" node.
+/// [`Element::Paragraph`] which is the base "block" node.
 pub const INLINE_RULES: RuleSet = enum_set_union!(
-	Rule::Bold,
 	Rule::Emoji,
-	Rule::Italic,
 	Rule::Link,
 	Rule::Mention,
-	Rule::Strikethrough,
 	Rule::Timestamp,
-	Rule::Underline,
 	Rule::CodeBlock,
 	Rule::Code,
+);
+
+/// Set of [`Rule`]s that are considered "modifier".
+///
+/// A modifier takes on the kind of the position it opens in: mid-line it wraps inline content, and
+/// at the start of a line it wraps block content -- so `*1. foo\n2. bar*` is an italic list. See
+/// [`Modifier`].
+pub const MODIFIER_RULES: RuleSet = enum_set_union!(
+	Rule::Bold,
+	Rule::Italic,
+	Rule::Strikethrough,
+	Rule::Underline,
 	Rule::Spoiler,
 );
 
@@ -122,11 +183,12 @@ pub const BLOCK_RULES: RuleSet =
 
 /// Set of [`Rule`]s that widen what another rule accepts rather than producing a node.
 ///
-/// These have no parser, so they are deliberately absent from [`INLINE_RULES`] and
-/// [`BLOCK_RULES`]. See [`Rule::DevLink`].
-pub const MODIFIER_RULES: RuleSet = enum_set_union!(Rule::DevLink);
+/// These have no parser, so they are deliberately absent from the other sets. See
+/// [`Rule::DevLink`].
+pub const GATE_RULES: RuleSet = enum_set_union!(Rule::DevLink);
 
-/// A collection of [`Rule`]s. Rules are divided into [`INLINE_RULES`] and [`BLOCK_RULES`].
+/// A collection of [`Rule`]s. Rules are divided into [`INLINE_RULES`], [`BLOCK_RULES`],
+/// [`MODIFIER_RULES`], and [`GATE_RULES`].
 ///
 /// A strict definition of inline/block rules might preclude block elements (like the heading) from
 /// appearing inside inline elements (like the italics). We are explicitly less strict because, for
@@ -147,14 +209,16 @@ pub type RuleSet = EnumSet<Rule>;
 mod test {
 	use crate::grammar::{Grammar, GrammarSet};
 
-	use super::{BLOCK_RULES, INLINE_RULES, MODIFIER_RULES, RuleSet};
+	use super::{
+		BLOCK_RULES, GATE_RULES, INLINE_RULES, MODIFIER_RULES, ParsedRule, ParsedRuleSet, Rule,
+		RuleSet,
+	};
 
 	#[test]
 	fn every_grammar() {
-		let rules = RuleSet::all();
-		let grammars = rules
+		let grammars = ParsedRuleSet::all()
 			.iter()
-			.flat_map(|rule| rule.grammar())
+			.flat_map(ParsedRule::grammar)
 			.collect::<GrammarSet>();
 
 		let allowed_missing = Grammar::None | Grammar::Block | Grammar::InlineBlock;
@@ -163,13 +227,23 @@ mod test {
 
 	#[test]
 	fn inline_block_sets() {
-		assert_eq!(RuleSet::all(), INLINE_RULES ^ BLOCK_RULES ^ MODIFIER_RULES);
+		assert_eq!(
+			RuleSet::all(),
+			INLINE_RULES ^ BLOCK_RULES ^ MODIFIER_RULES ^ GATE_RULES
+		);
 	}
 
-	/// A modifier rule has no parser, so it must not reach the rules the parser iterates.
+	/// Exactly the inline and block rules have parsers.
 	#[test]
-	fn modifier_rules_are_not_parsed() {
-		assert!(MODIFIER_RULES.is_disjoint(INLINE_RULES | BLOCK_RULES));
+	fn parsed_rules_are_inline_and_block() {
+		let rules = |set: ParsedRuleSet| set.iter().map(ParsedRule::rule).collect::<RuleSet>();
+		assert_eq!(rules(ParsedRule::INLINE), INLINE_RULES);
+		assert_eq!(rules(ParsedRule::BLOCK), BLOCK_RULES);
+		assert_eq!(ParsedRule::INLINE ^ ParsedRule::BLOCK, ParsedRuleSet::all());
+		assert_eq!(
+			ParsedRule::allowed(RuleSet::all() - Rule::Link - Rule::Bold),
+			ParsedRuleSet::all() - ParsedRule::Link
+		);
 	}
 
 	/// The bindings take rule sets as lists of these names.

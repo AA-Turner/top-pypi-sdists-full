@@ -99,10 +99,10 @@ capture_from_code_impl (int backed, const char *path, const uint8_t *code,
   dp_burst_capture_state_t *s
       = backed ? dp_burst_capture_create_backed (
                      path, pre, n, burst_len, reps, fs, cn0_dbhz,
-                     doppler_uncertainty, pfa, pd, noise_mode, doppler_rate)
+                     doppler_uncertainty, pfa, pd, noise_mode, doppler_rate, 1)
                : dp_burst_capture_create (pre, n, burst_len, reps, fs,
                                           cn0_dbhz, doppler_uncertainty, pfa,
-                                          pd, noise_mode, doppler_rate);
+                                          pd, noise_mode, doppler_rate, 1);
   free (pre);
   return s;
 }
@@ -2781,7 +2781,7 @@ make_zc (double doppler_rate)
      200 seeds -- a property of the configured rate, not of the preamble. */
   return dp_burst_capture_create (zc, ZC_N, ZC_BURST, ZC_REPS, 1.0,
                                   ACQ_CN0_NONE, 0.0, 1e-6, 0.9, 0,
-                                  doppler_rate);
+                                  doppler_rate, 1);
 }
 
 /** A Zadoff-Chu burst is captured, and its window starts at the preamble:
@@ -2846,13 +2846,13 @@ test_rejects_a_bad_preamble (void)
 {
   float _Complex z[4] = { 0 };
   DP_CHECK (dp_burst_capture_create (NULL, 4, 64, 4, 1.0, ACQ_CN0_NONE, 0.0,
-                                     1e-3, 0.9, 0, 0.0)
+                                     1e-3, 0.9, 0, 0.0, 1)
             == NULL);
   DP_CHECK (dp_burst_capture_create (z, 0, 64, 4, 1.0, ACQ_CN0_NONE, 0.0, 1e-3,
-                                     0.9, 0, 0.0)
+                                     0.9, 0, 0.0, 1)
             == NULL);
   DP_CHECK (dp_burst_capture_create (z, 4, 64, 4, 1.0, ACQ_CN0_NONE, 0.0, 1e-3,
-                                     0.9, 0, 0.0)
+                                     0.9, 0, 0.0, 1)
             == NULL);
   return 0;
 }
@@ -2866,9 +2866,9 @@ test_backed_captures_a_zadoff_chu_burst (void)
   remove (path);
   float _Complex zc[ZC_N];
   zadoff_chu (zc);
-  dp_burst_capture_state_t *s
-      = dp_burst_capture_create_backed (path, zc, ZC_N, ZC_BURST, ZC_REPS, 1.0,
-                                        ACQ_CN0_NONE, 0.0, 1e-6, 0.9, 0, 0.0);
+  dp_burst_capture_state_t *s = dp_burst_capture_create_backed (
+      path, zc, ZC_N, ZC_BURST, ZC_REPS, 1.0, ACQ_CN0_NONE, 0.0, 1e-6, 0.9, 0,
+      0.0, 1);
   DP_REQUIRE (s != NULL);
   DP_CHECK (s->backed == 1);
   static float _Complex cap[40000];
@@ -2879,7 +2879,7 @@ test_backed_captures_a_zadoff_chu_burst (void)
   DP_CHECK (n == ZC_BURST && s->preamble_start == 9001u);
   DP_CHECK (dp_burst_capture_create_backed (NULL, zc, ZC_N, ZC_BURST, ZC_REPS,
                                             1.0, ACQ_CN0_NONE, 0.0, 1e-3, 0.9,
-                                            0, 0.0)
+                                            0, 0.0, 1)
             == NULL);
   dp_burst_capture_destroy (s);
   remove (path);
@@ -2914,7 +2914,7 @@ test_refine_wraps_its_doppler_cells (void)
                                   / (double)NZ);
   const size_t              burst = RZ * NZ + 400, at = 3 * NZ + 17;
   dp_burst_capture_state_t *s = dp_burst_capture_create (
-      zc, NZ, burst, RZ, 1.0, 0.0, 0.0, 1e-3, 0.9, 0, 0.0);
+      zc, NZ, burst, RZ, 1.0, 0.0, 0.0, 1e-3, 0.9, 0, 0.0, 1);
   DP_REQUIRE (s != NULL);
   DP_REQUIRE (dp_burst_capture_configure_search_raw (s, 2, 1) == 0);
 
@@ -2982,7 +2982,7 @@ test_refine_scores_every_detected_phase (void)
     for (size_t a = 0; a < sizeof ats / sizeof *ats; a++)
       {
         dp_burst_capture_state_t *s = dp_burst_capture_create (
-            zc, NZ, burst, RZ, 1.0, 0.0, 0.0, 1e-3, 0.9, 0, 0.0);
+            zc, NZ, burst, RZ, 1.0, 0.0, 0.0, 1e-3, 0.9, 0, 0.0, 1);
         DP_REQUIRE (s != NULL);
         DP_REQUIRE (dp_burst_capture_configure_search_raw (s, 1, 1) == 0);
         const size_t    at  = ats[a];
@@ -3074,7 +3074,7 @@ test_a_wide_doppler_search_is_searched (void)
 
       dp_burst_capture_state_t *s = dp_burst_capture_create (
           pre, NP, RP * NP + PAY, RP, 1.0, ACQ_CN0_NONE, 2.5 * span, 1e-6, 0.9,
-          0, 0.0);
+          0, 0.0, 1);
       DP_REQUIRE (s != NULL);
       /* The read-back is the grid the engine searches. */
       DP_CHECK (dp_burst_capture_get_doppler_bins (s)
@@ -3091,6 +3091,224 @@ test_a_wide_doppler_search_is_searched (void)
       dp_burst_capture_destroy (s);
     }
   free (pre);
+  return 0;
+}
+
+/** A carrier that SWEEPS is compensated, not just capped (doppler rate).
+ *
+ * `doppler_rate` alone only limits the acquisition's coherent depth. With
+ * `rate_hypotheses` > 1 the engine de-chirps at several rates and REFINE
+ * tries them too -- its coherent sum runs the whole preamble, where a sweep
+ * of 0.0016 of the sample rate collapses it: at this level of noise a
+ * capture without the rates names the wrong repetition (one period, 127
+ * samples, off) in about half the bursts, and with them in none. A
+ * 127-sample Zadoff-Chu preamble, 16 repetitions, a carrier at 0.0005
+ * sweeping at 8e-7 cycles/sample^2 about the preamble's middle.
+ *
+ * Also asserted: the constructor's refusals and read-back, and that the
+ * count is a reject key of the blob (the same grid, so the same size --
+ * only the count tells them apart).
+ */
+static int
+test_a_sweeping_carrier_is_compensated (void)
+{
+  enum
+  {
+    NP    = 127,
+    RP    = 16,
+    PAY   = 400,
+    BURST = RP * NP + PAY,
+    LEN   = 26000
+  };
+  const double rate = 9.0e-7, sweep = 8.0e-7, f_mid = 5.0e-4;
+  float _Complex zc[NP];
+  for (size_t k = 0; k < NP; k++)
+    zc[k] = (float _Complex)cexp (-I * M_PI * 5.0 * (double)k * (double)(k + 1)
+                                  / (double)NP);
+
+  /* Refusals: a count out of range, or hypotheses (auto included) over a
+     span of nothing. 0 is auto: with a span it builds, and the capture
+     reports the count the acquisition chose. */
+  DP_CHECK (dp_burst_capture_create (zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3,
+                                     0.9, 0, 0.0, 0)
+            == NULL);
+  {
+    dp_burst_capture_state_t *au = dp_burst_capture_create (
+        zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3, 0.9, 0, rate, 0);
+    DP_REQUIRE (au != NULL);
+    DP_CHECK (dp_burst_capture_get_rate_hypotheses (au) >= 1
+              && dp_burst_capture_get_rate_hypotheses (au)
+                     <= ACQ_RATE_HYPS_MAX);
+    dp_burst_capture_destroy (au);
+  }
+  DP_CHECK (dp_burst_capture_create (zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3,
+                                     0.9, 0, rate, ACQ_RATE_HYPS_MAX + 1)
+            == NULL);
+  DP_CHECK (dp_burst_capture_create (zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3,
+                                     0.9, 0, 0.0, 5)
+            == NULL);
+
+  dp_burst_capture_state_t *z = dp_burst_capture_create (
+      zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3, 0.9, 0, rate, 1);
+  dp_burst_capture_state_t *s = dp_burst_capture_create (
+      zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3, 0.9, 0, rate, 5);
+  DP_REQUIRE (s != NULL && z != NULL);
+  DP_CHECK (dp_burst_capture_get_rate_hypotheses (z) == 1);
+  DP_CHECK (dp_burst_capture_get_rate_hypotheses (s) == 5);
+
+  static float _Complex x[LEN], out[4 * BURST];
+  const size_t cap  = sizeof out / sizeof *out;
+  const size_t at[] = { 6001, 7333, 8090, 9217, 10000, 11111 };
+  const size_t nat  = sizeof at / sizeof *at;
+  for (size_t j = 0; j < nat; j++)
+    {
+      uint32_t st = 2210u + (uint32_t)j;
+      for (size_t i = 0; i < LEN; i++)
+        {
+          /* Named locals: two draws in one expression have no defined order.
+           */
+          const float re = (float)(0.1 * dp_gauss (&st));
+          const float im = (float)(0.1 * dp_gauss (&st));
+          x[i]           = re + im * I;
+        }
+      for (size_t i = 0; i < BURST; i++)
+        {
+          const double u = (double)i - 0.5 * (double)(RP * NP);
+          x[at[j] + i]
+              += (i < RP * NP ? zc[i % NP] : 1.0f)
+                 * (float _Complex)cexp (I * 2.0 * M_PI
+                                         * (f_mid * u + 0.5 * sweep * u * u));
+        }
+      dp_burst_capture_reset (s);
+      (void)dp_burst_capture_push (s, x, LEN, out, cap);
+      int hit = 0;
+      for (size_t k = 0; k < dp_burst_capture_ready (s); k++)
+        {
+          const burst_capture_event_t *ev = dp_burst_capture_event_at (s, k);
+          if (ev && ev->preamble_start == at[j])
+            hit = 1;
+        }
+      DP_CHECK_MSG (hit, "the swept burst is placed exactly");
+    }
+
+  /* At the DESIGN C/N0. The pair above runs at 10 dB-Hz with the noise far
+     under the burst, which sizes the engine at D = 1: one look, so only
+     refine's rates are exercised. Here the noise sits at the C/N0 the engine
+     is sized for (-13 dB per sample at fs = 1), so the engine itself runs deep
+     (D > 2) and its own de-chirp decides the detection: nine hypotheses
+     against one, the one capped by the drift bound at a shallower depth. The
+     bursts are seeded, so the counts are a regression pin; the margin is
+     what the engine's de-chirp is worth here (measured 0.91 against 0.55). */
+  {
+    enum
+    {
+      TRIALS = 60
+    };
+    dp_burst_capture_state_t *zd = dp_burst_capture_create (
+        zc, NP, BURST, RP, 1.0, -13.0, 0.0, 1e-3, 0.9, 0, rate, 1);
+    dp_burst_capture_state_t *sd = dp_burst_capture_create (
+        zc, NP, BURST, RP, 1.0, -13.0, 0.0, 1e-3, 0.9, 0, rate, 9);
+    DP_REQUIRE (sd != NULL && zd != NULL);
+    DP_REQUIRE (sd->acq->engine->coherent_bins > 2);
+    DP_REQUIRE (sd->acq->engine->coherent_bins
+                > zd->acq->engine->coherent_bins);
+    dp_burst_capture_state_t *eng[2] = { sd, zd };
+    size_t                    got[2] = { 0, 0 };
+    const double sd_noise = sqrt (10.0); /* per component: power 20 = 13 dB */
+    for (size_t j = 0; j < TRIALS; j++)
+      {
+        uint32_t     st = 7700u + (uint32_t)j;
+        const size_t a0 = 6000u + 211u * (j % 17u) + j;
+        for (size_t i = 0; i < LEN; i++)
+          {
+            const float re = (float)(sd_noise * dp_gauss (&st));
+            const float im = (float)(sd_noise * dp_gauss (&st));
+            x[i]           = re + im * I;
+          }
+        for (size_t i = 0; i < BURST; i++)
+          {
+            const double u = (double)i - 0.5 * (double)(RP * NP);
+            x[a0 + i]
+                += (i < RP * NP ? zc[i % NP] : 1.0f)
+                   * (float _Complex)cexp (
+                       I * 2.0 * M_PI * (f_mid * u + 0.5 * sweep * u * u));
+          }
+        for (int d = 0; d < 2; d++)
+          {
+            dp_burst_capture_reset (eng[d]);
+            (void)dp_burst_capture_push (eng[d], x, LEN, out, cap);
+            for (size_t k = 0; k < dp_burst_capture_ready (eng[d]); k++)
+              {
+                const burst_capture_event_t *ev
+                    = dp_burst_capture_event_at (eng[d], k);
+                if (ev && ev->preamble_start == a0)
+                  {
+                    got[d]++;
+                    break;
+                  }
+              }
+          }
+      }
+    DP_TEST_ERR ("  DEEP %zu CAPPED %zu of %d\n", got[0], got[1], TRIALS);
+    DP_CHECK_MSG (got[0] >= (TRIALS * 8) / 10,
+                  "the de-chirping engine places most swept bursts");
+    DP_CHECK_MSG (got[0] >= got[1] + TRIALS / 5,
+                  "without the rates the same bursts are missed");
+    dp_burst_capture_destroy (sd);
+    dp_burst_capture_destroy (zd);
+  }
+
+  /* An enormous finite rate span must not size refine's cells past the
+     native span: the allowance is clamped to half of it per side (reps * IP
+     / 2 cells). At this span the unclamped allowance is ~9e9 cells, a scratch
+     of hundreds of GB (the allocation aborts); far beyond it the cast itself
+     is out of range. Two hypotheses is the least that compensates. Built,
+     bounded, and pushed once so a sanitizer sees any overrun of the cell
+     scratch. */
+  {
+    dp_burst_capture_state_t *big = dp_burst_capture_create (
+        zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3, 0.9, 0, 1.0e3, 2);
+    DP_REQUIRE (big != NULL);
+    const size_t half_span = (RP * BURST_CAPTURE_REFINE_INTERP + 1u) / 2u;
+    DP_CHECK_MSG (big->max_cells <= 2u * half_span + 3u + 2u * half_span
+                                        + BURST_CAPTURE_EDGE_TWINS,
+                  "refine's cell scratch stays within the native span");
+    for (size_t j = 0; j < 1; j++)
+      {
+        uint32_t st = 1930u + (uint32_t)j;
+        for (size_t i = 0; i < LEN; i++)
+          {
+            const float re = (float)(0.1 * dp_gauss (&st));
+            const float im = (float)(0.1 * dp_gauss (&st));
+            x[i]           = re + im * I;
+          }
+        for (size_t i = 0; i < BURST; i++)
+          x[7333 + i] += (i < RP * NP ? zc[i % NP] : 1.0f);
+        dp_burst_capture_reset (big);
+        (void)dp_burst_capture_push (big, x, LEN, out, cap);
+      }
+    dp_burst_capture_destroy (big);
+  }
+
+  /* The blob: one hypothesis against five is the same grid (the depth is
+     one at this level of noise, so the sizes agree), and only the count
+     tells the blobs apart. */
+  {
+    const size_t bytes = dp_burst_capture_state_bytes (s);
+    DP_REQUIRE (dp_burst_capture_state_bytes (z) == bytes);
+    dp_burst_capture_state_t *s2 = dp_burst_capture_create (
+        zc, NP, BURST, RP, 1.0, 10.0, 0.0, 1e-3, 0.9, 0, rate, 5);
+    DP_REQUIRE (s2 != NULL);
+    void *blob = malloc (bytes);
+    DP_REQUIRE (blob != NULL);
+    dp_burst_capture_get_state (s, blob);
+    DP_CHECK (dp_burst_capture_set_state (z, blob) == DP_ERR_INVALID);
+    DP_CHECK (dp_burst_capture_set_state (s2, blob) == DP_OK);
+    free (blob);
+    dp_burst_capture_destroy (s2);
+  }
+  dp_burst_capture_destroy (s);
+  dp_burst_capture_destroy (z);
   return 0;
 }
 
@@ -3145,7 +3363,7 @@ test_a_tiled_capture_anchors_at_its_dwell (void)
 
       dp_burst_capture_state_t *s
           = dp_burst_capture_create (pre, NP, NP + PAY, 1u, 1.0, ACQ_CN0_NONE,
-                                     2.5 * span, 1e-6, 0.9, 0, 0.0);
+                                     2.5 * span, 1e-6, 0.9, 0, 0.0, 1);
       DP_REQUIRE (s != NULL);
       const dp_acq_state_t *e = s->acq->engine;
       /* The premise that makes the 9001 case discriminate: the old anchor,
@@ -3227,7 +3445,7 @@ test_a_tiled_burst_after_a_window_is_not_shadowed (void)
   const double              span  = 1.0 / (double)NP;
   const size_t              BL    = RP * NP + PAY;
   dp_burst_capture_state_t *s     = dp_burst_capture_create (
-      pre, NP, BL, RP, 1.0, ACQ_CN0_NONE, 2.5 * span, 1e-6, 0.9, 0, 0.0);
+      pre, NP, BL, RP, 1.0, ACQ_CN0_NONE, 2.5 * span, 1e-6, 0.9, 0, 0.0, 1);
   DP_REQUIRE (s != NULL);
   const size_t W   = s->acq->engine->window_bins;
   const size_t gap = 300u;
@@ -3295,6 +3513,8 @@ main (void)
   if (test_a_wide_doppler_search_is_searched ())
     return 1;
   if (test_a_tiled_capture_anchors_at_its_dwell ())
+    return 1;
+  if (test_a_sweeping_carrier_is_compensated ())
     return 1;
   if (test_a_tiled_burst_after_a_window_is_not_shadowed ())
     return 1;

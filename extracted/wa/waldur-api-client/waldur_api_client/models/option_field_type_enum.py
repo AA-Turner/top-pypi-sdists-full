@@ -3,7 +3,9 @@ from enum import Enum
 
 class OptionFieldTypeEnum(str, Enum):
     BOOLEAN = "boolean"
+    COMPONENT_FORMULA = "component_formula"
     COMPONENT_MULTIPLIER = "component_multiplier"
+    COMPONENT_SUM = "component_sum"
     CONDITIONAL_CASCADE = "conditional_cascade"
     DATE = "date"
     HTML_TEXT = "html_text"

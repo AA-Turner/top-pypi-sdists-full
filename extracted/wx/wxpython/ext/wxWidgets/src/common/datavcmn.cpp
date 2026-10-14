@@ -1109,6 +1109,35 @@ wxDataViewCustomRendererBase::RenderText(const wxString& text,
         GetEllipsizeMode());
 }
 
+#if wxUSE_DATAVIEW_A11Y
+wxString wxDataViewCustomRendererBase::GetAccessibleDescription() const
+{
+    wxVariant value;
+    GetValue(value);
+
+    if ( value.IsType(wxS("bool")) )
+    {
+        /* TRANSLATORS: Name of Boolean true value */
+        return value.GetBool() ? _("true")
+        /* TRANSLATORS: Name of Boolean false value */
+                               : _("false");
+    }
+
+    // wxVariant::MakeString() doesn't know how to stringify this one either,
+    // and it's an extremely common choice of variant type for a custom
+    // renderer that draws an icon next to some text (it's the same type
+    // wxDataViewIconTextRenderer itself uses).
+    if ( value.IsType(wxS("wxDataViewIconText")) )
+    {
+        wxDataViewIconText iconText;
+        iconText << value;
+        return iconText.GetText();
+    }
+
+    return value.MakeString();
+}
+#endif // wxUSE_DATAVIEW_A11Y
+
 void wxDataViewCustomRendererBase::SetEnabled(bool enabled)
 {
     // The native base renderer needs to know about the enabled state as well
@@ -1699,9 +1728,9 @@ wxDataViewCtrlBase::CreateDataObject(const wxVector<wxDataFormat>& formats)
     }
 
     wxDataObjectComposite *dataObject(new wxDataObjectComposite);
-    for (size_t i = 0; i < formats.size(); ++i)
+    for ( const auto& fmt : formats )
     {
-        switch (formats[i].GetType())
+        switch ( fmt.GetType() )
         {
             case wxDF_TEXT:
             case wxDF_OEMTEXT:
@@ -1735,7 +1764,7 @@ wxDataViewCtrlBase::CreateDataObject(const wxVector<wxDataFormat>& formats)
             case wxDF_LOCALE:
             case wxDF_PRIVATE:
             default: // any other custom format
-                dataObject->Add(new wxCustomDataObject(formats[i]));
+                dataObject->Add(new wxCustomDataObject(fmt));
                 break;
 
             case wxDF_INVALID:

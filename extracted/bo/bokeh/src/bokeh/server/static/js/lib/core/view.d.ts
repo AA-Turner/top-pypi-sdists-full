@@ -81,6 +81,7 @@ export declare abstract class View implements ISignalable, Equatable {
     get is_root(): boolean;
     has_finished(): boolean;
     get is_idle(): boolean;
+    protected _signals_connected: boolean;
     connect_signals(): void;
     disconnect_signals(): void;
     on_change(properties: Property<unknown> | Property<unknown>[], fn: () => void): void;

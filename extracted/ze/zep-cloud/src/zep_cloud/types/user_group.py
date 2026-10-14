@@ -6,20 +6,42 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
-from .user_group_kind import UserGroupKind
 
 
 class UserGroup(UniversalBaseModel):
-    attached_policy_set_count: typing.Optional[int] = None
-    created_at: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    kind: typing.Optional[UserGroupKind] = None
-    member_count: typing.Optional[int] = None
-    name: typing.Optional[str] = None
-    project_uuid: typing.Optional[str] = None
-    updated_at: typing.Optional[str] = None
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = None
-    version: typing.Optional[int] = None
+    created_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The time the user group was created.
+    """
+
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A human-readable description of the user group.
+    """
+
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The name of the user group.
+    """
+
+    updated_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The time the user group was last updated.
+    """
+
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the user group."),
+    ] = None
+    """
+    The unique identifier of the user group.
+    """
+
+    version: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The user group's version, used for optimistic concurrency on updates.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

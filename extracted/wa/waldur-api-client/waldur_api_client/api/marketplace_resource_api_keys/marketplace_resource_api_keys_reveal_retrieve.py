@@ -50,7 +50,7 @@ def sync_detailed(
     """Reveal an API key
 
      Returns the decrypted key value. Available to users with resource access (except minimal-visibility
-    viewers). Audit-logged.
+    viewers); a key with an assignee only to the assignee. Staff and support always. Audit-logged.
 
     Args:
         uuid (UUID):
@@ -82,7 +82,7 @@ def sync(
     """Reveal an API key
 
      Returns the decrypted key value. Available to users with resource access (except minimal-visibility
-    viewers). Audit-logged.
+    viewers); a key with an assignee only to the assignee. Staff and support always. Audit-logged.
 
     Args:
         uuid (UUID):
@@ -109,7 +109,7 @@ async def asyncio_detailed(
     """Reveal an API key
 
      Returns the decrypted key value. Available to users with resource access (except minimal-visibility
-    viewers). Audit-logged.
+    viewers); a key with an assignee only to the assignee. Staff and support always. Audit-logged.
 
     Args:
         uuid (UUID):
@@ -139,7 +139,7 @@ async def asyncio(
     """Reveal an API key
 
      Returns the decrypted key value. Available to users with resource access (except minimal-visibility
-    viewers). Audit-logged.
+    viewers); a key with an assignee only to the assignee. Staff and support always. Audit-logged.
 
     Args:
         uuid (UUID):

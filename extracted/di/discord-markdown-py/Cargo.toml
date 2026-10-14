@@ -15,6 +15,7 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 aho-corasick = "1.1.5"
+derive-where = "1.7.0"
 discord-confusables = { version = "0.1.0", path = "packages/confusables" }
 discord-emoji = { version = "0.1.0", path = "packages/emoji" }
 enumset = { version = "1.1.5", features = ["alloc"] }

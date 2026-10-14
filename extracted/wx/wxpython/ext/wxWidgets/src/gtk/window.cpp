@@ -50,6 +50,7 @@
 #include "wx/gtk/private/wayland.h"
 #include "wx/gtk/private/win_gtk.h"
 #include "wx/gtk/private/backend.h"
+#include "wx/private/textinput.h"
 #include "wx/private/textmeasure.h"
 using namespace wxGTKImpl;
 
@@ -239,6 +240,11 @@ static wxWindowGTK *gs_deferredFocusOut = nullptr;
 // mouse event that caused it
 GdkEvent    *g_lastMouseEvent = nullptr; // use SetLastMouseEvent below
 int          g_lastButtonNumber = 0;
+
+// The last key event which the focused window has claimed for itself, meaning
+// that it must not be used as a menu accelerator by the top level window, see
+// wxgtk_tlw_key_press_event() in toplevel.cpp.
+GdkEventKey *wxKeyEventClaimedByWindow = nullptr;
 
 namespace wxGTKImpl
 {
@@ -1326,6 +1332,29 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
     if (EventAlreadyProcessed(gdk_event))
         return FALSE;
 
+    bool filteredByIM = false;
+
+    // While inline composition is active the IM context must see key events
+    // before the application: keys such as Enter, Backspace and the arrows
+    // confirm or edit the pre-edit text, and handling them as normal key
+    // events would modify the tentative document contents instead.
+    wxTextInputClient* const inputClient = wxFindTextInputClient(win);
+    if ( inputClient && inputClient->IsTextInputEnabled() &&
+         inputClient->HasActiveComposition() )
+    {
+        win->m_imKeyEvent = gdk_event;
+        const int intercepted_by_IM = win->GTKIMFilterKeypress(gdk_event);
+        win->m_imKeyEvent = nullptr;
+
+        if ( intercepted_by_IM )
+        {
+            wxLogTrace(TRACE_KEYS, wxT("Key event intercepted by IM"));
+            return TRUE;
+        }
+
+        filteredByIM = true;
+    }
+
     wxKeyEvent event( wxEVT_KEY_DOWN );
     bool ret = false;
 
@@ -1339,29 +1368,48 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
 
     // Next check for accelerators.
 #if wxUSE_ACCEL
-    wxWindowGTK *ancestor = win;
-    while (ancestor)
+    wxKeyEventClaimedByWindow = nullptr;
+
+    wxWindowGTK *ancestor = nullptr;
+    int command = 0;
+    switch ( win->GTKShouldUseAccelerator(event, &ancestor, &command) )
     {
-        int command = ancestor->GetAcceleratorTable()->GetCommand( event );
-        if (command != -1)
-        {
-            wxCommandEvent menu_event( wxEVT_MENU, command );
-            ret = ancestor->HandleWindowEvent( menu_event );
+        case wxWindowGTK::AcceleratorVerdict::Nothing:
+            // There is no accelerator for this key, process it normally.
+            break;
 
-            if ( !ret )
+        case wxWindowGTK::AcceleratorVerdict::Menu:
+            // This one comes from the menu bar, let GTK activate it as it
+            // would have done by default.
+            if ( auto tlw = gtk_widget_get_ancestor(win->m_widget,
+                                                    GTK_TYPE_WINDOW) )
             {
-                // if the accelerator wasn't handled as menu event, try
-                // it as button click (for compatibility with other
-                // platforms):
-                wxCommandEvent button_event( wxEVT_BUTTON, command );
-                ret = ancestor->HandleWindowEvent( button_event );
+                ret = gtk_window_activate_key(GTK_WINDOW(tlw), gdk_event);
             }
+            break;
 
+        case wxWindowGTK::AcceleratorVerdict::Table:
+            {
+                wxCommandEvent menu_event( wxEVT_MENU, command );
+                ret = ancestor->HandleWindowEvent( menu_event );
+
+                if ( !ret )
+                {
+                    // if the accelerator wasn't handled as menu event, try
+                    // it as button click (for compatibility with other
+                    // platforms):
+                    wxCommandEvent button_event( wxEVT_BUTTON, command );
+                    ret = ancestor->HandleWindowEvent( button_event );
+                }
+            }
             break;
-        }
-        if (ancestor->IsTopNavigationDomain(wxWindow::Navigation_Accel))
+
+        case wxWindowGTK::AcceleratorVerdict::Window:
+            // The window wants to handle this key itself, so prevent the key
+            // from being used as accelerator from wxgtk_tlw_key_press_event()
+            // after we return from here.
+            wxKeyEventClaimedByWindow = gdk_event;
             break;
-        ancestor = ancestor->GetParent();
     }
 #endif // wxUSE_ACCEL
 
@@ -1369,7 +1417,9 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
     if ( !ret )
         ret = win->HandleWindowEvent( event );
 
-    if ( !ret )
+    // Don't filter the same event again if it was already offered to the IM
+    // context above because of an active composition.
+    if ( !ret && !filteredByIM )
     {
         // Indicate that IM handling is in process by setting this pointer
         // (which will remain valid for all the code called during IM key
@@ -1401,7 +1451,8 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
 
         wxKeyEvent eventChar(wxEVT_CHAR, event);
 
-        if ( long keyCode = wxTranslateKeySymToWXKey(keysym, true /* isChar */) )
+        long keyCode = wxTranslateKeySymToWXKey(keysym, true /* isChar */);
+        if ( keyCode )
         {
             // Set Unicode value to the key code if possible, this is useful
             // for keys such as BACKSPACE or ENTER.
@@ -1418,7 +1469,7 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
             {
                 // We should already have the corresponding key in US layout,
                 // translated from GTK using XKB, in the event.
-                long keyCode = event.m_keyCode;
+                keyCode = event.m_keyCode;
 
                 if ( (keyCode >= 'A' && keyCode <= 'Z') ||
                         keyCode == '[' ||
@@ -1470,20 +1521,214 @@ gtk_window_key_press_callback( GtkWidget *WXUNUSED(widget),
 }
 }
 
+wxWindowGTK::AcceleratorVerdict
+wxWindowGTK::GTKShouldUseAccelerator(const wxKeyEvent& event,
+                                     wxWindowGTK** accelOwner,
+                                     int* command) const
+{
+    wxAcceleratorEntry accelEntry;
+    if ( !FindAcceleratorForKey(event, accelEntry, accelOwner) )
+        return AcceleratorVerdict::Nothing;
+
+    wxMenuItem* const menuItem = accelEntry.GetMenuItem();
+    *command = accelEntry.GetCommand();
+
+    if ( !ShouldUseAcceleratorForKey(event, *command, menuItem) )
+        return AcceleratorVerdict::Window;
+
+    return menuItem ? AcceleratorVerdict::Menu : AcceleratorVerdict::Table;
+}
+
 int wxWindowGTK::GTKIMFilterKeypress(GdkEventKey* event) const
 {
-    return m_imContext ? gtk_im_context_filter_keypress(m_imContext, event)
-                       : FALSE;
+    if ( !m_imContext || !IsInputMethodEnabled() )
+        return FALSE;
+
+    // Note that the input method may handle the keys before we get them, e.g.
+    // Fcitx does this by default, so updating the cursor location here is not
+    // enough and UpdateInputMethodCursorRect() must be called when it
+    // changes, but still do it here to be sure it's up to date.
+    GTKUpdateIMCursorRect(m_imContext);
+
+    return gtk_im_context_filter_keypress(m_imContext, event);
+}
+
+void wxWindowGTK::DoEnableInputMethod(bool enable)
+{
+    // We don't need to do anything if we don't have the focus, as the input
+    // method state will be taken into account when we get it.
+    if ( !m_imContext || gs_currentFocus != this )
+        return;
+
+    if ( enable )
+    {
+        GTKUpdateIMCursorRect(m_imContext);
+        gtk_im_context_focus_in(m_imContext);
+    }
+    else
+    {
+        gtk_im_context_reset(m_imContext);
+        gtk_im_context_focus_out(m_imContext);
+    }
+}
+
+void wxWindowGTK::DoUpdateInputMethodCursorRect()
+{
+    if ( m_imContext )
+        GTKUpdateIMCursorRect(m_imContext);
+}
+
+// Let the input method know where to show its windows, if we know it.
+void wxWindowGTK::GTKUpdateIMCursorRect(GtkIMContext* imContext) const
+{
+    const wxRect rect = GetInputMethodCursorRect();
+    if ( rect.IsEmpty() )
+        return;
+
+    GdkRectangle area = { rect.x, rect.y, rect.width, rect.height };
+    gtk_im_context_set_cursor_location(imContext, &area);
+}
+
+void wxUpdateTextInputClient(wxWindow* window)
+{
+    if ( !window->m_imContext )
+        return;
+
+    wxTextInputClient* const client = wxFindTextInputClient(window);
+    const bool usePreedit = client && client->IsTextInputEnabled();
+    if ( !usePreedit )
+        gtk_im_context_reset(window->m_imContext);
+
+    gtk_im_context_set_use_preedit(window->m_imContext, usePreedit);
+}
+
+// Non-null while wxResetTextInput() resets the context of this window.
+static const wxWindowGTK* gs_imResetWindow = nullptr;
+
+void wxResetTextInput(wxWindow* window)
+{
+    if ( !window->m_imContext )
+        return;
+
+    // Some input methods commit the pending text instead of discarding it
+    // when the context is reset, so ignore everything it sends in response.
+    gs_imResetWindow = window;
+    gtk_im_context_reset(window->m_imContext);
+    gs_imResetWindow = nullptr;
+}
+
+void wxSendTextInputAsChars(wxWindow* window, const wxString& text)
+{
+    // Ignore the return value, the text is consumed either way.
+    window->GTKDoInsertTextFromIM(text.utf8_str());
 }
 
 extern "C" {
 static void
 gtk_wxwindow_commit_cb (GtkIMContext * WXUNUSED(context),
                         const gchar  *str,
-                        wxWindow     *window)
+                        wxWindowGTK  *window)
 {
+    if ( window == gs_imResetWindow )
+        return;
+
+    wxTextInputClient* const client = wxFindTextInputClient(window);
+    if ( client && client->IsTextInputEnabled() &&
+         client->CommitComposition(wxString::FromUTF8Unchecked(str)) )
+    {
+        return;
+    }
+
     // Ignore the return value here, it doesn't matter for the "commit" signal.
     window->GTKDoInsertTextFromIM(str);
+}
+
+static void
+gtk_wxwindow_preedit_changed_cb(GtkIMContext *context,
+                                wxWindowGTK  *window)
+{
+    if ( window == gs_imResetWindow )
+        return;
+
+    wxTextInputClient* const client = wxFindTextInputClient(window);
+    if ( !client )
+        return;
+
+    wxGtkString text(nullptr);
+    PangoAttrList* attrs = nullptr;
+    gint cursor = 0;
+    gtk_im_context_get_preedit_string(context, text.Out(), &attrs, &cursor);
+    if ( attrs )
+        pango_attr_list_unref(attrs);
+
+    // UpdateComposition() modifies the document, which can run application
+    // event handlers changing the text input state, so it must be checked
+    // again below. The client itself can't disappear here: destroying its
+    // window from an event handler is only allowed via a delayed Destroy().
+    const bool handled =
+        client->IsTextInputEnabled() &&
+        client->UpdateComposition(
+            wxString::FromUTF8Unchecked(text ? text.c_str() : ""), cursor);
+
+    if ( !handled )
+    {
+        if ( client->IsTextInputEnabled() )
+            // A synchronous empty preedit notification is handled without
+            // trying to reset the context again.
+            gtk_im_context_reset(context);
+    }
+    else if ( client->IsTextInputEnabled() && client->HasActiveComposition() )
+    {
+        // Let the input method place its windows next to the composition.
+        // Outside of one, clients keep the rectangle up to date themselves
+        // whenever their caret moves.
+        window->UpdateInputMethodCursorRect(client->GetIMEContextRect());
+    }
+}
+
+static void
+gtk_wxwindow_preedit_end_cb(GtkIMContext * WXUNUSED(context),
+                            wxWindowGTK  *window)
+{
+    wxTextInputClient* const client = wxFindTextInputClient(window);
+    if ( client && client->IsTextInputEnabled() )
+        client->CancelComposition();
+}
+
+static void
+gtk_wxwindow_end_preedit(wxWindowGTK* window)
+{
+    wxTextInputClient* const client = wxFindTextInputClient(window);
+    if ( !window->m_imContext || !client ||
+         !client->IsTextInputEnabled() ||
+         !client->HasActiveComposition() )
+    {
+        return;
+    }
+
+    wxGtkString text(nullptr);
+    PangoAttrList* attrs = nullptr;
+    gint cursor = 0;
+    gtk_im_context_get_preedit_string(
+        window->m_imContext, text.Out(), &attrs, &cursor);
+    const wxString preedit =
+        wxString::FromUTF8Unchecked(text ? text.c_str() : "");
+
+    if ( attrs )
+        pango_attr_list_unref(attrs);
+
+    // Reset the native state first and let any signals it emits decide
+    // whether the composition is committed or cancelled. Those signals run
+    // application event handlers which can change the text input state, so
+    // it must be checked again afterwards. Some IM modules don't emit them
+    // at all, so finish the client state explicitly as a fallback.
+    gtk_im_context_reset(window->m_imContext);
+    if ( client->IsTextInputEnabled() &&
+         client->HasActiveComposition() &&
+         !client->CommitComposition(preedit) )
+    {
+        client->CancelComposition();
+    }
 }
 }
 
@@ -1507,9 +1752,9 @@ bool wxWindowGTK::GTKDoInsertTextFromIM(const char* str)
         return false;
 
     bool processed = false;
-    for( wxString::const_iterator pstr = data.begin(); pstr != data.end(); ++pstr )
+    for ( const auto ch : data )
     {
-        event.m_uniChar = *pstr;
+        event.m_uniChar = ch;
 
         // Set key code to the Unicode value for ASCII characters.
         if ( event.m_uniChar < WXK_DELETE )
@@ -1856,6 +2101,8 @@ wxGTKImpl::WindowButtonPressCallback(GtkWidget* WXUNUSED_IN_GTK3(widget),
     // reset the event object and id in case win changed.
     event.SetEventObject( win );
     event.SetId( win->GetId() );
+
+    gtk_wxwindow_end_preedit(win);
 
     if ( win->GTKProcessEvent( event ) )
         return TRUE;
@@ -2436,7 +2683,12 @@ wxGTKImpl::WindowLeaveCallback(GtkWidget* WXUNUSED_UNLESS_DEBUG(widget),
     if ( AreGTKEventsBlocked() )
         return FALSE;
 
-    if (win->m_needCursorReset)
+    // If the mouse is captured, we don't send wxSetCursorEvent at all (see the
+    // motion and enter handlers), so we shouldn't reset the cursor set by an
+    // earlier one neither: the window can well get leave events while dragging
+    // something, e.g. when the mouse moves over one of its children, but the
+    // cursor set for the duration of the drag must remain in effect.
+    if (!g_captureWindow && win->m_needCursorReset)
         win->GTKUpdateCursor();
 
     // Event was emitted after an ungrab
@@ -2706,11 +2958,18 @@ void wxWindowGTK::GTKHandleRealized()
             // Create input method handler
             m_imContext = gtk_im_multicontext_new();
 
-            // Cannot handle drawing preedited text yet
-            gtk_im_context_set_use_preedit(m_imContext, false);
+            wxTextInputClient* const client = wxFindTextInputClient(this);
+            gtk_im_context_set_use_preedit(
+                m_imContext, client && client->IsTextInputEnabled());
 
             g_signal_connect(m_imContext,
                 "commit", G_CALLBACK(gtk_wxwindow_commit_cb), this);
+            g_signal_connect(m_imContext,
+                "preedit-changed",
+                G_CALLBACK(gtk_wxwindow_preedit_changed_cb), this);
+            g_signal_connect(m_imContext,
+                "preedit-end",
+                G_CALLBACK(gtk_wxwindow_preedit_end_cb), this);
         }
         gtk_im_context_set_client_window(m_imContext, window);
     }
@@ -2755,6 +3014,11 @@ void wxWindowGTK::GTKHandleRealized()
         }
     }
 #endif
+
+    // Update the TAB order of our parents if it wasn't done when our children
+    // were added, see GTKOnChildrenChanged().
+    if ( !m_children.empty() )
+        GTKInvalidateParentsTabOrder();
 
     wxWindowCreateEvent event(static_cast<wxWindow*>(this));
     event.SetEventObject( this );
@@ -4490,6 +4754,68 @@ void wxWindowGTK::DoSetClientSize( int width, int height )
     SetSize(width + (size.x - clientSize.x), height + (size.y - clientSize.y));
 }
 
+// Return the spacing between the scrollbars and the contents of the window.
+static int wxGetScrollbarSpacing(GtkWidget* widget)
+{
+    // get scrollbar spacing the same way the GTK-private function
+    // _gtk_scrolled_window_get_scrollbar_spacing() does it
+    int scrollbar_spacing =
+        GTK_SCROLLED_WINDOW_GET_CLASS(widget)->scrollbar_spacing;
+    if (scrollbar_spacing < 0)
+    {
+        gtk_widget_style_get(
+            widget, "scrollbar-spacing", &scrollbar_spacing, nullptr);
+    }
+
+    return scrollbar_spacing;
+}
+
+#ifdef __WXGTK3__
+
+// Check whether the given scrolled window uses overlay scrollbars, i.e. the
+// scrollbars drawn on top of its contents which, unlike the normal ones, don't
+// take any space in it.
+//
+// This replicates the logic of the private GTK function
+// gtk_scrolled_window_update_use_indicators() and must be kept in sync with it.
+static bool wxUsesOverlayScrollbars(GtkWidget* widget)
+{
+    // Overlay scrollbars only exist since GTK 3.16, where they're used by
+    // default, but this can be overridden in several different ways.
+    if ( !wx_is_at_least_gtk3(16) )
+        return false;
+
+#if GTK_CHECK_VERSION(3,16,0)
+    // The application may have disabled them for this particular window: we
+    // never call the corresponding setter ourselves, but it could do it.
+    if ( !gtk_scrolled_window_get_overlay_scrolling(GTK_SCROLLED_WINDOW(widget)) )
+        return false;
+#endif // GTK+ >= 3.16
+
+    // The user may have disabled them globally using the setting below, which
+    // was added in GTK 3.24.9.
+    if ( wx_is_at_least_gtk3(24, 9) )
+    {
+        gboolean enabled = TRUE;
+        g_object_get(gtk_widget_get_settings(widget),
+            "gtk-overlay-scrolling", &enabled, nullptr);
+        if ( !enabled )
+            return false;
+    }
+
+    // Finally, this environment variable overrides everything else. Its value
+    // is not supposed to change during the program lifetime, so check it only
+    // once and cache the result, as this function is called often.
+    static const bool
+        disabledInEnv = g_strcmp0(getenv("GTK_OVERLAY_SCROLLING"), "0") == 0;
+    if ( disabledInEnv )
+        return false;
+
+    return true;
+}
+
+#endif // __WXGTK3__
+
 void wxWindowGTK::DoGetClientSize( int *width, int *height ) const
 {
     wxCHECK_RET( (m_widget != nullptr), wxT("invalid window") );
@@ -4506,23 +4832,21 @@ void wxWindowGTK::DoGetClientSize( int *width, int *height ) const
 
     if ( m_wxwindow )
     {
-        // if window is scrollable, account for scrollbars
-        if ( GTK_IS_SCROLLED_WINDOW(m_widget) )
+        // If the window is scrollable, account for its scrollbars -- but only
+        // if they're not the overlay ones, which are drawn on top of the
+        // window contents and so don't take any space in it.
+        if ( GTK_IS_SCROLLED_WINDOW(m_widget)
+#ifdef __WXGTK3__
+                && !wxUsesOverlayScrollbars(m_widget)
+#endif // __WXGTK3__
+           )
         {
             GtkPolicyType policy[ScrollDir_Max];
             gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(m_widget),
                                            &policy[ScrollDir_Horz],
                                            &policy[ScrollDir_Vert]);
 
-            // get scrollbar spacing the same way the GTK-private function
-            // _gtk_scrolled_window_get_scrollbar_spacing() does it
-            int scrollbar_spacing =
-                GTK_SCROLLED_WINDOW_GET_CLASS(m_widget)->scrollbar_spacing;
-            if (scrollbar_spacing < 0)
-            {
-                gtk_widget_style_get(
-                    m_widget, "scrollbar-spacing", &scrollbar_spacing, nullptr);
-            }
+            const int scrollbar_spacing = wxGetScrollbarSpacing(m_widget);
 
             for ( int i = 0; i < ScrollDir_Max; i++ )
             {
@@ -4821,16 +5145,7 @@ void wxWindowGTK::DoEnable( bool enable )
         gtk_widget_set_sensitive( m_wxwindow, enable );
 
     if (enable && AcceptsFocusFromKeyboard())
-    {
-        wxWindowGTK* parent = this;
-        while ((parent = parent->GetParent()))
-        {
-            parent->m_dirtyTabOrder = true;
-            if (parent->IsTopLevel())
-                break;
-        }
-        wxTheApp->WakeUpIdle();
-    }
+        GTKInvalidateParentsTabOrder();
 }
 
 int wxWindowGTK::GetCharHeight() const
@@ -4993,8 +5308,13 @@ bool wxWindowGTK::GTKHandleFocusIn()
                "handling focus_in event for %s",
                wxDumpWindow(this));
 
-    if (m_imContext)
+    if (m_imContext && IsInputMethodEnabled())
+    {
+        // Set the cursor location before giving focus to the input method,
+        // as it may use it immediately.
+        GTKUpdateIMCursorRect(m_imContext);
         gtk_im_context_focus_in(m_imContext);
+    }
 
     gs_currentFocus = this;
 
@@ -5080,8 +5400,11 @@ void wxWindowGTK::GTKHandleFocusOutNoDeferring()
 
     gs_lastFocus = this;
 
-    if (m_imContext)
+    if (m_imContext && IsInputMethodEnabled())
+    {
+        gtk_wxwindow_end_preedit(this);
         gtk_im_context_focus_out(m_imContext);
+    }
 
     if ( gs_currentFocus != this )
     {
@@ -5248,14 +5571,50 @@ void wxWindowGTK::DoAddChild(wxWindowGTK *child)
 void wxWindowGTK::AddChild(wxWindowBase *child)
 {
     wxWindowBase::AddChild(child);
-    m_dirtyTabOrder = true;
-    wxTheApp->WakeUpIdle();
+
+    GTKOnChildrenChanged();
 }
 
 void wxWindowGTK::RemoveChild(wxWindowBase *child)
 {
     wxWindowBase::RemoveChild(child);
+
+    // Don't bother updating the TAB order if we're being destroyed, which is
+    // when most of the children are removed.
+    if ( IsBeingDeleted() )
+        return;
+
+    GTKOnChildrenChanged();
+}
+
+void wxWindowGTK::GTKOnChildrenChanged()
+{
     m_dirtyTabOrder = true;
+
+    // Whether this window accepts focus from keyboard may depend on its
+    // children, see wxControlContainerBase::AcceptsFocusFromKeyboard(), so
+    // the focus chains of our parents may need to be updated too. But avoid
+    // doing it for every child added when the windows are initially created
+    // and do it only once, from GTKHandleRealized(), if we're not realized
+    // yet: this is fine because we can't have focus before being realized.
+    GtkWidget* const connectWidget = GetConnectWidget();
+    if ( connectWidget && gtk_widget_get_realized(connectWidget) )
+        GTKInvalidateParentsTabOrder();
+    else
+        wxTheApp->WakeUpIdle();
+}
+
+void wxWindowGTK::GTKInvalidateParentsTabOrder()
+{
+    for ( wxWindowGTK* win = this; !win->IsTopLevel(); )
+    {
+        win = win->GetParent();
+        if ( !win )
+            break;
+
+        win->m_dirtyTabOrder = true;
+    }
+
     wxTheApp->WakeUpIdle();
 }
 
@@ -5917,7 +6276,7 @@ void wxWindowGTK::GTKSendPaintEvents(const GdkRegion* region)
             else if (m_backgroundColour.IsOk() && gtk_check_version(3,20,0) == nullptr)
             {
                 cairo_save(cr);
-                gdk_cairo_set_source_rgba(cr, m_backgroundColour);
+                gdk_cairo_set_source_rgba(cr, m_backgroundColour.GTKGetRGBA());
                 cairo_paint(cr);
                 cairo_restore(cr);
             }
@@ -6176,12 +6535,12 @@ void wxWindowGTK::GTKApplyWidgetStyle(bool forceStyle)
         if (isFg)
         {
             g_string_append_printf(css, "color:%s;",
-                wxGtkString(gdk_rgba_to_string(fg)).c_str());
+                wxGtkString(gdk_rgba_to_string(fg.GTKGetRGBA())).c_str());
         }
         if (isBg)
         {
             g_string_append_printf(css, "background:%s;",
-                wxGtkString(gdk_rgba_to_string(bg)).c_str());
+                wxGtkString(gdk_rgba_to_string(bg.GTKGetRGBA())).c_str());
         }
         if (isFont)
         {
@@ -6278,8 +6637,8 @@ void wxWindowGTK::GTKApplyWidgetStyle(bool forceStyle)
             // controls, and seems to do no harm to apply to all.
             const wxColour fg_sel(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT));
             const wxColour bg_sel(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT));
-            wxGtkString fg_sel_string(gdk_rgba_to_string(fg_sel));
-            wxGtkString bg_sel_string(gdk_rgba_to_string(bg_sel));
+            wxGtkString fg_sel_string(gdk_rgba_to_string(fg_sel.GTKGetRGBA()));
+            wxGtkString bg_sel_string(gdk_rgba_to_string(bg_sel.GTKGetRGBA()));
             g_string_append_printf(css,
                 "selection{color:%s;background:%s}"
                 "*:selected{color:%s;background:%s}",
@@ -6289,7 +6648,7 @@ void wxWindowGTK::GTKApplyWidgetStyle(bool forceStyle)
             if (isFg && wx_is_at_least_gtk3(20))
             {
                 g_string_append_printf(css, "*{caret-color:%s}",
-                    wxGtkString(gdk_rgba_to_string(fg)).c_str());
+                    wxGtkString(gdk_rgba_to_string(fg.GTKGetRGBA())).c_str());
             }
             if (isBg)
             {
@@ -6488,7 +6847,7 @@ bool wxWindowGTK::DoPopupMenu( wxMenu *menu, int x, int y )
 {
     wxCHECK_MSG( m_widget != nullptr, false, wxT("invalid window") );
 
-    GTKSetLayout(menu->m_menu, GetLayoutDirection());
+    menu->SetLayoutDirection(GetLayoutDirection());
 
     menu->SetupBitmaps(this);
 
@@ -6736,8 +7095,27 @@ void wxWindowGTK::DoCaptureMouse()
     {
         GdkDisplay* display = gdk_window_get_display(window);
         GdkSeat* seat = gdk_display_get_default_seat(display);
+
+        // Under Wayland, GDK resets the cursor to the default one when taking
+        // the grab unless the cursor to use during it is given explicitly, so
+        // pass it the cursor currently used by this window to avoid losing it,
+        // e.g. while dragging a sash. Note that we can't just use m_cursor
+        // here because the current cursor could have been set by a handler of
+        // wxSetCursorEvent, so retrieve it from the window itself, taking into
+        // account that it can be inherited from one of its parents.
+        GdkCursor* cursor = nullptr;
+        if (wxGTKImpl::IsWayland(window))
+        {
+            for (GdkWindow* w = window; w; w = gdk_window_get_effective_parent(w))
+            {
+                cursor = gdk_window_get_cursor(w);
+                if (cursor)
+                    break;
+            }
+        }
+
         gdk_seat_grab(seat, window, GDK_SEAT_CAPABILITY_ALL_POINTING, false,
-            nullptr, nullptr, nullptr, nullptr);
+            cursor, nullptr, nullptr, nullptr);
     }
     else
 #endif
@@ -6905,6 +7283,43 @@ int wxWindowGTK::GetScrollRange( int orient ) const
     wxCHECK_MSG( sb, 0, wxT("this window is not scrollable") );
 
     return wxRound(gtk_adjustment_get_upper(gtk_range_get_adjustment(sb)));
+}
+
+int wxWindowGTK::GetScrollbarSize( int orient ) const
+{
+    if ( GTK_IS_SCROLLED_WINDOW(m_widget) )
+    {
+#ifdef __WXGTK3__
+        // Overlay scrollbars are drawn on top of the window contents and so
+        // don't take any space in it.
+        if ( wxUsesOverlayScrollbars(m_widget) )
+            return 0;
+#endif // __WXGTK3__
+
+        // Account for the spacing between the scrollbar and the window
+        // contents as this is what DoGetClientSize() above does.
+        const ScrollDir dir = ScrollDirFromOrient(orient);
+        if ( GtkRange* const range = m_scrollBar[dir] )
+        {
+            GtkWidget* const widget = GTK_WIDGET(range);
+
+            int size;
+#ifdef __WXGTK3__
+            if ( dir == ScrollDir_Horz )
+                gtk_widget_get_preferred_height(widget, nullptr, &size);
+            else
+                gtk_widget_get_preferred_width(widget, nullptr, &size);
+#else // !__WXGTK3__
+            GtkRequisition req;
+            gtk_widget_size_request(widget, &req);
+            size = dir == ScrollDir_Horz ? req.height : req.width;
+#endif // __WXGTK3__/!__WXGTK3__
+
+            return size + wxGetScrollbarSpacing(m_widget);
+        }
+    }
+
+    return wxWindowBase::GetScrollbarSize(orient);
 }
 
 // Determine if increment is the same as +/-x, allowing for some small

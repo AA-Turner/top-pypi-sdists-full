@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.2.8
+Version: 1.2.9
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -210,7 +210,7 @@ Project-URL: homepage, https://pypi.org/project/pyvespa
 Project-URL: repository, https://github.com/vespa-engine/pyvespa
 Keywords: vespa,search engine,data science
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpr>=0.6.0

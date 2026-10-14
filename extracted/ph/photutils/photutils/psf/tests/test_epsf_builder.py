@@ -10,22 +10,26 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 from astropy.modeling.fitting import TRFLSQFitter
+from astropy.modeling.models import Gaussian2D
 from astropy.nddata import NDData
 from astropy.table import Table
-from astropy.utils.exceptions import (AstropyDeprecationWarning,
-                                      AstropyUserWarning)
+from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose, assert_array_equal
 
 from photutils.centroids import (centroid_1dg, centroid_2dg, centroid_com,
-                                 centroid_quadratic)
+                                 centroid_quadratic, centroid_symmetry)
 from photutils.datasets import make_model_image
-from photutils.psf import (CircularGaussianPRF, EPSFBuilder, EPSFBuildResult,
+from photutils.psf import (CircularGaussianPRF, EPSFBuilder, EPSFBuildResults,
                            EPSFFitter, EPSFStar, EPSFStars, ImagePSF,
                            extract_stars, make_psf_model_image)
-from photutils.psf.epsf_builder import (_CoordinateTransformer, _EPSFValidator,
-                                        _ProgressReporter, _SmoothingKernel)
+from photutils.psf.epsf_builder import (_alias_filter_band,
+                                        _CoordinateTransformer, _EPSFValidator,
+                                        _measure_fwhm, _ProgressReporter,
+                                        _SmoothingKernel,
+                                        _suppress_alias_modes)
 from photutils.psf.epsf_stars import LinkedEPSFStar
-from photutils.utils._optional_deps import HAS_TQDM
+from photutils.utils._optional_deps import HAS_MATPLOTLIB, HAS_TQDM
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 
 @pytest.fixture
@@ -69,6 +73,38 @@ def epsf_fitter_data(epsf_test_data):
     return {'stars': stars, 'epsf': epsf}
 
 
+def _insert_nan_near_star(epsf_test_data, *, index=0):
+    """
+    Copy the test image and set a pixel one row above the given star
+    center to NaN.
+
+    Returns the NDData copy and the true (x, y) center of that star.
+    """
+    data = epsf_test_data['data'].copy()
+    xtrue = epsf_test_data['init_stars']['x'][index]
+    ytrue = epsf_test_data['init_stars']['y'][index]
+    iy = int(np.round(ytrue)) + 1
+    ix = int(np.round(xtrue))
+    data[iy, ix] = np.nan
+    return NDData(data), (xtrue, ytrue)
+
+
+class _MockWCS:
+    """
+    Mock WCS with an identity pixel-to-world transform.
+    """
+
+    world_axis_units = ('deg', 'deg')
+    world_axis_object_components = (('celestial', 0, 'spherical.lon.degree'),
+                                    ('celestial', 1, 'spherical.lat.degree'))
+
+    def pixel_to_world_values(self, x, y):
+        return x, y
+
+    def world_to_pixel_values(self, ra, dec):
+        return ra, dec
+
+
 def _make_epsf_fitter(**kwargs):
     """
     Helper to create EPSFFitter suppressing the deprecation warning.
@@ -77,8 +113,56 @@ def _make_epsf_fitter(**kwargs):
     removed.
     """
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore', AstropyDeprecationWarning)
+        warnings.simplefilter('ignore', PhotutilsDeprecationWarning)
         return EPSFFitter(**kwargs)
+
+
+def test_build_epsf_linked_stars():
+    """
+    Regression test that the public builder accepts LinkedEPSFStar
+    inputs.
+    """
+    yy, xx = np.indices((11, 11))
+    sig = 2.5 / 2.3548
+    star_data = np.exp(-((xx - 5.0)**2 + (yy - 5.0)**2)
+                       / (2 * sig**2))
+    stars_list = [EPSFStar(star_data.copy(), cutout_center=(5.0, 5.0),
+                           origin=(0, 0), wcs_large=_MockWCS())
+                  for _ in range(2)]
+    linked = LinkedEPSFStar(stars_list)
+    stars = EPSFStars([linked])
+    builder = EPSFBuilder(oversampling=1, maxiters=2,
+                          progress_bar=False)
+    result = builder(stars)
+    assert result.epsf.data.shape[0] >= 11
+
+
+@pytest.mark.parametrize('constrain_fluxes', [True, False])
+def test_build_epsf_linked_stars_constrain_fluxes(constrain_fluxes):
+    """
+    Test that the fluxes of linked stars are constrained to their mean
+    after fitting when ``constrain_fluxes`` is `True`.
+    """
+    yy, xx = np.indices((11, 11))
+    sig = 2.5 / 2.3548
+    star_data = np.exp(-((xx - 5.0)**2 + (yy - 5.0)**2) / (2 * sig**2))
+
+    # The same star with different flux scales in the two images
+    stars_list = [EPSFStar(scale * star_data, cutout_center=(5.0, 5.0),
+                           origin=(0, 0), wcs_large=_MockWCS())
+                  for scale in (1.0, 3.0)]
+    linked = LinkedEPSFStar(stars_list)
+    stars = EPSFStars([linked])
+    builder = EPSFBuilder(oversampling=1, maxiters=2,
+                          constrain_fluxes=constrain_fluxes,
+                          progress_bar=False)
+    assert builder.constrain_fluxes is constrain_fluxes
+    result = builder(stars)
+    fluxes = result.fitted_stars[0].flux
+    if constrain_fluxes:
+        assert_allclose(fluxes[0], fluxes[1])
+    else:
+        assert_allclose(fluxes[1] / fluxes[0], 3.0, rtol=0.05)
 
 
 class TestSmoothingKernel:
@@ -288,19 +372,26 @@ class TestEPSFValidator:
             _EPSFValidator.validate_shape_compatibility(stars, (2, 2),
                                                         shape=(5, 5))
 
-    def test_validate_shape_compatibility_even_dimensions_warning(self):
+    def test_validate_shape_compatibility_minimum_shape(self):
         """
-        Test shape compatibility with even dimensions warning.
+        Test that the minimum-shape rule matches compute_epsf_shape (add
+        1 only when the star size times oversampling is even).
         """
-        data = np.ones((5, 5))
-        star = EPSFStar(data, cutout_center=(2, 2))
+        data = np.ones((11, 11))
+        star = EPSFStar(data, cutout_center=(5, 5))
         stars = EPSFStars([star])
 
-        # Test even dimensions trigger warning
-        match = 'ePSF shape .* has even dimensions'
-        with pytest.warns(UserWarning, match=match):
-            _EPSFValidator.validate_shape_compatibility(stars, (1, 1),
-                                                        shape=(20, 20))
+        # 11 * 1 = 11 (odd), so shape (11, 11) is compatible
+        _EPSFValidator.validate_shape_compatibility(stars, (1, 1),
+                                                    shape=(11, 11))
+
+        # 11 * 2 = 22 (even), so the minimum shape is (23, 23)
+        match = r'Requested ePSF shape .* is incompatible'
+        with pytest.raises(ValueError, match=match):
+            _EPSFValidator.validate_shape_compatibility(stars, (2, 2),
+                                                        shape=(21, 21))
+        _EPSFValidator.validate_shape_compatibility(stars, (2, 2),
+                                                    shape=(23, 23))
 
     def test_validate_stars_empty_list(self):
         """
@@ -317,7 +408,7 @@ class TestEPSFValidator:
 
     def test_validate_stars_non_finite_data(self):
         """
-        Test validate_stars with non-finite data.
+        Test validate_stars with nonfinite data.
         """
         # Create star with all NaN data - need to provide explicit flux
         # since flux estimation would fail with all NaN data
@@ -460,7 +551,7 @@ class TestEPSFValidator:
 
     def test_validate_center_accuracy_non_positive(self):
         """
-        Test validate_center_accuracy with non-positive values.
+        Test validate_center_accuracy with nonpositive values.
         """
         match = 'center_accuracy must be positive'
         with pytest.raises(ValueError, match=match):
@@ -499,7 +590,7 @@ class TestEPSFValidator:
 
     def test_validate_maxiters_non_positive(self):
         """
-        Test validate_maxiters with non-positive values.
+        Test validate_maxiters with nonpositive values.
         """
         match = 'maxiters must be a positive number'
         with pytest.raises(ValueError, match=match):
@@ -626,14 +717,14 @@ class TestProgressReporter:
         assert reporter._pbar is None
 
 
-class TestEPSFBuildResult:
+class TestEPSFBuildResults:
     """
-    Tests for the EPSFBuildResult class.
+    Tests for the EPSFBuildResults class.
     """
 
     def test_creation(self):
         """
-        Test EPSFBuildResult creation.
+        Test EPSFBuildResults creation.
         """
         # Create a simple PSF model for testing
         data = np.ones((5, 5))
@@ -642,7 +733,7 @@ class TestEPSFBuildResult:
         # Create stars list (can be empty for this test)
         stars = []
 
-        result = EPSFBuildResult(
+        result = EPSFBuildResults(
             epsf=psf,
             fitted_stars=stars,
             iterations=5,
@@ -658,7 +749,7 @@ class TestEPSFBuildResult:
 
     def test_with_data(self, epsf_test_data):
         """
-        Test EPSFBuildResult with actual data.
+        Test EPSFBuildResults with actual data.
         """
         stars = extract_stars(epsf_test_data['nddata'],
                               epsf_test_data['init_stars'][:5], size=11)
@@ -666,7 +757,7 @@ class TestEPSFBuildResult:
         builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False)
         epsf, fitted_stars = builder(stars)
 
-        result = EPSFBuildResult(
+        result = EPSFBuildResults(
             epsf=epsf,
             fitted_stars=fitted_stars,
             iterations=2,
@@ -682,13 +773,13 @@ class TestEPSFBuildResult:
 
     def test_getitem_invalid_index(self):
         """
-        Test EPSFBuildResult.__getitem__ with invalid index.
+        Test EPSFBuildResults.__getitem__ with invalid index.
         """
         data = np.ones((5, 5))
         psf = ImagePSF(data)
         stars = EPSFStars([])
 
-        result = EPSFBuildResult(
+        result = EPSFBuildResults(
             epsf=psf,
             fitted_stars=stars,
             iterations=5,
@@ -703,7 +794,7 @@ class TestEPSFBuildResult:
         assert result[1] is stars
 
         # Invalid index
-        match = 'EPSFBuildResult index must be 0'
+        match = 'EPSFBuildResults index must be 0'
         with pytest.raises(IndexError, match=match):
             result[2]
 
@@ -712,13 +803,13 @@ class TestEPSFBuildResult:
 
     def test_iteration(self):
         """
-        Test EPSFBuildResult iteration (tuple unpacking).
+        Test EPSFBuildResults iteration (tuple unpacking).
         """
         data = np.ones((5, 5))
         psf = ImagePSF(data)
         stars = EPSFStars([])
 
-        result = EPSFBuildResult(
+        result = EPSFBuildResults(
             epsf=psf,
             fitted_stars=stars,
             iterations=5,
@@ -741,7 +832,7 @@ class TestEPSFBuildResult:
 
     def test_attributes(self, epsf_test_data):
         """
-        Test EPSFBuildResult has all expected attributes.
+        Test EPSFBuildResults has all expected attributes.
         """
         builder = EPSFBuilder(oversampling=1, maxiters=3, progress_bar=False)
 
@@ -754,10 +845,26 @@ class TestEPSFBuildResult:
         assert result.epsf is not None
         assert result.fitted_stars is not None
         assert isinstance(result.iterations, int)
-        assert isinstance(result.converged, (bool, np.bool_))
-        assert isinstance(result.final_center_accuracy, (float, np.floating))
+        assert isinstance(result.converged, bool)
+        assert type(result.final_center_accuracy) is float
         assert isinstance(result.n_excluded_stars, int)
         assert isinstance(result.excluded_star_indices, list)
+
+    def test_deprecated_name(self):
+        """
+        Test that the old EPSFBuildResult name is a deprecated alias.
+        """
+        from photutils import psf
+        from photutils.psf import epsf_builder
+
+        match = 'EPSFBuildResult is deprecated'
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            cls = psf.EPSFBuildResult
+        assert cls is EPSFBuildResults
+
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            cls = epsf_builder.EPSFBuildResult
+        assert cls is EPSFBuildResults
 
 
 class TestEPSFFitter:
@@ -773,7 +880,7 @@ class TestEPSFFitter:
         Test that EPSFFitter emits a deprecation warning.
         """
         match = 'EPSFFitter is deprecated'
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             EPSFFitter()
 
     def test_fit_stars(self, epsf_fitter_data):
@@ -890,26 +997,27 @@ class TestEPSFFitter:
 
     def test_weights_not_supported(self, epsf_fitter_data):
         """
-        Test EPSFFitter when fitter raises TypeError for weights.
+        Test EPSFFitter with a fitter whose signature does not accept
+        weights.
+
+        The weights are dropped based on the fitter call signature.
         """
         stars = epsf_fitter_data['stars']
         epsf = epsf_fitter_data['epsf']
 
-        # Create a fitter that raises TypeError when weights is passed
+        # Create a fitter whose signature has no weights keyword
         class NoWeightsFitter:
             def __init__(self):
                 self.fit_info = {'ierr': 1}
 
-            def __call__(self, model, *_args, **kwargs):
-                if 'weights' in kwargs:
-                    msg = 'weights not supported'
-                    raise TypeError(msg)
+            def __call__(self, model, x, y, z):  # noqa: ARG002
                 return model
 
         no_weights_fitter = NoWeightsFitter()
         fitter = _make_epsf_fitter(fitter=no_weights_fitter)
+        assert not fitter._fitter_accepts_weights
 
-        # Fit the stars - should handle TypeError gracefully
+        # Fit the stars - the fitter is called without weights
         fitted_stars = fitter(epsf, stars)
         assert len(fitted_stars) == len(stars)
 
@@ -962,15 +1070,7 @@ class TestEPSFFitter:
         stars = epsf_fitter_data['stars']
         epsf = epsf_fitter_data['epsf']
 
-        # Create mock WCS that returns identity transform
-        class MockWCS:
-            def pixel_to_world_values(self, x, y):
-                return x, y
-
-            def world_to_pixel_values(self, ra, dec):
-                return ra, dec
-
-        mock_wcs = MockWCS()
+        mock_wcs = _MockWCS()
 
         # Create EPSFStar objects with mock WCS
         linked_stars_list = []
@@ -994,7 +1094,7 @@ class TestEPSFFitter:
         fitted_stars = fitter(epsf, stars_with_linked)
 
         assert len(fitted_stars) == 1
-        # fitted_stars is an EPSFStars; the first item wraps LinkedEPSFStar
+        # fitted_stars is an EPSFStars. The first item wraps LinkedEPSFStar
         assert len(fitted_stars.all_stars) == 2  # 2 stars in the linked star
 
     def test_fit_boxsize_none_with_excluded_star(self, epsf_fitter_data):
@@ -1019,20 +1119,13 @@ class TestEPSFFitter:
         """
         Test EPSFFitter with LinkedEPSFStar containing excluded star.
 
-        This tests lines 825, 856-860 (excluded star in LinkedEPSFStar).
+        Excluded stars within a LinkedEPSFStar are passed through
+        unchanged while the remaining linked stars are fitted.
         """
         stars = epsf_fitter_data['stars']
         epsf = epsf_fitter_data['epsf']
 
-        # Create mock WCS
-        class MockWCS:
-            def pixel_to_world_values(self, x, y):
-                return x, y
-
-            def world_to_pixel_values(self, ra, dec):
-                return ra, dec
-
-        mock_wcs = MockWCS()
+        mock_wcs = _MockWCS()
 
         # Create LinkedEPSFStar with two stars, one excluded
         linked_stars_list = []
@@ -1078,6 +1171,81 @@ class TestEPSFFitter:
         # Check that star has fit_error_status set
         assert fitted_stars.all_stars[0]._fit_error_status == 1
 
+    def test_fit_star_center_outside_cutout(self, epsf_fitter_data):
+        """
+        Test EPSFFitter._fit_star when the fitted center falls outside
+        the star cutout.
+        """
+        epsf = epsf_fitter_data['epsf']
+
+        class ShiftedFitter:
+            """
+            Mock fitter that shifts the model center far outside the
+            star cutout.
+            """
+
+            def __call__(self, model, **kwargs):  # noqa: ARG002
+                fitted = model.copy()
+                fitted.x_0 = 1000.0
+                return fitted
+
+        star_data = np.ones((11, 11))
+        star = EPSFStar(star_data, cutout_center=(5.0, 5.0))
+        stars = EPSFStars([star])
+
+        fitter = _make_epsf_fitter(fitter=ShiftedFitter(),
+                                   fit_boxsize=None)
+        fitted_stars = fitter(epsf, stars)
+
+        # The star center and flux must be left unchanged
+        fitted_star = fitted_stars.all_stars[0]
+        assert fitted_star._fit_error_status == 3
+        assert_allclose(fitted_star.cutout_center, (5.0, 5.0))
+        assert fitted_star.flux == star.flux
+
+    def test_fit_star_masked_pixel_in_fit_box(self, epsf_test_data):
+        """
+        Test that a masked (NaN) pixel inside the fit box is excluded
+        from the fit instead of raising a fitter error.
+        """
+        nddata, (xtrue, ytrue) = _insert_nan_near_star(epsf_test_data)
+        match = 'Input data array contains invalid data'
+        with pytest.warns(AstropyUserWarning, match=match):
+            stars = extract_stars(nddata, epsf_test_data['init_stars'][:4],
+                                  size=11)
+        assert np.isnan(stars[0].data).any()
+
+        builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False)
+        epsf, _ = builder(stars)
+
+        fitter = _make_epsf_fitter(fit_boxsize=5)
+        fitted_stars = fitter(epsf, stars)
+
+        fitted_star = fitted_stars.all_stars[0]
+        assert fitted_star._fit_error_status == 0
+        assert_allclose(fitted_star.center, (xtrue, ytrue), atol=0.1)
+
+    def test_fit_star_all_masked_fit_box(self, epsf_fitter_data):
+        """
+        Test that a star whose fit box is fully masked is flagged as a
+        fit failure and left unchanged.
+        """
+        epsf = epsf_fitter_data['epsf']
+
+        star_data = np.ones((11, 11))
+        weights = np.ones((11, 11))
+        weights[3:8, 3:8] = 0.0
+        star = EPSFStar(star_data, weights=weights, cutout_center=(5.0, 5.0))
+        stars = EPSFStars([star])
+
+        fitter = _make_epsf_fitter(fit_boxsize=5)
+        fitted_stars = fitter(epsf, stars)
+
+        fitted_star = fitted_stars.all_stars[0]
+        assert fitted_star._fit_error_status == 4
+        assert_allclose(fitted_star.cutout_center, (5.0, 5.0))
+        assert fitted_star.flux == star.flux
+
 
 class TestEPSFBuilder:
     """
@@ -1111,7 +1279,7 @@ class TestEPSFBuilder:
 
         # Verify basic EPSF properties
         assert len(fitted_stars) == 10
-        # ePSF should sum to ~oversamp^2 for properly normalized
+        # EPSF should sum to ~oversamp^2 for properly normalized
         # oversampled PSF
         expected_sum = oversampling ** 2
         assert 0.9 * expected_sum < epsf.data.sum() < 1.1 * expected_sum
@@ -1148,10 +1316,18 @@ class TestEPSFBuilder:
         with pytest.raises(ValueError, match=match):
             EPSFBuilder(oversampling=[-1, 4])
 
-        for sigma_clip in [None, [], 'a']:
+        for sigma_clip in [[], 'a']:
             match = 'sigma_clip must be an astropy.stats.SigmaClip instance'
             with pytest.raises(TypeError, match=match):
                 EPSFBuilder(sigma_clip=sigma_clip)
+
+        match = 'fitter_maxiters must be an integer'
+        with pytest.raises(TypeError, match=match):
+            EPSFBuilder(fitter_maxiters=2.5)
+
+        match = 'fitter_maxiters must be a positive integer'
+        with pytest.raises(ValueError, match=match):
+            EPSFBuilder(fitter_maxiters=-5)
 
     def test_fitter_options(self):
         """
@@ -1160,8 +1336,9 @@ class TestEPSFBuilder:
         # Test with default fitter (TRFLSQFitter)
         builder1 = EPSFBuilder(maxiters=3)
         assert isinstance(builder1.fitter, TRFLSQFitter)
-        # Default fit_shape is 5
-        assert_array_equal(builder1.fit_shape, (5, 5))
+        # Default fit_shape is 'auto'
+        assert builder1.fit_shape == 'auto'
+        assert builder1.smoothing_kernel == 'auto'
         assert builder1.fitter_maxiters == 100
 
         # Test with explicit astropy fitter
@@ -1198,7 +1375,7 @@ class TestEPSFBuilder:
         epsf_fitter = _make_epsf_fitter(fit_boxsize=7)
 
         match = 'Passing an EPSFFitter instance'
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             builder = EPSFBuilder(fitter=epsf_fitter, maxiters=3)
 
         # The astropy fitter should be extracted
@@ -1312,6 +1489,7 @@ class TestEPSFBuilder:
                                                 centroid_1dg,
                                                 centroid_2dg,
                                                 centroid_quadratic,
+                                                centroid_symmetry,
                                                 ])
     def test_recentering(self, epsf_test_data, centering_func):
         """
@@ -1334,6 +1512,146 @@ class TestEPSFBuilder:
         assert epsf is not None
         assert epsf.data.shape == (11, 11)
 
+    def test_recentering_default(self):
+        """
+        Test that the ePSF is centered on its symmetry center by
+        default.
+        """
+        builder = EPSFBuilder(progress_bar=False)
+        assert builder.recentering_func is centroid_symmetry
+
+    def test_recentering_symmetry_small_box(self, epsf_test_data):
+        """
+        Test that the center of mass is used when the recentering box is
+        too small for centroid_symmetry.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:4], size=11)
+        kwargs = {'oversampling': 1, 'recentering_boxsize': 3,
+                  'maxiters': 3, 'progress_bar': False}
+        match = 'centered on its center of mass'
+        with pytest.warns(AstropyUserWarning, match=match):
+            builder = EPSFBuilder(**kwargs)
+        epsf, _ = builder(stars)
+        epsf_com, _ = EPSFBuilder(recentering_func=centroid_com,
+                                  **kwargs)(stars)
+        assert np.all(np.isfinite(epsf.data))
+        assert_allclose(epsf.data, epsf_com.data)
+
+    @pytest.mark.parametrize('oversampling', [1, 2])
+    def test_recentering_symmetry_offset_stars(self, oversampling):
+        """
+        Test that the ePSF is centered if the input star positions
+        share an offset that places it outside of the search area of
+        centroid_symmetry.
+        """
+        model = CircularGaussianPRF(fwhm=1.5)
+        data, params = make_psf_model_image((200, 200), model, 36,
+                                            model_shape=(11, 11),
+                                            flux=(5000, 20000),
+                                            min_separation=20,
+                                            border_size=15, seed=0)
+        init_stars = Table()
+        init_stars['x'] = params['x_0'] + 1.5
+        init_stars['y'] = params['y_0'] - 1.5
+        stars = extract_stars(NDData(data), init_stars, size=15)
+        builder = EPSFBuilder(oversampling=oversampling, progress_bar=False)
+        result = builder(stars)
+
+        assert result.n_excluded_stars == 0
+        centers = result.fitted_stars.center_flat
+        assert_allclose(centers[:, 0], params['x_0'], atol=0.02)
+        assert_allclose(centers[:, 1], params['y_0'], atol=0.02)
+
+    def test_center_asymmetry_small_epsf(self, epsf_test_data):
+        """
+        Test that center_asymmetry is None for an ePSF that is not
+        larger than the 5x5 pixel box in which it is measured.
+        """
+        init_stars = epsf_test_data['init_stars'][:10]
+        kwargs = {'oversampling': 1, 'maxiters': 2, 'progress_bar': False}
+        stars = extract_stars(epsf_test_data['nddata'], init_stars, size=5)
+        result = EPSFBuilder(**kwargs)(stars)
+        assert result.center_asymmetry is None
+
+        stars = extract_stars(epsf_test_data['nddata'], init_stars, size=7)
+        result = EPSFBuilder(**kwargs)(stars)
+        assert result.center_asymmetry.shape == (2,)
+
+    @pytest.mark.parametrize('oversampling', [1, 2])
+    def test_recentering_symmetry_asymmetric_psf(self, oversampling):
+        """
+        Test that centroid_symmetry centers an asymmetric ePSF on its
+        core and that centroid_com centers it on its center of mass.
+        """
+        # A Gaussian core with a faint lobe 3 pixels from its center
+        model_oversampling = 4
+        size = 21 * model_oversampling + 1
+        center = (size - 1) / 2
+        yy, xx = np.mgrid[:size, :size]
+        std = 1.2 * model_oversampling
+        psf_data = np.exp(-((xx - center) ** 2 + (yy - center) ** 2)
+                          / (2 * std ** 2))
+        x_lobe = center + 3 * model_oversampling
+        y_lobe = center + model_oversampling
+        psf_data += 0.15 * np.exp(-((xx - x_lobe) ** 2 + (yy - y_lobe) ** 2)
+                                  / (2 * model_oversampling ** 2))
+        psf_model = ImagePSF(psf_data, oversampling=model_oversampling)
+
+        rng = np.random.default_rng(0)
+        xgrid, ygrid = np.meshgrid(np.arange(30, 300, 45),
+                                   np.arange(30, 300, 45))
+        n_stars = xgrid.size
+        params = Table()
+        params['x_0'] = xgrid.ravel() + rng.uniform(-0.5, 0.5, n_stars)
+        params['y_0'] = ygrid.ravel() + rng.uniform(-0.5, 0.5, n_stars)
+        params['flux'] = rng.uniform(5000, 20000, n_stars)
+        data = make_model_image((315, 315), psf_model, params,
+                                model_shape=(21, 21))
+        init_stars = Table()
+        init_stars['x'] = params['x_0']
+        init_stars['y'] = params['y_0']
+        stars = extract_stars(NDData(data), init_stars, size=21)
+
+        # The recentering box of the ePSF in oversampled pixels
+        half_box = (5 * oversampling) // 2
+        centers = {}
+        asymmetry = {}
+        for func in (centroid_com, centroid_symmetry):
+            # The symmetry center is the default
+            kwargs = {}
+            if func is centroid_com:
+                kwargs['recentering_func'] = func
+            builder = EPSFBuilder(oversampling=oversampling, maxiters=5,
+                                  progress_bar=False, **kwargs)
+            result = builder(stars)
+            epsf = result.epsf
+            asymmetry[func] = result.center_asymmetry
+            idx = (epsf.data.shape[0] - 1) // 2
+            slc = slice(idx - half_box, idx + half_box + 1)
+            box = epsf.data[slc, slc]
+            centers[func] = (centroid_com(box) - half_box,
+                             centroid_symmetry(box) - half_box)
+
+        com, symmetry = centers[centroid_com]
+        assert_allclose(com, 0, atol=1.0e-3)
+        assert np.hypot(*symmetry) > 0.03
+
+        com, symmetry = centers[centroid_symmetry]
+        assert_allclose(symmetry, 0, atol=1.0e-3)
+        assert np.hypot(*com) > 0.03
+
+        # The offset between the two centers (in detector pixels) does
+        # not depend on the recentering function of the build. It is
+        # measured iteratively, so it is only close to the single
+        # measurement of the symmetry center made above.
+        _, symmetry = centers[centroid_com]
+        assert asymmetry[centroid_com].shape == (2,)
+        assert_allclose(asymmetry[centroid_com], -symmetry / oversampling,
+                        atol=0.01)
+        assert_allclose(asymmetry[centroid_symmetry],
+                        asymmetry[centroid_com], atol=5.0e-3)
+
     @pytest.mark.parametrize('shape', [(25, 25), (19, 25), (25, 19)])
     def test_shape_parameters(self, epsf_test_data, shape):
         """
@@ -1354,6 +1672,119 @@ class TestEPSFBuilder:
         assert epsf is not None
         assert epsf.data.shape == shape
 
+    def test_even_shape_made_odd(self, epsf_test_data):
+        """
+        Test that an even input shape is made odd by adding one, with
+        a warning, as documented.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:3], size=11)
+
+        match = 'has even values'
+        with pytest.warns(AstropyUserWarning, match=match):
+            builder = EPSFBuilder(oversampling=1, shape=(24, 24),
+                                  maxiters=1, progress_bar=False)
+        assert_array_equal(builder.shape, (25, 25))
+
+        epsf, _ = builder(stars)
+        assert epsf.data.shape == (25, 25)
+
+    def test_shape_equal_to_star_size(self, epsf_test_data):
+        """
+        Test that a shape equal to the star size times the (odd product)
+        oversampling is accepted, consistent with the automatically
+        derived shape.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:3], size=11)
+
+        builder = EPSFBuilder(oversampling=1, shape=(11, 11),
+                              maxiters=1, progress_bar=False)
+        epsf, _ = builder(stars)
+        assert epsf.data.shape == (11, 11)
+
+    def test_sigma_clip_none(self, epsf_test_data):
+        """
+        Test that sigma_clip=None (no sigma clipping) is supported.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:5], size=11)
+
+        builder = EPSFBuilder(oversampling=1, maxiters=2,
+                              sigma_clip=None, progress_bar=False)
+        assert builder._sigma_clip is None
+        result = builder(stars)
+        assert result.epsf is not None
+        assert result.epsf.data.shape == (11, 11)
+
+    def test_build_epsf_resume(self, epsf_test_data):
+        """
+        Test resuming a build from a previously built ePSF and that a
+        mismatched initial-ePSF oversampling is rejected.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:5], size=11)
+
+        builder = EPSFBuilder(oversampling=1, maxiters=2,
+                              progress_bar=False)
+        result1 = builder.build_epsf(stars)
+
+        # Resume from the previous ePSF with matching oversampling
+        result2 = builder.build_epsf(stars, epsf=result1.epsf)
+        assert isinstance(result2, EPSFBuildResults)
+        assert result2.epsf.data.shape == result1.epsf.data.shape
+
+        # A mismatched initial-ePSF oversampling raises an error
+        builder4 = EPSFBuilder(oversampling=4, maxiters=2,
+                               progress_bar=False)
+        epsf_bad = ImagePSF(np.zeros((45, 45)), oversampling=2)
+        match = 'oversampling'
+        with pytest.raises(ValueError, match=match):
+            builder4.build_epsf(stars, epsf=epsf_bad)
+
+    def test_build_results_len(self, epsf_test_data):
+        """
+        Test that EPSFBuildResults has length 2 for tuple unpacking.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:3], size=11)
+        builder = EPSFBuilder(oversampling=1, maxiters=1,
+                              progress_bar=False)
+        result = builder(stars)
+        assert len(result) == 2
+
+    def test_numpy_scalar_parameters(self):
+        """
+        Test that NumPy scalar center_accuracy and maxiters values
+        are accepted, while bool maxiters values are rejected.
+        """
+        builder = EPSFBuilder(center_accuracy=np.float32(0.01),
+                              maxiters=np.int64(5))
+        assert builder.maxiters == 5
+
+        match = 'maxiters must be an integer'
+        with pytest.raises(TypeError, match=match):
+            EPSFBuilder(maxiters=True)
+
+    def test_smoothing_kernel_1d_raises(self):
+        """
+        Test that a 1D custom smoothing kernel raises a ValueError.
+        """
+        match = 'smoothing_kernel must be a 2D array'
+        with pytest.raises(ValueError, match=match):
+            _SmoothingKernel.get_kernel(np.ones(5))
+
+    def test_coord_transformer_deprecated(self):
+        """
+        Test that the public coord_transformer attribute is
+        deprecated.
+        """
+        builder = EPSFBuilder(maxiters=1, progress_bar=False)
+        match = 'The coord_transformer attribute is deprecated'
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            transformer = builder.coord_transformer
+        assert transformer is builder._coord_transformer
+
     def test_check_convergence_no_good_stars(self):
         """
         Test EPSFBuilder._check_convergence with no good stars.
@@ -1368,13 +1799,15 @@ class TestEPSFBuilder:
         centers = np.array([[2.0, 2.0]])
         fit_failed = np.array([True])  # All stars failed
 
-        converged, center_dist_sq, _ = builder._check_convergence(
-            stars, centers, fit_failed)
+        (converged, fraction, max_dist_sq, common_dist_sq,
+         _) = builder._check_convergence(stars, centers, fit_failed)
 
         # Should return False (not converged) when no good stars
         assert converged is False
-        # center_dist_sq should be high to prevent false convergence
-        assert center_dist_sq[0] > builder.center_accuracy_sq
+        assert fraction == 0.0
+        # No center movement could be measured
+        assert np.isnan(max_dist_sq)
+        assert np.isnan(common_dist_sq)
 
     def test_resample_residuals_no_good_stars(self, epsf_test_data):
         """
@@ -1395,26 +1828,6 @@ class TestEPSFBuilder:
         # Now resample residuals should handle no good stars
         result = builder._resample_residuals(stars, epsf)
         assert result.shape[0] == 0  # No good stars
-
-    def test_resample_residual_output(self, epsf_test_data):
-        """
-        Test EPSFBuilder._resample_residual creates output image if None
-        is passed.
-        """
-        builder = EPSFBuilder(maxiters=1, progress_bar=False)
-
-        stars = extract_stars(epsf_test_data['nddata'],
-                              epsf_test_data['init_stars'][:2], size=11)
-
-        # Create an initial ePSF
-        epsf = builder._create_initial_epsf(stars)
-
-        # Call _resample_residual without out_image (should create one)
-        star = stars.all_stars[0]
-        result = builder._resample_residual(star, epsf, out_image=None)
-
-        assert result is not None
-        assert result.shape == epsf.data.shape
 
     def test_build_step_with_epsf(self, epsf_test_data):
         """
@@ -1462,6 +1875,25 @@ class TestEPSFBuilder:
         assert result.fitted_stars.n_good_stars == 4
         assert result.fitted_stars.n_all_stars == 5
 
+    @pytest.mark.parametrize('id_label', [None, 'star_a'])
+    def test_star_exclusion_id_label(self, epsf_test_data, id_label):
+        """
+        Regression test that the exclusion warning works for the
+        default (None) and string star id labels.
+        """
+        tbl = epsf_test_data['init_stars'][:5].copy()
+        tbl['x'][0] = 465
+        tbl['y'][0] = 30
+        stars = extract_stars(epsf_test_data['nddata'], tbl, size=11)
+        for star in stars.all_stars:
+            star.id_label = id_label
+
+        builder = EPSFBuilder(oversampling=1, maxiters=5,
+                              progress_bar=False)
+        match = 'has been excluded from ePSF fitting'
+        with pytest.warns(AstropyUserWarning, match=match):
+            builder(stars)
+
     def test_star_exclusion_single_warning(self, epsf_test_data):
         """
         Test that only a single warning is emitted per excluded star.
@@ -1506,7 +1938,8 @@ class TestEPSFBuilder:
         original_star._excluded_from_fit = True
 
         # Create an ePSF for fitting
-        builder = EPSFBuilder(oversampling=1, maxiters=1, progress_bar=False)
+        builder = EPSFBuilder(oversampling=1, maxiters=1, fit_shape=5,
+                              progress_bar=False)
         epsf = builder._create_initial_epsf(stars)
 
         # Fit the stars using the builder's internal method
@@ -1652,74 +2085,27 @@ class TestEPSFBuilder:
 
     def test_build_tracks_excluded_indices(self, epsf_test_data):
         """
-        Test that build_epsf properly tracks excluded star indices.
+        Test that build_epsf tracks the excluded star indices.
         """
-        stars = extract_stars(epsf_test_data['nddata'],
-                              epsf_test_data['init_stars'][:10], size=11)
+        # The first star is placed near the image corner so that
+        # its fitting region extends beyond the cutout and it is
+        # excluded after repeated fit failures (same setup as
+        # test_star_exclusion).
+        tbl = epsf_test_data['init_stars'][:5].copy()
+        tbl['x'][0] = 465
+        tbl['y'][0] = 30
+        stars = extract_stars(epsf_test_data['nddata'], tbl, size=11)
 
-        # Create a fitter that:
-        # 1. Adds noise to centers to prevent convergence
-        # 2. Fails first 3 stars on iteration 4+
-        n_stars = len(stars.all_stars)
-
-        class NoConvergeFitter:
-            def __init__(self):
-                self.star_count = 0
-                self.fit_info = {'ierr': 1}
-
-            def __call__(self, model, *_args, **_kwargs):
-                self.star_count += 1
-                iteration = self.star_count // n_stars + 1
-                star_idx = (self.star_count - 1) % n_stars
-
-                # On iteration 4+, fail first 3 stars
-                if iteration > 4 and star_idx < 3:
-                    self.fit_info = {'ierr': 0}  # Invalid
-                else:
-                    self.fit_info = {'ierr': 1}  # Valid
-
-                # Add slight offset to x_0 to prevent convergence
-                model.x_0 = model.x_0 + 0.01 * (iteration % 2)
-                return model
-
-        fitter_obj = NoConvergeFitter()
-        builder = EPSFBuilder(oversampling=1, maxiters=7,
-                              progress_bar=False,
-                              fitter=fitter_obj,
-                              center_accuracy=1e-6)
-
-        # Build - this should trigger exclusion tracking
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
+        builder = EPSFBuilder(oversampling=1, maxiters=5,
+                              progress_bar=False)
+        match = 'has been excluded from ePSF fitting'
+        with pytest.warns(AstropyUserWarning, match=match):
             result = builder(stars)
 
-        # Check that excluded_star_indices was populated
-        assert hasattr(result, 'excluded_star_indices')
-        assert isinstance(result.excluded_star_indices, list)
-        # We may or may not have excluded stars depending on exact timing
-        assert result.n_excluded_stars >= 0
-
-    def test_build_step_origin_is_none_branch(self, epsf_test_data):
-        """
-        Test _build_epsf_step else branch when origin is None.
-        """
-        builder = EPSFBuilder(maxiters=1, progress_bar=False)
-
-        stars = extract_stars(epsf_test_data['nddata'],
-                              epsf_test_data['init_stars'][:3], size=11)
-
-        # Create ePSF and verify origin condition
-        epsf = builder._create_initial_epsf(stars)
-
-        # Verify the branch condition logic
-        has_valid_origin = hasattr(epsf, 'origin') and epsf.origin is not None
-        assert has_valid_origin  # Normal case, origin exists
-
-        # The else branch is only reached when origin is None
-        # This line calculates origin from shape
-        expected_origin_y = (epsf.data.shape[0] - 1) / 2.0
-        expected_origin_x = (epsf.data.shape[1] - 1) / 2.0
-        assert_allclose(epsf.origin, (expected_origin_x, expected_origin_y))
+        assert result.excluded_star_indices == [0]
+        assert result.n_excluded_stars == 1
+        assert all(type(idx) is int
+                   for idx in result.excluded_star_indices)
 
     @pytest.mark.skipif(not HAS_TQDM, reason='tqdm is required')
     def test_with_progress_bar(self, epsf_test_data):
@@ -1739,7 +2125,7 @@ class TestEPSFBuilder:
 
     def test_recenter_shift_increase(self, epsf_test_data):
         """
-        Test early exit in _recenter_epsf when shift increases.
+        Test early exit in _find_epsf_center when shift increases.
 
         Uses mock to force the centroid function to return values
         that cause shift to increase on second iteration.
@@ -1767,7 +2153,7 @@ class TestEPSFBuilder:
             return (center[1] - 0.5, center[0] - 0.5)
 
         with patch.object(builder, 'recentering_func', mock_centroid):
-            recentered = builder._recenter_epsf(epsf)
+            recentered, _ = builder._find_epsf_center(epsf)
 
         assert recentered is not None
         assert recentered.shape == epsf.data.shape
@@ -1814,7 +2200,7 @@ class TestEPSFBuilder:
             cy, cx = np.array(data.shape) / 2.0
             return (cx, cy)
 
-        recentered = builder._recenter_epsf(
+        recentered, _ = builder._find_epsf_center(
             epsf, centroid_func=recording_centroid,
             box_size=box_size, maxiters=1)
 
@@ -1850,7 +2236,7 @@ class TestEPSFBuilder:
             cy, cx = np.array(data.shape) / 2.0
             return (cx, cy)
 
-        builder._recenter_epsf(
+        builder._find_epsf_center(
             epsf, centroid_func=recording_centroid, maxiters=1)
 
         assert len(cutout_shapes) >= 1
@@ -1898,15 +2284,7 @@ class TestEPSFBuilder:
         builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False)
         epsf, _ = builder(stars)
 
-        # Create mock WCS
-        class MockWCS:
-            def pixel_to_world_values(self, x, y):
-                return x, y
-
-            def world_to_pixel_values(self, ra, dec):
-                return ra, dec
-
-        mock_wcs = MockWCS()
+        mock_wcs = _MockWCS()
 
         # Create LinkedEPSFStar from first two stars
         linked_stars_list = []
@@ -1947,15 +2325,7 @@ class TestEPSFBuilder:
         builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False)
         epsf, _ = builder(stars)
 
-        # Create mock WCS
-        class MockWCS:
-            def pixel_to_world_values(self, x, y):
-                return x, y
-
-            def world_to_pixel_values(self, ra, dec):
-                return ra, dec
-
-        mock_wcs = MockWCS()
+        mock_wcs = _MockWCS()
 
         # Create LinkedEPSFStar with one excluded star
         linked_stars_list = []
@@ -2049,6 +2419,78 @@ class TestEPSFBuilder:
         assert fitted_star._fit_error_status == 0
         assert fitted_star.flux > 0
 
+    def test_build_epsf_masked_pixel_in_fit_shape(self, epsf_test_data):
+        """
+        Regression test for a NaN pixel inside the fit shape.
+
+        A masked pixel next to a star center must be excluded from
+        the fit instead of raising NonFiniteValueError in the astropy
+        fitter.
+        """
+        nddata, (xtrue, ytrue) = _insert_nan_near_star(epsf_test_data)
+        match = 'Input data array contains invalid data'
+        with pytest.warns(AstropyUserWarning, match=match):
+            stars = extract_stars(nddata, epsf_test_data['init_stars'][:25],
+                                  size=25)
+        assert np.isnan(stars[0].data).any()
+
+        builder = EPSFBuilder(oversampling=2, maxiters=3, progress_bar=False)
+        epsf, fitted_stars = builder(stars)
+
+        assert np.all(np.isfinite(epsf.data))
+        fitted_star = fitted_stars.all_stars[0]
+        assert fitted_star._fit_error_status == 0
+        assert_allclose(fitted_star.center, (xtrue, ytrue), atol=0.1)
+
+    def test_fit_star_all_masked_fit_shape(self, epsf_test_data):
+        """
+        Test EPSFBuilder._fit_star with a fully masked fit shape.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:2], size=11)
+        builder = EPSFBuilder(oversampling=1, maxiters=2, fit_shape=5,
+                              progress_bar=False)
+        epsf, _ = builder(stars)
+
+        star_data = np.ones((11, 11))
+        weights = np.ones((11, 11))
+        weights[3:8, 3:8] = 0.0
+        star = EPSFStar(star_data, weights=weights, cutout_center=(5.0, 5.0))
+
+        fitted_star = builder._fit_star(epsf, star)
+
+        assert fitted_star._fit_error_status == 4
+        assert_allclose(fitted_star.cutout_center, (5.0, 5.0))
+        assert fitted_star.flux == star.flux
+
+    def test_process_iteration_excludes_all_masked(self, epsf_test_data):
+        """
+        Test that _process_iteration excludes a star whose fit shape
+        contains no unmasked pixels.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:2], size=11)
+        builder = EPSFBuilder(oversampling=1, maxiters=2, fit_shape=5,
+                              progress_bar=False)
+        epsf, _ = builder(stars)
+
+        star_data = np.ones((11, 11))
+        weights = np.ones((11, 11))
+        weights[3:8, 3:8] = 0.0
+        masked_star = EPSFStar(star_data, weights=weights,
+                               cutout_center=(5.0, 5.0))
+        stars = EPSFStars([masked_star, stars.all_stars[1]])
+
+        match = 'its fitting region contains no unmasked pixels'
+        with pytest.warns(AstropyUserWarning, match=match):
+            _, stars_new, fit_failed = builder._process_iteration(
+                stars, epsf, iter_num=4)
+
+        assert fit_failed[0]
+        assert not fit_failed[1]
+        assert stars_new.all_stars[0]._excluded_from_fit
+        assert stars_new.all_stars[0]._fit_error_status == 4
+
     def test_normalize_epsf_zero_sum(self):
         """
         Test EPSFBuilder._normalize_epsf with zero-sum data.
@@ -2058,12 +2500,38 @@ class TestEPSFBuilder:
         # Create zero-sum ePSF data
         epsf_data = np.zeros((5, 5))
 
-        match = 'Cannot normalize ePSF: data sum is zero'
+        match = 'Cannot normalize ePSF'
         with pytest.raises(ValueError, match=match):
             builder._normalize_epsf(epsf_data)
 
-    @pytest.mark.parametrize('oversamp', [1, 2, 3, 4, 5])
-    def test_build_oversampling(self, oversamp):
+        # Nonfinite sums are also rejected
+        epsf_data = np.full((5, 5), np.nan)
+        with pytest.raises(ValueError, match=match):
+            builder._normalize_epsf(epsf_data)
+
+    def test_normalize_epsf_nonfinite_recentering(self, epsf_test_data):
+        """
+        Test that a recentering function returning nonfinite centroids
+        produces a clear error during building.
+        """
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:3], size=11)
+
+        def bad_centroid(data, *, mask=None):  # noqa: ARG001
+            return (np.nan, np.nan)
+
+        builder = EPSFBuilder(oversampling=1, maxiters=2,
+                              recentering_func=bad_centroid,
+                              progress_bar=False)
+
+        match = 'Cannot normalize ePSF'
+        with pytest.raises(ValueError, match=match):
+            builder(stars)
+
+    @pytest.mark.parametrize(('oversamp', 'fwhm'),
+                             [(1, 7.0), (2, 7.0), (3, 7.0), (4, 7.0),
+                              (5, 7.0), (2, 3.0), (4, 2.0)])
+    def test_build_oversampling(self, oversamp, fwhm):
         """
         Test that the ePSF built with oversampling has the expected
         shape and properties.
@@ -2071,9 +2539,10 @@ class TestEPSFBuilder:
         Sources are placed on a regular grid with exact subpixel offsets
         to ensure that the ePSF is properly sampled. The test checks
         that the resulting ePSF has the expected shape, that it sums to
-        the expected value for an oversampled PSF, and that its shape
-        matches the input PSF model when scaled by the sum of the ePSF
-        data.
+        the expected value for an oversampled PSF, and that it matches
+        the true ePSF, i.e., the PSF integrated over a full input pixel
+        at each oversampled grid offset. The undersampled cases are
+        sensitive to this definition of the truth.
         """
         offsets = (np.arange(oversamp) * 1.0 / oversamp - 0.5 + 1.0
                    / (2.0 * oversamp))
@@ -2081,15 +2550,14 @@ class TestEPSFBuilder:
         xdithers = np.transpose(xydithers)[0]
         ydithers = np.transpose(xydithers)[1]
 
-        nstars = oversamp**2
-        fwhm = 7.0
+        n_stars = oversamp**2
         sources = Table()
         offset = 50
         size = oversamp * offset + offset
         y, x = np.mgrid[0:oversamp, 0:oversamp] * offset + offset
         sources['x_0'] = x.ravel() + xdithers
         sources['y_0'] = y.ravel() + ydithers
-        sources['fwhm'] = np.full((nstars,), fwhm)
+        sources['fwhm'] = np.full((n_stars,), fwhm)
 
         psf_model = CircularGaussianPRF(fwhm=fwhm)
         shape = (size, size)
@@ -2127,21 +2595,23 @@ class TestEPSFBuilder:
         expected_sum = oversamp**2
         assert_allclose(epsf.data.sum(), expected_sum, rtol=0.02)
 
-        # Check that the shape of the ePSF matches the input PSF model
-        # when scaled by the sum of the ePSF data. The input PSF model
-        # is a circular Gaussian with the specified FWHM, and the ePSF
-        # should approximate this shape when scaled by the total flux.
-
-        # Calculate the expected PSF shape based on the input model and
-        # the oversampling factor. The FWHM should be scaled by the
-        # oversampling factor to match the ePSF sampling.
+        # Check that the ePSF matches the true ePSF. The true ePSF
+        # at each oversampled grid point is the PSF integrated over
+        # a full input pixel centered at that grid offset (in input
+        # pixel units), which is what the pixel-integrated PRF model
+        # evaluates. Note that evaluating the PRF with the FWHM scaled
+        # by the oversampling factor on the oversampled grid would
+        # instead integrate over 1 / oversamp of a pixel and is not
+        # the ePSF.
         size = epsf.data.shape[0]
         cen = (size - 1) / 2
-        fwhm2 = oversamp * fwhm
-        model = CircularGaussianPRF(flux=1, x_0=cen, y_0=cen, fwhm=fwhm2)
+        model = CircularGaussianPRF(flux=1, x_0=0, y_0=0, fwhm=fwhm)
         yy, xx = np.mgrid[0:size, 0:size]
-        psf = model(xx, yy) * oversamp**2
-        assert_allclose(epsf.data, psf, atol=2e-4)
+        psf = model((xx - cen) / oversamp, (yy - cen) / oversamp)
+        assert_allclose(psf.sum(), expected_sum, rtol=1e-3)
+        # The default 'auto' smoothing kernel (0.7 FWHM wide) lowers
+        # the peak of a noiseless ePSF by a few tenths of a percent.
+        assert_allclose(epsf.data, psf, atol=5e-3 * psf.max())
 
         # Check that the fitted centers are close to the true source
         # positions
@@ -2184,15 +2654,7 @@ class TestEPSFBuilder:
         result = builder(stars)
         epsf = result.epsf
 
-        # Create mock WCS
-        class MockWCS:
-            def pixel_to_world_values(self, x, y):
-                return x, y
-
-            def world_to_pixel_values(self, ra, dec):
-                return ra, dec
-
-        mock_wcs = MockWCS()
+        mock_wcs = _MockWCS()
 
         # Create LinkedEPSFStar with two stars, one excluded
         linked_stars_list = []
@@ -2219,25 +2681,26 @@ class TestEPSFBuilder:
 
     def test_fit_star_fitter_without_weights(self, epsf_test_data):
         """
-        Test _fit_star with fitter that doesn't support weights.
+        Test _fit_star with a fitter whose signature does not accept
+        weights.
+
+        The weights are dropped based on the fitter call signature.
         """
         stars = extract_stars(epsf_test_data['nddata'],
                               epsf_test_data['init_stars'][:2], size=11)
 
-        # Create a fitter that raises TypeError when weights is passed
+        # Create a fitter whose signature has no weights keyword
         class NoWeightsFitter:
             def __init__(self):
                 self.fit_info = {'ierr': 1}
 
-            def __call__(self, model, *_args, **kwargs):
-                if 'weights' in kwargs:
-                    msg = 'weights not supported'
-                    raise TypeError(msg)
+            def __call__(self, model, x, y, z, maxiter=None):  # noqa: ARG002
                 return model
 
         no_weights_fitter = NoWeightsFitter()
         builder = EPSFBuilder(oversampling=1, maxiters=1, progress_bar=False,
                               fitter=no_weights_fitter)
+        assert not builder._fitter_accepts_weights
 
         # Build initial ePSF
         result = builder(stars)
@@ -2311,11 +2774,13 @@ class TestEPSFBuilder:
         result = builder(stars)
         epsf = result.epsf
 
-        # Create EPSFStars with invalid star type
+        # Create EPSFStars holding an invalid star type (bypass the
+        # EPSFStars constructor validation)
         class InvalidStar:
             pass
 
-        invalid_stars = EPSFStars([InvalidStar()])
+        invalid_stars = EPSFStars([])
+        invalid_stars._data.append(InvalidStar())
 
         # Call _fit_stars with invalid star type
         match = 'stars must contain only EPSFStar and/or LinkedEPSFStar'
@@ -2360,13 +2825,13 @@ class TestEPSFBuilder:
 
         fitted_star = builder_shift._fit_star(epsf, star)
 
-        # fit_error_status should be 3
+        # The fitted star _fit_error_status should be 3
         assert fitted_star._fit_error_status == 3
 
-        # cutout_center should NOT have been updated
+        # The fitted star cutout_center should not have been updated
         assert_array_equal(fitted_star.cutout_center, original_center)
 
-        # flux should NOT have been updated
+        # The fitted star flux should not have been updated
         assert fitted_star.flux == original_flux
 
     def test_fit_star_position_negative_outside_cutout(self, epsf_test_data):
@@ -2440,7 +2905,7 @@ class TestEPSFBuilder:
 
         fitted_star = builder_shift._fit_star(epsf, star)
 
-        # fit_error_status should be 0 (success)
+        # The fitted_star _fit_error_status should be 0 (success)
         assert fitted_star._fit_error_status == 0
 
         # cutout_center should have been updated
@@ -2495,3 +2960,1718 @@ class TestEPSFBuilder:
         assert fit_failed[0]
         assert stars_new.all_stars[0]._fit_error_status == 3
         assert stars_new.all_stars[0]._excluded_from_fit
+
+
+def _make_gaussian_star_data():
+    yy, xx = np.indices((11, 11))
+    sig = 2.5 / 2.3548
+    return np.exp(-((xx - 5.0)**2 + (yy - 5.0)**2) / (2 * sig**2))
+
+
+@pytest.mark.parametrize('oversampling', [1, 4])
+def test_build_no_zero_edges(epsf_test_data, oversampling):
+    """
+    Regression test for an all-zero row and column at one edge of the
+    ePSF.
+
+    The recentering step shifts the ePSF with its spline, so the edge
+    row and column on one side of the grid fall outside the original
+    grid. They must be extrapolated rather than filled with zero.
+    """
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:30], size=11)
+    builder = EPSFBuilder(oversampling=oversampling, maxiters=5,
+                          progress_bar=False)
+    result = builder(stars)
+    data = result.epsf.data
+    edges = [data[0], data[-1], data[:, 0], data[:, -1]]
+    for edge in edges:
+        assert np.any(edge != 0)
+    # Opposite edges of the symmetric PSF have comparable (near-zero)
+    # values relative to the peak.
+    atol = 5e-3 * data.max()
+    assert_allclose(data[0].mean(), data[-1].mean(), atol=atol)
+    assert_allclose(data[:, 0].mean(), data[:, -1].mean(), atol=atol)
+
+    # A single build step from an off-center initial ePSF keeps its
+    # edges after the recentering shift.
+    epsf = builder._create_initial_epsf(stars)
+    yy, xx = np.indices(epsf.data.shape)
+    cen = (epsf.data.shape[0] - 1) / 2 + 0.7 * oversampling
+    sigma = 2.7 / 2.3548 * oversampling
+    epsf.data[:] = np.exp(-((xx - cen)**2 + (yy - cen)**2) / (2 * sigma**2))
+    stepped = builder._build_epsf_step(stars, epsf=epsf)
+    data = stepped.data
+    for edge in (data[0], data[-1], data[:, 0], data[:, -1]):
+        assert np.any(edge != 0)
+
+
+def test_build_epsf_initial_epsf_too_small():
+    """
+    Regression test that build_epsf validates the shape of a provided
+    initial ePSF instead of silently truncating the result.
+    """
+    star_data = _make_gaussian_star_data()
+    stars = EPSFStars([EPSFStar(star_data.copy(),
+                                cutout_center=(5.0, 5.0))
+                       for _ in range(2)])
+    builder = EPSFBuilder(oversampling=1, maxiters=2,
+                          progress_bar=False)
+    epsf = ImagePSF(np.zeros((5, 5)), oversampling=1)
+    match = 'incompatible with'
+    with pytest.raises(ValueError, match=match):
+        builder.build_epsf(stars, epsf=epsf)
+
+
+def test_build_epsf_fully_excluded_linked_star():
+    """
+    Regression test that a fully excluded LinkedEPSFStar does not
+    emit a constrain-centers warning on every build iteration.
+    """
+    star_data = _make_gaussian_star_data()
+    good_stars = [EPSFStar(star_data.copy(), cutout_center=(5.0, 5.0))
+                  for _ in range(2)]
+    linked_members = [EPSFStar(star_data.copy(),
+                               cutout_center=(5.0, 5.0),
+                               origin=(0, 0), wcs_large=_MockWCS())
+                      for _ in range(2)]
+    linked = LinkedEPSFStar(linked_members)
+    for member in linked:
+        member._excluded_from_fit = True
+    stars = EPSFStars([*good_stars, linked])
+    builder = EPSFBuilder(oversampling=1, maxiters=3,
+                          progress_bar=False)
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter('always')
+        result = builder.build_epsf(stars)
+    messages = [str(w.message) for w in recorded]
+    assert not any('Cannot constrain centers' in msg
+                   for msg in messages)
+    assert result.epsf is not None
+
+
+@pytest.mark.parametrize('value', ['bogus', 'AUTO'])
+def test_invalid_smoothing_kernel_at_init(value):
+    match = "smoothing_kernel must be 'auto', 'quartic', 'quadratic'"
+    with pytest.raises(ValueError, match=match):
+        EPSFBuilder(smoothing_kernel=value)
+
+
+@pytest.mark.parametrize('value', ['bogus', 'AUTO'])
+def test_invalid_fit_shape_string(value):
+    match = "fit_shape must be 'auto', an integer, a tuple of integers"
+    with pytest.raises(ValueError, match=match):
+        EPSFBuilder(fit_shape=value)
+
+
+@pytest.mark.parametrize(('value', 'error'),
+                         [(-3, ValueError), (0, ValueError),
+                          (2.5, TypeError), (True, TypeError),
+                          ('5', TypeError), (None, TypeError)])
+def test_invalid_recentering_maxiters(value, error):
+    match = 'recentering_maxiters must be a strictly-positive integer'
+    with pytest.raises(error, match=match):
+        EPSFBuilder(recentering_maxiters=value)
+
+
+def _make_heterogeneous_stars(seed=0, n_side=14):
+    """
+    Make a star sample that mimics nonideal data.
+
+    The stars have a range of FWHMs and ellipticities, a wide range of
+    fluxes, initial center errors, and about 30 percent of the cutouts
+    contain only noise.
+    """
+    rng = np.random.default_rng(seed)
+    offset = 32
+    size = n_side * offset + offset
+    yy, xx = np.mgrid[0:size, 0:size]
+    image = np.zeros((size, size))
+    xpos = []
+    ypos = []
+    for y0 in np.arange(offset, size - offset // 2, offset):
+        for x0 in np.arange(offset, size - offset // 2, offset):
+            x = x0 + rng.uniform(-0.5, 0.5)
+            y = y0 + rng.uniform(-0.5, 0.5)
+            if rng.uniform() > 0.3:
+                sigma = rng.uniform(3.0, 6.0) / 2.3548
+                ellip = rng.uniform(0, 0.3)
+                theta = rng.uniform(0, np.pi)
+                amp = np.exp(rng.uniform(np.log(50), np.log(2000)))
+                slc = (slice(int(y) - 14, int(y) + 15),
+                       slice(int(x) - 14, int(x) + 15))
+                model = Gaussian2D(amp, x, y, sigma * (1 + ellip),
+                                   sigma * (1 - ellip), theta)
+                image[slc] += model(xx[slc], yy[slc])
+            xpos.append(x)
+            ypos.append(y)
+    image += rng.normal(0, 5.0, image.shape)
+    xpos = np.array(xpos)
+    ypos = np.array(ypos)
+    catalog = Table()
+    catalog['x'] = xpos + rng.normal(0, 0.5, len(xpos))
+    catalog['y'] = ypos + rng.normal(0, 0.5, len(ypos))
+    return extract_stars(NDData(image), catalog, size=25)
+
+
+def _alias_power_fraction(data, oversampling):
+    """
+    Fraction of the ePSF power near the star-pixel alias frequencies
+    along each axis.
+    """
+    power = np.abs(np.fft.fft2(data))**2
+    fractions = []
+    for axis in (0, 1):
+        freq = np.abs(np.fft.fftfreq(data.shape[axis]))
+        near = np.zeros(data.shape[axis], dtype=bool)
+        for k in range(1, oversampling // 2 + 1):
+            near |= np.abs(freq - k / oversampling) < 0.03
+        idx = [slice(None), slice(None)]
+        idx[axis] = near
+        fractions.append(power[tuple(idx)].sum() / power.sum())
+    return fractions
+
+
+@pytest.mark.parametrize('oversampling', [2, 4])
+def test_build_heterogeneous_stars_no_checkerboard(oversampling):
+    """
+    Regression test for a checkerboard ePSF built from nonideal
+    stars with oversampling > 1.
+
+    Star-to-star heterogeneity produces pixel-to-pixel noise in the
+    oversampled ePSF grid, which biases the fitted star centers toward
+    particular subpixel phases. The biased centers then feed alternate
+    oversampled grid points with different subsets of stars, which
+    grows a checkerboard (alias) pattern in the ePSF.
+    """
+    stars = _make_heterogeneous_stars()
+    builder = EPSFBuilder(oversampling=oversampling, maxiters=4,
+                          fit_shape=11, recentering_boxsize=11,
+                          progress_bar=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyUserWarning)
+        result = builder(stars)
+
+    assert np.all(np.isfinite(result.epsf.data))
+    alias_power = _alias_power_fraction(result.epsf.data, oversampling)
+    assert max(alias_power) < 5.0e-4
+
+    # The fitted subpixel phases must stay uniform
+    centers = result.fitted_stars.cutout_center_flat
+    for axis in (0, 1):
+        hist = np.histogram(centers[:, axis] % 1, bins=4,
+                            range=(0, 1))[0]
+        chi2 = np.sum((hist - hist.mean())**2) / hist.mean()
+        assert chi2 < 20.0
+
+
+def test_build_heterogeneous_stars_deposit_width():
+    """
+    Regression test for the width of the residual deposit.
+
+    Depositing each star pixel only on the grid points within one grid
+    spacing (or within 0.25 pixel) of its center gives a sharper ePSF
+    for clean stars, but for this heterogeneous star sample it grows
+    a checkerboard pattern within a few iterations at an oversampling
+    factor of 6. The deposit must be wide enough to prevent that.
+    """
+    oversampling = 6
+    stars = _make_heterogeneous_stars(seed=3)
+    builder = EPSFBuilder(oversampling=oversampling, maxiters=8,
+                          fit_shape=11, recentering_boxsize=11,
+                          progress_bar=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', AstropyUserWarning)
+        result = builder(stars)
+
+    assert np.all(np.isfinite(result.epsf.data))
+    alias_power = _alias_power_fraction(result.epsf.data, oversampling)
+    assert max(alias_power) < 5.0e-4
+    assert result.epsf.data.min() > -0.05 * result.epsf.data.max()
+
+    centers = result.fitted_stars.cutout_center_flat
+    for axis in (0, 1):
+        hist = np.histogram(centers[:, axis] % 1, bins=4,
+                            range=(0, 1))[0]
+        chi2 = np.sum((hist - hist.mean())**2) / hist.mean()
+        assert chi2 < 20.0
+
+
+def test_resample_residual_pixel_footprint():
+    """
+    Each star pixel residual is deposited on every oversampled grid
+    point inside the pixel footprint, so a single star covers both
+    parities of the grid along each axis.
+    """
+    data = _make_gaussian_star_data()
+    star = EPSFStar(data, cutout_center=(5.25, 5.25))
+    stars = EPSFStars([star])
+    builder = EPSFBuilder(oversampling=2, progress_bar=False)
+    epsf = builder._create_initial_epsf(stars)
+    resid = builder._resample_residuals(stars, epsf)[0]
+
+    finite = np.isfinite(resid)
+    assert finite[:, 0::2].any()
+    assert finite[:, 1::2].any()
+    assert finite[0::2, :].any()
+    assert finite[1::2, :].any()
+
+    # Every finite grid value equals one of the normalized star pixel
+    # values and each star pixel covers exactly 2x2 grid points.
+    values = data.ravel() / star.flux
+    assert np.all(np.isin(resid[finite], values))
+    assert finite.sum() == 4 * data.size
+
+    # With oversampling=1 the deposit reduces to the nearest grid point.
+    builder1 = EPSFBuilder(oversampling=1, progress_bar=False)
+    epsf1 = builder1._create_initial_epsf(stars)
+    resid1 = builder1._resample_residuals(stars, epsf1)[0]
+    assert np.isfinite(resid1).sum() == data.size
+
+    # With oversampling=4 each star pixel covers only the grid points
+    # within 0.375 pixel (1.5 grid spacings) of its center (3x3
+    # points), not its whole footprint (4x4 points).
+    builder4 = EPSFBuilder(oversampling=4, progress_bar=False)
+    epsf4 = builder4._create_initial_epsf(stars)
+    resid4 = builder4._resample_residuals(stars, epsf4)[0]
+    finite4 = np.isfinite(resid4)
+    assert finite4.sum() == 9 * data.size
+    assert np.all(np.isin(resid4[finite4], values))
+
+
+def test_suppress_alias_modes():
+    """
+    The alias low-pass removes a checkerboard, leaves a well-sampled
+    PSF unchanged, and is a no-op for oversampling=1.
+    """
+    yy, xx = np.mgrid[0:61, 0:61]
+    sigma = 2 * 7.0 / 2.3548
+    psf = np.exp(-((xx - 30.0)**2 + (yy - 30.0)**2) / (2 * sigma**2))
+    checker = 0.1 * (-1.0)**(xx + yy) * psf
+
+    result = _suppress_alias_modes(psf + checker, (2, 2))
+    assert_allclose(result, psf, atol=2e-3)
+    assert_allclose(_suppress_alias_modes(psf, (2, 2)), psf, atol=1e-5)
+    assert_array_equal(_suppress_alias_modes(psf + checker, (1, 1)),
+                       psf + checker)
+
+    # Only the oversampled axis is filtered. A single-axis alternation
+    # is suppressed by more than a factor of ten.
+    rows = 0.1 * (-1.0)**yy * psf
+    result = _suppress_alias_modes(psf + rows, (2, 1))
+    assert np.abs(result - psf).max() < 0.1 * np.abs(rows).max()
+    result = _suppress_alias_modes(psf + rows, (1, 2))
+    assert_allclose(result, psf + rows, atol=1e-5)
+
+
+def test_suppress_alias_modes_default_passband():
+    """
+    The default passband ends at 0.8 cycles per input pixel, or at 0.7
+    cycles per input pixel for an oversampling factor of 2.
+    """
+    npts = 64
+    xx = np.arange(npts)
+    for oversampling, expected in ((2, 0.7), (3, 0.8), (4, 0.8)):
+        # Frequencies (cycles per input pixel) on the FFT grid
+        nu = np.fft.rfftfreq(npts) * oversampling
+        below = nu[nu < expected - 1e-6][-1]
+        above = nu[(nu > expected + 1e-6) & (nu < 1.0)][0]
+        for freq, passed in ((below, True), (above, False)):
+            wave = np.cos(2 * np.pi * freq / oversampling * xx)
+            data = np.tile(wave, (npts, 1))
+            result = _suppress_alias_modes(data, (1, oversampling))
+            if passed:
+                assert_allclose(result, data, atol=1e-10)
+            else:
+                assert np.abs(result).max() < 0.999 * np.abs(data).max()
+
+
+@pytest.mark.parametrize(('value', 'error'),
+                         [('bogus', ValueError), ('AUTO', ValueError),
+                          (0, ValueError), (1, ValueError),
+                          (1.5, ValueError), (-0.1, ValueError),
+                          (np.nan, ValueError), (True, TypeError),
+                          ((0.8, 0.8), TypeError)])
+def test_invalid_alias_passband(value, error):
+    match = "alias_passband must be 'auto', a number between 0 and 1"
+    with pytest.raises(error, match=match):
+        EPSFBuilder(alias_passband=value)
+
+
+@pytest.mark.parametrize(('alias_passband', 'expected'),
+                         [('auto', [(0.7, 0.7)]), (0.9, [(0.9, 0.9)]),
+                          (0.65, [(0.65, 0.65)]), (None, [])])
+def test_alias_passband(monkeypatch, alias_passband, expected):
+    """
+    The ``alias_passband`` keyword sets the passband of the alias
+    low-pass filter, and `None` turns the filter off.
+    """
+    from photutils.psf import epsf_builder
+
+    calls = []
+    original = epsf_builder._suppress_alias_modes
+
+    def recorder(data, oversampling, **kwargs):
+        calls.append(kwargs.get('nu_pass'))
+        return original(data, oversampling, **kwargs)
+
+    monkeypatch.setattr(epsf_builder, '_suppress_alias_modes', recorder)
+
+    data = _make_gaussian_star_data()
+    stars = EPSFStars([EPSFStar(data, cutout_center=(5.25, 5.25))])
+    builder = EPSFBuilder(oversampling=2, alias_passband=alias_passband,
+                          smoothing_kernel=None, progress_bar=False)
+    assert builder.alias_passband == alias_passband
+    epsf = builder._build_epsf_step(stars)
+    assert calls == expected
+    assert np.all(np.isfinite(epsf.data))
+
+
+def test_alias_passband_changes_epsf():
+    """
+    A narrow passband removes fine structure of the ePSF that a wide
+    passband or no filter keeps.
+    """
+    data = _make_gaussian_star_data()
+    stars = EPSFStars([EPSFStar(data, cutout_center=(5.25, 5.25))])
+    peaks = []
+    for alias_passband in (0.3, 0.9, None):
+        builder = EPSFBuilder(oversampling=2, alias_passband=alias_passband,
+                              smoothing_kernel=None, progress_bar=False)
+        peaks.append(builder._build_epsf_step(stars).data.max())
+    assert peaks[0] < 0.99 * peaks[1]
+    assert peaks[0] < 0.99 * peaks[2]
+
+
+@pytest.mark.parametrize(('value', 'error'),
+                         [(-1, ValueError), (2.5, TypeError),
+                          (True, TypeError), ('auto', TypeError),
+                          (None, TypeError)])
+def test_invalid_refinement_iters(value, error):
+    match = 'refinement_iters must be a nonnegative integer'
+    with pytest.raises(error, match=match):
+        EPSFBuilder(refinement_iters=value)
+
+
+@pytest.mark.parametrize('value', [1, 0, 'yes', None])
+def test_invalid_constrain_fluxes(value):
+    match = 'constrain_fluxes must be a bool'
+    with pytest.raises(TypeError, match=match):
+        EPSFBuilder(constrain_fluxes=value)
+
+
+def test_refinement_iters(epsf_test_data):
+    """
+    The refinement iterations update the ePSF and refit the stars
+    after the building iterations.
+    """
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:40], size=11)
+    results = []
+    for refinement_iters in (0, 2):
+        builder = EPSFBuilder(oversampling=4, maxiters=3,
+                              refinement_iters=refinement_iters,
+                              progress_bar=False)
+        assert builder.refinement_iters == refinement_iters
+        results.append(builder(stars))
+
+    # The refinement is not counted in the building iterations
+    assert results[0].iterations == results[1].iterations
+
+    # The ePSF changes, but only slightly, and stays normalized
+    data0 = results[0].epsf.data
+    data1 = results[1].epsf.data
+    assert np.all(np.isfinite(data1))
+    assert not np.allclose(data0, data1, rtol=0, atol=1e-8)
+    assert_allclose(data1, data0, atol=0.02 * data0.max())
+    assert_allclose(data1.sum(), data0.sum())
+
+    # The stars are refit, and their centers barely move
+    centers0 = results[0].fitted_stars.cutout_center_flat
+    centers1 = results[1].fitted_stars.cutout_center_flat
+    assert not np.array_equal(centers0, centers1)
+    assert_allclose(centers1, centers0, atol=0.05)
+
+
+def test_refinement_steps(monkeypatch):
+    """
+    In a refinement iteration the ePSF is updated five times with the
+    refinement filter and recentered in each update, and the stars are
+    then refit. The refinement is skipped without the alias filter and for
+    an oversampling factor less than 4.
+    """
+    from photutils.psf import epsf_builder
+
+    refine_flags = []
+    original = epsf_builder._suppress_alias_modes
+
+    def recorder(data, oversampling, **kwargs):
+        # Only the refinement filter has a stopband above one cycle
+        # per input pixel
+        refine_flags.append(max(kwargs['nu_stop']) > 1.0)
+        return original(data, oversampling, **kwargs)
+
+    monkeypatch.setattr(epsf_builder, '_suppress_alias_modes', recorder)
+
+    data = _make_gaussian_star_data()
+    stars = EPSFStars([EPSFStar(data, cutout_center=(5.25, 5.25))])
+    counts = {}
+
+    def run(**kwargs):
+        builder = EPSFBuilder(maxiters=1, smoothing_kernel=None,
+                              progress_bar=False, **kwargs)
+        find_center = builder._find_epsf_center
+        fit_stars = builder._fit_stars
+        counts.update(recenter=0, fit=0)
+
+        def counting_find_center(epsf, **kw):
+            # The center asymmetry is measured with the same method
+            # and an explicit centroid function
+            if 'centroid_func' not in kw:
+                counts['recenter'] += 1
+            return find_center(epsf, **kw)
+
+        def counting_fit(epsf, stars_):
+            counts['fit'] += 1
+            return fit_stars(epsf, stars_)
+
+        monkeypatch.setattr(builder, '_find_epsf_center',
+                            counting_find_center)
+        monkeypatch.setattr(builder, '_fit_stars', counting_fit)
+        refine_flags.clear()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', AstropyUserWarning)
+            builder(stars)
+        return (refine_flags.count(False), refine_flags.count(True),
+                counts['recenter'], counts['fit'])
+
+    # (build updates, refinement updates, recenterings, star fits) for
+    # one building iteration and the given refinement iterations
+    assert run(oversampling=4, refinement_iters=2) == (1, 10, 11, 3)
+    assert run(oversampling=4, refinement_iters=1,
+               alias_passband=0.6) == (1, 5, 6, 2)
+    assert run(oversampling=4, refinement_iters=0) == (1, 0, 1, 1)
+    assert run(oversampling=(2, 4), refinement_iters=1) == (1, 5, 6, 2)
+
+    # No refinement without the filter or for an oversampling factor
+    # less than 4
+    assert run(oversampling=4, refinement_iters=2,
+               alias_passband=None) == (0, 0, 1, 1)
+    assert run(oversampling=2, refinement_iters=2) == (1, 0, 1, 1)
+    assert run(oversampling=1, refinement_iters=2) == (1, 0, 1, 1)
+
+
+def test_alias_filter_band():
+    """
+    The refinement filter has unit gain up to 1.1 cycles per input
+    pixel and zero gain at and above 1.33 cycles per input pixel, but
+    only along axes with an oversampling factor of at least 4.
+    """
+    assert _alias_filter_band(2) == (0.7, 1.0)
+    assert _alias_filter_band(3) == (0.8, 1.0)
+    assert _alias_filter_band(4) == (0.8, 1.0)
+    assert _alias_filter_band(4, nu_pass=0.6) == (0.6, 1.0)
+    for oversampling in (4, 8):
+        # The input passband does not change the refinement filter
+        for nu_pass in (None, 0.6):
+            band = _alias_filter_band(oversampling, nu_pass=nu_pass,
+                                      refine=True)
+            assert_allclose(band, (1.1, 1 / 0.75))
+    # No change for an oversampling factor less than 4
+    assert _alias_filter_band(2, refine=True) == (0.7, 1.0)
+    assert _alias_filter_band(3, nu_pass=0.6, refine=True) == (0.6, 1.0)
+
+    npts = 80
+    xx = np.arange(npts)
+
+    def gain(oversampling, freq, *, axis=1, refine=False):
+        wave = np.cos(2 * np.pi * freq / oversampling * xx)
+        data = np.tile(wave, (npts, 1))
+        factors = [1, 1]
+        factors[axis] = oversampling
+        if axis == 0:
+            data = data.T
+        bands = [_alias_filter_band(factor, refine=refine)
+                 for factor in factors]
+        result = _suppress_alias_modes(data, tuple(factors),
+                                       nu_pass=(bands[0][0], bands[1][0]),
+                                       nu_stop=(bands[0][1], bands[1][1]))
+        return np.abs(result).max() / np.abs(data).max()
+
+    # These frequencies are on the FFT grid for these sizes
+    for axis in (0, 1):
+        assert gain(4, 0.9, axis=axis) < 0.6
+        assert gain(4, 1.0, axis=axis) < 1e-10
+        for freq in (0.9, 1.0, 1.1):
+            for oversampling in (4, 8):
+                assert_allclose(gain(oversampling, freq, axis=axis,
+                                     refine=True), 1.0, atol=1e-10)
+        assert 0.1 < gain(4, 1.2, axis=axis, refine=True) < 0.9
+        assert gain(4, 1.35, axis=axis, refine=True) < 1e-10
+        assert gain(4, 1.5, axis=axis, refine=True) < 1e-10
+        assert gain(2, 0.9, axis=axis, refine=True) < 0.6
+        assert_allclose(gain(2, 0.9, axis=axis),
+                        gain(2, 0.9, axis=axis, refine=True))
+
+
+def test_suppress_alias_modes_axis_bands():
+    """
+    The passband and stopband can differ between the two axes.
+    """
+    npts = 80
+    wave = np.cos(2 * np.pi * 1.0 / 4 * np.arange(npts))
+    data = np.tile(wave, (npts, 1))
+    kwargs = {'nu_pass': (0.8, 1.1), 'nu_stop': (1.0, 1 / 0.75)}
+    assert_allclose(_suppress_alias_modes(data, (4, 4), **kwargs), data,
+                    atol=1e-10)
+    result = _suppress_alias_modes(data.T, (4, 4), **kwargs)
+    assert np.abs(result).max() < 1e-10
+
+
+def test_refinement_convergence(epsf_test_data):
+    """
+    The ePSF is recentered in the refinement updates, so the ePSF and
+    the star centers do not keep a common offset, and the convergence
+    diagnostics describe the last refinement iteration.
+    """
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:40], size=11)
+    # The input centers are the true centers
+    true_centers = stars.cutout_center_flat.copy()
+    results = []
+    for refinement_iters in (0, 4):
+        builder = EPSFBuilder(oversampling=4, maxiters=5,
+                              refinement_iters=refinement_iters,
+                              progress_bar=False)
+        results.append(builder(stars))
+    build, refined = results
+    assert build.iterations == refined.iterations == 5
+
+    assert not build.converged
+    assert refined.converged
+    assert refined.final_converged_fraction > build.final_converged_fraction
+    assert refined.final_center_accuracy < 0.2 * build.final_center_accuracy
+    assert refined.final_center_accuracy < 1.0e-3
+
+    offset = refined.fitted_stars.cutout_center_flat - true_centers
+    assert np.all(np.abs(offset.mean(axis=0)) < 1.0e-4)
+
+
+def test_refinement_excludes_failed_fits(epsf_test_data):
+    """
+    A star whose fit fails in a refinement iteration is excluded with a
+    warning, as in the building iterations.
+    """
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:10], size=11)
+    n_build_fits = 4 * len(stars)
+
+    class RefinementFailingFitter(TRFLSQFitter):
+        """
+        Fail the first fit of the refinement iterations.
+        """
+
+        def __init__(self):
+            super().__init__()
+            self.call_count = 0
+
+        def __call__(self, *args, **kwargs):
+            result = super().__call__(*args, **kwargs)
+            if self.call_count == n_build_fits:
+                self.fit_info['ierr'] = 0
+            self.call_count += 1
+            return result
+
+    builder = EPSFBuilder(oversampling=4, maxiters=4, refinement_iters=2,
+                          center_accuracy=1.0e-8,
+                          fitter=RefinementFailingFitter(),
+                          progress_bar=False)
+    match = 'has been excluded from ePSF fitting'
+    with pytest.warns(AstropyUserWarning, match=match) as record:
+        result = builder(stars)
+    assert len([rec for rec in record if match in str(rec.message)]) == 1
+    assert result.iterations == 4
+    assert result.excluded_star_indices == [0]
+    assert result.n_excluded_stars == 1
+
+
+def test_refinement_progress_bar(epsf_test_data, monkeypatch):
+    """
+    The refinement iterations have their own progress bar, which
+    starts after the progress bar of the building iterations is
+    finished.
+    """
+    from photutils.psf import epsf_builder
+
+    bars = []
+
+    class Bar:
+        def __init__(self, total, desc):
+            self.total = total
+            self.desc = desc
+            self.count = 0
+            self.closed = False
+            self.messages = []
+
+        def update(self):
+            self.count += 1
+
+        def write(self, message):
+            assert not self.closed
+            self.messages.append(message)
+
+        def close(self):
+            self.closed = True
+
+    def add_progress_bar(*, total, desc):
+        # The earlier progress bar is finished before the next starts
+        assert all(bar.closed for bar in bars)
+        bars.append(Bar(total, desc))
+        return bars[-1]
+
+    monkeypatch.setattr(epsf_builder, 'add_progress_bar', add_progress_bar)
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:10], size=11)
+
+    EPSFBuilder(oversampling=4, maxiters=2, refinement_iters=3)(stars)
+    assert [(bar.desc, bar.total, bar.count) for bar in bars] == [
+        ('EPSFBuilder (2 maxiters)', 2, 2), ('EPSFBuilder refinement', 3, 3)]
+    assert all(bar.closed for bar in bars)
+    assert all(not bar.messages for bar in bars)
+
+    # The convergence message is about the building iterations
+    bars.clear()
+    EPSFBuilder(oversampling=4, maxiters=10, refinement_iters=1,
+                center_accuracy=0.1)(stars)
+    assert len(bars[0].messages) == 1
+    assert bars[0].messages[0].startswith(
+        'EPSFBuilder building iterations converged after')
+    assert not bars[1].messages
+
+    # No refinement bar without refinement iterations
+    bars.clear()
+    EPSFBuilder(oversampling=2, maxiters=2, refinement_iters=3)(stars)
+    EPSFBuilder(oversampling=4, maxiters=2, refinement_iters=0)(stars)
+    assert [bar.desc for bar in bars] == ['EPSFBuilder (2 maxiters)'] * 2
+
+
+class TestIterationHistory:
+    """
+    Tests for the per-iteration ePSFs of `EPSFBuildResults`.
+    """
+
+    @pytest.fixture(scope='class')
+    @classmethod
+    def stars(cls):
+        psf_model = CircularGaussianPRF(flux=1, fwhm=2.7)
+        data, params = make_psf_model_image(
+            (400, 400), psf_model, 30, model_shape=(9, 9),
+            flux=(500, 700), min_separation=25, border_size=25, seed=0)
+        tbl = Table({'x': params['x_0'], 'y': params['y_0']})
+        return extract_stars(NDData(data), tbl, size=11)
+
+    def test_history(self, stars):
+        builder = EPSFBuilder(oversampling=4, maxiters=3,
+                              refinement_iters=2, progress_bar=False)
+        result = builder(stars)
+
+        n_total = result.iterations + 2
+        assert len(result.iteration_epsfs) == n_total
+        assert len(result.iteration_info) == n_total
+        for data in result.iteration_epsfs:
+            assert data.shape == result.epsf.data.shape
+            assert np.all(np.isfinite(data))
+        assert_array_equal(result.iteration_epsfs[-1], result.epsf.data)
+
+        # The two centers of a symmetric ePSF agree
+        assert_allclose(result.center_asymmetry, 0, atol=2.0e-3)
+
+        # The images are copies, not views of one array
+        assert (result.iteration_epsfs[0]
+                is not result.iteration_epsfs[1])
+        assert not np.array_equal(result.iteration_epsfs[0],
+                                  result.iteration_epsfs[1])
+
+        info = result.iteration_info
+        assert info.colnames == ['iteration', 'stage', 'converged',
+                                 'converged_fraction', 'max_center_shift',
+                                 'common_center_shift', 'n_fit_failed',
+                                 'max_epsf_change']
+        assert info['converged'].dtype == bool
+        assert_array_equal(info['converged'],
+                           info['converged_fraction'] >= 0.95)
+        assert_array_equal(info['iteration'], np.arange(1, n_total + 1))
+        assert list(info['stage']) == (['build'] * result.iterations
+                                       + ['refine'] * 2)
+        assert np.all((info['converged_fraction'] >= 0)
+                      & (info['converged_fraction'] <= 1))
+        assert np.all(info['max_center_shift'] >= 0)
+        assert np.all(info['common_center_shift'] >= 0)
+        assert np.all(info['n_fit_failed'] == 0)
+
+        # The first iteration starts from an empty ePSF, and the ePSF
+        # changes less in the later iterations
+        assert info['max_epsf_change'][0] > 0.5
+        assert info['max_epsf_change'][-1] < info['max_epsf_change'][0]
+
+        # The last iteration, which is a refinement iteration, matches
+        # the reported convergence
+        assert info['converged'][-1] == result.converged
+        assert_allclose(info['converged_fraction'][-1],
+                        result.final_converged_fraction)
+        assert_allclose(info['max_center_shift'][-1],
+                        result.final_center_accuracy)
+
+    def test_history_build_convergence(self, stars):
+        """
+        The table tells whether the building iterations converged when
+        the refinement changes the reported convergence.
+        """
+        kwargs = {'oversampling': 4, 'maxiters': 5, 'progress_bar': False}
+        build = EPSFBuilder(refinement_iters=0, **kwargs)(stars)
+        refined = EPSFBuilder(refinement_iters=4, **kwargs)(stars)
+        assert not build.converged
+        assert refined.converged
+
+        info = refined.iteration_info
+        is_build = info['stage'] == 'build'
+        assert not info['converged'][is_build][-1]
+        assert info['converged'][-1]
+        for name in ('converged', 'converged_fraction', 'max_center_shift'):
+            assert_allclose(info[name][is_build], build.iteration_info[name])
+
+    def test_history_initial_epsf(self, stars):
+        """
+        The change of the first iteration is measured from the input
+        ePSF when the build starts from one.
+        """
+        builder = EPSFBuilder(oversampling=4, maxiters=3,
+                              refinement_iters=0, progress_bar=False)
+        first = builder(stars)
+        assert first.initial_epsf is None
+        assert first.iteration_info['max_epsf_change'][0] > 0.5
+
+        initial = first.epsf.data.copy()
+        result = builder.build_epsf(stars, epsf=first.epsf)
+        assert_array_equal(result.initial_epsf, initial)
+        assert not np.shares_memory(result.initial_epsf, first.epsf.data)
+
+        change = (np.max(np.abs(result.iteration_epsfs[0] - initial))
+                  / result.epsf.data.max())
+        assert 0 < change < 0.01
+        assert_allclose(result.iteration_info['max_epsf_change'][0], change)
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+    def test_plot_iterations_initial_epsf(self, stars):
+        import matplotlib.pyplot as plt
+
+        builder = EPSFBuilder(oversampling=4, maxiters=2,
+                              refinement_iters=0, progress_bar=False)
+        first = builder(stars)
+        result = builder.build_epsf(stars, epsf=first.epsf)
+        change = result.iteration_info['max_epsf_change'][0]
+
+        # The first difference panel is the change from the input ePSF
+        fig = result.plot_iterations(iterations=1)
+        assert_allclose(fig.axes[1].get_images()[0].get_clim(),
+                        (-change, change))
+        plt.close(fig)
+
+        # Without an input ePSF it is the ePSF itself
+        fig = first.plot_iterations(iterations=1)
+        assert fig.axes[1].get_images()[0].get_clim()[1] > 0.5
+        plt.close(fig)
+
+    def test_history_table_format(self, stars):
+        builder = EPSFBuilder(oversampling=2, maxiters=2,
+                              progress_bar=False)
+        info = builder(stars).iteration_info
+        lines = info.pformat()
+        assert len(lines[-1].split()) == len(info.colnames)
+        fraction = lines[-1].split()[info.colnames.index(
+            'converged_fraction')]
+        assert len(fraction) == 5
+
+    def test_history_without_refinement(self, stars):
+        builder = EPSFBuilder(oversampling=2, maxiters=2,
+                              progress_bar=False)
+        result = builder(stars)
+        assert len(result.iteration_epsfs) == result.iterations
+        assert set(result.iteration_info['stage']) == {'build'}
+        assert_array_equal(result.iteration_epsfs[-1], result.epsf.data)
+
+    def test_history_not_in_tuple_or_repr(self, stars):
+        builder = EPSFBuilder(oversampling=2, maxiters=2,
+                              progress_bar=False)
+        result = builder(stars)
+        assert len(result) == 2
+        epsf, fitted_stars = result
+        assert epsf is result.epsf
+        assert fitted_stars is result.fitted_stars
+        assert 'iteration_epsfs' not in repr(result)
+        assert 'iteration_info' not in repr(result)
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+    def test_plot_iterations(self, stars):
+        import matplotlib.pyplot as plt
+
+        builder = EPSFBuilder(oversampling=4, maxiters=2,
+                              refinement_iters=1, progress_bar=False)
+        result = builder(stars)
+        n_total = len(result.iteration_epsfs)
+
+        fig = result.plot_iterations()
+        # two image panels and two colorbars per iteration
+        assert len(fig.axes) == 4 * n_total
+        titles = [ax.get_title() for ax in fig.axes]
+        assert 'Iteration 1 (build)' in titles
+        assert f'Iteration {n_total} (refine)' in titles
+        plt.close(fig)
+
+        fig = result.plot_iterations(iterations=[1, n_total],
+                                     figsize=(6, 5), cmap='gray')
+        assert len(fig.axes) == 8
+        assert tuple(fig.get_size_inches()) == (6.0, 5.0)
+        plt.close(fig)
+
+        fig = result.plot_iterations(iterations=np.array([1, 2]))
+        assert_allclose(fig.get_size_inches(), (7.0, 5.2))
+        plt.close(fig)
+
+        fig = result.plot_iterations(iterations=2)
+        assert len(fig.axes) == 4
+        plt.close(fig)
+
+        # An ePSF that did not change from the previous iteration
+        result.iteration_epsfs[1] = result.iteration_epsfs[0]
+        fig = result.plot_iterations(iterations=2)
+        assert fig.axes[1].get_images()[0].get_clim() == (-1.0, 1.0)
+        plt.close(fig)
+
+    @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+    def test_plot_iterations_invalid(self, stars):
+        builder = EPSFBuilder(oversampling=2, maxiters=2,
+                              progress_bar=False)
+        result = builder(stars)
+        match = 'iterations must be between 1 and'
+        for value in (0, [1, 99]):
+            with pytest.raises(ValueError, match=match):
+                result.plot_iterations(iterations=value)
+
+        match = 'iterations must be an integer or a nonempty 1D array'
+        for value in ([], 1.5, [1.0, 2.0], True, [[1, 2]], 'all'):
+            with pytest.raises(ValueError, match=match):
+                result.plot_iterations(iterations=value)
+
+        match = 'There is no per-iteration history to plot'
+        iteration_info = result.iteration_info
+        result.iteration_info = None
+        with pytest.raises(ValueError, match=match):
+            result.plot_iterations()
+        result.iteration_info = iteration_info
+        result.iteration_epsfs = None
+        with pytest.raises(ValueError, match=match):
+            result.plot_iterations()
+
+
+@pytest.mark.parametrize('value', [1, 0, 'yes', None])
+def test_invalid_wing_smoothing(value):
+    match = 'wing_smoothing must be a bool'
+    with pytest.raises(TypeError, match=match):
+        EPSFBuilder(wing_smoothing=value)
+
+
+def _noisy_gaussian_epsf(fwhm=6.0, size=101, noise=0.002, seed=0):
+    """
+    A Gaussian ePSF image with a FWHM of ``fwhm`` grid points, with
+    and without white noise.
+    """
+    yy, xx = np.indices((size, size), dtype=float)
+    center = (size - 1) / 2
+    sigma = fwhm / 2.3548
+    model = np.exp(-((xx - center)**2 + (yy - center)**2) / (2 * sigma**2))
+    # add a slowly varying wing so that the wings are not zero
+    radius = np.hypot(xx - center, yy - center)
+    model += 0.01 / (1 + (radius / 20.0)**2)
+    rng = np.random.default_rng(seed)
+    return model, model + rng.normal(0, noise, model.shape), radius
+
+
+def test_smooth_wings():
+    """
+    The wing smoothing leaves the ePSF within 3.5 FWHM of its center
+    unchanged and lowers the noise beyond that without biasing the
+    wings.
+    """
+    fwhm = 6.0
+    model, noisy, radius = _noisy_gaussian_epsf(fwhm=fwhm)
+    builder = EPSFBuilder(oversampling=4, progress_bar=False)
+    result = builder._smooth_wings(noisy)
+    assert result.shape == noisy.shape
+
+    core = radius <= 3.4 * fwhm
+    assert_array_equal(result[core], noisy[core])
+
+    for lo, hi, factor in ((4.6, 5.0, 2.0), (6.2, 8.0, 3.0)):
+        wings = (radius >= lo * fwhm) & (radius <= hi * fwhm)
+        rms_before = np.std((noisy - model)[wings])
+        rms_after = np.std((result - model)[wings])
+        assert rms_after < rms_before / factor
+        # no bias from the curvature of the wing profile
+        assert abs(np.mean((result - model)[wings])) < 0.1 * rms_before
+
+    # A noiseless ePSF is reproduced, to within the small effect of the
+    # image edges on the fits
+    smooth = builder._smooth_wings(model)
+    assert_allclose(smooth, model, atol=5e-5)
+
+
+def test_smooth_wings_structure():
+    """
+    The wing smoothing keeps structure in the wings that varies over
+    several FWHM and removes structure that varies over about one
+    FWHM, such as narrow diffraction rings.
+    """
+    fwhm = 6.0
+    size = 101
+    yy, xx = np.indices((size, size), dtype=float)
+    center = (size - 1) / 2
+    radius = np.hypot(xx - center, yy - center)
+    core = np.exp(-radius**2 / (2 * (fwhm / 2.3548)**2))
+    envelope = 0.01 / (1 + (radius / 20.0)**2)
+    builder = EPSFBuilder(oversampling=4, progress_bar=False)
+
+    def wing_change(period):
+        """
+        The RMS change of a ringed wing as a fraction of its mean.
+        """
+        rings = 1 + 0.5 * np.cos(2 * np.pi * radius / (period * fwhm))
+        model = core + envelope * rings
+        result = builder._smooth_wings(model)
+        assert_array_equal(result[radius <= 3.4 * fwhm],
+                           model[radius <= 3.4 * fwhm])
+        # the sum, and so the normalization, is nearly unchanged
+        assert_allclose(result.sum(), model.sum(), rtol=1e-3)
+        wings = (radius >= 6.2 * fwhm) & (radius <= 8.0 * fwhm)
+        return (np.sqrt(np.mean((result - model)[wings]**2))
+                / np.mean(model[wings]))
+
+    assert wing_change(4.0) < 0.02
+    assert 0.05 < wing_change(2.0) < 0.2
+    assert wing_change(1.0) > 0.3
+
+
+def test_smooth_wings_anisotropic_oversampling():
+    """
+    With different oversampling factors along the two axes, the radii
+    of the wing smoothing are measured in detector pixels.
+    """
+    fwhm = 1.5  # pixels
+    ny, nx = 61, 121
+    yy, xx = np.indices((ny, nx), dtype=float)
+    radius = np.hypot((xx - (nx - 1) / 2) / 4, (yy - (ny - 1) / 2) / 2)
+    model = (np.exp(-radius**2 / (2 * (fwhm / 2.3548)**2))
+             + 0.01 / (1 + (radius / 5.0)**2))
+    rng = np.random.default_rng(0)
+    noisy = model + rng.normal(0, 0.002, model.shape)
+
+    builder = EPSFBuilder(oversampling=(2, 4), progress_bar=False)
+    result = builder._smooth_wings(noisy)
+    core = radius <= 3.4 * fwhm
+    assert_array_equal(result[core], noisy[core])
+    for lo, hi in ((4.6, 5.0), (6.2, 8.0)):
+        wings = (radius >= lo * fwhm) & (radius <= hi * fwhm)
+        rms_before = np.std((noisy - model)[wings])
+        rms_after = np.std((result - model)[wings])
+        assert rms_after < rms_before / 2.0
+        assert abs(np.mean((result - model)[wings])) < 0.15 * rms_before
+
+
+def test_smooth_wings_no_change():
+    """
+    The ePSF is returned unchanged if its FWHM cannot be measured, if
+    the whole image is within 3.5 FWHM of the center, or if it has
+    nonfinite values.
+    """
+    data = _noisy_gaussian_epsf(fwhm=6.0)[1]
+    builder = EPSFBuilder(oversampling=4, progress_bar=False)
+    assert builder._smooth_wings(data) is not data
+    for value in (np.nan, np.inf):
+        bad = data.copy()
+        bad[90, 90] = value
+        assert builder._smooth_wings(bad) is bad
+
+    builder = EPSFBuilder(oversampling=1, progress_bar=False)
+    data = np.zeros((25, 25))
+    assert builder._smooth_wings(data) is data
+
+    data = _noisy_gaussian_epsf(fwhm=8.0, size=25)[1]
+    assert builder._smooth_wings(data) is data
+
+
+def test_wing_smoothing_build(epsf_test_data):
+    """
+    The wing smoothing is applied once to the final ePSF. It does not
+    change the fitted stars or the core of the ePSF.
+    """
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:40], size=25)
+    results = []
+    for wing_smoothing in (False, True):
+        builder = EPSFBuilder(oversampling=2, maxiters=3,
+                              wing_smoothing=wing_smoothing,
+                              progress_bar=False)
+        assert builder.wing_smoothing is wing_smoothing
+        results.append(builder(stars))
+
+    assert_array_equal(results[0].fitted_stars.cutout_center_flat,
+                       results[1].fitted_stars.cutout_center_flat)
+    assert results[0].iterations == results[1].iterations
+
+    data0 = results[0].epsf.data
+    data1 = results[1].epsf.data
+    assert not np.array_equal(data0, data1)
+    assert_allclose(data1.sum(), data0.sum())
+
+    # The ePSF FWHM is about 2.7 pixels, so the ePSF within 9 pixels
+    # of the center changes only by the renormalization
+    ny, nx = data0.shape
+    yy, xx = np.indices((ny, nx))
+    radius = np.hypot(xx - (nx - 1) / 2, yy - (ny - 1) / 2) / 2.0
+    core = radius < 9.0
+    assert_allclose(data1[core], data0[core], rtol=1e-3)
+    assert np.std(data1[~core]) < np.std(data0[~core])
+
+    # The wing smoothing is not an iteration. The last per-iteration
+    # ePSF is the ePSF before its wings were smoothed.
+    assert len(results[1].iteration_epsfs) == len(results[0].iteration_epsfs)
+    assert_array_equal(results[1].iteration_epsfs[-1], data0)
+    assert_array_equal(results[0].iteration_epsfs[-1], data0)
+
+
+@pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
+def test_wing_smoothing_plot_iterations(epsf_test_data):
+    """
+    The figure has a last row for the smoothed ePSF only if the wing
+    smoothing changed the ePSF. By default that row is plotted only if
+    all the iterations are plotted, and ``show_smoothed`` overrides
+    that choice.
+    """
+    import matplotlib.pyplot as plt
+
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:40], size=25)
+    final_title = 'Final ePSF (wings smoothed)'
+    for wing_smoothing in (False, True):
+        builder = EPSFBuilder(oversampling=2, maxiters=3,
+                              wing_smoothing=wing_smoothing,
+                              progress_bar=False)
+        result = builder(stars)
+        n_total = len(result.iteration_epsfs)
+        n_extra = int(wing_smoothing)
+
+        fig = result.plot_iterations()
+        # two image panels and two colorbars per row
+        assert len(fig.axes) == 4 * (n_total + n_extra)
+        assert_allclose(fig.get_size_inches(),
+                        (7.0, 2.6 * (n_total + n_extra)))
+        titles = [ax.get_title() for ax in fig.axes]
+        assert titles.count(final_title) == n_extra
+        plt.close(fig)
+
+        # All the iterations, selected explicitly
+        fig = result.plot_iterations(iterations=np.arange(1, n_total + 1))
+        assert len(fig.axes) == 4 * (n_total + n_extra)
+        plt.close(fig)
+
+        fig = result.plot_iterations(show_smoothed=False)
+        assert len(fig.axes) == 4 * n_total
+        titles = [ax.get_title() for ax in fig.axes]
+        assert final_title not in titles
+        plt.close(fig)
+
+        # A subset of the iterations does not show the smoothed ePSF
+        fig = result.plot_iterations(iterations=1)
+        assert len(fig.axes) == 4
+        titles = [ax.get_title() for ax in fig.axes]
+        assert final_title not in titles
+        plt.close(fig)
+
+        fig = result.plot_iterations(iterations=1, show_smoothed=True)
+        assert len(fig.axes) == 4 * (1 + n_extra)
+        if wing_smoothing:
+            # The last row shows the returned ePSF and the change made
+            # by the smoothing. The image panels of the two rows come
+            # before the colorbars in the list of axes.
+            ax_epsf, ax_diff = fig.axes[2], fig.axes[3]
+            assert ax_epsf.get_title() == final_title
+            assert_array_equal(ax_epsf.get_images()[0].get_array(),
+                               result.epsf.data)
+            last = result.iteration_epsfs[-1]
+            diff = (result.epsf.data - last) / np.max(last)
+            assert_allclose(ax_diff.get_images()[0].get_array(), diff)
+            assert 'converged fraction' not in ax_diff.get_title()
+        plt.close(fig)
+
+
+def test_nonuniform_phase_warning():
+    """
+    A warning is emitted when the fitted star centers have strongly
+    nonuniform subpixel phases.
+    """
+    data = _make_gaussian_star_data()
+    # All stars at integer pixel phase and a fitter that does not move
+    # the centers.
+    stars = EPSFStars([EPSFStar(data, cutout_center=(5.0, 5.0))
+                       for _ in range(60)])
+
+    def fitter(model, **_kwargs):
+        return model
+
+    builder = EPSFBuilder(oversampling=2, maxiters=1, fitter=fitter,
+                          progress_bar=False)
+    match = 'subpixel phases of the fitted star centers'
+    with pytest.warns(AstropyUserWarning, match=match):
+        builder(stars)
+
+
+class TestPolynomialKernel:
+    """
+    Tests for _SmoothingKernel.make_polynomial_kernel.
+    """
+
+    def test_quartic_matches_anderson_king(self):
+        """
+        The 'quartic' kernel is the 5x5 least-squares quartic kernel
+        of equation 8 of Anderson and King 2000 (PASP 112, 1360). The
+        printed table contains two misprints in its first and last rows
+        that break the symmetry of the kernel, so the symmetric values
+        are used here.
+        """
+        published = np.array([
+            [+0.041632, -0.080816, 0.078368, -0.080816, +0.041632],
+            [-0.080816, -0.019592, 0.200816, -0.019592, -0.080816],
+            [+0.078368, +0.200816, 0.441632, +0.200816, +0.078368],
+            [-0.080816, -0.019592, 0.200816, -0.019592, -0.080816],
+            [+0.041632, -0.080816, 0.078368, -0.080816, +0.041632]])
+        assert_allclose(_SmoothingKernel.QUARTIC_KERNEL, published,
+                        atol=1e-6)
+        assert_allclose(_SmoothingKernel.get_kernel('quartic'), published,
+                        atol=1e-6)
+
+    def test_exact_values(self):
+        """
+        The 5x5 kernels have exact rational values.
+        """
+        quartic = _SmoothingKernel.QUARTIC_KERNEL
+        assert_allclose(quartic[2, 2], 541 / 1225, rtol=1e-12)
+        assert_allclose(quartic[2, 1], 246 / 1225, rtol=1e-12)
+        assert_allclose(quartic[2, 0], 96 / 1225, rtol=1e-12)
+        assert_allclose(quartic[0, 0], 51 / 1225, rtol=1e-12)
+        assert_allclose(quartic.sum(), 1.0, rtol=1e-12)
+
+        quadratic = _SmoothingKernel.QUADRATIC_KERNEL
+        assert_allclose(quadratic[2, 2], 27 / 175, rtol=1e-12)
+        assert_allclose(quadratic[2, 1], 22 / 175, rtol=1e-12)
+        assert_allclose(quadratic[2, 0], 1 / 25, rtol=1e-12)
+        assert_allclose(quadratic[0, 0], -13 / 175, rtol=1e-12)
+        assert_allclose(quadratic.sum(), 1.0, rtol=1e-12)
+
+    @pytest.mark.parametrize('size', [7, 9, 11])
+    def test_properties(self, size):
+        kernel = _SmoothingKernel.make_polynomial_kernel(size)
+        assert kernel.shape == (size, size)
+        assert_allclose(kernel.sum(), 1.0)
+        assert_allclose(kernel, kernel.T)
+        assert_allclose(kernel, kernel[::-1, ::-1])
+
+        # The kernel preserves any quartic polynomial exactly.
+        yy, xx = np.mgrid[0:41, 0:41] - 20.0
+        poly = 1.0 + 0.1 * xx - 0.2 * yy + 0.01 * xx * yy**3 + 1e-3 * xx**4
+        smoothed = _SmoothingKernel.apply_smoothing(poly, kernel)
+        half = size // 2
+        assert_allclose(smoothed[half:-half, half:-half],
+                        poly[half:-half, half:-half], atol=1e-9)
+
+    def test_invalid(self):
+        match = 'size must be an odd integer'
+        with pytest.raises(ValueError, match=match):
+            _SmoothingKernel.make_polynomial_kernel(4)
+        with pytest.raises(ValueError, match=match):
+            _SmoothingKernel.make_polynomial_kernel(1)
+        match = 'degree must be at least 1'
+        with pytest.raises(ValueError, match=match):
+            _SmoothingKernel.make_polynomial_kernel(5, degree=0)
+        with pytest.raises(ValueError, match=match):
+            _SmoothingKernel.make_polynomial_kernel(3, degree=4)
+
+
+class TestMeasureFWHM:
+    """
+    Tests for _measure_fwhm.
+    """
+
+    @staticmethod
+    def _gaussian(fwhm_y, fwhm_x, size=61):
+        yy, xx = np.mgrid[0:size, 0:size] - size // 2
+        sig_y = fwhm_y / 2.3548
+        sig_x = fwhm_x / 2.3548
+        return np.exp(-0.5 * ((xx / sig_x)**2 + (yy / sig_y)**2))
+
+    def test_gaussian(self):
+        fwhm_y, fwhm_x = _measure_fwhm(self._gaussian(6.0, 10.0))
+        assert_allclose(fwhm_y, 6.0, rtol=0.02)
+        assert_allclose(fwhm_x, 10.0, rtol=0.02)
+
+    def test_scaled_and_offset_peak(self):
+        data = 1000.0 * self._gaussian(8.0, 8.0)
+        data = np.roll(data, (5, -7), axis=(0, 1))
+        fwhm = _measure_fwhm(data)
+        assert_allclose(fwhm, (8.0, 8.0), rtol=0.02)
+
+    def test_unmeasurable(self):
+        # Nonpositive peak
+        assert _measure_fwhm(np.zeros((11, 11))) is None
+        assert _measure_fwhm(-self._gaussian(5.0, 5.0)) is None
+        # No finite values
+        assert _measure_fwhm(np.full((11, 11), np.nan)) is None
+        # Flat profile that never falls below half of the peak
+        assert _measure_fwhm(np.ones((11, 11))) is None
+        # Peak at the edge of the array
+        data = self._gaussian(5.0, 5.0)[30:, :]
+        assert _measure_fwhm(data) is None
+        # Nonfinite value next to the peak
+        data = self._gaussian(5.0, 5.0)
+        data[30, 31] = np.nan
+        assert _measure_fwhm(data) is None
+        # Nonfinite row next to the peak, so the averaged row profile
+        # has no finite values
+        data = self._gaussian(5.0, 5.0)
+        data[29, :] = np.nan
+        assert _measure_fwhm(data) is None
+        # Negative row next to the peak, so the averaged row profile
+        # has a nonpositive peak
+        data = np.zeros((11, 11))
+        data[5, 5] = 1.0
+        data[4, :] = -3.0
+        assert _measure_fwhm(data) is None
+        # Infinite peak
+        data = self._gaussian(5.0, 5.0)
+        data[30, 30] = np.inf
+        assert _measure_fwhm(data) is None
+
+    def test_low_pixel_next_to_peak(self):
+        """
+        The profiles are averaged over the three rows and columns
+        around the peak, so a single low pixel next to the peak does
+        not truncate the width.
+        """
+        data = self._gaussian(11.2, 11.2)
+        data[30, 33] = 0.1
+        fwhm = _measure_fwhm(data)
+        assert_allclose(fwhm, (11.2, 11.2), rtol=0.05)
+
+
+class TestAutoSmoothingAndFitShape:
+    """
+    Tests for the 'auto' smoothing kernel and fit shape.
+    """
+
+    @pytest.fixture
+    def stars(self, epsf_test_data):
+        return extract_stars(epsf_test_data['nddata'],
+                             epsf_test_data['init_stars'][:30], size=11)
+
+    def test_auto_choices_oversampled(self, stars):
+        """
+        The ePSF FWHM is about 2.9 pixels (11.2 grid points at
+        oversampling 4), so the kernel is 0.7 x 11.2 = 7.9 -> 7 grid
+        points (rounded down to an odd size) and the fit shape is
+        2 x 2.9 = 5.7 -> 7 pixels.
+        """
+        builder = EPSFBuilder(oversampling=4, maxiters=3,
+                              progress_bar=False)
+        result = builder(stars)
+        assert result.smoothing_kernel.shape == (7, 7)
+        assert result.fit_shape == (7, 7)
+        fwhm = _measure_fwhm(result.epsf.data)
+        assert_allclose(fwhm, (11.2, 11.2), rtol=0.05)
+
+        # The reported kernel and fit shape reproduce the build when
+        # input as fixed values.
+        builder = EPSFBuilder(oversampling=4, maxiters=3,
+                              smoothing_kernel=result.smoothing_kernel,
+                              fit_shape=result.fit_shape,
+                              progress_bar=False)
+        fixed = builder(stars)
+        assert_allclose(fixed.epsf.data, result.epsf.data)
+        assert_array_equal(fixed.smoothing_kernel, result.smoothing_kernel)
+
+    def test_auto_no_smoothing_undersampled(self, stars):
+        """
+        At oversampling 1 the window (0.7 x 2.9 = 2 grid points) is
+        below the minimum kernel size, so no smoothing is applied.
+        """
+        builder = EPSFBuilder(oversampling=1, maxiters=3,
+                              progress_bar=False)
+        result = builder(stars)
+        assert result.smoothing_kernel is None
+        assert result.fit_shape == (7, 7)
+
+    def test_auto_anisotropic_oversampling(self, stars):
+        """
+        The FWHM along the narrowest axis in input pixels sets the fit
+        shape and the narrowest axis in grid points sets the kernel.
+        """
+        builder = EPSFBuilder(oversampling=(1, 2), maxiters=3,
+                              progress_bar=False)
+        result = builder(stars)
+        assert result.smoothing_kernel is None
+        assert result.fit_shape == (7, 7)
+
+    def test_auto_fit_shape_capped_by_cutout(self):
+        """
+        A wide PSF in small cutouts: the 2 FWHM fit box (15 pixels)
+        is capped at the cutout size and the kernel is 0.7 x 7.5 = 5.2
+        -> 5.
+        """
+        fwhm = 7.5
+        data, params = make_psf_model_image(
+            (600, 600), CircularGaussianPRF(flux=1, fwhm=fwhm), 30,
+            model_shape=(25, 25), flux=(500, 700), min_separation=40,
+            border_size=30, seed=1)
+        tbl = Table({'x': params['x_0'], 'y': params['y_0']})
+        stars = extract_stars(NDData(data), tbl, size=11)
+        builder = EPSFBuilder(oversampling=1, maxiters=3, progress_bar=False)
+        result = builder(stars)
+        assert result.smoothing_kernel.shape == (5, 5)
+        assert result.fit_shape == (11, 11)
+
+    def test_auto_fit_shape_capped_by_even_cutout(self):
+        """
+        The automatic fit shape is capped at the largest odd size that
+        fits in an even-sized cutout.
+        """
+        yy, xx = np.indices((10, 10))
+        sig = 7.0 / 2.3548
+        data = np.exp(-((xx - 4.5)**2 + (yy - 4.5)**2) / (2 * sig**2))
+        stars = EPSFStars([EPSFStar(data, cutout_center=(4.5, 4.5))
+                           for _ in range(3)])
+        builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False)
+        result = builder(stars)
+        assert result.fit_shape == (9, 9)
+
+    @pytest.mark.parametrize(
+        ('kwargs', 'match', 'kernel_shape', 'fit_shape'),
+        [({}, ("the 'auto' smoothing_kernel and fit_shape fall back to "
+               "the 'quartic' kernel and a fit shape of 5"), (5, 5), (5, 5)),
+         ({'smoothing_kernel': None},
+          "the 'auto' fit_shape falls back to a fit shape of 5", None,
+          (5, 5)),
+         ({'fit_shape': 7},
+          "the 'auto' smoothing_kernel falls back to the 'quartic' kernel",
+          (5, 5), (7, 7))])
+    def test_auto_fallback_warning(self, kwargs, match, kernel_shape,
+                                   fit_shape):
+        """
+        The FWHM of flat cutouts cannot be measured, so the build falls
+        back to the quartic kernel and a 5x5 fit shape with a single
+        warning that names only the 'auto' parameters.
+        """
+        stars = EPSFStars([EPSFStar(np.ones((11, 11))) for _ in range(3)])
+        builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False,
+                              **kwargs)
+        with pytest.warns(AstropyUserWarning, match=match) as record:
+            result = builder(stars)
+        messages = [str(r.message) for r in record
+                    if 'could not be measured' in str(r.message)]
+        assert len(messages) == 1
+        assert messages[0].endswith(f'{match}.')
+        if kernel_shape is None:
+            assert result.smoothing_kernel is None
+        else:
+            assert result.smoothing_kernel.shape == kernel_shape
+        assert result.fit_shape == fit_shape
+
+    def test_fixed_choices_reported(self, stars):
+        """
+        The results report fixed kernels and fit shapes too.
+        """
+        builder = EPSFBuilder(oversampling=1, maxiters=1,
+                              smoothing_kernel='quadratic', fit_shape=None,
+                              progress_bar=False)
+        result = builder(stars)
+        assert_array_equal(result.smoothing_kernel,
+                           _SmoothingKernel.QUADRATIC_KERNEL)
+        assert result.fit_shape is None
+        # The results own a copy of the kernel, so editing it does not
+        # change the shared predefined kernel
+        result.smoothing_kernel[0, 0] = 0.0
+        assert _SmoothingKernel.QUADRATIC_KERNEL[0, 0] != 0.0
+
+        kernel = np.full((3, 3), 1 / 9)
+        builder = EPSFBuilder(oversampling=1, maxiters=1,
+                              smoothing_kernel=kernel, fit_shape=(5, 7),
+                              progress_bar=False)
+        result = builder(stars)
+        assert result.smoothing_kernel is not kernel
+        assert_array_equal(result.smoothing_kernel, kernel)
+        assert result.fit_shape == (5, 7)
+
+        builder = EPSFBuilder(oversampling=1, maxiters=1,
+                              smoothing_kernel=None, progress_bar=False)
+        result = builder(stars)
+        assert result.smoothing_kernel is None
+
+
+class _ShiftingFitter(TRFLSQFitter):
+    """
+    A fitter that alternately shifts the fitted x center of the first
+    ``n_shift`` stars of every ``n_stars`` fits by half a pixel, so that
+    the centers of those stars never settle.
+    """
+
+    def __init__(self, n_stars, n_shift):
+        super().__init__()
+        self.n_stars = n_stars
+        self.n_shift = n_shift
+        self.n_calls = 0
+
+    def __call__(self, model, x, y, z=None, weights=None, **kwargs):
+        fitted = super().__call__(model, x, y, z=z, weights=weights,
+                                  **kwargs)
+        if self.n_calls % self.n_stars < self.n_shift:
+            iteration = self.n_calls // self.n_stars
+            fitted.x_0 = fitted.x_0.value + 0.5 * (-1) ** iteration
+        self.n_calls += 1
+        return fitted
+
+
+class _FailingFitter(TRFLSQFitter):
+    """
+    A fitter that returns a fitted center outside the cutout for the
+    star whose input flux is ``flux``, so that its fit always fails.
+    """
+
+    def __init__(self, flux):
+        super().__init__()
+        self.flux = flux
+
+    def __call__(self, model, x, y, z=None, weights=None, **kwargs):
+        fitted = super().__call__(model, x, y, z=z, weights=weights,
+                                  **kwargs)
+        if model.flux.value == self.flux:
+            fitted.x_0 = 1000.0
+        return fitted
+
+
+class TestConvergedFraction:
+    """
+    Tests for the converged_fraction convergence criterion.
+    """
+
+    @pytest.fixture
+    def stars(self, epsf_test_data):
+        return extract_stars(epsf_test_data['nddata'],
+                             epsf_test_data['init_stars'][:20], size=11)
+
+    @pytest.mark.parametrize('value', ['auto', True, None])
+    def test_invalid_type(self, value):
+        match = 'converged_fraction must be a number'
+        with pytest.raises(TypeError, match=match):
+            EPSFBuilder(converged_fraction=value, progress_bar=False)
+
+    @pytest.mark.parametrize('value', [0.0, 1.5, -0.1, np.nan])
+    def test_invalid_value(self, value):
+        match = r'converged_fraction must be in the range \(0, 1\]'
+        with pytest.raises(ValueError, match=match):
+            EPSFBuilder(converged_fraction=value, progress_bar=False)
+
+    def test_default(self):
+        builder = EPSFBuilder(progress_bar=False)
+        assert builder.converged_fraction == 0.95
+
+    @pytest.mark.parametrize(('fraction', 'n_shift', 'expected'),
+                             [(1.0, 0, True), (1.0, 1, False),
+                              (0.95, 1, True), (0.95, 3, False)])
+    def test_convergence(self, stars, fraction, n_shift, expected):
+        """
+        With 20 stars, 1 unsettled star leaves 95 percent converged
+        and 3 unsettled stars leave 85 percent converged.
+        """
+        maxiters = 6
+        fitter = _ShiftingFitter(len(stars), n_shift)
+        builder = EPSFBuilder(oversampling=1, maxiters=maxiters,
+                              center_accuracy=1e-2,
+                              converged_fraction=fraction, fitter=fitter,
+                              progress_bar=False)
+        result = builder(stars)
+
+        assert result.converged is expected
+        assert result.final_converged_fraction == 1.0 - n_shift / 20
+        if expected:
+            assert result.iterations < maxiters
+        else:
+            assert result.iterations == maxiters
+            assert result.final_center_accuracy > 0.5
+
+        # The build converges when the achieved fraction reaches the
+        # requested fraction
+        assert result.converged == (result.final_converged_fraction
+                                    >= builder.converged_fraction)
+
+    def test_common_shift(self, stars):
+        """
+        The star centers are compared after their median change is
+        removed, but a build whose stars all keep moving together by
+        more than the center accuracy is not converged.
+        """
+        maxiters = 4
+        fitter = _ShiftingFitter(len(stars), len(stars))
+        builder = EPSFBuilder(oversampling=1, maxiters=maxiters,
+                              center_accuracy=1e-2, fitter=fitter,
+                              progress_bar=False)
+        result = builder(stars)
+
+        assert result.final_converged_fraction == 1.0
+        assert result.final_center_accuracy < 1e-2
+        assert result.converged is False
+        assert result.iterations == maxiters
+
+        # The common movement is what prevents the convergence
+        info = result.iteration_info
+        assert not np.any(info['converged'])
+        assert np.all(info['common_center_shift'] > 0.4)
+
+    def test_failed_fits_ignored(self, stars):
+        """
+        Stars whose fit failed do not count toward the fraction.
+        """
+        # The failing star is never updated, so its flux stays at the
+        # input value that identifies it to the fitter
+        failed_star = stars.all_stars[0]
+        fitter = _FailingFitter(failed_star.flux)
+        builder = EPSFBuilder(oversampling=1, maxiters=10,
+                              center_accuracy=1e-2, converged_fraction=1.0,
+                              fitter=fitter, progress_bar=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', AstropyUserWarning)
+            result = builder(stars)
+
+        assert result.converged
+        assert result.final_converged_fraction == 1.0
+        assert_array_equal(result.fitted_stars.all_stars[0].cutout_center,
+                           failed_star.cutout_center)
+
+    def test_results_attribute(self, stars):
+        builder = EPSFBuilder(oversampling=1, maxiters=10,
+                              center_accuracy=1e-2, progress_bar=False)
+        result = builder(stars)
+        assert 0.0 <= result.final_converged_fraction <= 1.0
+        assert result.converged == (result.final_converged_fraction
+                                    >= builder.converged_fraction)
+
+
+def test_build_shares_spline_cache(epsf_test_data, monkeypatch):
+    """
+    The spline interpolators are built once per ePSF and shared by
+    the model copies made for every star fit, so the number of spline
+    constructions does not depend on the number of stars.
+    """
+    from photutils.psf import image_models
+
+    counts = []
+    original = image_models.RectBivariateSpline
+
+    class CountingSpline(original):
+        def __init__(self, *args, **kwargs):
+            counts.append(1)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(image_models, 'RectBivariateSpline',
+                        CountingSpline)
+
+    n_constructions = []
+    for n_stars in (4, 12):
+        stars = extract_stars(epsf_test_data['nddata'],
+                              epsf_test_data['init_stars'][:n_stars],
+                              size=11)
+        counts.clear()
+        builder = EPSFBuilder(oversampling=1, maxiters=2, progress_bar=False)
+        builder(stars)
+        n_constructions.append(len(counts))
+
+    assert n_constructions[0] == n_constructions[1]
+    assert n_constructions[1] < 12
+
+
+def _resample_residual_per_star(builder, star, epsf):
+    """
+    Reference per-star implementation of the residual resampling.
+
+    The normalized ePSF model is subtracted from the normalized star
+    and each pixel residual is deposited on the oversampled grid points
+    within 0.375 pixel, and at least one grid spacing, of the pixel
+    center (the nearest grid point for an oversampling factor of one).
+    Grid points without data are NaN.
+    """
+    xidx_centered, yidx_centered = star._xyidx_centered
+    stardata = (star._data_values_normalized
+                - epsf.evaluate(x=xidx_centered, y=yidx_centered,
+                                flux=1.0, x_0=0.0, y_0=0.0))
+
+    # Star pixel centers in the oversampled ePSF grid
+    ny_over, nx_over = builder.oversampling
+    x_over = xidx_centered * nx_over + epsf.origin[0]
+    y_over = yidx_centered * ny_over + epsf.origin[1]
+
+    epsf_shape = epsf.data.shape
+    out_image = np.full(epsf_shape, np.nan)
+    x_width = max(0.375 * nx_over, 1.0) if nx_over > 1 else 0.5
+    y_width = max(0.375 * ny_over, 1.0) if ny_over > 1 else 0.5
+    x_first = np.floor(x_over - x_width).astype(int) + 1
+    y_first = np.floor(y_over - y_width).astype(int) + 1
+    for j in range(int(np.ceil(2 * y_width))):
+        yidx = y_first + j
+        for i in range(int(np.ceil(2 * x_width))):
+            xidx = x_first + i
+            mask = ((xidx >= 0) & (xidx < epsf_shape[1])
+                    & (yidx >= 0) & (yidx < epsf_shape[0])
+                    & (xidx <= x_over + x_width)
+                    & (yidx <= y_over + y_width))
+            out_image[yidx[mask], xidx[mask]] = stardata[mask]
+
+    return out_image
+
+
+@pytest.mark.parametrize('oversampling', [1, 2, (1, 2), 4])
+def test_resample_residuals_matches_per_star(epsf_test_data, oversampling):
+    """
+    Test that the vectorized residual stack equals the per-star
+    resampling, including masked pixels, out-of-grid pixels, and
+    excluded stars.
+    """
+    stars = extract_stars(epsf_test_data['nddata'],
+                          epsf_test_data['init_stars'][:8], size=11)
+    # Mask a few pixels in one star and shift another star so that
+    # part of its footprint falls outside the ePSF grid.
+    star0, star1, star2 = stars.all_stars[:3]
+    star0.mask[2:4, 3:6] = True
+    star1.cutout_center = (1.3, 9.2)
+    star2._excluded_from_fit = True
+
+    builder = EPSFBuilder(oversampling=oversampling, progress_bar=False)
+    epsf = builder._create_initial_epsf(stars)
+    rng = np.random.default_rng(0)
+    epsf.data[:] = rng.uniform(0.0, 1.0, epsf.data.shape)
+    stack = builder._resample_residuals(stars, epsf)
+    assert stack.shape[0] == 7
+
+    for i, star in enumerate(stars.all_good_stars):
+        expected = _resample_residual_per_star(builder, star, epsf)
+        assert_array_equal(np.isnan(stack[i]), np.isnan(expected))
+        assert_allclose(stack[i], expected, equal_nan=True)
+
+    # Processing the stars in several chunks gives the same stack
+    chunked = builder._resample_residuals(stars, epsf, chunk_size=3)
+    assert_array_equal(chunked, stack)

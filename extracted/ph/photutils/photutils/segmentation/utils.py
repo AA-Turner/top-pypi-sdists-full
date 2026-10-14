@@ -25,8 +25,8 @@ def make_2dgaussian_kernel(fwhm, size, mode='oversample', oversampling=10):
     Parameters
     ----------
     fwhm : float
-        The full-width at half-maximum (FWHM) of the 2D circular
-        Gaussian kernel.
+        The full width at half maximum (FWHM) of the 2D circular
+        Gaussian kernel, in pixels.
 
     size : int or (2,) int array_like
         The size of the kernel along each axis. If ``size`` is a scalar
@@ -80,9 +80,9 @@ def _make_binary_structure(ndim, connectivity):
     connectivity : {4, 8}
         For the case of ``ndim=2``, the type of pixel connectivity used
         in determining how pixels are grouped into a detected source.
-        The options are 4 or 8 (default). 4-connected pixels touch along
-        their edges. 8-connected pixels touch along their edges or
-        corners. For reference, SourceExtractor uses 8-connected pixels.
+        The options are 4 or 8. 4-connected pixels touch along their
+        edges. 8-connected pixels touch along their edges or corners.
+        For reference, SourceExtractor uses 8-connected pixels.
 
     Returns
     -------
@@ -98,7 +98,7 @@ def _make_binary_structure(ndim, connectivity):
         elif connectivity == 8:
             footprint = np.ones((3, 3), dtype=int)
         else:
-            msg = f'Invalid connectivity={connectivity} -- options are 4 or 8'
+            msg = f'Invalid connectivity={connectivity}. Options are 4 or 8'
             raise ValueError(msg)
     else:
         footprint = generate_binary_structure(ndim, 1)
@@ -106,13 +106,20 @@ def _make_binary_structure(ndim, connectivity):
     return footprint
 
 
-def _mask_to_mirrored_value(data, replace_mask, xycenter, *, mask=None):
+def _mask_to_mirrored_value(data, replace_mask, xycenter, *, mask=None,
+                            return_uncorrected=False):
     """
     Replace masked pixels with the value of the pixel mirrored across a
     given center position.
 
     If the mirror pixel is unavailable (i.e., it is outside the image or
     masked), then the masked pixel value is set to zero.
+
+    Note that this function is not used in production. The
+    `~photutils.segmentation.SourceCatalog` batch kernels apply the
+    mirroring correction in compiled code. It is kept as the pure-Python
+    mirror of that correction and must track the compiled semantics
+    exactly, which is enforced by the batch cross-implementation tests.
 
     Parameters
     ----------
@@ -124,24 +131,37 @@ def _mask_to_mirrored_value(data, replace_mask, xycenter, *, mask=None):
         should be replaced, if possible, by mirrored pixel values. It
         must have the same shape as ``data``.
 
-    xycenter : tuple of two int
+    xycenter : tuple of two float
         The (x, y) center coordinates around which masked pixels will be
         mirrored.
 
-    mask : 2D bool `~numpy.ndarray`
+    mask : 2D bool `~numpy.ndarray`, optional
         A boolean mask where `True` values indicate ``replace_mask``
         *mirrored* pixels that should never be used to fix
         ``replace_mask`` pixels. In other words, if a pixel in
         ``replace_mask`` has a mirror pixel in this ``mask``, then the
         mirrored value is set to zero. Using this keyword prevents
-        potential spreading of known non-finite or bad pixel values.
+        potential spreading of known nonfinite or bad pixel values.
+
+    return_uncorrected : bool, optional
+        If `True`, also return a boolean mask of the ``replace_mask``
+        pixels that could not be replaced by a mirrored value (i.e., the
+        mirror pixel was outside the image, in ``mask``, or itself in
+        ``replace_mask``) and were set to zero instead.
 
     Returns
     -------
     result : 2D `~numpy.ndarray`
-        A 2D array with replaced masked pixels.
+        A 2D array with replaced masked pixels. If
+        ``return_uncorrected`` is `True`, then a tuple of ``(result,
+        uncorrected)`` is returned instead, where ``uncorrected`` is a
+        2D bool `~numpy.ndarray` that is `True` for the ``replace_mask``
+        pixels that were set to zero because their mirrored value was
+        unavailable.
     """
     outdata = np.copy(data)
+    uncorrected = (np.zeros(data.shape, dtype=bool) if return_uncorrected
+                   else None)
 
     ymasked, xmasked = np.nonzero(replace_mask)
     xmirror = 2 * int(xycenter[0] + 0.5) - xmasked
@@ -154,7 +174,11 @@ def _mask_to_mirrored_value(data, replace_mask, xycenter, *, mask=None):
     # Remove them from the set of replace_mask pixels and set them to
     # zero
     if np.any(badmask):
-        outdata[ymasked[badmask], xmasked[badmask]] = 0.0
+        youtside = ymasked[badmask]
+        xoutside = xmasked[badmask]
+        outdata[youtside, xoutside] = 0.0
+        if return_uncorrected:
+            uncorrected[youtside, xoutside] = True
         # Remove the badmask pixels from pixels to be replaced
         goodmask = ~badmask
         ymasked = ymasked[goodmask]
@@ -172,5 +196,9 @@ def _mask_to_mirrored_value(data, replace_mask, xycenter, *, mask=None):
     xbad = xmasked[mirror_mask]
     ybad = ymasked[mirror_mask]
     outdata[ybad, xbad] = 0.0
+
+    if return_uncorrected:
+        uncorrected[ybad, xbad] = True
+        return outdata, uncorrected
 
     return outdata

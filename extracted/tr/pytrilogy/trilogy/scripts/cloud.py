@@ -229,9 +229,22 @@ ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS = 300.0
 #: belt-and-braces second signal, so a terminal state that somehow carries no
 #: timestamp still ends the wait instead of hanging until the timeout.
 TERMINAL_RUN_STATUSES = frozenset(
-    {"completed", "failed", "cancelled", "canceled", "timed_out", "errored", "error"}
+    {
+        "completed",
+        "up_to_date",
+        "failed",
+        "cancelled",
+        "canceled",
+        "skipped",
+        "blocked",
+        "timed_out",
+        "errored",
+        "error",
+    }
 )
-SUCCESS_RUN_STATUS = "completed"
+#: ``up_to_date`` is a refresh that found nothing stale (``trilogy refresh``
+#: exit 2): a success, which the platform counts as one everywhere.
+SUCCESS_RUN_STATUSES = frozenset({"completed", "up_to_date"})
 WAIT_POLL_SECONDS = 5
 #: Generous by default: a cold executor can take minutes just to claim a run,
 #: and the job's own timeout is the real upper bound on the work itself.
@@ -253,7 +266,15 @@ M = TypeVar("M", bound=BaseModel)
 
 
 class CloudError(click.ClickException):
-    """An API or configuration failure, rendered as a clean CLI error."""
+    """An API or configuration failure, rendered as a clean CLI error.
+
+    ``status`` is the HTTP status when the API answered with an error, so a
+    command can turn an expected refusal into an answer rather than a failure.
+    """
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 # ============================================================================
@@ -739,7 +760,8 @@ class CloudClient:
                 hint = " (run `trilogy cloud login`)"
         tries = f" after {attempt} attempts" if attempt > 1 else ""
         return CloudError(
-            f"{method} {path} failed{tries}: {exc.code} {detail or exc.reason}{hint}"
+            f"{method} {path} failed{tries}: {exc.code} {detail or exc.reason}{hint}",
+            status=exc.code,
         )
 
     def _transport_error(
@@ -2851,7 +2873,8 @@ def _wait_for_run(
         if time.monotonic() >= deadline:
             raise CloudError(
                 f"Run {run_id} was still {run.status!r} after {timeout}s. "
-                f"It is not cancelled — check `trilogy cloud runs show {run_id}`."
+                f"It is still going: `trilogy cloud runs show {run_id}` to "
+                f"look, `trilogy cloud runs cancel {run_id}` to stop it."
             )
         time.sleep(min(poll, max(0, deadline - time.monotonic())))
 
@@ -2886,7 +2909,7 @@ def _report_finished_run(org: str, run: JobRunExt, logs: bool = False) -> None:
 
     A failure prints the log tail whether or not it was asked for.
     """
-    failed = run.status != SUCCESS_RUN_STATUS
+    failed = run.status not in SUCCESS_RUN_STATUSES
     if is_json_mode():
         emit_event("run_finished", org=org, run=run.model_dump(mode="json"))
     else:
@@ -2935,6 +2958,63 @@ def runs_wait(
     client, org = _org_client(ctx)
     run = _wait_for_run(client, org, run_id, timeout, poll_seconds)
     _report_finished_run(org, run, logs=logs)
+
+
+@runs.command("cancel")
+@click.argument("run_ids", metavar="RUN_ID...", nargs=-1, required=True)
+@click.pass_context
+def runs_cancel(ctx: click.Context, run_ids: tuple[str, ...]) -> None:
+    """Cancel one or more runs.
+
+    A run that has not started never will. A running one is stopped where it
+    runs, within about half a minute. A run that does not exist, or already
+    finished, is reported as such and the others are still cancelled; the
+    command then exits non-zero.
+    """
+    client, org = _org_client(ctx)
+    failures: list[str] = []
+    for run_id in dict.fromkeys(run_ids):
+        path = f"/orgs/{org}/jobs/runs/{quote(run_id)}"
+        try:
+            run = client.post_one(f"{path}/cancel", JobRun)
+        except CloudError as exc:
+            if exc.status == 404:
+                failures.append(run_id)
+                _report_uncancelled(org, run_id, None)
+                continue
+            if exc.status == 409:
+                failures.append(run_id)
+                _report_uncancelled(org, run_id, client.get_one(path, JobRunExt))
+                continue
+            raise
+        if is_json_mode():
+            emit_event("run_cancelled", org=org, run=run.model_dump(mode="json"))
+        elif run.started_at is not None:
+            print_success(
+                f"Cancelled run {run.id}; it was executing and stops within "
+                "about 30 seconds."
+            )
+        else:
+            print_success(f"Cancelled run {run.id} before it started.")
+    if failures:
+        raise CloudError(
+            f"Could not cancel {len(failures)} run(s): {', '.join(failures)}"
+        )
+
+
+def _report_uncancelled(org: str, run_id: str, run: JobRunExt | None) -> None:
+    """A run that was not cancelled: unknown (``None``) or already finished."""
+    if is_json_mode():
+        if run is None:
+            emit_event("run_not_found", org=org, run_id=run_id)
+        else:
+            emit_event("run_already_finished", org=org, run=run.model_dump(mode="json"))
+    elif run is None:
+        print_warning(f"Run {run_id} not found in org {org!r}.")
+    else:
+        print_warning(
+            f"Run {run_id} of {run.job_name!r} already finished: {run.status}."
+        )
 
 
 @runs.command("show")

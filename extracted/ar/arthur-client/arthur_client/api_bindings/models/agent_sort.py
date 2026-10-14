@@ -32,6 +32,7 @@ class AgentSort(str, Enum):
     DISCOVERY_SOURCE = 'discovery_source'
     SOURCE_CLASS = 'source_class'
     FIRST_SEEN = 'first_seen'
+    ENGINE = 'engine'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

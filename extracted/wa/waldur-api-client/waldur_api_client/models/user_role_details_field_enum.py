@@ -8,6 +8,7 @@ class UserRoleDetailsFieldEnum(str, Enum):
     EXPIRATION_TIME = "expiration_time"
     ROLE_NAME = "role_name"
     ROLE_UUID = "role_uuid"
+    SOURCE = "source"
     USER_EMAIL = "user_email"
     USER_FULL_NAME = "user_full_name"
     USER_IMAGE = "user_image"

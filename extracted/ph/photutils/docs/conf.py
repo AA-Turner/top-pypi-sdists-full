@@ -25,8 +25,8 @@ from sphinx.util import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from sphinx_astropy.conf.v2 import *  # noqa: F403
-    from sphinx_astropy.conf.v2 import extensions  # noqa: E402
+    from sphinx_astropy.conf.v3 import *  # noqa: F403
+    from sphinx_astropy.conf.v3 import extensions  # noqa: E402
 except ImportError:
     msg = ('The documentation requires the sphinx-astropy package to be '
            'installed. Please install the "docs" requirements.')
@@ -63,7 +63,6 @@ intersphinx_mapping.update(  # noqa: F405
     {'gwcs': ('https://gwcs.readthedocs.io/en/latest/', None),
      'regions': ('https://astropy-regions.readthedocs.io/en/stable/', None),
      'shapely': ('https://shapely.readthedocs.io/en/stable/', None),
-     'skimage': ('https://scikit-image.org/docs/stable/', None),
      })
 
 # Exclude astropy intersphinx_mapping for unused packages
@@ -109,17 +108,13 @@ dev = 'dev' in release
 # -- Options for HTML output --------------------------------------------------
 
 html_theme_options = {
-    'header_links_before_dropdown': 6,
-    'collapse_navigation': True,
-    'navigation_depth': 2,
-    'show_nav_level': 2,
     'navigation_with_keys': False,
     'use_edit_page_button': False,
     'logo': {
         'image_light': 'photutils_logo_light_plain_path.svg',
         'image_dark': 'photutils_logo_dark_plain_path.svg',
     },
-    # alternate way to set the logo
+    # Alternate way to set the logo
     # 'github_url': 'https://github.com/astropy/photutils',
     'icon_links': [
         {'name': 'GitHub',
@@ -156,7 +151,7 @@ html_context = {
     'READTHEDOCS': os.environ.get('READTHEDOCS', '') == 'True',
 }
 
-# fix size of inheritance diagrams (e.g., PSF diagram was cut off)
+# Fix size of inheritance diagrams (e.g., PSF diagram was cut off)
 inheritance_graph_attrs = {'size': '""'}
 
 # -- Options for LaTeX output -------------------------------------------------
@@ -164,7 +159,6 @@ inheritance_graph_attrs = {'size': '""'}
 # start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [('index', project + '.tex', project + ' Documentation',
                     author, 'manual')]
-# latex_logo = '_static/photutils_banner.pdf'
 
 # -- Options for manual page output -------------------------------------------
 # One entry per manual page. List of tuples (source start file, name,
@@ -184,7 +178,7 @@ nitpicky = True
 #
 # <type> <class>
 #
-# for example:
+# For example:
 #
 # py:class astropy.io.votable.tree.Element
 # py:class astropy.io.votable.tree.SimpleElement
@@ -207,8 +201,87 @@ linkcheck_retry = 5
 linkcheck_ignore = [
     'http://data.astropy.org',
     r'https://github\.com/astropy/photutils/(?:issues|pull)/\d+',
+    r'https://ui\.adsabs\.harvard\.edu/.*',  # 405 Client Error
     # Zenodo/doi: 403 Client Error: Forbidden for url
     r'https://zenodo.org/records/*',
     r'https://doi.org/*',
 ]
 linkcheck_timeout = 180
+
+
+# -- Hide private base classes from the rendered "Bases:" line ----------------
+def _public_ancestors(cls):
+    """
+    Yield the nearest public ancestors of a private base class.
+
+    Parameters
+    ----------
+    cls : type
+        The private base class to resolve.
+
+    Yields
+    ------
+    ancestor : type
+        Each nearest public ancestor of ``cls``, in method resolution
+        order. Private ancestors are replaced by their own nearest
+        public ancestors.
+    """
+    for base in cls.__bases__:
+        if base.__name__.startswith('_'):
+            yield from _public_ancestors(base)
+        else:
+            yield base
+
+
+def _hide_private_bases(app, name, obj, options, bases):  # noqa: ARG001
+    """
+    Replace private base classes with their nearest public ancestors.
+
+    A private base class is rendered as unlinked plain text in the
+    "Bases:" line of a class page, because it has no documentation to
+    link to. This handler substitutes the nearest public ancestors
+    instead, so that implementation-detail mixins and common base
+    classes stay out of the public API documentation.
+
+    Parameters
+    ----------
+    app : `sphinx.application.Sphinx`
+        The Sphinx application object.
+
+    name : str
+        The fully qualified name of the class being documented.
+
+    obj : type
+        The class being documented.
+
+    options : `sphinx.ext.autodoc.Options`
+        The options given to the class directive.
+
+    bases : list of type
+        The base classes to render. This list is modified in place.
+    """
+    public = []
+    for base in bases:
+        replacements = ([base] if not base.__name__.startswith('_')
+                        else _public_ancestors(base))
+        for cls in replacements:
+            if cls not in public:
+                public.append(cls)
+
+    # Drop the implicit object base unless it is the only one left
+    if len(public) > 1:
+        public = [cls for cls in public if cls is not object]
+
+    bases[:] = public
+
+
+def setup(app):
+    """
+    Connect the photutils-specific Sphinx event handlers.
+
+    Parameters
+    ----------
+    app : `sphinx.application.Sphinx`
+        The Sphinx application object.
+    """
+    app.connect('autodoc-process-bases', _hide_private_bases)

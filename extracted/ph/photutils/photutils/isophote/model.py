@@ -7,9 +7,8 @@ isophotes.
 import numpy as np
 from scipy.interpolate import LSQUnivariateSpline
 
+from photutils.isophote._ellipse_model import build_ellipse_model_c
 from photutils.utils._deprecation import deprecated_positional_kwargs
-
-from .ellipse_model import build_ellipse_model_c
 
 __all__ = ['build_ellipse_model']
 
@@ -51,11 +50,11 @@ def build_ellipse_model(
 
     high_harmonics : bool, optional
         Whether to add the higher-order harmonics (i.e., ``a3``, ``b3``,
-        ``a4``, and ``b4``; see `~photutils.isophote.Isophote` for
-        details) to the result.
+        ``a4``, and ``b4``) to the result. See
+        `~photutils.isophote.Isophote` for details.
 
     sma_interval : optional, float
-        The interval between node values of the semi-major axis, which is used
+        The interval between node values of the semimajor axis, which is used
         to spline interpolate values of other shape parameters.
 
     Returns

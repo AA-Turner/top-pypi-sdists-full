@@ -47,7 +47,8 @@ def sync_detailed(
 ) -> Response[Status]:
     """Connect subnet to router
 
-     Connect the subnet to the default tenant router.
+     Connect the subnet to its router: the one chosen when the subnet was created or last attached to,
+    and otherwise the tenant router Waldur picks.
 
     Args:
         uuid (UUID):
@@ -78,7 +79,8 @@ def sync(
 ) -> Status:
     """Connect subnet to router
 
-     Connect the subnet to the default tenant router.
+     Connect the subnet to its router: the one chosen when the subnet was created or last attached to,
+    and otherwise the tenant router Waldur picks.
 
     Args:
         uuid (UUID):
@@ -104,7 +106,8 @@ async def asyncio_detailed(
 ) -> Response[Status]:
     """Connect subnet to router
 
-     Connect the subnet to the default tenant router.
+     Connect the subnet to its router: the one chosen when the subnet was created or last attached to,
+    and otherwise the tenant router Waldur picks.
 
     Args:
         uuid (UUID):
@@ -133,7 +136,8 @@ async def asyncio(
 ) -> Status:
     """Connect subnet to router
 
-     Connect the subnet to the default tenant router.
+     Connect the subnet to its router: the one chosen when the subnet was created or last attached to,
+    and otherwise the tenant router Waldur picks.
 
     Args:
         uuid (UUID):

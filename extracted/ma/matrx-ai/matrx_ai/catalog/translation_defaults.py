@@ -178,6 +178,9 @@ GOOGLE_3_EFFORT_TO_LEVEL: dict[str, dict[str, str | None]] = {
     },
 }
 GOOGLE_3_DEFAULT_FAMILY = "pro"
+# gemini_3 has no off: an off (effort "none", level "none", budget <= 0) sends the
+# level this effort maps to — the bottom of the scale — reconciled to the model.
+GOOGLE_3_OFF_EFFORT = "minimal"
 
 # gemini_3: reasoning_summary -> include_thoughts
 # (processor_config["summary_to_include"] overrides).

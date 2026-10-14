@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 #
 # CodeQL security and quality analysis for omnibase_spi.
-# Calls the reusable workflow in onex_change_control.
+# Calls the reusable workflow in omnibase_core.
 # OMN-5422
 
 name: Security Scan
@@ -16,10 +16,16 @@ on:
     # Run weekly on Monday at 06:00 UTC
     - cron: "0 6 * * 1"
 
+# OMN-19641: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   codeql:
     name: CodeQL
-    uses: OmniNode-ai/onex_change_control/.github/workflows/codeql-reusable.yml@main
+    uses: OmniNode-ai/omnibase_core/.github/workflows/codeql-reusable.yml@3fbb43eaff028a30edccb1b9b794e0a3f3d9523c # pinned omnibase_core rev (OMN-20074)
     with:
       language: python
       query_suite: security-and-quality

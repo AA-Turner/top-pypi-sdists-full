@@ -141,18 +141,119 @@ def _baked_version() -> str | None:
     return baked if isinstance(baked, str) and baked.strip() else None
 
 
-def momwire_version() -> str | None:
-    """The full momwire version this process is running, or None.
+# The installed version, read WITHOUT importing `importlib.metadata`
+# (momwire#1445). That import drags in `email`, `zipfile`, `pathlib` and
+# `inspect` -- ~33 ms on Haswell and ~80 ms on the laptop, most of a thin
+# client's whole warm call, paid on every launch because a client's life is
+# one call. What it then does for one name is cheap: walk `sys.path` in order,
+# take the first `momwire-*.dist-info` (or `.egg-info`) in each entry's listing
+# order, and read the `Version` header of its METADATA (else PKG-INFO). The
+# scan below is that search -- its own `FastPath`/`Lookup` rule, name test
+# included -- spelt with `os.listdir` and a plain read.
+#
+# It answers only the PLAIN shape and refuses to guess at the rest: a zip or
+# an `.egg` on the path, a finder on `sys.meta_path` that answers for
+# distributions itself, a missing or unreadable METADATA, a folded or unusual
+# header. Every one of those returns "not answered here", and the caller asks
+# `importlib.metadata` exactly as it always did, so the worst case is today's
+# speed, never a different answer. tests/test_eznec_engine_stamp.py holds the
+# two readers equal on planted layouts.
+_METADATA_FILES = ("METADATA", "PKG-INFO")
+_METADATA_SUFFIXES = (".dist-info", ".egg-info")
+# What `importlib.metadata`'s read_text swallows (it then tries the next
+# file); anything else it lets escape, so the scan defers on anything else.
+_METADATA_MISSING = (
+    FileNotFoundError,
+    IsADirectoryError,
+    NotADirectoryError,
+    PermissionError,
+)
 
-    Resolution order (momwire#1277): the version baked into a frozen bundle
-    FIRST, then the installed distribution's metadata.  The metadata is the
-    whole answer on a source or pip install, where an editable install reports
-    the version recorded at ``pip install -e`` time.  None, never an
-    exception: a version probe must never be the thing that fails.
+
+class _NotPlain(Exception):
+    """A layout the scan does not answer for; ``importlib.metadata`` does."""
+
+
+def _metadata_dir(entry: str) -> str | None:
+    """The first momwire metadata directory in one ``sys.path`` entry, or None.
+
+    Raises :class:`_NotPlain` for an entry only the real reader can search.
     """
-    baked = _baked_version()
-    if baked is not None:
-        return baked
+    if os.path.basename(entry).lower().endswith(".egg"):
+        raise _NotPlain(entry)
+    try:
+        names = os.listdir(entry or ".")
+    except OSError:
+        # A missing directory is searched by nobody; a zip (or any file) on
+        # the path is searched by the real reader, through `zipfile`.
+        if os.path.isfile(entry):
+            raise _NotPlain(entry) from None
+        return None
+    for name in names:
+        low = name.lower()
+        if (
+            low.endswith(_METADATA_SUFFIXES)
+            and low.rpartition(".")[0].partition("-")[0] == "momwire"
+        ):
+            return os.path.join(entry, name)
+    return None
+
+
+def _header_version(text: str) -> str:
+    """The first ``Version`` header of a METADATA text, read the way the
+    ``email`` parser's compat32 policy reads an unfolded one."""
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if not line.strip():
+            break  # the headers ended
+        key, sep, value = line.partition(":")
+        if not sep or not key or key != key.strip():
+            break  # not a plain header line: the parser's call, not ours
+        if key.lower() == "version":
+            following = lines[i + 1] if i + 1 < len(lines) else ""
+            if following[:1] in (" ", "\t"):
+                break  # folded
+            return value.lstrip(" \t").rstrip("\r\n")
+    raise _NotPlain("Version")
+
+
+def _scan_metadata_version() -> str:
+    """``importlib.metadata.version("momwire")`` on the plain shape.
+
+    Raises :class:`_NotPlain` (or whatever a read raised) when it cannot
+    answer with certainty, including when nothing is installed at all.
+    """
+    import sys
+
+    import _frozen_importlib_external
+
+    for finder in sys.meta_path:
+        if finder is _frozen_importlib_external.PathFinder:
+            continue
+        if getattr(finder, "find_distributions", None) is not None:
+            raise _NotPlain(repr(finder))
+    for entry in sys.path:
+        found = _metadata_dir(entry)
+        if found is None:
+            continue
+        for filename in _METADATA_FILES:
+            try:
+                with open(os.path.join(found, filename), encoding="utf-8") as handle:
+                    text = handle.read()
+            except _METADATA_MISSING:
+                continue
+            if text:
+                return _header_version(text)
+        raise _NotPlain(found)
+    raise _NotPlain("not installed")
+
+
+def _metadata_version() -> str | None:
+    """The installed distribution's version: the scan, else the real reader."""
+    try:
+        return _scan_metadata_version()
+    except Exception:  # noqa: BLE001 - every miss defers to the reader below
+        pass
     try:
         from importlib.metadata import version as _pkg_version
 
@@ -161,6 +262,24 @@ def momwire_version() -> str | None:
         # Every exception, not just PackageNotFoundError: a broken or
         # half-written dist-info raises from inside the metadata reader.
         return None
+
+
+def momwire_version() -> str | None:
+    """The full momwire version this process is running, or None.
+
+    Resolution order (momwire#1277): the version baked into a frozen bundle
+    FIRST, then the installed distribution's metadata.  The metadata is the
+    whole answer on a source or pip install, where an editable install reports
+    the version recorded at ``pip install -e`` time.  None, never an
+    exception: a version probe must never be the thing that fails.
+
+    The metadata is read by :func:`_metadata_version`, which answers the
+    common install without importing ``importlib.metadata`` (momwire#1445).
+    """
+    baked = _baked_version()
+    if baked is not None:
+        return baked
+    return _metadata_version()
 
 
 def bundle_dist_versions(base: str | None = None) -> list[str]:
@@ -223,10 +342,22 @@ def digest(parts: list[str]) -> str:
     The caller decides what is identity — the rule from #379: an upgrade, a
     different venv, a different basis is a DIFFERENT engine and must not be
     served by whatever is still resident from before.
-    """
-    import hashlib
 
-    return hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()[:16]
+    SHA-256 from CPython's own built-in module where it has one, ahead of
+    ``hashlib``: the digest is the same function either way, but ``hashlib``
+    loads OpenSSL's ``_hashlib`` first, ~1.1 ms of every warm client launch
+    on Haswell (momwire#1445).  ``_sha2`` is the module's name from 3.12,
+    ``_sha256`` before; a build with neither gets ``hashlib``.
+    """
+    try:
+        from _sha2 import sha256  # type: ignore[import-not-found]
+    except ImportError:
+        try:
+            from _sha256 import sha256  # type: ignore[import-not-found]
+        except ImportError:
+            from hashlib import sha256
+
+    return sha256("\0".join(parts).encode("utf-8")).hexdigest()[:16]
 
 
 def filename_basis(prog: str, marker: str, consumed: str | None = None) -> str | None:
@@ -259,25 +390,29 @@ def filename_basis(prog: str, marker: str, consumed: str | None = None) -> str |
     return suffix
 
 
-# `momwire.deck._solver.NEC4_MARKER`, restated: a client may not import
-# momwire (momwire#1295).
+# `momwire.deck._solver.NEC4_MARKER` and `NEC42_MARKER`, restated: a client
+# may not import momwire (momwire#1295, momwire#1443).
 NEC4_MARKER = "nec4"
+NEC42_MARKER = "nec42"
 
 
 def filename_nec4(prog: str) -> tuple[bool, str | None]:
     """``(is_nec4, basis)`` for a command NAME — the stdlib copy of
     ``_solver.dialect_from_program_name`` and ``nec4_basis_from_program_name``
     (momwire#1295), whose docstrings are the rule.  ``is_nec4`` is whether the
-    name carries ``nec4`` at all; ``basis`` is ``None`` for a name ending at
-    the marker, the text after ``nec4-`` for one that continues with a dash,
-    and the whole continuation otherwise, so it reaches the refusal by name.
+    name carries ``nec4`` at all; the marker is ``nec42`` when the name
+    carries it, else ``nec4`` (momwire#1443); ``basis`` is ``None`` for a name
+    ending at the marker, the text after ``<marker>-`` for one that continues
+    with a dash, and the whole continuation otherwise, so it reaches the
+    refusal by name.
     """
     name = prog.replace("\\", "/").rsplit("/", 1)[-1].casefold()
     if name.endswith(".exe"):
         name = name[:-4]
     if NEC4_MARKER not in name:
         return False, None
-    rest = name.split(NEC4_MARKER, 1)[1]
+    marker = NEC42_MARKER if NEC42_MARKER in name else NEC4_MARKER
+    rest = name.split(marker, 1)[1]
     if rest == "":
         return True, None
     return True, rest[1:] if rest.startswith("-") else rest
@@ -301,9 +436,11 @@ def runtime_dir() -> str:
     tests get an isolated server and how a user with an odd home can move it.
     One directory for BOTH clients: the keys already separate the engines, and
     a second env override would be a second thing to document and get wrong.
-    """
-    import tempfile
 
+    ``tempfile`` is imported only on the fallbacks that read it: it drags in
+    ``shutil``, ``random`` and friends, ~5 ms of every warm client launch
+    that had a runtime directory all along (momwire#1445).
+    """
     base = os.environ.get("MOMWIRE_PORTAL_RUNTIME_DIR")
     if not base:
         if os.name == "nt":
@@ -312,6 +449,7 @@ def runtime_dir() -> str:
                 base = os.path.join(local, "momwire-portal")
             else:
                 import getpass
+                import tempfile
 
                 base = os.path.join(
                     tempfile.gettempdir(), f"momwire-portal-{getpass.getuser()}"
@@ -321,6 +459,8 @@ def runtime_dir() -> str:
             if xdg and os.path.isdir(xdg):
                 base = os.path.join(xdg, "momwire-portal")
             else:
+                import tempfile
+
                 base = os.path.join(
                     tempfile.gettempdir(), f"momwire-portal-{os.getuid()}"
                 )

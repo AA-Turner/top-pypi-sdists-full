@@ -97,6 +97,7 @@ def test_a_write_cut_off_by_a_lost_lease_is_not_lost(tmp_path, monkeypatch):
 
 def _ending(command: str, summary: str):
     """One response: a shell call, then `final_result` -- the shape B2 asks for."""
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     from pydantic_ai.messages import ModelResponse, ToolCallPart
 
     return ModelResponse(parts=[ToolCallPart("shell", {"command": command, "why": "record"}),
@@ -130,6 +131,7 @@ def _retries(messages) -> list[str]:
 
 
 def test_a_run_ends_in_the_same_response_as_writes_that_landed(tmp_path, monkeypatch):
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     result, seen, probe = _run_writer(tmp_path, monkeypatch, [_ending("probe run tag r1 done", "tagged r1")], {})
     assert result.output.summary == "tagged r1"
     assert len(seen) == 1, "one model round: the write and the end together"
@@ -137,6 +139,7 @@ def test_a_run_ends_in_the_same_response_as_writes_that_landed(tmp_path, monkeyp
 
 
 def test_a_failed_write_in_the_ending_response_keeps_the_run_going(tmp_path, monkeypatch):
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     from pydantic_ai.messages import ModelResponse, ToolCallPart
 
     second = ModelResponse(parts=[ToolCallPart("final_result", {"summary": "tag failed: the run is gone"})])
@@ -150,6 +153,7 @@ def test_a_failed_write_in_the_ending_response_keeps_the_run_going(tmp_path, mon
 
 
 def test_a_blocked_write_in_the_ending_response_keeps_the_run_going(tmp_path, monkeypatch):
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     from pydantic_ai.messages import ModelResponse, ToolCallPart
 
     second = ModelResponse(parts=[ToolCallPart("final_result", {"summary": "nothing new"})])
@@ -161,6 +165,7 @@ def test_a_blocked_write_in_the_ending_response_keeps_the_run_going(tmp_path, mo
 
 def test_a_failed_write_answered_before_the_end_is_not_retried(tmp_path, monkeypatch):
     """The model read the failure (its own round), then ended: nothing is lost."""
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     from pydantic_ai.messages import ModelResponse, ToolCallPart
 
     first = ModelResponse(parts=[ToolCallPart("shell", {"command": "probe run tag r1 done"})])
@@ -172,6 +177,7 @@ def test_a_failed_write_answered_before_the_end_is_not_retried(tmp_path, monkeyp
 def test_a_write_that_keeps_failing_still_lets_the_run_end(tmp_path, monkeypatch):
     """On the tool's last attempt the end goes through: past it pydantic-ai
     would fail the whole run, and the next run's open-failures list shows it."""
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     result, seen, _ = _run_writer(tmp_path, monkeypatch, [_ending("probe run tag r1 done", "tagged r1")],
                                   {"run tag": 1})
     assert result.output.summary == "tagged r1"
@@ -181,6 +187,7 @@ def test_a_write_that_keeps_failing_still_lets_the_run_end(tmp_path, monkeypatch
 def test_a_tool_that_raised_in_the_ending_response_keeps_the_run_going(tmp_path, monkeypatch):
     """Review 10-13: a command whose tool raised (a folder gone, a process that
     could not start) may have been a write: the end waits for the model to see it."""
+    pytest.importorskip("pydantic_ai")  # the `daemon` extra; agent-ci's plain shards lack it
     from pydantic_ai.messages import ModelResponse, ToolCallPart
 
     async def boom(deps, command, why=""):

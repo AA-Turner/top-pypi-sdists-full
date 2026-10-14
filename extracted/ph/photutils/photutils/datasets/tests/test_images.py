@@ -7,7 +7,7 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.modeling.models import Moffat2D, Polynomial2D
-from astropy.table import QTable
+from astropy.table import QTable, Table
 from numpy.testing import assert_allclose
 
 from photutils.datasets import make_model_image
@@ -43,6 +43,76 @@ def test_make_model_image():
     image = make_model_image(shape, model, params, model_shape=model_shape)
     assert image.shape == shape
     assert image.sum() > 1
+
+    # Test scalar shape
+    del params['model_shape']
+    del params['local_bkg']
+    image = make_model_image(300, model, params, model_shape=model_shape)
+    assert image.shape == (300, 300)
+
+
+def test_make_model_image_variable_shape_pairs():
+    """
+    Test a model_shape column containing (ny, nx) pairs.
+    """
+    params = QTable()
+    params['x_0'] = [50, 70, 90]
+    params['y_0'] = [50, 50, 50]
+    params['gamma'] = [1.7, 2.32, 5.8]
+    params['alpha'] = [2.9, 5.7, 4.6]
+    params['model_shape'] = np.array([[9, 7], [7, 9], [11, 11]])
+    model = Moffat2D(amplitude=1)
+    shape = (300, 500)
+    image = make_model_image(shape, model, params)
+    assert image.shape == shape
+    assert image.sum() > 1
+
+
+def test_make_model_image_variable_shape_invalid():
+    """
+    Test that invalid values in a model_shape column raise an error.
+    """
+    params = QTable()
+    params['x_0'] = [50, 70]
+    params['y_0'] = [50, 50]
+    params['gamma'] = [1.7, 2.32]
+    params['alpha'] = [2.9, 5.7]
+    model = Moffat2D(amplitude=1)
+    shape = (300, 500)
+
+    match = 'model_shape must be > 0'
+    for model_shapes in ([0, 11], [-5, 11]):
+        params['model_shape'] = model_shapes
+        with pytest.raises(ValueError, match=match):
+            make_model_image(shape, model, params)
+
+    match = 'model_shape must be a finite value'
+    params['model_shape'] = [np.nan, 11.0]
+    with pytest.raises(ValueError, match=match):
+        make_model_image(shape, model, params)
+
+
+def test_make_model_image_nonfinite_local_bkg():
+    """
+    Test that sources with a nonfinite local_bkg value are skipped.
+    """
+    params = QTable()
+    params['x_0'] = [50.0, 70.0, 90.0]
+    params['y_0'] = [50.0, 50.0, 50.0]
+    params['gamma'] = [1.7, 2.32, 5.8]
+    params['alpha'] = [2.9, 5.7, 4.6]
+    model = Moffat2D(amplitude=1)
+    shape = (100, 150)
+    model_shape = (11, 11)
+    params['local_bkg'] = [0.0, 0.0, 0.0]
+    image0 = make_model_image(shape, model, params, model_shape=model_shape)
+
+    params['local_bkg'] = [np.nan, 0.0, np.inf]
+    image = make_model_image(shape, model, params, model_shape=model_shape)
+    assert not np.any(np.isnan(image))
+    assert image[50, 50] == 0  # first source skipped
+    assert image[50, 90] == 0  # third source skipped
+    assert_allclose(image[50, 70], image0[50, 70])
 
 
 def test_make_model_image_units():
@@ -101,6 +171,44 @@ def test_make_model_image_units_no_overlap():
     assert model.flux == 1.0  # Default flux (unchanged)
 
 
+def test_make_model_image_units_no_sources_rendered():
+    """
+    Test that the output units do not depend on whether any sources
+    are actually rendered.
+    """
+    unit = u.Jy
+    model = CircularGaussianSigmaPRF(sigma=1.5)
+    shape = (10, 12)
+
+    # Zero-row table
+    params = QTable()
+    params['x_0'] = np.array([], dtype=float)
+    params['y_0'] = np.array([], dtype=float)
+    params['flux'] = np.array([], dtype=float) * unit
+    image = make_model_image(shape, model, params, model_shape=(5, 5))
+    assert isinstance(image, u.Quantity)
+    assert image.unit == unit
+    assert np.all(image.value == 0)
+
+    # All rows nonfinite
+    params = QTable()
+    params['x_0'] = [np.nan]
+    params['y_0'] = [5.0]
+    params['flux'] = [1.0] * unit
+    image = make_model_image(shape, model, params, model_shape=(5, 5))
+    assert isinstance(image, u.Quantity)
+    assert image.unit == unit
+    assert np.all(image.value == 0)
+
+    # Zero-row table without units
+    params = QTable()
+    params['x_0'] = np.array([], dtype=float)
+    params['y_0'] = np.array([], dtype=float)
+    image = make_model_image(shape, model, params, model_shape=(5, 5))
+    assert not isinstance(image, u.Quantity)
+    assert np.all(image == 0)
+
+
 def test_make_model_image_discretize_method():
     """
     Test the model image when using different discretization methods.
@@ -138,13 +246,45 @@ def test_make_model_image_no_overlap():
     assert np.sum(data) == 0
 
 
+@pytest.mark.parametrize('per_source', [False, True])
+def test_make_model_image_edge_no_overlap(per_source):
+    """
+    Test that a source whose model box ends exactly at the lower edge of
+    the image is skipped.
+
+    Regression test for the array-valued ``model_shape`` being compared
+    to a tuple in ``overlap_slices``.
+    """
+    params = QTable()
+    params['x_0'] = [50.0, -16.0, 50.0]
+    params['y_0'] = [50.0, 50.0, -16.0]
+    params['flux'] = [100.0, 100.0, 100.0]
+    model = CircularGaussianPSF(fwhm=2.0)
+    shape = (100, 100)
+    model_shape = (31, 31)
+
+    ref_image = make_model_image(shape, model, params[:1],
+                                 model_shape=model_shape)
+    if per_source:
+        params['model_shape'] = [31, 31, 31]
+        image = make_model_image(shape, model, params)
+    else:
+        image = make_model_image(shape, model, params,
+                                 model_shape=model_shape)
+    assert_allclose(image, ref_image)
+
+
 def test_make_model_image_inputs():
     """
     Test that the appropriate exceptions are raised for invalid inputs.
     """
-    match = 'shape must be a 2-tuple'
+    match = 'shape must have 1 or 2 elements'
     with pytest.raises(ValueError, match=match):
-        make_model_image(100, Moffat2D(), QTable())
+        make_model_image((100, 100, 3), Moffat2D(), QTable())
+
+    match = 'shape must be > 0'
+    with pytest.raises(ValueError, match=match):
+        make_model_image((-100, 100), Moffat2D(), QTable())
 
     match = 'model must be a Model instance'
     with pytest.raises(TypeError, match=match):
@@ -193,6 +333,29 @@ def test_make_model_image_inputs():
     with pytest.raises(ValueError, match=match):
         make_model_image(shape, model, params)
 
+    match = 'Invalid discretize_method'
+    with pytest.raises(ValueError, match=match):
+        make_model_image(shape, model, params, model_shape=(11, 11),
+                         discretize_method='invalid')
+
+
+def test_make_model_image_table_units():
+    """
+    Test that a column with units in a plain Table raises a clear
+    error.
+    """
+    params = Table()
+    params['x_0'] = [10.0]
+    params['y_0'] = [10.0]
+    params['amplitude'] = [100.0] * u.Jy
+    match = 'params_table must be a QTable'
+    with pytest.raises(ValueError, match=match):
+        make_model_image((21, 21), Moffat2D(), params, model_shape=(11, 11))
+
+    image = make_model_image((21, 21), Moffat2D(), QTable(params),
+                             model_shape=(11, 11))
+    assert image.unit == u.Jy
+
 
 def test_make_model_image_bbox():
     """
@@ -218,7 +381,6 @@ def test_make_model_image_bbox():
     model1.bbox_factor = 10
     image5 = make_model_image(shape, model1, params)
     assert np.sum(image5) > np.sum(image4)
-    assert_allclose(image3, image4)
 
 
 def test_make_model_image_params_map():
@@ -252,7 +414,7 @@ def test_make_model_image_params_map():
 
 def test_make_model_image_nonfinite():
     """
-    Test the model image when the input table contains non-finite
+    Test the model image when the input table contains nonfinite
     values.
     """
     params = QTable()

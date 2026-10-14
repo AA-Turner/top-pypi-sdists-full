@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5425"
+__version__ = "1.1.5431"
 
 # Define package exports
 __all__ = [
@@ -146,11 +146,33 @@ __all__ = [
     "GetSdlcAssetGraphEvidenceByIdsResponseDto",
     "GoogleContainerRegistryIntegrationCreateDto",
     "GoogleContainerRegistryIntegrationEditDto",
+    "IntegrationAssetType",
     "IntegrationBadResponseDto",
+    "IntegrationCollectionState",
+    "IntegrationCollectionStepDto",
+    "IntegrationCollectionStepStage",
+    "IntegrationCountBasis",
+    "IntegrationCountScope",
+    "IntegrationDataAvailability",
     "IntegrationDto",
     "IntegrationError",
     "IntegrationFailingReason",
+    "IntegrationFreshnessState",
+    "IntegrationHealthBlockerCode",
+    "IntegrationHealthBlockerDto",
+    "IntegrationHealthBrokerDto",
+    "IntegrationHealthCollectionDto",
+    "IntegrationHealthConnectionDto",
+    "IntegrationHealthCountDto",
+    "IntegrationHealthDto",
+    "IntegrationHealthFirstScanDto",
+    "IntegrationHealthFreshnessDto",
+    "IntegrationHealthLifecycleDto",
+    "IntegrationHealthPermissionsDto",
+    "IntegrationHealthSummaryDto",
+    "IntegrationHealthTypeCountDto",
     "IntegrationManagementDto",
+    "IntegrationMissingPermissionDto",
     "IntegrationStatus",
     "IntegrationType",
     "IssueActionType",
@@ -387,11 +409,33 @@ from legit_api_client.models.get_custom_fields_response_dto import GetCustomFiel
 from legit_api_client.models.get_sdlc_asset_graph_evidence_by_ids_response_dto import GetSdlcAssetGraphEvidenceByIdsResponseDto as GetSdlcAssetGraphEvidenceByIdsResponseDto
 from legit_api_client.models.google_container_registry_integration_create_dto import GoogleContainerRegistryIntegrationCreateDto as GoogleContainerRegistryIntegrationCreateDto
 from legit_api_client.models.google_container_registry_integration_edit_dto import GoogleContainerRegistryIntegrationEditDto as GoogleContainerRegistryIntegrationEditDto
+from legit_api_client.models.integration_asset_type import IntegrationAssetType as IntegrationAssetType
 from legit_api_client.models.integration_bad_response_dto import IntegrationBadResponseDto as IntegrationBadResponseDto
+from legit_api_client.models.integration_collection_state import IntegrationCollectionState as IntegrationCollectionState
+from legit_api_client.models.integration_collection_step_dto import IntegrationCollectionStepDto as IntegrationCollectionStepDto
+from legit_api_client.models.integration_collection_step_stage import IntegrationCollectionStepStage as IntegrationCollectionStepStage
+from legit_api_client.models.integration_count_basis import IntegrationCountBasis as IntegrationCountBasis
+from legit_api_client.models.integration_count_scope import IntegrationCountScope as IntegrationCountScope
+from legit_api_client.models.integration_data_availability import IntegrationDataAvailability as IntegrationDataAvailability
 from legit_api_client.models.integration_dto import IntegrationDto as IntegrationDto
 from legit_api_client.models.integration_error import IntegrationError as IntegrationError
 from legit_api_client.models.integration_failing_reason import IntegrationFailingReason as IntegrationFailingReason
+from legit_api_client.models.integration_freshness_state import IntegrationFreshnessState as IntegrationFreshnessState
+from legit_api_client.models.integration_health_blocker_code import IntegrationHealthBlockerCode as IntegrationHealthBlockerCode
+from legit_api_client.models.integration_health_blocker_dto import IntegrationHealthBlockerDto as IntegrationHealthBlockerDto
+from legit_api_client.models.integration_health_broker_dto import IntegrationHealthBrokerDto as IntegrationHealthBrokerDto
+from legit_api_client.models.integration_health_collection_dto import IntegrationHealthCollectionDto as IntegrationHealthCollectionDto
+from legit_api_client.models.integration_health_connection_dto import IntegrationHealthConnectionDto as IntegrationHealthConnectionDto
+from legit_api_client.models.integration_health_count_dto import IntegrationHealthCountDto as IntegrationHealthCountDto
+from legit_api_client.models.integration_health_dto import IntegrationHealthDto as IntegrationHealthDto
+from legit_api_client.models.integration_health_first_scan_dto import IntegrationHealthFirstScanDto as IntegrationHealthFirstScanDto
+from legit_api_client.models.integration_health_freshness_dto import IntegrationHealthFreshnessDto as IntegrationHealthFreshnessDto
+from legit_api_client.models.integration_health_lifecycle_dto import IntegrationHealthLifecycleDto as IntegrationHealthLifecycleDto
+from legit_api_client.models.integration_health_permissions_dto import IntegrationHealthPermissionsDto as IntegrationHealthPermissionsDto
+from legit_api_client.models.integration_health_summary_dto import IntegrationHealthSummaryDto as IntegrationHealthSummaryDto
+from legit_api_client.models.integration_health_type_count_dto import IntegrationHealthTypeCountDto as IntegrationHealthTypeCountDto
 from legit_api_client.models.integration_management_dto import IntegrationManagementDto as IntegrationManagementDto
+from legit_api_client.models.integration_missing_permission_dto import IntegrationMissingPermissionDto as IntegrationMissingPermissionDto
 from legit_api_client.models.integration_status import IntegrationStatus as IntegrationStatus
 from legit_api_client.models.integration_type import IntegrationType as IntegrationType
 from legit_api_client.models.issue_action_type import IssueActionType as IssueActionType

@@ -20,7 +20,7 @@ use crate::{
 	context::Context,
 	error::ParseError,
 	grammar::{ByteHint, Grammar},
-	node::Node,
+	node::{Element, ParsedNode},
 	rule::RuleSet,
 	span::{Span, Spanned, TraceOk, TraceParse, WithSpan},
 };
@@ -121,7 +121,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Link<'data, S>;
+	type Output = Link<S, ParsedNode<'data, S>>;
 	type Error = E;
 
 	#[tracing::instrument(name = "contact_parser", level = Level::TRACE, fields(ok, output))]
@@ -145,7 +145,7 @@ where
 				|Spanned { value, span }| Link {
 					text: Some(Spanned {
 						value: vec![Spanned {
-							value: Node::Text(value.text.into()),
+							value: ParsedNode::Element(Element::Text(value.text.into())),
 							span: span.clone(),
 						}],
 						span,
@@ -168,7 +168,7 @@ where
 #[must_use]
 pub fn contact<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = Link<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = Link<S, ParsedNode<'data, S>>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -188,7 +188,9 @@ mod test {
 	use super::contact;
 	use crate::context::Context;
 	use crate::inline::link::Link;
-	use crate::test_utils::handle_nom_err;
+	use crate::node::{Element, Node, ParsedNode};
+	use crate::range::Content;
+	use crate::test_utils::{handle_nom_err, resolved_node};
 	use crate::{spanned_vec, text};
 
 	#[test]
@@ -202,12 +204,12 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
-			Link {
+			resolved_node(ParsedNode::Element(Element::Link(res)), Content::Inline),
+			Node::Element(Element::Link(Link {
 				url: Url::parse("tel:+1-(800)-588-2300").unwrap(),
 				text: Some(spanned_vec![text!("+1 (800) 588-2300")]),
 				title: None,
-			}
+			}))
 		);
 	}
 
@@ -234,12 +236,12 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
-			Link {
+			resolved_node(ParsedNode::Element(Element::Link(res)), Content::Inline),
+			Node::Element(Element::Link(Link {
 				url: Url::parse("mailto:tim@apple.com").unwrap(),
 				text: Some(spanned_vec![text!("tim@apple.com")]),
 				title: None,
-			}
+			}))
 		);
 	}
 }

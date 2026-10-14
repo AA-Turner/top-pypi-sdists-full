@@ -21,14 +21,9 @@ import shutil
 import subprocess
 import platform
 
-from distutils.file_util import copy_file
-from distutils.dir_util  import mkpath
-try:
-    from setuptools.modified import newer
-except ImportError:
-    from distutils.dep_util import newer
+from setuptools.modified import newer
 
-import distutils.sysconfig
+import sysconfig
 
 runSilently = False
 
@@ -268,9 +263,9 @@ class Configuration(object):
             if sys.platform[:6] == "darwin" and not os.environ.get('LDSHARED'):
                 # We want to use the linker command from wx to make sure
                 # we get the right sysroot, but we also need to ensure that
-                # the other linker flags that distutils wants to use are
+                # the other linker flags that Python wants to use are
                 # included as well.
-                LDSHARED = distutils.sysconfig.get_config_var('LDSHARED').split()
+                LDSHARED = sysconfig.get_config_var('LDSHARED').split()
                 # remove the compiler command
                 del LDSHARED[0]
                 # remove any -sysroot flags and their arg
@@ -485,8 +480,8 @@ class Configuration(object):
         for src in moFiles:
             lang = os.path.splitext(os.path.basename(src))[0]
             dest = opj(destdir, lang, 'LC_MESSAGES')
-            mkpath(dest, verbose=verbose)
-            copy_file(src, opj(dest, 'wxstd.mo'), update=1, verbose=verbose)
+            os.makedirs(dest, exist_ok=True)
+            copyIfNewer(src, opj(dest, 'wxstd.mo'), verbose=verbose)
             os.unlink(src)
             self.CLEANUP.append(opj(dest, 'wxstd.mo'))
             self.CLEANUP.append(dest)
@@ -884,7 +879,7 @@ def getVcsRev():
     return svnrev
 
 
-def runcmd(cmd, getOutput=False, echoCmd=True, fatal=True, onError=None):
+def runcmd(cmd, getOutput=False, echoCmd=True, fatal=True, onError=None, cwd=None, env=None):
     """
     Runs a give command-line command, optionally returning the output.
     """
@@ -909,7 +904,7 @@ def runcmd(cmd, getOutput=False, echoCmd=True, fatal=True, onError=None):
         otherKwArgs = dict(stdout=subprocess.PIPE,
                            stderr=subprocess.STDOUT)
 
-    with subprocess.Popen(cmd, shell=True, env=os.environ, **otherKwArgs) as sp:
+    with subprocess.Popen(cmd, shell=True, env=os.environ if env is None else env, cwd=cwd, **otherKwArgs) as sp:
 
         output = None
         if getOutput:
@@ -969,25 +964,6 @@ def getVisCVersion():
     # TODO: decide on switching to 142, 143, etc.??
     ver = str(int(MSVCinfo["vc_ver"])) + '0'
     return ver
-
-
-def getExpectedVisCVersion():
-    """
-    Returns the Visual C version that Python is expecting, based on the usual
-    version that stock Python was built with.
-    (Not currently used, we're just selecting the latest available compiler
-    >= 14.0 for now...)
-    """
-    if MSVCinfo is None:
-        raise RuntimeError('getMSVCInfo has not been called yet.')
-    py_ver = MSVCinfo["py_ver"]
-    if py_ver in ((3, 5), (3, 6), (3, 7), (3, 8)):
-        min_ver = 14.0
-    elif py_ver in ((3, 9), (3, 10)):
-        min_ver = 14.2
-    else:
-        raise RuntimeError('This library does not support python version %d.%d' % py_version)
-    return min_ver
 
 
 MSVCinfo = None
@@ -1056,18 +1032,15 @@ def getToolsPlatformName(useLinuxBits=False):
 
 
 def updateLicenseFiles(cfg):
-    from distutils.file_util import copy_file
-    from distutils.dir_util  import mkpath
-
     # Copy the license files from wxWidgets
-    mkpath('license')
+    os.makedirs('license', exist_ok=True)
     for filename in ['preamble.txt', 'licence.txt', 'lgpl.txt', 'gpl.txt']:
-        copy_file(opj(cfg.WXDIR, 'docs', filename), opj('license',filename),
-                      update=1, verbose=1)
+        copyIfNewer(opj(cfg.WXDIR, 'docs', filename), opj('license', filename),
+                    verbose=1)
 
     # Get the sip license too
-    copy_file(opj('sip', 'siplib', 'LICENSE'), opj('license', 'sip-license.txt'),
-              update=1, verbose=1)
+    copyIfNewer(opj('sip', 'siplib', 'LICENSE'), opj('license', 'sip-license.txt'),
+                verbose=1)
 
     # Combine the relevant files into a single LICENSE.txt file
     text = ''

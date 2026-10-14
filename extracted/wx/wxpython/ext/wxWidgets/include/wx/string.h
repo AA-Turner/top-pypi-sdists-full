@@ -1853,6 +1853,11 @@ public:
 
     const wxScopedCharBuffer ToUTF8() const { return utf8_str(); }
 
+    // This is used by {fmt} library to format wxString objects. It is defined
+    // as a hidden friend to ensure that it is only found by ADL for wxString
+    // arguments and not for the other types implicitly convertible to it.
+    friend std::string format_as(const wxString& s) { return s.utf8_string(); }
+
     // functions for storing binary data in wxString:
     static wxString From8BitData(const char *data, size_t len)
       { return wxString(data, wxConvISO8859_1, len); }
@@ -2508,7 +2513,7 @@ public:
   template <typename... Targs>
   int Printf(const wxFormatString& format, Targs... args)
   {
-    format.Validate({wxFormatStringSpecifier<Targs>::value...});
+    format.Preprocess(args...);
 
 #if wxUSE_UNICODE_UTF8
     #if !wxUSE_UTF8_LOCALE_ONLY
@@ -4430,10 +4435,8 @@ void wxStringIteratorNode::clear()
 template<bool (T)(const wxUniChar& c)>
     inline bool wxStringCheck(const wxString& val)
     {
-        for ( wxString::const_iterator i = val.begin();
-              i != val.end();
-              ++i )
-            if (T(*i) == 0)
+        for ( const auto ch : val )
+            if (T(ch) == 0)
                 return false;
         return true;
     }

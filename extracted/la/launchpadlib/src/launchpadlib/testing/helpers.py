@@ -25,15 +25,21 @@ __all__ = [
     "InMemoryKeyring",
     "NoNetworkAuthorizationEngine",
     "NoNetworkLaunchpad",
+    "OfflineLaunchpad",
+    "QuietInteraction",
     "TestableLaunchpad",
+    "WebserviceResponse",
     "nopriv_read_nonprivate",
     "salgado_read_nonprivate",
     "salgado_with_full_permissions",
 ]
 
 from contextlib import contextmanager
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import launchpadlib
+from launchpadlib.hardware import ConsoleInteraction
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.credentials import (
     AccessToken,
@@ -152,6 +158,35 @@ class TestableLaunchpad(Launchpad):
             proxy_info=proxy_info,
             version=version,
         )
+
+
+class OfflineLaunchpad(Launchpad):
+    """A `Launchpad` that sends raw web service requests to a mock.
+
+    Only the logged-in person's `self_link` is available; configure
+    responses on `connection.request`.
+    """
+
+    def __init__(self, service_root="https://api.launchpad.test/"):
+        self._root_uri = service_root + "devel/"
+        self.me = SimpleNamespace(self_link=self._root_uri + "~alice")
+        self.connection = Mock()
+        self._browser = SimpleNamespace(_connection=self.connection)
+
+
+class WebserviceResponse(dict):
+    """An httplib2-style response with a status and headers."""
+
+    def __init__(self, status=200, **headers):
+        super().__init__(headers)
+        self.status = status
+
+
+class QuietInteraction(ConsoleInteraction):
+    """Perform software-key ceremonies without printing touch prompts."""
+
+    def prompt_up(self):
+        pass
 
 
 @contextmanager

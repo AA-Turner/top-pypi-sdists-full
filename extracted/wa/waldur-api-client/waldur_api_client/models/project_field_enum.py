@@ -23,6 +23,7 @@ class ProjectFieldEnum(str, Enum):
     END_DATE_REQUESTED_BY = "end_date_requested_by"
     END_DATE_UPDATED_AT = "end_date_updated_at"
     GRACE_PERIOD_DAYS = "grace_period_days"
+    HAS_METRICS = "has_metrics"
     IMAGE = "image"
     IS_INDUSTRY = "is_industry"
     IS_IN_GRACE_PERIOD = "is_in_grace_period"

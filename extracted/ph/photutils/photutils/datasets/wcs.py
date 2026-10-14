@@ -52,12 +52,12 @@ def make_wcs(shape, galactic=False):
     >>> from photutils.datasets import make_wcs
     >>> shape = (100, 100)
     >>> wcs = make_wcs(shape)
-    >>> print(wcs.wcs.crpix)  # doctest: +FLOAT_CMP
+    >>> print(wcs.wcs.crpix)
     [50. 50.]
-    >>> print(wcs.wcs.crval)  # doctest: +FLOAT_CMP
+    >>> print(wcs.wcs.crval)
     [197.8925      -1.36555556]
     >>> skycoord = wcs.pixel_to_world(42, 57)
-    >>> print(skycoord)  # doctest: +FLOAT_CMP
+    >>> print(skycoord)
     <SkyCoord (ICRS): (ra, dec) in deg
         (197.89278975, -1.36561284)>
     """
@@ -65,7 +65,7 @@ def make_wcs(shape, galactic=False):
     rho = np.pi / 3.0
     scale = 0.1 / 3600.0  # 0.1 arcsec/pixel in deg/pix
 
-    wcs.pixel_shape = shape
+    wcs.pixel_shape = shape[::-1]  # (nx, ny)
     wcs.wcs.crpix = [shape[1] / 2, shape[0] / 2]  # 1-indexed (x, y)
     wcs.wcs.crval = [197.8925, -1.36555556]
     wcs.wcs.cunit = ['deg', 'deg']
@@ -75,7 +75,7 @@ def make_wcs(shape, galactic=False):
         wcs.wcs.radesys = 'ICRS'
         wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
     else:
-        wcs.wcs.ctype = ['GLON-CAR', 'GLAT-CAR']
+        wcs.wcs.ctype = ['GLON-TAN', 'GLAT-TAN']
 
     return wcs
 
@@ -125,7 +125,7 @@ def make_gwcs(shape, galactic=False):
     detector linear_transform
         icrs             None
     >>> skycoord = gwcs.pixel_to_world(42, 57)
-    >>> print(skycoord)  # doctest: +FLOAT_CMP
+    >>> print(skycoord)
     <SkyCoord (ICRS): (ra, dec) in deg
         (197.89278975, -1.36561284)>
     """

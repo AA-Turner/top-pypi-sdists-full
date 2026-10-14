@@ -4,7 +4,6 @@ export function* iter(nodes) {
 
 		switch (node.type) {
 			case "paragraph":
-			case "spoiler":
 			case "strikethrough":
 			case "underline":
 			case "italic":
@@ -12,6 +11,7 @@ export function* iter(nodes) {
 			case "quote":
 				yield* iter(node.value);
 				break;
+			case "spoiler":
 			case "heading":
 			case "small":
 				yield* iter(node.value.content);

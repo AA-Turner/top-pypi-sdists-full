@@ -752,6 +752,167 @@ class TestHTMLBlocks(TestCase):
             '<p><code>&lt;!-- *foo* --&gt;</code></p>'
         )
 
+    def test_comment_in_inline_html_own_line(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span>
+                <!-- comment -->
+                </span>
+                """
+            ),
+            self.dedent(
+                """
+                <p><span>
+                <!-- comment -->
+                </span></p>
+                """
+            )
+        )
+
+    def test_comment_in_inline_html_same_line_as_start_tag(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span><!-- comment -->
+                </span>
+                """
+            ),
+            self.dedent(
+                """
+                <p><span><!-- comment -->
+                </span></p>
+                """
+            )
+        )
+
+    def test_comment_in_inline_html_own_line_before_endtag(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span>
+                <!-- comment --></span>
+                """
+            ),
+            self.dedent(
+                """
+                <p><span>
+                <!-- comment --></span></p>
+                """
+            )
+        )
+
+    def test_comment_in_inline_html_after_blank_line(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span>
+
+                <!-- comment -->
+
+                </span>
+                """
+            ),
+            self.dedent(
+                """
+                <p><span></p>
+                <!-- comment -->
+
+                <p></span></p>
+                """
+            )
+        )
+
+    def test_comment_after_closed_inline_html(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span>foo</span>
+                <!-- comment -->
+                """
+            ),
+            self.dedent(
+                """
+                <p><span>foo</span></p>
+                <!-- comment -->
+                """
+            )
+        )
+
+    def test_comment_after_unclosed_inline_tag_in_code_span(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                Use `<b>` for bold.
+                <!-- comment -->
+                """
+            ),
+            self.dedent(
+                """
+                <p>Use <code>&lt;b&gt;</code> for bold.</p>
+                <!-- comment -->
+                """
+            )
+        )
+
+    def test_comment_after_unclosed_inline_html(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span>foo
+                <!-- comment -->
+                """
+            ),
+            self.dedent(
+                """
+                <p><span>foo</p>
+                <!-- comment -->
+                """
+            )
+        )
+
+    def test_comment_with_blank_line_in_inline_html(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <span>
+                <!--
+                multi
+
+                line
+                -->
+                </span>
+                """
+            ),
+            self.dedent(
+                """
+                <p><span></p>
+                <!--
+                multi
+
+                line
+                -->
+                <p></span></p>
+                """
+            )
+        )
+
+    def test_comment_after_void_inline_html(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <img src="a.png">
+                <!-- comment -->
+                """
+            ),
+            self.dedent(
+                """
+                <p><img src="a.png"></p>
+                <!-- comment -->
+                """
+            )
+        )
+
     def test_raw_comment_one_line_followed_by_text(self):
         self.assertMarkdownRenders(
             '<!-- *foo* -->*bar*',
@@ -1784,6 +1945,63 @@ class TestHTMLBlocks(TestCase):
                 <p>foo</p>
                 <!--<!endif]-->
                 </div>
+                '''
+            )
+        )
+
+    def test_unterminated_endtag_in_code_span(self):
+        """Ensure an unterminated end tag does not swallow the remaining content."""
+
+        # https://github.com/Python-Markdown/markdown/issues/1651
+        self.assertMarkdownRenders(
+            'Run `cmd 2</dev/null` here.\n\nThis paragraph should not disappear.',
+            self.dedent(
+                '''
+                <p>Run <code>cmd 2&lt;/dev/null</code> here.</p>
+                <p>This paragraph should not disappear.</p>
+                '''
+            )
+        )
+
+    def test_additional_tail_cases(self):
+        """Ensure various tail cases survive."""
+
+        # https://github.com/Python-Markdown/markdown/issues/1651
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                `</dev` z > q
+
+                `</ab c` z
+
+                `</dev/` > q
+
+                `</dev/null` z > q
+
+                `</ab c>` z
+                """
+            ),
+            self.dedent(
+                """
+                <p><code>&lt;/dev</code> z &gt; q</p>
+                <p><code>&lt;/ab c</code> z</p>
+                <p><code>&lt;/dev/</code> &gt; q</p>
+                <p><code>&lt;/dev/null</code> z &gt; q</p>
+                <p><code>&lt;/ab c&gt;</code> z</p>
+                """
+            )
+        )
+
+    def test_unterminated_endtag(self):
+        """Ensure an unterminated end tag is treated as text."""
+
+        # https://github.com/Python-Markdown/markdown/issues/1651
+        self.assertMarkdownRenders(
+            'foo </bar\n\nbaz',
+            self.dedent(
+                '''
+                <p>foo &lt;/bar</p>
+                <p>baz</p>
                 '''
             )
         )

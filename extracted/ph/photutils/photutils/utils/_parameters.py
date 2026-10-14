@@ -3,8 +3,11 @@
 Tools for parameter validation.
 """
 
+import warnings
+
 import numpy as np
 from astropy.stats import SigmaClip
+from astropy.utils.exceptions import AstropyUserWarning
 
 
 class SigmaClipSentinelDefault:
@@ -64,14 +67,16 @@ def as_pair(name, value, *, lower_bound=None, upper_bound=None,
 
     lower_bound : tuple of 2 int, optional
         A tuple defining the allowed lower bound of the value. The first
-        element is the bound; the second is 0 for exclusive or 1 for
-        inclusive (e.g. (0, 1) means value must be >= 0).
+        element is the bound. The second is 0 for exclusive or 1 for
+        inclusive (e.g., ``(0, 1)`` means the value must be >= 0).
 
     upper_bound : tuple of 2 int, optional
         A tuple defining the allowed upper bounds of the value along
         each axis. For each axis, if ``value`` is larger than the bound,
         it is reset to the bound. ``upper_bound`` is typically set to an
-        image shape.
+        image shape. If ``check_odd`` is `True`, a warning is issued
+        when the value is reset. If the bound is even, the value is
+        also reduced to the next lower odd value.
 
     check_odd : bool, optional
         Whether to raise a `ValueError` if the values are not odd along
@@ -111,7 +116,7 @@ def as_pair(name, value, *, lower_bound=None, upper_bound=None,
     if len(value) == 1:
         value = np.array((value[0], value[0]))
 
-    if value.dtype.kind != 'i':
+    if value.dtype.kind not in 'iu':
         msg = f'{name} must have integer values'
         raise ValueError(msg)
     if check_odd and np.any(value % 2 != 1):
@@ -137,9 +142,74 @@ def as_pair(name, value, *, lower_bound=None, upper_bound=None,
         if len(upper_bound) != 2:
             msg = 'upper_bound must contain only 2 elements'
             raise ValueError(msg)
-        # If value is larger than upper_bound, set to upper_bound;
-        # upper_bound is typically set to an image shape
+        # If value is larger than upper_bound, set to upper_bound.
+        # The upper_bound is typically set to an image shape
+        is_clamped = np.any(value > np.asarray(upper_bound))
         value = np.array((min(value[0], upper_bound[0]),
                           min(value[1], upper_bound[1])))
 
+        # Clamping to an even bound can produce an even value. Reduce
+        # it to the next lower odd value to preserve the odd-values
+        # requirement.
+        if check_odd and is_clamped:
+            even = (value % 2 == 0) & (value > 0)
+            value = value - even.astype(int)
+            new_value = tuple(int(val) for val in value)
+            if np.any(even):
+                msg = (f'{name!r} was clamped to the upper bound and '
+                       f'reduced to {new_value} to keep odd values '
+                       'for both axes')
+            else:
+                msg = f'{name!r} was clamped to the upper bound {new_value}'
+            warnings.warn(msg, AstropyUserWarning)
+
     return value
+
+
+def validate_table_columns(columns, allowed_columns, *,
+                           deprecated_names=None):
+    """
+    Validate requested ``to_table()`` column names.
+
+    This is a helper function for ``to_table`` methods that accept a
+    ``columns`` keyword. It normalizes ``columns`` to a list and raises
+    a `ValueError` if any requested name is not in ``allowed_columns``
+    or ``deprecated_names``.
+
+    Parameters
+    ----------
+    columns : str or list of str
+        The requested column name(s).
+
+    allowed_columns : iterable of str
+        The allowed column names.
+
+    deprecated_names : iterable of str, optional
+        Deprecated column names (e.g., the keys of a class's
+        ``_DEPRECATED_ATTRIBUTES`` mapping) that should still be
+        accepted in addition to ``allowed_columns``.
+
+    Returns
+    -------
+    table_columns : list of str
+        ``columns`` normalized to a list of strings.
+
+    Raises
+    ------
+    ValueError
+        If any name in ``columns`` is not an allowed or deprecated
+        column name.
+    """
+    table_columns = [columns] if isinstance(columns, str) else list(columns)
+
+    allowed = set(allowed_columns)
+    if deprecated_names is not None:
+        allowed |= set(deprecated_names)
+
+    invalid = [col for col in table_columns if col not in allowed]
+    if invalid:
+        msg = (f'Invalid column name(s): {invalid!r}. The allowed '
+               f'column names are: {sorted(allowed)}.')
+        raise ValueError(msg)
+
+    return table_columns

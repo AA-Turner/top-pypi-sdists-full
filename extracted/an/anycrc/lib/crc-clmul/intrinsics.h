@@ -9,7 +9,45 @@
 #define ALIGN_ARRAY __declspec(align(16))
 #endif
 
-const unsigned char ALIGN_ARRAY SWAP_TABLE[] = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+const char ALIGN_ARRAY SWAP_TABLE[] = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+
+const char ALIGN_ARRAY SHL_TABLE[][16] = {
+    { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15},
+    {-1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14},
+    {-1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13},
+    {-1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12},
+    {-1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11},
+    {-1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10},
+    {-1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9},
+    {-1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7,  8},
+    {-1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6,  7},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5,  6},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4,  5},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3,  4},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2,  3},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,  2},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0,  1},
+    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0}
+};
+
+const char ALIGN_ARRAY SHR_TABLE[][16] = {
+    { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15},
+    { 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, -1},
+    { 2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, -1, -1},
+    { 3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, -1, -1, -1},
+    { 4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1},
+    { 5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1},
+    { 6,  7,  8,  9, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1},
+    { 7,  8,  9, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1},
+    { 8,  9, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1},
+    { 9, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    {10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    {11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    {12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    {13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    {14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
+    {15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
+};
 
 //----------------------------------------
 
@@ -21,7 +59,7 @@ const unsigned char ALIGN_ARRAY SWAP_TABLE[] = {15, 14, 13, 12, 11, 10, 9, 8, 7,
 
 // #define CLMUL(a, b, ac, bc) _mm_clmulepi64_si128(a, b, (bc ? 0x10 : 0x00) | (ac ? 0x01 : 0x00))
 
-#include <nmmintrin.h> //SSE4.2
+#include <smmintrin.h> //SSE4.1
 #include <wmmintrin.h> //AES + PCLMUL
 
 typedef __m128i uint128_t;
@@ -36,6 +74,9 @@ typedef __m128i uint128_t;
 //a 16 byte memory boundary.
 #define intrin_load_le(ptr) _mm_load_si128((__m128i*)(ptr))
 
+//Load 16 bytes from ptr into a 128-bit integer.
+#define intrin_loadu_le(ptr) _mm_loadu_si128((__m128i*)(ptr))
+
 //Multiply the high 64-bits of two 128-bit integers.
 #define intrin_clmul_hi(a, b) _mm_clmulepi64_si128(a, b, 0x11)
 
@@ -44,6 +85,15 @@ typedef __m128i uint128_t;
 
 //Swap the endianess of a 128-bit integer.
 #define intrin_swap(x) _mm_shuffle_epi8(x, _mm_load_si128((__m128i*)SWAP_TABLE))
+
+//Shift a 128-bit integer to the left by n bytes.
+#define intrin_shl(x, n) _mm_shuffle_epi8(x, _mm_load_si128((__m128i*)SHL_TABLE[n]))
+
+//Shift a 128-bit integer to the right by n bytes.
+#define intrin_shr(x, n) _mm_shuffle_epi8(x, _mm_load_si128((__m128i*)SHR_TABLE[n]))
+
+//AND two 128-bit integers.
+#define intrin_and(a, b) _mm_and_si128(a, b)
 
 //XOR two 128-bit integers.
 #define intrin_xor(a, b) _mm_xor_si128(a, b)
@@ -57,7 +107,7 @@ typedef __m128i uint128_t;
 typedef uint64x2_t uint128_t;
 
 //Create a 64x2 vector from two 64-bit integers.
-#define intrin_set(hi, lo) vsetq_lane_u64(hi, vdupq_n_u64(lo), 1)
+#define intrin_set(hi, lo) vcombine_u64(vdup_n_u64(lo), vdup_n_u64(hi))
 
 //Extract a 64-bit integer from a 64x2 vector.
 #define intrin_get(x, i) vgetq_lane_u64(x, i)
@@ -65,22 +115,28 @@ typedef uint64x2_t uint128_t;
 //Load 16 bytes from ptr into a 64x2 vector.
 #define intrin_load_le(ptr) vld1q_u64((uint64_t*)(ptr))
 
+//Load 16 bytes from ptr into a 64x2 vector.
+#define intrin_loadu_le(ptr) vld1q_u64((uint64_t*)(ptr))
+
 //Multiply the high lanes of two 64x2 vectors.
-#define intrin_clmul_hi(a, b) vreinterpretq_u64_p128(vmull_high_p64(vreinterpretq_p64_u64(a), \
-                                                                    vreinterpretq_p64_u64(b)))
+#define intrin_clmul_hi(a, b) vreinterpretq_u64_p128(vmull_high_p64(vreinterpretq_p64_u64(a), vreinterpretq_p64_u64(b)))
 
 //Multiply the low lanes of two 64x2 vectors.
-//It gets ugly.
-#ifndef _MSC_VER
-#define intrin_clmul_lo(a, b) vreinterpretq_u64_p128(vmull_p64(vgetq_lane_p64(vreinterpretq_p64_u64(a), 0), \
-                                                               vgetq_lane_p64(vreinterpretq_p64_u64(b), 0)))
-#else
-#define intrin_clmul_lo(a, b) vreinterpretq_u64_p128(vmull_p64(vreinterpret_p64_u64(vget_low_u64(a)), \
-                                                               vreinterpret_p64_u64(vget_low_u64(b))))
-#endif
+/* It's easier to use vmull_high_p64, since MSVC uses a different definition
+   from GCC for vmull_p64. */
+#define intrin_clmul_lo(a, b) intrin_clmul_hi(vdupq_laneq_u64(a, 0), vdupq_laneq_u64(b, 0))
 
 //Swap the endianess of a 64x2 vector.
 #define intrin_swap(x) vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(x), vld1q_u8(SWAP_TABLE)))
+
+//Shift a 64x2 vector to the left by n bytes.
+#define intrin_shl(x, n) vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(x), vld1q_u8(SHL_TABLE[n])))
+
+//Shift a 64x2 vector to the right by n bytes.
+#define intrin_shr(x, n) vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(x), vld1q_u8(SHR_TABLE[n])))
+
+//AND two 128-bit integers.
+#define intrin_and(a, b) vandq_u64(a, b)
 
 //XOR two 64x2 vectors.
 #define intrin_xor(a, b) veorq_u64(a, b)
@@ -97,5 +153,8 @@ typedef uint64x2_t uint128_t;
 
 //Load 16 bytes in big endian.
 #define intrin_load_bg(ptr) intrin_swap(intrin_load_le(ptr))
+
+//Load 16 bytes in big endian.
+#define intrin_loadu_bg(ptr) intrin_swap(intrin_loadu_le(ptr))
 
 #endif

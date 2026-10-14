@@ -1,5 +1,6 @@
 import copy
 import datetime
+from collections.abc import Iterable
 
 import aiohttp
 
@@ -21,6 +22,7 @@ async def post_event(
         resource: references.Resource,
         settings: configuration.OperatorSettings,
         logger: typedefs.Logger,
+        backoffs: float | Iterable[float] | None = None,
 ) -> None:
     """
     Issue an event for the object.
@@ -49,7 +51,7 @@ async def post_event(
         suffix = message[-MAX_MESSAGE_LENGTH // 2 + (len(infix) - len(infix) // 2):]
         message = f'{prefix}{infix}{suffix}'
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     body = {
         'metadata': {
             'namespace': namespace,
@@ -79,6 +81,7 @@ async def post_event(
             payload=body,
             logger=logger,
             settings=settings,
+            backoffs=backoffs,
         )
 
     # Events are helpful but auxiliary, they should not fail the handling cycle.

@@ -16,7 +16,7 @@ same LB, so it shares the IP and proxies but gets its own managed cert).
 
 Chat images are built and pushed by publish workflows in
 `airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`; the mtx image
-is published by `airbytehq/airbyte-transforms-poc`. Config image tags only seed
+is published by `airbytehq/mtx`. Config image tags only seed
 the first create — Pulumi ignores changes to the container image
 (`ignore_changes` on `template.containers[*].image`). The chat images are
 deployed by `deploy-agui-command.yml` via
@@ -30,10 +30,9 @@ below.
 A third Cloud Run service (`agui-playground-mtx`, plus the
 `agui-playground-mtx-preview` twin) runs the thin mtx playground image and
 gets its own IAP-enabled backend (`agui-playground-mtx-backend`), which the
-ops-webapp URL map mounts at `/mtx`. Only `main` pushes to
-`airbytehq/airbyte-transforms-poc` deploy mtx images directly as
-`agui-mtx-deployer`. Its WIF and runtime `actAs` bindings are admin-applied
-after the first apply; see `BOOTSTRAP.md`.
+ops-webapp URL map mounts at `/mtx`. `airbytehq/mtx` deploys mtx images
+directly as `agui-mtx-deployer`. Its WIF and runtime `actAs` bindings are
+admin-applied after the first apply; see `BOOTSTRAP.md`.
 `mtx-playground-image` and `mtx-playground-preview-image` only seed the first
 create.
 """
@@ -252,7 +251,7 @@ def define_mtx_runtime_service_account(
 def define_mtx_deployer_service_account(
     api_services: list[gcp.projects.Service],
 ) -> gcp.serviceaccount.Account:
-    """Define the transforms-poc GitHub Actions deployment identity."""
+    """Define the mtx GitHub Actions deployment identity."""
     return gcp.serviceaccount.Account(
         "agui-mtx-deployer",
         account_id="agui-mtx-deployer",

@@ -3,6 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 import json
+import os
 from inspect import isawaitable
 from pathlib import Path
 from typing import ClassVar
@@ -30,7 +31,7 @@ from ..events import (
 )
 from ..limits import parse_filesize_to_bytes
 from ..models import Snapshot
-from ..models import Hook, Plugin
+from ..models import Hook, Plugin, PluginEnv
 from ..output_files import remove_empty_output_dirs
 from .base import BaseService, ProcessExitedBeforeReadyError, wait_for_process_ready, wait_for_crawl_resume
 from .binary_service import build_plugin_process_env
@@ -190,29 +191,64 @@ class SnapshotService(BaseService):
             return True
         return False
 
-    async def wait_for_plugin_outputs(self, event: SnapshotEvent, plugin: Plugin) -> None:
-        """Wait for already-started optional producer plugins before consuming their files."""
-        dependency_names = set(plugin.config.wait_for_plugins)
-        if not dependency_names:
-            return
-        process_events = await self.bus.filter(
-            ProcessEvent,
-            child_of=event,
-            past=True,
-            future=False,
-            where=lambda candidate: candidate.plugin_name in dependency_names,
+    async def _runnable_hook_config(self, plugin: Plugin, hook: Hook) -> PluginEnv | None:
+        """Return this snapshot's config for a hook, or None if config skips it."""
+        plugin_config = await get_plugin_env(
+            self.bus,
+            plugin=plugin,
+            run_output_dir=self.output_dir,
+            extra_context={
+                "snapshot_id": self.snapshot.id,
+                "plugin": plugin.name,
+                "hook_name": hook.name,
+            },
+            config=self.config,
         )
-        for process_event in process_events:
-            timeout = float(self._hook_timeouts.get((process_event.plugin_name, process_event.hook_name), 60)) + 30.0
-            completed_process = await self.bus.find(
-                ProcessCompletedEvent,
-                child_of=process_event,
-                past=True,
-                future=timeout,
-            )
-            if completed_process is None:
-                raise RuntimeError(f"Plugin output dependency {process_event.plugin_name} did not complete")
-            await _wait_for_process_completed(completed_process, timeout)
+        if plugin.enabled_key in plugin.config.properties and not plugin_config[plugin.enabled_key]:
+            return None
+        if plugin_config.DRY_RUN:
+            return None
+        return plugin_config
+
+    async def _create_plugin_output_dirs(self, plugin_output_dirs: list[Path], stop: asyncio.Event) -> None:
+        """Create the snapshot's plugin dirs ahead of the hooks that use them.
+
+        On remote mounts each mkdir can be a synchronous object-store write
+        (rclone + B2 directory markers: median ~250ms, tail of seconds). Paid
+        inside each hook's ProcessEvent, ~60 hooks put many seconds of serial
+        round trips on every snapshot's critical path. Running them here, while
+        the first hooks execute, takes them off that path; a hook whose dir
+        already exists skips its own mkdir.
+
+        This is deliberately sequential, in hook order. Linux holds the parent
+        directory's inode lock exclusively for the whole mkdir, so sibling
+        mkdirs in one snapshot dir never overlap in the filesystem anyway, and
+        a parallel batch would queue ahead of the running hook's own mkdir.
+        Hook-order means the next hook's dir is always the next one created.
+
+        The first listing of a new directory is a remote round trip too: rclone
+        lists the object store before it serves a dir it has not listed yet
+        (B2: ~85ms), and every hook lists its dir right before it spawns to
+        version the files it will change. List each dir here as soon as it
+        exists, beside the next mkdir (a child dir's listing does not take the
+        snapshot dir's lock), so hooks find their listing already local.
+        """
+        listings: list[asyncio.Task[list[str] | list[bytes]]] = []
+        try:
+            for plugin_output_dir in plugin_output_dirs:
+                if stop.is_set():
+                    return
+                try:
+                    await asyncio.to_thread(plugin_output_dir.mkdir, parents=True, exist_ok=True)
+                except OSError:
+                    # Only an optimization: the hook's own mkdir reports the real
+                    # error in that hook's result, as it would without this pass.
+                    continue
+                listings.append(asyncio.create_task(asyncio.to_thread(os.listdir, plugin_output_dir)))
+        finally:
+            # Like the mkdirs, listings are only an optimization; the hook's own
+            # listing reports any real error.
+            await asyncio.gather(*listings, return_exceptions=True)
 
     def on_SnapshotEvent__for_hook(self, plugin: Plugin, hook: Hook):
         """Create the concrete SnapshotEvent handler for one snapshot hook."""
@@ -222,7 +258,6 @@ class SnapshotService(BaseService):
                 return
             if await self.should_abort():
                 return
-            await self.wait_for_plugin_outputs(event, plugin)
             if plugin.config.wait_for_background_cleanup:
                 cleanup_event = SnapshotCleanupEvent(
                     url=event.url,
@@ -234,20 +269,8 @@ class SnapshotService(BaseService):
                 await _run_event_now(event.emit(cleanup_event), self.snapshot_cleanup_phase_timeout)
             if await self.should_abort():
                 return
-            plugin_config = await get_plugin_env(
-                self.bus,
-                plugin=plugin,
-                run_output_dir=self.output_dir,
-                extra_context={
-                    "snapshot_id": self.snapshot.id,
-                    "plugin": plugin.name,
-                    "hook_name": hook.name,
-                },
-                config=self.config,
-            )
-            if plugin.enabled_key in plugin.config.properties and not plugin_config[plugin.enabled_key]:
-                return
-            if plugin_config.DRY_RUN:
+            plugin_config = await self._runnable_hook_config(plugin, hook)
+            if plugin_config is None:
                 return
             runtime_env = plugin_config.to_env()
             env = await build_plugin_process_env(
@@ -434,7 +457,19 @@ class SnapshotService(BaseService):
         snapshot_id = self.snapshot.id
         output_dir = str(self.output_dir)
         snapshot_failed = True
+        stop_creating_output_dirs = asyncio.Event()
+        creating_output_dirs: asyncio.Task[None] | None = None
         try:
+            # Only hooks that config lets run get a dir, matching the per-hook
+            # check, so disabled plugins never cost a remote mkdir. Dirs left
+            # unused by an abort or size limit are removed by final cleanup.
+            plugin_output_dirs: dict[Path, None] = {}
+            for plugin, hook in self.hooks:
+                if await self._runnable_hook_config(plugin, hook) is not None:
+                    plugin_output_dirs[self.output_dir / plugin.name] = None
+            creating_output_dirs = asyncio.create_task(
+                self._create_plugin_output_dirs(list(plugin_output_dirs), stop_creating_output_dirs),
+            )
             # Results describe attempts, not a checklist of planned hooks.
             # Inventing failures for hooks we never launch would fill the
             # user's failure list with work that simply has not happened yet.
@@ -450,6 +485,11 @@ class SnapshotService(BaseService):
                     break
             snapshot_failed = False
         finally:
+            # Settle before cleanup removes empty dirs, so no late mkdir can
+            # recreate one. Stopping waits for at most one in-flight mkdir.
+            stop_creating_output_dirs.set()
+            if creating_output_dirs is not None:
+                await creating_output_dirs
             if snapshot_failed:
                 self._failed_snapshot_event_ids.add(event.event_id)
             cleanup_event = SnapshotCleanupEvent(
@@ -601,9 +641,13 @@ class SnapshotService(BaseService):
                     for process_event, _ in started_processes
                 ],
             )
-        if not event.finalize_snapshot or root_snapshot_event.event_id in self._failed_snapshot_event_ids:
+        if not event.finalize_snapshot:
             return
+        # Also after a failed snapshot: dirs are created ahead of their hooks,
+        # so the hooks a failure skipped would otherwise leave empty dirs.
         await asyncio.to_thread(remove_empty_output_dirs, [self.output_dir / plugin.name for plugin, _hook in self.hooks])
+        if root_snapshot_event.event_id in self._failed_snapshot_event_ids:
+            return
         completed_event = SnapshotCompletedEvent(
             url=event.url,
             snapshot_id=event.snapshot_id,

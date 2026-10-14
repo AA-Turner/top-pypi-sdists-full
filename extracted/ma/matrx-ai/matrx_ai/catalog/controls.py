@@ -1427,7 +1427,14 @@ class CompiledControlsMap(BaseModel):
             # nothing of the user's was changed. Unlike scalar defaults this
             # is provider-INDEPENDENT vocabulary: the processor still owns
             # the translation.
-            if rule.default is not None and canonical.get(key) is None:
+            # Only when NOTHING was asked: a depth sent through a consumed key
+            # (thinking_budget 0, thinking_level "none", a budget) is the caller's
+            # value, and backfilling the owner first hid it — an off ran at the default.
+            if (
+                rule.default is not None
+                and canonical.get(key) is None
+                and not self._depth_requested(key, rule, canonical)
+            ):
                 canonical = {**canonical, key: rule.default}
             # clamp composes with a processor (ai_038): the canonical value is
             # clamped BEFORE the processor reads it, so DB rules can carry the

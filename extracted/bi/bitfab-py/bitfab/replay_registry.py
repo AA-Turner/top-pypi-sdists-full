@@ -72,6 +72,7 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "code_change_description",
         "code_change_files",
         "experiment_group_id",
+        "experiment_group_name",
         "dataset_id",
         "dataset_ids",
         "grader_ids",
@@ -313,7 +314,20 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
     code_change = parser.add_mutually_exclusive_group()
     code_change.add_argument("--code-change")
     code_change.add_argument("--no-code-change", action="store_true")
-    parser.add_argument("--experiment-group-id")
+    parser.add_argument(
+        "--experiment-group-id",
+        metavar="UUID",
+        help="Add this run to an experiment group. A new UUID creates the group.",
+    )
+    parser.add_argument(
+        "--experiment-group-name",
+        metavar="NAME",
+        help=(
+            "Name the experiment group when this run creates it or it has no "
+            "name yet. A group that already has a name keeps it. Requires "
+            "--experiment-group-id."
+        ),
+    )
     parser.add_argument("--grader-ids", type=_comma_separated)
     parser.add_argument(
         "--only-with-assertions",
@@ -1080,6 +1094,7 @@ def run_replay_cli(
         "metadata": dict(args.metadata) if args.metadata else None,
         "max_concurrency": args.max_concurrency,
         "experiment_group_id": args.experiment_group_id,
+        "experiment_group_name": args.experiment_group_name,
         "dataset_ids": args.dataset_ids,
         "grader_ids": args.grader_ids,
         "mock": args.mock,

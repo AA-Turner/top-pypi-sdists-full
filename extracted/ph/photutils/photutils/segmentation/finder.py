@@ -3,7 +3,10 @@
 Tools for detecting sources in an image.
 """
 
-from photutils.segmentation.deblend import deblend_sources
+import numpy as np
+
+from photutils.segmentation.deblend import (_validate_deblend_kwargs,
+                                            deblend_sources)
 from photutils.segmentation.detect import detect_sources
 from photutils.utils._deprecation import (deprecated_getattr,
                                           deprecated_positional_kwargs,
@@ -31,9 +34,10 @@ class SourceFinder:
     `~photutils.segmentation.deblend_sources`.
 
     Sources are deblended using a combination of
-    multi-thresholding and `watershed segmentation
+    multithresholding and `watershed segmentation
     <https://en.wikipedia.org/wiki/Watershed_(image_processing)>`_. In
-    order to deblend sources, there must be a saddle between them.
+    order to deblend sources, they must be separated enough that there
+    is a saddle point between them.
 
     Parameters
     ----------
@@ -57,15 +61,15 @@ class SourceFinder:
         Whether to deblend overlapping sources.
 
     n_levels : int, optional
-        The number of multi-thresholding levels to use for deblending.
-        Each source will be re-thresholded at ``n_levels`` levels spaced
-        exponentially or linearly (see the ``mode`` keyword) between
-        its minimum and maximum values. This keyword is ignored unless
-        ``deblend=True``.
+        The number of multithresholding levels to use for deblending.
+        Each source will be rethresholded at ``n_levels`` levels spaced
+        between its minimum and maximum values (noninclusive). The
+        ``mode`` keyword determines how the levels are spaced. This
+        keyword is ignored unless ``deblend=True``.
 
     contrast : float, optional
         The fraction of the total source flux that a local peak must
-        have (at any one of the multi-thresholds) to be deblended
+        have (at any one of the multithresholds) to be deblended
         as a separate object. ``contrast`` must be between 0 and 1,
         inclusive. If ``contrast=0`` then every local peak will be made
         a separate object (maximum deblending). If ``contrast=1`` then
@@ -73,20 +77,32 @@ class SourceFinder:
         deblend sources with a 7.5 magnitude difference. This keyword is
         ignored unless ``deblend=True``.
 
+    contrast_method : {`None`, 'basin', 'saddle'}, optional
+        The flux used by the contrast criterion. For ``'basin'``, the
+        fraction is the total flux in the source's watershed basin.
+        For ``'saddle'``, the fraction is the flux the source holds
+        above the saddle level where it separates from its neighbors.
+        If `None` (default), the ``'basin'`` method is currently used.
+        The default may change to ``'saddle'`` in version 4.0. See
+        :func:`~photutils.segmentation.deblend_sources` for details.
+        This keyword is ignored unless ``deblend=True``.
+
     mode : {'exponential', 'linear', 'sinh'}, optional
         The mode used in defining the spacing between the
-        multi-thresholding levels (see the ``n_levels`` keyword)
+        multithresholding levels (see the ``n_levels`` keyword)
         during deblending. The ``'exponential'`` and ``'sinh'`` modes
-        have more threshold levels near the source minimum and less
+        have more threshold levels near the source minimum and fewer
         near the source maximum. The ``'linear'`` mode evenly spaces
         the threshold levels between the source minimum and maximum.
         The ``'exponential'`` and ``'sinh'`` modes differ in that
         the ``'exponential'`` levels are dependent on the source
-        maximum/minimum ratio (smaller ratios are more linear; larger
-        ratios are more exponential), while the ``'sinh'`` levels
-        are not. Also, the ``'exponential'`` mode will be changed to
-        ``'linear'`` for sources with non-positive minimum data values.
-        This keyword is ignored unless ``deblend=True``.
+        maximum/minimum ratio (smaller ratios are more linear and
+        larger ratios are more exponential), while the ``'sinh'`` levels
+        are not. Unlike the ``'exponential'`` mode, the ``'sinh'``
+        and ``'linear'`` modes are well defined for sources with
+        nonpositive minimum data values. For such sources, the
+        ``'exponential'`` mode will be changed to ``'sinh'``. This
+        keyword is ignored unless ``deblend=True``.
 
     relabel : bool, optional
         If `True` (default), then the segmentation image will be
@@ -94,25 +110,38 @@ class SourceFinder:
         consecutive order starting from 1. This keyword is ignored
         unless ``deblend=True``.
 
+    n_threads : int, optional
+        The number of threads to use to deblend the sources. The
+        default is 1 (no multithreading). When ``n_threads`` > 1,
+        the sources are divided into chunks and processed
+        concurrently, producing results identical to the
+        single-threaded computation. This keyword is ignored unless
+        ``deblend=True``.
+
+    nproc : int, optional
+        This keyword is deprecated and has no effect. It was the name of
+        the ``n_processes`` keyword before version 3.0.
+
+        .. deprecated:: 3.0
+            The ``nproc`` keyword is deprecated and will be removed in
+            version 4.0.
+
     n_processes : int, optional
-        The number of processes to use for source deblending. If set to
-        1, then a serial implementation is used instead of a parallel
-        one. If `None`, then the number of processes will be set to the
-        number of CPUs detected on the machine. Please note that due to
-        overheads, multiprocessing may be slower than serial processing
-        if only a small number of sources are to be deblended. The
-        benefits of multiprocessing require ~1000 or more sources to
-        deblend, with larger gains as the number of sources increase.
-        This keyword is ignored unless ``deblend=True``.
+        This keyword is deprecated and has no effect. Multiprocessing
+        no longer provides any benefit for source deblending. Use the
+        ``n_threads`` keyword instead.
+
+        .. deprecated:: 3.1
+            The ``n_processes`` keyword is deprecated and will be
+            removed in version 4.0.
 
     progress_bar : bool, optional
-        Whether to display a progress bar. If ``n_processes = 1``, then the
-        ID shown after the progress bar is the source label being
-        deblended. If multiprocessing is used (``n_processes > 1``), the
-        ID shown is the last source label that was deblended. The
-        progress bar requires that the `tqdm <https://tqdm.github.io/>`_
-        optional dependency be installed. This keyword is ignored unless
-        ``deblend=True``.
+        This keyword is deprecated and has no effect. Deblending no
+        longer displays a progress bar.
+
+        .. deprecated:: 3.1
+            The ``progress_bar`` keyword is deprecated and will be
+            removed in version 4.0.
 
     See Also
     --------
@@ -147,11 +176,11 @@ class SourceFinder:
 
         # Detect the sources
         threshold = 1.5 * bkg.background_rms  # per-pixel detection threshold
-        finder = SourceFinder(n_pixels=10, progress_bar=False)
+        finder = SourceFinder(n_pixels=10)
         segment_map = finder(convolved_data, threshold)
 
         # Plot the image and the segmentation image
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 10))
+        fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(8, 10))
         norm = simple_norm(data, 'sqrt', percent=99.5)
         ax1.imshow(data, norm=norm, origin='lower')
         segment_map.imshow(ax=ax2)
@@ -160,24 +189,39 @@ class SourceFinder:
 
     @deprecated_renamed_argument('npixels', 'n_pixels', '3.0', until='4.0')
     @deprecated_renamed_argument('nlevels', 'n_levels', '3.0', until='4.0')
-    @deprecated_renamed_argument('nproc', 'n_processes', '3.0', until='4.0')
+    @deprecated_renamed_argument('nproc', None, '3.0', until='4.0')
+    @deprecated_renamed_argument('n_processes', None, '3.1', until='4.0')
+    @deprecated_renamed_argument('progress_bar', None, '3.1', until='4.0')
     def __init__(self, n_pixels, *, connectivity=8, deblend=True, n_levels=32,
-                 contrast=0.001, mode='exponential', relabel=True,
+                 contrast=0.001, contrast_method=None,
+                 mode='exponential', relabel=True,
+                 n_threads=1,
+                 nproc=1,  # noqa: ARG002
                  n_processes=1, progress_bar=True):
         self.n_pixels = as_pair('n_pixels', n_pixels, check_odd=False)
+        for name, value in (('deblend', deblend), ('relabel', relabel)):
+            if not isinstance(value, (bool, np.bool_)):
+                msg = f'{name} must be a boolean, got {value!r}'
+                raise TypeError(msg)
+        _validate_deblend_kwargs(n_levels=n_levels, contrast=contrast,
+                                 contrast_method=contrast_method,
+                                 mode=mode, connectivity=connectivity,
+                                 n_threads=n_threads)
         self.deblend = deblend
         self.connectivity = connectivity
         self.n_levels = n_levels
         self.contrast = contrast
+        self.contrast_method = contrast_method
         self.mode = mode
         self.relabel = relabel
+        self.n_threads = n_threads
         self.n_processes = n_processes
         self.progress_bar = progress_bar
 
     def __repr__(self):
         params = ('n_pixels', 'deblend', 'connectivity', 'n_levels',
-                  'contrast', 'mode', 'relabel', 'n_processes',
-                  'progress_bar')
+                  'contrast', 'contrast_method', 'mode', 'relabel',
+                  'n_threads', 'n_processes', 'progress_bar')
         return make_repr(self, params)
 
     # Remove in 4.0
@@ -204,7 +248,10 @@ class SourceFinder:
             used as the per-pixel detection threshold. If ``data`` is
             a `~astropy.units.Quantity` array, then ``threshold`` must
             have the same units as ``data``. A 2D ``threshold`` array must
-            have the same shape as ``data``.
+            have the same shape as ``data``. A warning is emitted if the
+            threshold is negative (or, for an array, has any negative
+            values), because pixels with zero or negative values can then
+            be included in the detected sources.
 
         mask : 2D bool `~numpy.ndarray`, optional
             A boolean mask with the same shape as ``data``, where a
@@ -218,21 +265,36 @@ class SourceFinder:
             where sources are marked by different positive integer values. A
             value of zero is reserved for the background. If no sources are
             found then `None` is returned.
+
+        Warns
+        -----
+        NoDetectionsWarning
+            If no sources are found.
+
+        AstropyUserWarning
+            If ``threshold`` is negative or, for an array, has any
+            negative values.
+
+        DeblendWarning
+            If ``deblend=True`` and the deblending mode for one or more
+            sources was changed from ``mode`` to "sinh" due to
+            nonpositive minimum data values or to "linear" due to too
+            many potential deblended sources.
         """
         segment_img = detect_sources(data, threshold, self.n_pixels[0],
                                      mask=mask, connectivity=self.connectivity)
         if segment_img is None:
             return None
 
-        # Source deblending requires scikit-image
         if self.deblend:
             segment_img = deblend_sources(data, segment_img, self.n_pixels[1],
                                           n_levels=self.n_levels,
                                           contrast=self.contrast,
+                                          contrast_method=(
+                                              self.contrast_method),
                                           mode=self.mode,
                                           connectivity=self.connectivity,
                                           relabel=self.relabel,
-                                          n_processes=self.n_processes,
-                                          progress_bar=self.progress_bar)
+                                          n_threads=self.n_threads)
 
         return segment_img

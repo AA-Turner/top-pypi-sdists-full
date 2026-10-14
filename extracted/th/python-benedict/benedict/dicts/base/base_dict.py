@@ -9,9 +9,9 @@ from collections.abc import (
     Reversible,
     ValuesView,
 )
-from typing import Any, cast
+from typing import Any, Self
 
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 from benedict.core.clone import clone as _clone
 
@@ -62,8 +62,12 @@ class BaseDict(dict[_K, _V]):
         if len(args) == 1 and isinstance(args[0], Mapping):
             # bypass subclass __setattr__ (e.g. KeyattrDict) which may treat _dict as a key
             d = self._get_dict_or_value(args[0])
+            if kwargs and not isinstance(d, MutableMapping):
+                d = dict(d)
             object.__setattr__(self, "_dict", d)
             super().__init__(d)
+            if kwargs:
+                self.update(kwargs)
             return
         super().__init__(*args, **kwargs)
 
@@ -124,10 +128,10 @@ class BaseDict(dict[_K, _V]):
             return self._dict != other
         return super().__ne__(other)
 
-    def __or__(self, other: dict[_K, _V]) -> Self:  # type: ignore[override]
+    def __or__(self, other: dict[_K, _V]) -> dict[_K, _V]:  # type: ignore[override]
         if self._dict is not None:
-            return cast("Self", self._dict.__or__(other))
-        return cast("Self", super().__or__(other))
+            return self._dict.__or__(other)
+        return super().__or__(other)
 
     def __repr__(self) -> str:
         if self._dict is not None:
@@ -198,9 +202,9 @@ class BaseDict(dict[_K, _V]):
             obj.freeze()
         return obj
 
-    def dict(self) -> Self:
+    def dict(self) -> dict[_K, _V]:
         if self._dict is not None:
-            return cast("Self", self._dict)
+            return self._dict
         return self
 
     def get(self, key: _K, default: _V | None = None) -> _V | None:  # type: ignore[override]
@@ -233,7 +237,6 @@ class BaseDict(dict[_K, _V]):
     def setdefault(self, key: _K, default: _V | None = None) -> _V:
         self._check_frozen()
         default = self._get_dict_or_value(default)
-        assert default is not None
         if self._dict is not None:
             return self._dict.setdefault(key, default)
         return super().setdefault(key, default)

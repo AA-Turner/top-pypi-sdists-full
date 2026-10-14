@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from legit_api_client.models.broker_status import BrokerStatus
 from legit_api_client.models.integration_error import IntegrationError
+from legit_api_client.models.integration_health_summary_dto import IntegrationHealthSummaryDto
 from legit_api_client.models.integration_status import IntegrationStatus
 from legit_api_client.models.scm_type import ScmType
 from typing import Optional, Set
@@ -45,7 +46,8 @@ class IntegrationManagementDto(BaseModel):
     integration_error: Optional[IntegrationError] = Field(default=None, alias="integrationError")
     broker_name: Optional[StrictStr] = Field(default=None, alias="brokerName")
     server_version: Optional[StrictStr] = Field(default=None, alias="serverVersion")
-    __properties: ClassVar[List[str]] = ["id", "name", "url", "integrationType", "creationTime", "workspaceId", "workspaceName", "brokerStatus", "integrationStatus", "integrationErrorMessage", "integrationError", "brokerName", "serverVersion"]
+    health_summary: Optional[IntegrationHealthSummaryDto] = Field(default=None, description="A cheap approximation built without run details or counts: it never reports Partial or CompletedEmpty and uses the default stale threshold. Use GET /integrations/{id}/health for the full evaluation.", alias="healthSummary")
+    __properties: ClassVar[List[str]] = ["id", "name", "url", "integrationType", "creationTime", "workspaceId", "workspaceName", "brokerStatus", "integrationStatus", "integrationErrorMessage", "integrationError", "brokerName", "serverVersion", "healthSummary"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -86,6 +88,9 @@ class IntegrationManagementDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of health_summary
+        if self.health_summary:
+            _dict['healthSummary'] = self.health_summary.to_dict()
         # set to None if id (nullable) is None
         # and model_fields_set contains the field
         if self.id is None and "id" in self.model_fields_set:
@@ -141,6 +146,11 @@ class IntegrationManagementDto(BaseModel):
         if self.server_version is None and "server_version" in self.model_fields_set:
             _dict['serverVersion'] = None
 
+        # set to None if health_summary (nullable) is None
+        # and model_fields_set contains the field
+        if self.health_summary is None and "health_summary" in self.model_fields_set:
+            _dict['healthSummary'] = None
+
         return _dict
 
     @classmethod
@@ -165,7 +175,8 @@ class IntegrationManagementDto(BaseModel):
             "integrationErrorMessage": obj.get("integrationErrorMessage"),
             "integrationError": obj.get("integrationError"),
             "brokerName": obj.get("brokerName"),
-            "serverVersion": obj.get("serverVersion")
+            "serverVersion": obj.get("serverVersion"),
+            "healthSummary": IntegrationHealthSummaryDto.from_dict(obj["healthSummary"]) if obj.get("healthSummary") is not None else None
         })
         return _obj
 

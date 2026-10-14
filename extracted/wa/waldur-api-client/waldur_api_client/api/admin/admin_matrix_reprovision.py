@@ -48,7 +48,8 @@ def sync_detailed(
     """Reprovision all active Matrix rooms on a new homeserver
 
      Resets all active rooms to 'creating' state and re-queues them for provisioning. Also resets all
-    user profiles. Staff only.
+    user profiles. Only for moving to a new homeserver: on the same homeserver, every old room stays
+    behind with its history next to a new, empty one. Staff only.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -74,7 +75,8 @@ def sync(
     """Reprovision all active Matrix rooms on a new homeserver
 
      Resets all active rooms to 'creating' state and re-queues them for provisioning. Also resets all
-    user profiles. Staff only.
+    user profiles. Only for moving to a new homeserver: on the same homeserver, every old room stays
+    behind with its history next to a new, empty one. Staff only.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -96,7 +98,8 @@ async def asyncio_detailed(
     """Reprovision all active Matrix rooms on a new homeserver
 
      Resets all active rooms to 'creating' state and re-queues them for provisioning. Also resets all
-    user profiles. Staff only.
+    user profiles. Only for moving to a new homeserver: on the same homeserver, every old room stays
+    behind with its history next to a new, empty one. Staff only.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -120,7 +123,8 @@ async def asyncio(
     """Reprovision all active Matrix rooms on a new homeserver
 
      Resets all active rooms to 'creating' state and re-queues them for provisioning. Also resets all
-    user profiles. Staff only.
+    user profiles. Only for moving to a new homeserver: on the same homeserver, every old room stays
+    behind with its history next to a new, empty one. Staff only.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

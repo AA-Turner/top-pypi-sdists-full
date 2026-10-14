@@ -4,21 +4,22 @@ IRAFStarFinder class.
 """
 
 import warnings
+from functools import cached_property
 
 import numpy as np
-from astropy.utils import lazyproperty
-from astropy.utils.exceptions import AstropyDeprecationWarning
 
 from photutils.detection.core import (_DEPR_DEFAULT, StarFinderBase,
                                       StarFinderCatalogBase,
                                       _handle_deprecated_range,
-                                      _StarFinderKernel, _validate_n_brightest)
+                                      _StarFinderKernel, _validate_n_brightest,
+                                      _validate_xycoords_bounds)
 from photutils.utils._convolution import _filter_data
 from photutils.utils._deprecation import (deprecated_positional_kwargs,
                                           deprecated_renamed_argument)
 from photutils.utils._quantity_helpers import check_units, isscalar
 from photutils.utils._repr import make_repr
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 __all__ = ['IRAFStarFinder']
 
@@ -29,9 +30,22 @@ class IRAFStarFinder(StarFinderBase):
 
     `IRAFStarFinder` searches images for local density maxima that
     have a peak amplitude greater than ``threshold`` above the local
-    background and have a PSF full-width at half-maximum similar to the
+    background and have a PSF full width at half maximum similar to the
     input ``fwhm``. The objects' centroid, roundness (ellipticity), and
     sharpness are calculated using image moments.
+
+    The image is convolved with a circular Gaussian kernel that has a
+    positive core and negative wings, and that sums to zero. This
+    convolution is equivalent to a linear least-squares fit, at every
+    pixel, of the amplitude of the Gaussian centered on that pixel
+    plus a constant local background. Each pixel of the convolved
+    image is therefore the height of the best-fitting Gaussian at that
+    position, in the units of the input ``data``. Because the local
+    background is fitted, the convolved image does not depend on the
+    background level. The ``threshold`` is applied directly to this
+    fitted height. The local background is fitted using only the pixels
+    within the kernel footprint, so a larger ``sigma_radius`` gives a
+    less noisy fitted height.
 
     Parameters
     ----------
@@ -43,8 +57,8 @@ class IRAFStarFinder(StarFinderBase):
         the same units.
 
     fwhm : float
-        The full-width half-maximum (FWHM) of the 2D circular Gaussian
-        kernel in units of pixels.
+        The full width at half maximum (FWHM) of the 2D circular
+        Gaussian kernel in units of pixels.
 
     sigma_radius : float, optional
         The truncation radius of the Gaussian kernel in units of sigma
@@ -54,35 +68,41 @@ class IRAFStarFinder(StarFinderBase):
     minsep_fwhm : float, optional
         The separation (in units of ``fwhm``) for detected objects. The
         minimum separation is calculated as ``int((fwhm * minsep_fwhm) +
-        0.5)`` and is clipped to a minimum value of 2. Note that large
+        0.5)`` and is clipped to a minimum value of 2. This value
+        is ignored if ``min_separation`` is input. Note that large
         values may result in long run times.
 
         .. deprecated:: 3.0
-            Use ``min_separation`` instead.
+            This keyword is deprecated and will be removed in version
+            4.0. Use ``min_separation`` instead.
 
     sharplo : float, optional
         The lower bound on sharpness for object detection.
 
         .. deprecated:: 3.0
-            Use ``sharpness_range=(lower, upper)`` instead.
+            This keyword is deprecated and will be removed in version
+            4.0. Use ``sharpness_range=(lower, upper)`` instead.
 
     sharphi : float, optional
         The upper bound on sharpness for object detection.
 
         .. deprecated:: 3.0
-            Use ``sharpness_range=(lower, upper)`` instead.
+            This keyword is deprecated and will be removed in version
+            4.0. Use ``sharpness_range=(lower, upper)`` instead.
 
     roundlo : float, optional
         The lower bound on roundness for object detection.
 
         .. deprecated:: 3.0
-            Use ``roundness_range=(lower, upper)`` instead.
+            This keyword is deprecated and will be removed in version
+            4.0. Use ``roundness_range=(lower, upper)`` instead.
 
     roundhi : float, optional
         The upper bound on roundness for object detection.
 
         .. deprecated:: 3.0
-            Use ``roundness_range=(lower, upper)`` instead.
+            This keyword is deprecated and will be removed in version
+            4.0. Use ``roundness_range=(lower, upper)`` instead.
 
     exclude_border : bool, optional
         Set to `True` to exclude sources found within half the size of
@@ -97,21 +117,27 @@ class IRAFStarFinder(StarFinderBase):
     peak_max : float, None, optional
         The maximum allowed peak pixel value in an object. Objects with
         peak pixel values greater than ``peak_max`` will be rejected.
+        The peak value is measured after the local sky is subtracted.
         This keyword may be used, for example, to exclude saturated
         sources. If the star finder is run on an image that is a
         `~astropy.units.Quantity` array, then ``peak_max`` must have the
         same units. If ``peak_max`` is set to `None`, then no peak pixel
         value filtering will be performed.
 
-    xycoords : `None` or Nx2 `~numpy.ndarray`, optional
+    xycoords : `None` or Nx2 array_like, optional
         The (x, y) pixel coordinates of the approximate centroid
-        positions of identified sources. If ``xycoords`` are input, the
-        algorithm will skip the source-finding step.
+        positions of identified sources. If ``xycoords`` are input,
+        the algorithm will skip the source-finding step, and
+        ``threshold``, ``min_separation``, ``exclude_border``, and the
+        ``mask`` input to ``find_stars`` are not used to select the
+        sources. The positions are rounded to the nearest pixel and
+        must be within the bounds of the input ``data``.
 
     min_separation : `None` or float, optional
         The minimum separation (in pixels) for detected objects. If
         `None` (default) then the minimum separation is calculated as
-        ``2.5 * fwhm``. Note that large values may result in long run
+        ``2.5 * fwhm``. If 0, a local peak is required only within the
+        kernel footprint. Note that large values may result in long run
         times.
 
         .. versionchanged:: 3.0
@@ -131,6 +157,13 @@ class IRAFStarFinder(StarFinderBase):
         detection. Objects with roundness outside this range will be
         rejected. If `None`, no roundness filtering is performed. The
         default is ``(0.0, 0.2)``.
+
+    min_n_pixels : int, optional
+        The minimum number of positive sky-subtracted pixels within
+        the kernel footprint that a source must have. Sources with
+        fewer such pixels are rejected. The default is 5, which is the
+        default and the minimum value of the ``npixmin`` parameter in
+        IRAF's starfind.
 
     See Also
     --------
@@ -153,6 +186,10 @@ class IRAFStarFinder(StarFinderBase):
     * ``fwhm = hwhmpsf * 2``
     * ``sigma_radius = fradius * sqrt(2.0 * log(2.0))``
     * ``min_separation = max(2, int((fwhm * sepmin) + 0.5))``
+    * ``min_n_pixels = npixmin``
+
+    As in IRAF's starfind, sources whose centroid is outside of the
+    image are rejected.
 
     The main differences between `~photutils.detection.DAOStarFinder`
     and `~photutils.detection.IRAFStarFinder` are:
@@ -161,11 +198,27 @@ class IRAFStarFinder(StarFinderBase):
       Gaussian kernel, while `~photutils.detection.DAOStarFinder` can use
       an elliptical Gaussian kernel.
 
-    * `IRAFStarFinder` internally calculates a "sky" background level
-      based on unmasked pixels within the kernel footprint.
+    * `~photutils.detection.IRAFStarFinder` internally calculates a
+      local "sky" background level for each source as the mean of the
+      pixels in the kernel array that lie outside the kernel footprint,
+      and subtracts it before computing the source properties. If
+      the kernel footprint covers the entire kernel array, the sky is
+      the central data value minus the central value of the convolved
+      data.
 
     * `~photutils.detection.IRAFStarFinder` calculates the objects'
       centroid, roundness, and sharpness using image moments.
+
+    This routine differs from IRAF's starfind for pixels of the
+    convolved image that have identical values, which are uncommon
+    for floating-point data (a saturated star usually has none).
+    For a positive ``min_separation``, such pixels that are
+    within ``min_separation`` of each other give only one source (see
+    `~photutils.detection.find_peaks`). IRAF's starfind keeps every
+    pixel that is tied for the maximum within ``sepmin``, except for
+    those that follow a detected pixel within ``sepmin`` along the same
+    image line. With ``min_separation=0``, this routine keeps every
+    pixel that is tied for the maximum within the kernel footprint.
     """
 
     @deprecated_positional_kwargs(since='3.0', until='4.0')
@@ -179,7 +232,7 @@ class IRAFStarFinder(StarFinderBase):
                  exclude_border=False, n_brightest=None, peak_max=None,
                  xycoords=None, min_separation=None, *,
                  sharpness_range=(0.5, 2.0),
-                 roundness_range=(0.0, 0.2)):
+                 roundness_range=(0.0, 0.2), min_n_pixels=5):
 
         # Validate the units, but do not strip them
         inputs = (threshold, peak_max)
@@ -214,9 +267,9 @@ class IRAFStarFinder(StarFinderBase):
         # Handle deprecated minsep_fwhm parameter
         if minsep_fwhm is not _DEPR_DEFAULT:
             msg = ("The 'minsep_fwhm' parameter is deprecated "
-                   'and will be removed in a future version. Use '
+                   'and will be removed in version 4.0. Use '
                    "'min_separation' instead.")
-            warnings.warn(msg, AstropyDeprecationWarning)
+            warnings.warn(msg, PhotutilsDeprecationWarning)
             if minsep_fwhm < 0:
                 msg = 'minsep_fwhm must be >= 0'
                 raise ValueError(msg)
@@ -233,6 +286,11 @@ class IRAFStarFinder(StarFinderBase):
         self.exclude_border = exclude_border
         self.n_brightest = _validate_n_brightest(n_brightest)
         self.peak_max = peak_max
+
+        if min_n_pixels < 1:
+            msg = 'min_n_pixels must be >= 1'
+            raise ValueError(msg)
+        self.min_n_pixels = min_n_pixels
 
         if xycoords is not None:
             xycoords = np.asarray(xycoords)
@@ -256,7 +314,7 @@ class IRAFStarFinder(StarFinderBase):
         params = ('threshold', 'fwhm', 'sigma_radius',
                   'sharpness_range', 'roundness_range',
                   'exclude_border', 'n_brightest', 'peak_max', 'xycoords',
-                  'min_separation')
+                  'min_separation', 'min_n_pixels')
         overrides = {}
         if not isscalar(self.threshold):
             overrides['threshold'] = (
@@ -300,12 +358,15 @@ class IRAFStarFinder(StarFinderBase):
                                       check_normalization=False)
 
         if self.xycoords is None:
+            # _find_stars returns the integer peak pixel positions.
+            # The subpixel centroids are computed later in the catalog.
             xypos = self._find_stars(convolved_data, self.kernel,
                                      self.threshold,
                                      min_separation=self.min_separation,
                                      mask=mask,
                                      exclude_border=self.exclude_border)
         else:
+            _validate_xycoords_bounds(self.xycoords, data.shape)
             xypos = self.xycoords
 
         if xypos is None:
@@ -320,7 +381,8 @@ class IRAFStarFinder(StarFinderBase):
                                       sharpness_range=self.sharpness_range,
                                       roundness_range=self.roundness_range,
                                       n_brightest=self.n_brightest,
-                                      peak_max=self.peak_max)
+                                      peak_max=self.peak_max,
+                                      min_n_pixels=self.min_n_pixels)
 
     @deprecated_positional_kwargs(since='3.0', until='4.0')
     def find_stars(self, data, mask=None):
@@ -329,7 +391,7 @@ class IRAFStarFinder(StarFinderBase):
 
         Parameters
         ----------
-        data : 2D array_like
+        data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
             The 2D image array. The image should be
             background-subtracted.
 
@@ -350,15 +412,16 @@ class IRAFStarFinder(StarFinderBase):
             * ``fwhm``: object FWHM.
             * ``sharpness``: object sharpness.
             * ``roundness``: object roundness.
-            * ``orientation``: the angle between the ``x`` axis and the
-              major axis source measured counter-clockwise in the range
-              [0, 360) degrees.
+            * ``orientation``: the angle between the x-axis and the
+              major axis of the source, measured counterclockwise, in
+              the range (-90, 90] degrees.
             * ``n_pixels``: the total number of (positive) unmasked
               pixels.
-            * ``peak``: the peak, sky-subtracted, pixel value of the object.
+            * ``peak``: the peak sky-subtracted pixel value of the
+              object within the kernel footprint.
             * ``flux``: the object instrumental flux calculated as the
-              sum of sky-subtracted data values within the kernel
-              footprint.
+              sum of the positive sky-subtracted data values within the
+              kernel footprint.
             * ``mag``: the object instrumental magnitude calculated as
               ``-2.5 * log10(flux)``.
         """
@@ -402,15 +465,17 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         The convolution kernel. This kernel must match the kernel used
         to create the ``convolved_data``.
 
-    sharpness_range : tuple of 2 floats, optional
+    sharpness_range : tuple of 2 floats or `None`, optional
         The ``(lower, upper)`` inclusive bounds on sharpness for object
         detection. Objects with sharpness outside this range will be
-        rejected.
+        rejected. If `None`, no sharpness filtering is performed. The
+        default is ``(0.5, 2.0)``.
 
-    roundness_range : tuple of 2 floats, optional
+    roundness_range : tuple of 2 floats or `None`, optional
         The ``(lower, upper)`` inclusive bounds on roundness for object
         detection. Objects with roundness outside this range will be
-        rejected.
+        rejected. If `None`, no roundness filtering is performed. The
+        default is ``(0.0, 0.2)``.
 
     n_brightest : int, None, optional
         The number of brightest objects to keep after sorting the source
@@ -425,11 +490,15 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         `~astropy.units.Quantity` array, then ``peak_max`` must have the
         same units. If ``peak_max`` is set to `None`, then no peak pixel
         value filtering will be performed.
+
+    min_n_pixels : int, optional
+        The minimum number of positive sky-subtracted pixels within
+        the kernel footprint that a source must have. The default is 5.
     """
 
     def __init__(self, data, convolved_data, xypos, kernel, *,
-                 sharpness_range=(0.2, 1.0), roundness_range=(-1.0, 1.0),
-                 n_brightest=None, peak_max=None):
+                 sharpness_range=(0.5, 2.0), roundness_range=(0.0, 0.2),
+                 n_brightest=None, peak_max=None, min_n_pixels=5):
 
         # Validate the units, but do not strip them
         inputs = (data, convolved_data, peak_max)
@@ -443,6 +512,7 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         self.convolved_data = convolved_data
         self.sharpness_range = sharpness_range
         self.roundness_range = roundness_range
+        self.min_n_pixels = min_n_pixels
 
         self.default_columns = ('id', 'x_centroid', 'y_centroid', 'fwhm',
                                 'sharpness', 'roundness', 'orientation',
@@ -454,38 +524,48 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         """
         return ('data', 'unit', 'convolved_data', 'kernel',
                 'sharpness_range', 'roundness_range', 'n_brightest',
-                'peak_max', 'cutout_shape', 'default_columns')
+                'peak_max', 'min_n_pixels', 'cutout_shape',
+                'default_columns')
 
-    @lazyproperty
+    @cached_property
     def sky(self):
         """
         Calculate the sky background level.
 
-        The local sky level is roughly estimated using the IRAF starfind
-        calculation as the average value in the non-masked regions
-        within the kernel footprint.
+        The local sky level is roughly estimated using the IRAF
+        starfind calculation as the average value of the pixels in the
+        kernel array that are outside the kernel footprint. If there
+        are no such pixels, the sky is the central data value minus the
+        central convolved data value.
         """
         skymask = ~self.kernel.mask.astype(bool)  # True=sky, False=obj
-        # nsky is always > 0 because the kernel mask never covers the
-        # entire footprint (the Gaussian kernel is always truncated
-        # within the array, leaving unmasked border pixels).
-        nsky = np.count_nonzero(skymask)
+        n_sky = np.count_nonzero(skymask)
+        if n_sky == 0:
+            # The kernel footprint covers the entire kernel array, so
+            # there are no sky pixels. As in IRAF starfind, the sky is
+            # then the central data value minus the central convolved
+            # data value (the best-fitting Gaussian amplitude).
+            ycen, xcen = (size // 2 for size in self.cutout_shape)
+            cutout_conv = self.make_cutouts(self.convolved_data)
+            return (self.cutout_data_nosub[:, ycen, xcen]
+                    - cutout_conv[:, ycen, xcen])
+
         axis = (1, 2)
-        sky = np.sum(self.cutout_data_nosub * skymask, axis=axis) / nsky
+        sky = np.sum(self.cutout_data_nosub * skymask, axis=axis) / n_sky
 
         if self.unit is not None:
             sky <<= self.unit
 
         return sky
 
-    @lazyproperty
+    @cached_property
     def cutout_data_nosub(self):
         """
         The cutout data without sky subtraction or masking.
         """
         return self.make_cutouts(self.data)
 
-    @lazyproperty
+    @cached_property
     def cutout_data(self):
         """
         The cutout data with sky subtraction and masking applied.
@@ -498,7 +578,7 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         data[data < 0] = 0.0
         return data
 
-    @lazyproperty
+    @cached_property
     def n_pixels(self):
         """
         The total number of (positive) unmasked pixels in the cutout
@@ -506,35 +586,35 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         """
         return np.count_nonzero(self.cutout_data, axis=(1, 2))
 
-    @lazyproperty
+    @cached_property
     def cutout_xorigin(self):
         """
         The x pixel coordinate of the cutout origin.
         """
         return np.transpose(self.xypos)[0] - self.kernel.x_radius
 
-    @lazyproperty
+    @cached_property
     def cutout_yorigin(self):
         """
         The y pixel coordinate of the cutout origin.
         """
         return np.transpose(self.xypos)[1] - self.kernel.y_radius
 
-    @lazyproperty
+    @cached_property
     def x_centroid(self):
         """
         The x pixel coordinate of the object centroid.
         """
         return self.cutout_x_centroid + self.cutout_xorigin
 
-    @lazyproperty
+    @cached_property
     def y_centroid(self):
         """
         The y pixel coordinate of the object centroid.
         """
         return self.cutout_y_centroid + self.cutout_yorigin
 
-    @lazyproperty
+    @cached_property
     def sharpness(self):
         """
         The sharpness of the object.
@@ -547,7 +627,7 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
         """
         attrs = ('x_centroid', 'y_centroid', 'sharpness', 'roundness',
                  'orientation', 'sky', 'peak', 'flux')
-        initial_mask = np.count_nonzero(self.cutout_data, axis=(1, 2)) > 1
+        initial_mask = self.n_pixels >= self.min_n_pixels
         newcat = self._filter_finite(attrs, initial_mask=initial_mask)
         if newcat is None:
             return None
@@ -556,4 +636,12 @@ class _IRAFStarFinderCatalog(StarFinderCatalogBase):
             ('sharpness', self.sharpness_range),
             ('roundness', self.roundness_range),
         ]
-        return newcat._filter_bounds(bounds)
+
+        # As in IRAF starfind, reject sources with a centroid outside the
+        # image
+        ny, nx = newcat.data.shape
+        mask = ((newcat.x_centroid >= -0.5)
+                & (newcat.x_centroid <= nx - 0.5)
+                & (newcat.y_centroid >= -0.5)
+                & (newcat.y_centroid <= ny - 0.5))
+        return newcat._filter_bounds(bounds, initial_mask=mask)

@@ -19,11 +19,13 @@ installed binary and in live sessions; see the CHANGELOG entry):
 
 from __future__ import annotations
 
+import fcntl
 import importlib.util
 import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -31,6 +33,7 @@ import pytest
 
 from probe.daemon import mailbox
 from probe.daemon.mailbox import Kind
+from probe.daemon.store import store_path
 
 AGENT_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = AGENT_ROOT / "plugins" / "probe-research"
@@ -100,6 +103,27 @@ def _answer(ask: str = "a1b2c3", text: str = "digits-sweep: best val_acc 0.989 a
     return _msg(Kind.ANSWER, ask=ask, question=kw.pop("question", "what did the last sweep find?"), text=text, **kw)
 
 
+def _alert(text: str = "digits-svm (digits-svm-7) crashed at step 900 after 2h 10m: OutOfMemoryError.",
+           alerts: "list[int] | None" = None, **kw) -> mailbox.Message:
+    """A run alert as the worker's poller publishes it (`run_alerts.alert_message`)."""
+    ids = alerts or [7]
+    return _msg(Kind.ALERT, id=mailbox.alert_message_id(ids), text=text, keep=True, alerts=ids, **kw)
+
+
+def _daemon_serves(sid: str = SID):
+    """A live daemon worker that serves the session: the status file its reader
+    writes, and the session lock it holds (held here by the test process, as the
+    worker holds it: an open file under flock). Close the handle: the worker is gone."""
+    status = mailbox.status_path(sid)
+    status.parent.mkdir(parents=True, exist_ok=True)
+    status.write_text('{"state": "ok", "reason": "", "since": 1}')
+    lock = store_path(sid).with_suffix(".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock.open("a")
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    return handle
+
+
 def _waiting_ids(sid: str = SID) -> list[str]:
     return [m.id for _, m in mailbox.waiting(sid)]
 
@@ -149,6 +173,48 @@ def test_a_tool_call_delivers_an_answer_mid_turn():
     assert got == answer.rendered()
     assert got.startswith('[Probe] Answer to your ask a1b2c3 ("what did the last sweep find?") - evidence')
     assert _log()[-1]["by"] == "PostToolUse"
+
+
+def test_every_run_alert_goes_out_at_every_hook_beside_the_turns_one_unasked_message():
+    """A run alert is delivered like an answer: each one, at whichever hook runs
+    next, never in the turn's one unasked slot (so never capped by it)."""
+    _context(_run("UserPromptSubmit", prompt="train it"), "UserPromptSubmit")
+    now = time.time()
+    first = _alert("digits-svm-1 (digits-svm-1) is still running. loss went to 9.1 at step 400.",
+                   alerts=[1], made_at=now - 3)
+    second = _alert("digits-svm-2 (digits-svm-2) crashed at step 50 after 3m: ValueError.", alerts=[2],
+                    made_at=now - 2)
+    unasked = _msg(text="The team's `digits-sweep` already covered C in [0.1, 10].", made_at=now - 1)
+    for m in (first, second, unasked):
+        mailbox.publish(m)
+    got = _context(_run("PostToolUse"), "PostToolUse")
+    assert got == "\n\n".join(m.rendered() for m in (first, second, unasked))
+    assert got.startswith("[Probe] Run alert\ndigits-svm-1 (digits-svm-1) is still running.")
+
+    # The turn's unasked slot is spent: the next unasked message waits, an alert does not.
+    later = _msg(text="waits for the next turn")
+    third = _alert("digits-svm-3 (digits-svm-3) is still running.", alerts=[3])
+    mailbox.publish(later)
+    mailbox.publish(third)
+    assert _context(_run("PostToolUse"), "PostToolUse") == third.rendered()
+    assert _waiting_ids() == [later.id]
+    fourth = _alert("digits-svm-4 (digits-svm-4) crashed at step 2 after 9s: KeyError.", alerts=[4])
+    mailbox.publish(fourth)
+    # A new turn: oldest first, the unasked message (made earlier) and the alert.
+    assert _context(_run("UserPromptSubmit"), "UserPromptSubmit") == later.rendered() + "\n\n" + fourth.rendered()
+    assert {e["by"] for e in _log()} == {"PostToolUse", "UserPromptSubmit"}
+
+
+def test_a_run_alert_is_never_held_nor_replaced():
+    hook = _load()
+    alert = _alert()
+    mailbox.publish(alert)
+    mailbox.publish(_msg(text="a newer unasked message replaces only an unasked one"))
+    mailbox.publish(_msg(text="like this one"))
+    assert _waiting_ids()[0] == alert.id and len(_waiting_ids()) == 2
+    ((_, msg),) = [(p, m) for p, m in hook.waiting(SID) if m["kind"] == hook.KIND_ALERT]
+    assert msg["ask"] is None
+    assert hook.held(SID, msg["ask"]) is False and mailbox.held(SID, alert.ask) is False
 
 
 def test_a_second_unasked_message_waits_for_the_next_turn():
@@ -395,11 +461,188 @@ def test_the_waiter_gives_up_at_its_ceiling_and_leaves_unasked_messages(monkeypa
     assert _waiting_ids() == [unasked.id]
 
 
+def test_the_waiter_waits_past_its_ask_ceiling_for_a_request_to_the_writer(monkeypatch):
+    """A writer run often takes minutes: a request's reply still wakes the agent
+    after WAKE_MAX_S, up to REQUEST_WAKE_MAX_S (twice the writer's timeout, by
+    when the run has answered or failed it)."""
+    from probe.daemon import requests as requests_mod
+
+    hook = _load()
+    assert hook.REQUEST_WAKE_MAX_S > 2 * requests_mod.WRITE_REQUEST_TIMEOUT_S
+    assert mailbox.new_request_id().startswith(hook.REQUEST_ID_PREFIX)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+    req = mailbox.write_request(SID, "group the arms")
+    reply = _writer(Kind.ANSWER, ask=req.id, text="Grouped.")
+    timer = threading.Timer(0.8, mailbox.publish, args=(reply,))
+    timer.start()
+    try:
+        assert hook.on_stop({"session_id": SID}, max_s=0.3, poll_s=0.1, alert_poll_s=0.1, request_max_s=10) == 2
+    finally:
+        timer.join()
+    ask = mailbox.write_ask(SID, "what LR?")
+    started = time.monotonic()
+    assert hook.on_stop({"session_id": SID}, max_s=0.3, poll_s=0.1, alert_poll_s=0.1, request_max_s=10) == 0
+    assert time.monotonic() - started < 3, f"an ask ({ask.id}) still gives up at max_s"
+
+
 def test_the_waiter_stops_before_its_hook_timeout():
     wiring = json.loads((PLUGIN / "hooks" / "claude-reads.json").read_text())["hooks"]
     hook = wiring["Stop"][0]["hooks"][0]
     assert hook["asyncRewake"] is True
-    assert hook["timeout"] > _load().WAKE_MAX_S + 5
+    # Claude Code's own prefix reads "Stop hook blocking error from command ...":
+    # a woken model took an alert for a broken hook (live check, 2026-10-13).
+    assert hook["rewakeMessage"].startswith("Message from the Probe daemon")
+    assert hook["rewakeSummary"] == "Probe"
+    waiter = _load()
+    assert hook["timeout"] > waiter.WAKE_MAX_S + 5
+    assert waiter.ALERT_WAKE_MAX_S == 7 * 86400
+    assert hook["timeout"] == waiter.ALERT_WAKE_MAX_S + 60, "a minute past the waiter's own ceiling"
+
+
+def test_the_waiter_wakes_an_idle_agent_for_a_run_alert():
+    """No ask open: the daemon serving the session is enough to wait."""
+    holder = _daemon_serves()
+    try:
+        waiter = _start("Stop", env=ATTENDED, stop_hook_active=False, last_assistant_message="launched it")
+        time.sleep(1.0)
+        assert waiter.poll() is None, "the waiter must wait while the worker runs"
+        alert = _alert()
+        mailbox.publish(alert)
+        stdout, stderr = waiter.communicate(timeout=15)
+    finally:
+        holder.close()
+    assert (waiter.returncode, stdout, stderr) == (2, "", alert.rendered())
+    assert stderr.startswith("[Probe] Run alert\n")
+    assert (_log()[-1]["id"], _log()[-1]["by"]) == (alert.id, "Stop")
+    assert _waiting_ids() == []
+
+
+def test_the_alert_waiter_exits_quietly_when_a_new_prompt_arrives():
+    holder = _daemon_serves()
+    try:
+        waiter = _start("Stop", env=ATTENDED)
+        time.sleep(1.0)
+        assert waiter.poll() is None
+        assert _context(_run("UserPromptSubmit", prompt="next"), "UserPromptSubmit") is None
+        stdout, stderr = waiter.communicate(timeout=10)
+    finally:
+        holder.close()
+    assert (waiter.returncode, stdout, stderr) == (0, "", "")
+
+
+def test_the_alert_waiter_exits_quietly_once_the_worker_stays_gone(monkeypatch):
+    """The daemon stopped for good: past the grace, the waiter leaves, and an alert
+    published later waits for the session's next hook."""
+    hook = _load()
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+    _daemon_serves().close()  # served once; nobody holds the lock now
+    started = time.monotonic()
+    assert hook.on_stop({"session_id": SID}, worker_grace_s=0.5, alert_poll_s=0.1) == 0
+    assert 0.4 < time.monotonic() - started < 5
+    alert = _alert()
+    mailbox.publish(alert)
+    assert _waiting_ids() == [alert.id]
+
+
+def test_a_worker_restart_does_not_end_the_wake():
+    """A CLI reinstall or a crash respawns the worker within seconds. One look at
+    the free lock used to end the waiter for good, and no Stop re-arms it while
+    the agent is idle (review of #2754)."""
+    holder = _daemon_serves()
+    waiter = _start("Stop", env=ATTENDED)
+    time.sleep(1.0)
+    holder.close()  # the old worker exits...
+    time.sleep(3.0)
+    assert waiter.poll() is None, "a lock free for 3 s is a restart, not a closed session"
+    holder = _daemon_serves()  # ...and the new one takes the lock
+    try:
+        alert = _alert()
+        mailbox.publish(alert)
+        stdout, stderr = waiter.communicate(timeout=15)
+    finally:
+        holder.close()
+    assert (waiter.returncode, stderr) == (2, alert.rendered())
+
+
+def test_the_waiter_leaves_when_claude_code_is_gone():
+    """Claude Code exited or was killed: a background hook is re-parented, not
+    killed, and the worker lives on for minutes. The hook's stderr hangs up, and
+    the waiter leaves before it claims an alert nobody would read."""
+    holder = _daemon_serves()
+    try:
+        waiter = subprocess.Popen([PY, str(HOOK)], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.PIPE, text=True, env=_env(**ATTENDED))
+        waiter.stdin.write(_payload("Stop", SID))
+        waiter.stdin.close()
+        time.sleep(1.0)
+        assert waiter.poll() is None
+        waiter.stderr.close()  # what Claude Code's exit does to the hook's stderr
+        assert waiter.wait(timeout=10) == 0
+        alert = _alert()
+        mailbox.publish(alert)
+        time.sleep(1.0)
+        assert _waiting_ids() == [alert.id], "nothing was claimed into the dead session"
+    finally:
+        holder.close()
+
+
+def test_one_waiter_per_session_the_newest():
+    """A turn the agent starts with no prompt (a background task's notice) ends in
+    a Stop of its own: its waiter takes over, the older one leaves."""
+    holder = _daemon_serves()
+    try:
+        older = _start("Stop", env=ATTENDED)
+        time.sleep(1.0)
+        assert older.poll() is None
+        newer = _start("Stop", env=ATTENDED)
+        out, err = older.communicate(timeout=10)
+        assert (older.returncode, out, err) == (0, "", "")
+        alert = _alert()
+        mailbox.publish(alert)
+        stdout, stderr = newer.communicate(timeout=15)
+    finally:
+        holder.close()
+    assert (newer.returncode, stderr) == (2, alert.rendered())
+
+
+def test_no_alert_wait_unserved_or_in_a_headless_session():
+    started = time.monotonic()
+    assert _run("Stop", env=ATTENDED).returncode == 0, "no status file: the daemon serves nobody here"
+    holder = _daemon_serves()
+    try:
+        assert _run("Stop").returncode == 0, "headless: never waits"
+    finally:
+        holder.close()
+    assert time.monotonic() - started < 10
+
+
+def test_the_alert_waiter_gives_up_at_its_ceiling(monkeypatch):
+    hook = _load()
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+    holder = _daemon_serves()
+    try:
+        started = time.monotonic()
+        assert hook.on_stop({"session_id": SID}, alert_max_s=0.5, alert_poll_s=0.1) == 0
+        assert 0.4 < time.monotonic() - started < 5
+    finally:
+        holder.close()
+
+
+def test_past_the_asks_budget_the_waiter_still_wakes_for_an_alert(monkeypatch, capsys):
+    hook = _load()
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+    mailbox.write_ask(SID, "what LR?")
+    alert = _alert()
+    holder = _daemon_serves()
+    timer = threading.Timer(0.8, lambda: mailbox.publish(alert))
+    timer.start()
+    try:
+        assert hook.on_stop({"session_id": SID}, max_s=0.3, poll_s=0.05, alert_max_s=10, alert_poll_s=0.1) == 2
+    finally:
+        timer.cancel()
+        holder.close()
+    assert capsys.readouterr().err == alert.rendered()
+    assert mailbox.open_asks(SID) != [], "the ask's answer goes out at the next hook"
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +664,11 @@ def _every_shape() -> list[mailbox.Message]:
         _msg(Kind.FAILED, ask="a000006", question="q", reason=None, made_at=now - 3),
         _msg(Kind.ANSWER, ask="a000007", question="x" * 120, text="exactly at the cut", made_at=now - 2),
         _msg(Kind.ANSWER, ask="a000008", question="y" * 121, text="one past the cut", made_at=now - 1),
+        _alert("digits-svm (digits-svm-7) crashed at step 900 after 2h 10m: OutOfMemoryError.\n"
+               "digits-cnn (digits-cnn-2) is still running. loss went to 9.1 at step 40, 6.2 standard "
+               "deviations above its trailing window.\nand 3 more runs.", alerts=[7, 8, 9, 10, 11],
+               made_at=now - 0.5),
+        _alert("naïve-bayes ✓ (nb-1) crashed: {braces} and $& stay as written.", alerts=[12], made_at=now - 0.2),
     ]
 
 
@@ -429,9 +677,9 @@ def test_the_hook_mirrors_the_mailbox_constants():
     assert hook.HOLD_FRESH_S == mailbox.HOLD_FRESH_S
     assert hook.ANSWER_TTL_S == mailbox.ANSWER_TTL_S
     assert hook.LABEL_QUESTION_CHARS == mailbox.LABEL_QUESTION_CHARS
-    assert (hook.KIND_MESSAGE, hook.KIND_ANSWER, hook.KIND_NOTHING, hook.KIND_FAILED) == tuple(Kind)
-    assert (hook.TEXT_MESSAGE, hook.TEXT_ANSWER, hook.TEXT_NOTHING, hook.TEXT_FAILED) == (
-        mailbox.TEXT_MESSAGE, mailbox.TEXT_ANSWER, mailbox.TEXT_NOTHING, mailbox.TEXT_FAILED)
+    assert (hook.KIND_MESSAGE, hook.KIND_ANSWER, hook.KIND_NOTHING, hook.KIND_FAILED, hook.KIND_ALERT) == tuple(Kind)
+    assert (hook.TEXT_MESSAGE, hook.TEXT_ANSWER, hook.TEXT_NOTHING, hook.TEXT_FAILED, hook.TEXT_ALERT) == (
+        mailbox.TEXT_MESSAGE, mailbox.TEXT_ANSWER, mailbox.TEXT_NOTHING, mailbox.TEXT_FAILED, mailbox.TEXT_ALERT)
 
 
 def test_published_files_render_exactly_as_the_mailbox_renders_them():
@@ -461,6 +709,19 @@ def test_open_asks_and_holds_read_the_same_as_the_mailbox():
     for a in asks:
         assert hook.held(SID, a.id) == mailbox.held(SID, a.id)
     assert hook._safe("../x y") == mailbox._safe("../x y")
+
+
+def test_the_hooks_worker_check_reads_the_same_lock_as_the_mailbox():
+    hook = _load()
+    assert hook.worker_alive(SID) is mailbox.worker_alive(SID) is False  # no lock file at all
+    holder = _daemon_serves()
+    try:
+        assert hook.worker_alive(SID) is mailbox.worker_alive(SID) is True
+        assert hook.worker_alive(OTHER) is mailbox.worker_alive(OTHER) is False
+    finally:
+        holder.close()
+    assert hook.worker_alive(SID) is mailbox.worker_alive(SID) is False  # the file stays; nobody holds it
+    assert hook._served(SID) is True and hook._served(OTHER) is False
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +829,20 @@ def test_a_prompt_with_nothing_waiting_ends_the_waiter(fake_python):
     assert mailbox.open_asks(SID) != []  # still open: its answer goes out at the next hook
 
 
+def test_a_prompt_ends_the_waiter_for_a_request_too(fake_python):
+    """A request filed with no worker running leaves only `requests/<sid>`: the
+    prompt's shell must still write a new turn token, or the waiter keeps
+    waiting through the next turn."""
+    bin_dir, _ = fake_python
+    mailbox.write_request(SID, "group the arms")
+    waiter = _start("Stop", env=ATTENDED)
+    time.sleep(1.0)
+    assert waiter.poll() is None
+    assert _bash(_command("routes.json", "UserPromptSubmit"), bin_dir, CLAUDE_CODE_SESSION_ID=SID).returncode == 0
+    stdout, stderr = waiter.communicate(timeout=10)
+    assert (waiter.returncode, stdout, stderr) == (0, "", "")
+
+
 def test_the_stop_fast_path_starts_no_python_without_an_ask_or_in_a_headless_session(fake_python):
     bin_dir, marker = fake_python
     command = _command("claude-reads.json", "Stop")
@@ -584,6 +859,23 @@ def test_the_stop_fast_path_starts_no_python_without_an_ask_or_in_a_headless_ses
     mailbox.take_ask(SID, ask.id)  # taken by the worker: still an ask the waiter can wait for
     assert _bash(command, bin_dir, **base, **ATTENDED).returncode == 0
     assert marker.read_text() == "started\n" * 2
+
+
+def test_the_stop_fast_path_starts_python_for_a_session_the_daemon_serves(fake_python):
+    """No ask open: a status file (the worker's reader started) is the session's
+    daemon, whose run alerts the waiter waits for. Python checks the worker lives."""
+    bin_dir, marker = fake_python
+    command = _command("claude-reads.json", "Stop")
+    base = {"CLAUDE_CODE_SESSION_ID": SID}
+    status = mailbox.status_path(OTHER)
+    status.parent.mkdir(parents=True, exist_ok=True)
+    status.write_text('{"state": "ok"}')
+    assert _bash(command, bin_dir, **base, **ATTENDED).returncode == 0  # another session's daemon
+    mailbox.status_path(SID).write_text('{"state": "ok"}')
+    assert _bash(command, bin_dir, **base).returncode == 0  # headless
+    assert not marker.exists()
+    assert _bash(command, bin_dir, **base, **ATTENDED).returncode == 0
+    assert marker.read_text() == "started\n"
 
 
 def test_the_wrapper_runs_the_real_hook_with_the_payload(tmp_path):
@@ -692,9 +984,10 @@ def test_the_pi_extension_mirrors_the_mailbox_texts():
     def ts(name: str) -> str:
         return json.loads(re.search(rf'export const {name} = ("(?:[^"\\]|\\.)*");', source).group(1))
 
-    assert (ts("TEXT_MESSAGE"), ts("TEXT_ANSWER"), ts("TEXT_NOTHING"), ts("TEXT_FAILED")) == (
-        mailbox.TEXT_MESSAGE, mailbox.TEXT_ANSWER, mailbox.TEXT_NOTHING, mailbox.TEXT_FAILED)
-    assert (ts("KIND_MESSAGE"), ts("KIND_ANSWER"), ts("KIND_NOTHING"), ts("KIND_FAILED")) == tuple(Kind)
+    assert (ts("TEXT_MESSAGE"), ts("TEXT_ANSWER"), ts("TEXT_NOTHING"), ts("TEXT_FAILED"), ts("TEXT_ALERT")) == (
+        mailbox.TEXT_MESSAGE, mailbox.TEXT_ANSWER, mailbox.TEXT_NOTHING, mailbox.TEXT_FAILED, mailbox.TEXT_ALERT)
+    assert (ts("KIND_MESSAGE"), ts("KIND_ANSWER"), ts("KIND_NOTHING"), ts("KIND_FAILED"),
+            ts("KIND_ALERT")) == tuple(Kind)
     lines = mailbox.FAILURE_MESSAGES
     assert ts("MSG_DAEMON_STOPPED") == lines[mailbox.DAEMON_STOPPED]
     assert ts("MSG_READER_FAILING") == lines[mailbox.Status.FAILING]
@@ -811,3 +1104,117 @@ def test_a_stale_wake_marker_does_not_swallow_a_new_turn():
     mailbox.publish(msg)
     assert _context(_run("UserPromptSubmit"), "UserPromptSubmit") == msg.rendered()
     assert not marker.exists()
+
+
+# ---------------------------------------------------------------------------
+# The daemon's writer (writer channel, 10-13): replies, failures, receipts.
+# ---------------------------------------------------------------------------
+
+#: The hook as it shipped before the writer's messages (plugin 0.142.x): what a
+#: session on an older plugin runs when the daemon starts sending them.
+OLD_HOOK = Path(__file__).parent / "fixtures" / "old_hooks" / "reads_hook_before_writer_channel.py"
+
+
+def _writer(kind: str = Kind.MESSAGE, **kw) -> mailbox.Message:
+    return _msg(kind, origin=mailbox.ORIGIN_WRITER, **kw)
+
+
+def test_the_hook_and_pi_mirror_the_writers_labels():
+    import re
+
+    hook = _load()
+    assert hook.ORIGIN_WRITER == mailbox.ORIGIN_WRITER
+    assert (hook.TEXT_WRITER_REPLY, hook.TEXT_WRITER_RECEIPT, hook.TEXT_WRITER_FAILED) == (
+        mailbox.TEXT_WRITER_REPLY, mailbox.TEXT_WRITER_RECEIPT, mailbox.TEXT_WRITER_FAILED)
+    source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "core" / "reads.ts").read_text()
+
+    def ts(name: str) -> str:
+        return json.loads(re.search(rf'export const {name} = ("(?:[^"\\]|\\.)*");', source).group(1))
+
+    assert (ts("ORIGIN_WRITER"), ts("TEXT_WRITER_REPLY"), ts("TEXT_WRITER_RECEIPT"), ts("TEXT_WRITER_FAILED")) == (
+        mailbox.ORIGIN_WRITER, mailbox.TEXT_WRITER_REPLY, mailbox.TEXT_WRITER_RECEIPT, mailbox.TEXT_WRITER_FAILED)
+
+
+def test_writer_messages_render_the_same_through_the_hook():
+    hook = _load()
+    now = time.time()
+    for m in (_writer(Kind.ANSWER, ask="w1", text="Grouped.\nRecorded: created experiment e1", made_at=now - 3),
+              _writer(Kind.FAILED, ask="w2", reason="Probe is off for this session", made_at=now - 2),
+              _writer(text="created experiment e1 · moved 3 runs to e1 (a, b, c)", made_at=now - 1)):
+        mailbox.publish(m)
+    theirs = mailbox.waiting(SID)
+    assert [hook.rendered(m) for _, m in hook.waiting(SID)] == [m.rendered() for _, m in theirs]
+
+
+def test_writer_receipts_go_out_beside_the_readers_one_message_never_in_its_slot():
+    now = time.time()
+    first = _writer(text="created experiment e1", made_at=now - 4)
+    reader = _msg(text="The team's sweep covered C in [0.1, 10].", made_at=now - 3)
+    second = _writer(text="moved 3 runs to e1 (a, b, c)", made_at=now - 2)
+    for m in (first, reader, second):
+        mailbox.publish(m)
+    got = _context(_run("UserPromptSubmit", prompt="go on"), "UserPromptSubmit")
+    assert got == "\n\n".join(m.rendered() for m in (first, reader, second))
+    mailbox.publish(_msg(text="a second reader message: the turn's slot is taken"))
+    mailbox.publish(_writer(text="moved run d to e1"))
+    got = _context(_run("PostToolUse"), "PostToolUse")
+    assert got == "[Probe] The writer recorded: moved run d to e1"
+
+
+def test_the_waiter_wakes_the_agent_with_the_writers_reply():
+    req = mailbox.write_request(SID, "group the arms")
+    mailbox.take_request(SID, req.id)
+    waiter = _start("Stop", env=ATTENDED, stop_hook_active=False, last_assistant_message="done")
+    time.sleep(1.0)
+    assert waiter.poll() is None, "the waiter waits while the request is open"
+    mailbox.publish(_writer(text="never a wake"))
+    time.sleep(1.0)
+    assert waiter.poll() is None, "a receipt is no reply"
+    reply = _writer(Kind.ANSWER, ask=req.id, text="Grouped.\nRecorded: created experiment e1")
+    mailbox.publish(reply)
+    _stdout, stderr = waiter.communicate(timeout=15)
+    assert waiter.returncode == 2 and stderr == reply.rendered()
+    assert mailbox.open_asks(SID) == []
+
+
+def test_open_asks_read_requests_the_same_as_the_mailbox():
+    hook = _load()
+    ask = mailbox.write_ask(SID, "what LR?", now=time.time() - 3)
+    req = mailbox.write_request(SID, "group the arms", now=time.time() - 2)
+    taken = mailbox.write_request(SID, "and the scores", now=time.time() - 1)
+    mailbox.take_request(SID, taken.id)
+    mailbox.write_request(SID, "too old", now=time.time() - mailbox.ANSWER_TTL_S - 5)
+    assert hook.open_asks(SID) == mailbox.open_asks(SID) == [ask.id, req.id, taken.id]
+
+
+def test_the_stop_fast_path_starts_python_for_a_request(fake_python):
+    bin_dir, marker = fake_python
+    command = _command("claude-reads.json", "Stop")
+    mailbox.mark_worker_accepts(SID)  # a live worker's marker alone is not a request
+    assert _bash(command, bin_dir, CLAUDE_CODE_SESSION_ID=SID, **ATTENDED).returncode == 0
+    assert not marker.exists()
+    req = mailbox.write_request(SID, "group the arms")
+    assert _bash(command, bin_dir, CLAUDE_CODE_SESSION_ID=SID, **ATTENDED).returncode == 0
+    assert marker.read_text() == "started\n"
+    mailbox.take_request(SID, req.id)
+    assert _bash(command, bin_dir, CLAUDE_CODE_SESSION_ID=SID, **ATTENDED).returncode == 0
+    assert marker.read_text() == "started\n" * 2
+
+
+def test_an_older_hook_takes_a_receipt_as_an_unasked_message_and_never_wakes_for_it():
+    """O7: the writer's receipts stay `message`s with an `origin`, which hooks
+    from before the writer ignore: an old session gets a receipt in the reader's
+    one-per-turn slot, never a wake (a new kind would have started a turn)."""
+    spec = importlib.util.spec_from_file_location("_old_reads_hook", OLD_HOOK)
+    old = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(old)
+    receipt = _writer(text="created experiment e1")
+    mailbox.publish(receipt)
+    assert old.open_asks(SID) == [], "nothing for the Stop waiter to wait on"
+    assert old.deliver(SID, "t1", "PostToolUse") == [old.TEXT_MESSAGE.format(message="created experiment e1")]
+    req = mailbox.write_request(SID, "group the arms")
+    assert old.open_asks(SID) == [], "an older waiter never waits on a request (no wake, no hang)"
+    reply = _writer(Kind.ANSWER, ask=req.id, text="Grouped.")
+    mailbox.publish(reply)
+    [got] = old.deliver(SID, "t1", "PostToolUse")
+    assert "Grouped." in got, "a reply still arrives, under the reader's answer label"

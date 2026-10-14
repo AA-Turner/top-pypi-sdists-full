@@ -82,8 +82,11 @@ class Evals(APIResource):
     Args:
       base_model_slug: Registered base model for the run, distinct from a deployment model slug.
 
-      idempotency_key: Optional; reuse this key when retrying a submission. The API generates one when
-        omitted.
+      idempotency_key: Required with `Trajectory-API-Version: tmp-contract`, which rejects a missing,
+        blank or over-long key, including an SDK call that passes `idempotency_key=None`.
+        Optional for legacy callers, whose key the API generates. Reuse this key when
+        retrying a submission; the SDK generates one per call and reuses it across
+        automatic retries.
 
       benchmark_name: Resolve the latest version and run its benchmark ID.
 
@@ -127,10 +130,15 @@ class Evals(APIResource):
         headers={
           "Idempotency-Key": serialize_header(idempotency_key),
         },
-        extra_headers=extra_headers,
+        extra_headers=(
+          {"Idempotency-Key": omit, **(extra_headers or {})}
+          if idempotency_key is None
+          else extra_headers
+        ),
         extra_query=extra_query,
         extra_body=extra_body,
         timeout=timeout,
+        idempotency_header=("Idempotency-Key" if isinstance(idempotency_key, Omit) else None),
       ),
     )
 

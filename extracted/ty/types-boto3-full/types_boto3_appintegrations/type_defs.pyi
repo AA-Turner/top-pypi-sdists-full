@@ -23,15 +23,16 @@ from typing import Union
 
 from .literals import (
     ApplicationTypeType,
+    AuthTypeType,
     ContactHandlingScopeType,
     ExecutionModeType,
     ExecutionStatusType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Literal, NotRequired, TypedDict
+    from typing import NotRequired, TypedDict
 else:
-    from typing_extensions import Literal, NotRequired, TypedDict
+    from typing_extensions import NotRequired, TypedDict
 
 __all__ = (
     "ApplicationAssociationSummaryTypeDef",
@@ -135,8 +136,9 @@ class ApplicationSummaryTypeDef(TypedDict):
     ApplicationType: NotRequired[ApplicationTypeType]
 
 class AuthConfigTypeDef(TypedDict):
-    AuthType: NotRequired[Literal["API_KEY"]]
+    AuthType: NotRequired[AuthTypeType]
     CredentialProviderIdentifier: NotRequired[str]
+    AudienceOverride: NotRequired[str]
 
 class PublicationTypeDef(TypedDict):
     Event: str

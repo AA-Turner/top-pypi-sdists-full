@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.billing_unit import BillingUnit
+from ..models.plan_billing_mode import PlanBillingMode
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PatchedProviderPlanDetailsRequest")
@@ -20,6 +21,7 @@ class PatchedProviderPlanDetailsRequest:
         max_amount (Union[None, Unset, int]): Maximum number of plans that could be active. Plan is disabled when
             maximum amount is reached.
         archived (Union[Unset, bool]): Forbids creation of new resources.
+        billing_mode (Union[Unset, PlanBillingMode]):  Default: PlanBillingMode.INHERIT.
         unit_price (Union[Unset, str]):
         unit (Union[Unset, BillingUnit]):
         backend_id (Union[Unset, str]):
@@ -30,6 +32,7 @@ class PatchedProviderPlanDetailsRequest:
     article_code: Union[Unset, str] = UNSET
     max_amount: Union[None, Unset, int] = UNSET
     archived: Union[Unset, bool] = UNSET
+    billing_mode: Union[Unset, PlanBillingMode] = PlanBillingMode.INHERIT
     unit_price: Union[Unset, str] = UNSET
     unit: Union[Unset, BillingUnit] = UNSET
     backend_id: Union[Unset, str] = UNSET
@@ -49,6 +52,10 @@ class PatchedProviderPlanDetailsRequest:
             max_amount = self.max_amount
 
         archived = self.archived
+
+        billing_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.billing_mode, Unset):
+            billing_mode = self.billing_mode.value
 
         unit_price = self.unit_price
 
@@ -71,6 +78,8 @@ class PatchedProviderPlanDetailsRequest:
             field_dict["max_amount"] = max_amount
         if archived is not UNSET:
             field_dict["archived"] = archived
+        if billing_mode is not UNSET:
+            field_dict["billing_mode"] = billing_mode
         if unit_price is not UNSET:
             field_dict["unit_price"] = unit_price
         if unit is not UNSET:
@@ -100,6 +109,13 @@ class PatchedProviderPlanDetailsRequest:
 
         archived = d.pop("archived", UNSET)
 
+        _billing_mode = d.pop("billing_mode", UNSET)
+        billing_mode: Union[Unset, PlanBillingMode]
+        if isinstance(_billing_mode, Unset):
+            billing_mode = UNSET
+        else:
+            billing_mode = PlanBillingMode(_billing_mode)
+
         unit_price = d.pop("unit_price", UNSET)
 
         _unit = d.pop("unit", UNSET)
@@ -117,6 +133,7 @@ class PatchedProviderPlanDetailsRequest:
             article_code=article_code,
             max_amount=max_amount,
             archived=archived,
+            billing_mode=billing_mode,
             unit_price=unit_price,
             unit=unit,
             backend_id=backend_id,

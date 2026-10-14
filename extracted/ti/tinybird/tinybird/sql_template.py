@@ -423,22 +423,29 @@ def array_type(types):
     return _f
 
 
-def sql_unescape(x, what=""):
+def sql_unescape(x: str, what: str = "") -> Expression:
     """
     unescapes specific characters in a string. It allows to allow some
     special characters to be used, for example in like condictionals
 
     {{sql_unescape(String(like_filter), '%')}}
 
+    `what` must be given and must not contain quotes or backslashes: unescaping
+    those would let the caller close the string literal, so they stay escaped.
 
     >>> sql_unescape('testing%', '%')
     "'testing%'"
     >>> sql_unescape('testing%', '$')
     "'testing\\\\%'"
     >>> sql_unescape('testing"')
-    '\\'testing"\\''
+    '\\'testing\\\\"\\''
+    >>> sql_unescape("x' OR 1=1", "'")
+    "'x\\\\' OR 1=1'"
     """
-    return Expression("'" + sqlescape_for_string_expression(x).replace(f"\\{what}", what) + "'")
+    escaped = sqlescape_for_string_expression(x)
+    if what and not any(c in what for c in "'\"\\"):
+        escaped = escaped.replace(f"\\{what}", what)
+    return Expression("'" + escaped + "'")
 
 
 def split_to_array(x, default="", separator: str = ","):

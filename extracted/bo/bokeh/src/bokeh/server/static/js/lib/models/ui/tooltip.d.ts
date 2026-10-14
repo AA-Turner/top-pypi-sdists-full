@@ -46,7 +46,6 @@ export declare class TooltipView extends UIElementView {
     private _scroll_listener?;
     connect_signals(): void;
     disconnect_signals(): void;
-    remove(): void;
     stylesheets(): StyleSheetLike[];
     get content(): NativeNode;
     private _has_rendered;

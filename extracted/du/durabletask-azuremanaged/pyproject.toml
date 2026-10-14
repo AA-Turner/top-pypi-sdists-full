@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "durabletask.azuremanaged"
-version = "1.11.0"
+version = "1.12.0"
 description = "Durable Task Python SDK provider implementation for the Azure Durable Task Scheduler"
 keywords = [
     "durable",
@@ -20,19 +20,25 @@ keywords = [
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "License :: OSI Approved :: MIT License",
 ]
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 readme = "README.md"
 dependencies = [
-    "durabletask>=1.11.0",
+    "durabletask>=1.12.0",
     "azure-identity>=1.19.0"
 ]
 
 [project.optional-dependencies]
 azure-blob-payloads = [
-    "durabletask[azure-blob-payloads]>=1.11.0"
+    "durabletask[azure-blob-payloads]>=1.12.0"
 ]
 
 [project.urls]

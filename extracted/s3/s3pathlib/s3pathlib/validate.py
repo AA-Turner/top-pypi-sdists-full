@@ -1,128 +1,186 @@
 # -*- coding: utf-8 -*-
 
+"""
+Optional tools to check S3 bucket names, keys, URIs and ARNs.
+
+``s3pathlib`` itself never calls these validators. Call them yourself when you
+want an early, clear error, for example to check a bucket name typed by a user
+before creating the bucket. Every validator raises
+:class:`~s3pathlib.exc.S3ValidationError`, which is also a ``ValueError``.
+
+**Design notes**
+
+*Checking is split in two.*
+
+- **Format**: whether a string is a well formed S3 URI or ARN that can be
+  split into bucket and key. Only the client can check this, because S3 APIs
+  receive the bucket and key separately. ``s3pathlib`` always checks the format
+  when it parses a string (``S3Path(...)``, ``S3Path.from_s3_uri``,
+  :func:`~s3pathlib.utils.split_s3_uri`, ...).
+- **Naming rules**: bucket naming rules and the key length limit. S3 is the
+  authority on these and enforces them when you call the API. A copy of the
+  rules on the client gets out of date and would reject valid names, such as
+  legacy buckets created before March 2018 (uppercase letters, underscores),
+  access point aliases and directory buckets. So ``s3pathlib`` does not check
+  them when it reads from or sends to S3.
+"""
+
+from __future__ import annotations
+
 import string
 
-valid_bucket_charset: set = set(string.ascii_lowercase + string.digits + ".-")
-letter_and_number: set = set(string.ascii_lowercase + string.digits)
+from .constants import S3_KEY_MAX_BYTES
+from .constants import S3_BUCKET_MIN_LENGTH
+from .constants import S3_BUCKET_MAX_LENGTH
+from .constants import S3_BUCKET_RESERVED_PREFIXES
+from .constants import S3_BUCKET_RESERVED_SUFFIXES
+from .exc import S3ValidationError
+from .utils import split_s3_uri
+from .utils import split_s3_arn
 
-safe_key_charset: set = set(string.ascii_letters + string.digits + "/!-_.*'()")
-req_special_handling_key_charset: set = set("&$@=;:+ ,?")
-to_avoid_key_charset: set = set("\\{}^&`[]\"<>#|~%")
-valid_key_charset: set = set.union(safe_key_charset, req_special_handling_key_charset)
+_VALID_BUCKET_CHARSET = set(string.ascii_lowercase + string.digits + ".-")
+_LETTER_AND_NUMBER = set(string.ascii_lowercase + string.digits)
 
 
-class S3BucketValidationError(Exception): pass
-
-class S3KeyValidationError(Exception): pass
+def _is_ip_address_like(bucket: str) -> bool:
+    """
+    Check whether the bucket name is formatted as an IPv4 address,
+    e.g. ``192.168.5.4``.
+    """
+    parts = bucket.split(".")
+    if len(parts) != 4:
+        return False
+    for part in parts:
+        if not part.isdigit():
+            return False
+        if not (0 <= int(part) <= 255):
+            return False
+    return True
 
 
 def validate_s3_bucket(bucket: str) -> None:
     """
-    Raise exception if validation not passed.
+    Check a name against the naming rules for a **new general purpose bucket**.
 
-    Ref:
+    Rules checked:
 
-    - `Bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_
+    - 3 to 63 characters long.
+    - Only lowercase letters, numbers, periods (``.``) and hyphens (``-``).
+    - Begins and ends with a letter or number.
+    - No two adjacent periods.
+    - Not formatted as an IPv4 address (e.g. ``192.168.5.4``).
+    - Does not start with a reserved prefix: ``xn--``, ``sthree-``,
+      ``amzn-s3-demo-``.
+    - Does not end with a reserved suffix: ``-s3alias``, ``--ol-s3``,
+      ``.mrap``, ``--x-s3``, ``--table-s3``.
+
+    Names that S3 accepts for an *existing* bucket can still fail this check:
+    legacy buckets created in us-east-1 before March 1, 2018, access point
+    aliases, directory buckets and S3 Tables buckets. That is expected.
+
+    The ``-an`` suffix is not checked: it is valid for buckets created in an
+    account regional namespace.
+
+    Ref: `General purpose bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_
+
+    :raises S3ValidationError: if the name breaks a rule.
     """
-    if not (3 <= len(bucket) <= 63):
-        raise ValueError("Bucket names must be between 3 and 63 characters long.")
-
-    invalid_chars = set(bucket).difference(valid_bucket_charset)
-    if len(invalid_chars) != 0:
-        raise ValueError(
-            (
-                "Bucket names can consist only of lowercase letters, numbers, "
-                "dots (.), and hyphens (-). invalid char found {}"
-            ).format(invalid_chars)
+    if not (S3_BUCKET_MIN_LENGTH <= len(bucket) <= S3_BUCKET_MAX_LENGTH):
+        raise S3ValidationError(
+            f"Bucket names must be between {S3_BUCKET_MIN_LENGTH} and "
+            f"{S3_BUCKET_MAX_LENGTH} characters long."
         )
 
-    if (bucket[0] not in letter_and_number) or (bucket[-1] not in letter_and_number):
-        raise ValueError("Bucket names must begin and end with a letter or number.")
+    invalid_chars = sorted(set(bucket).difference(_VALID_BUCKET_CHARSET))
+    if len(invalid_chars) != 0:
+        raise S3ValidationError(
+            "Bucket names can consist only of lowercase letters, numbers, "
+            f"dots (.), and hyphens (-). invalid char found {invalid_chars}"
+        )
 
-    try:
-        parts = [int(part) for part in bucket.split(".")]
-        assert len(parts) == 4
-        for p in parts:
-            assert 0 <= p <= 255
-        raise S3BucketValidationError("Bucket names must not be formatted as an IP address (for example, 192.168.5.4).")
-    except S3BucketValidationError as e:
-        raise e
-    except:
-        pass
+    if (bucket[0] not in _LETTER_AND_NUMBER) or (bucket[-1] not in _LETTER_AND_NUMBER):
+        raise S3ValidationError(
+            "Bucket names must begin and end with a letter or number."
+        )
 
-    if bucket.startswith("xn--"):
-        raise ValueError("Bucket names must not start with the prefix xn--.")
-    if bucket.endswith("-s3alias"):
-        raise ValueError("Bucket names must not end with the suffix -s3alias. This suffix is reserved for access point alias names.")
-    # raise ValueError("Buckets used with Amazon S3 Transfer Acceleration can't have dots (.) in their names.")
+    if ".." in bucket:
+        raise S3ValidationError("Bucket names must not contain two adjacent periods.")
+
+    if _is_ip_address_like(bucket):
+        raise S3ValidationError(
+            "Bucket names must not be formatted as an IP address "
+            "(for example, 192.168.5.4)."
+        )
+
+    for prefix in S3_BUCKET_RESERVED_PREFIXES:
+        if bucket.startswith(prefix):
+            raise S3ValidationError(
+                f"Bucket names must not start with the reserved prefix {prefix!r}."
+            )
+
+    for suffix in S3_BUCKET_RESERVED_SUFFIXES:
+        if bucket.endswith(suffix):
+            raise S3ValidationError(
+                f"Bucket names must not end with the reserved suffix {suffix!r}."
+            )
 
 
 def validate_s3_key(key: str) -> None:
     """
-    Raise exception if validation not passed.
+    Check an S3 object key (or a prefix).
 
-    Ref:
+    S3 accepts any UTF-8 character in a key, so only these rules are checked:
 
-    - `Key naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html#object-key-guidelines>`_
+    - The key can be encoded as UTF-8.
+    - The key is at most 1024 bytes long in UTF-8.
+
+    An empty key is valid; it means the bucket root.
+
+    Ref: `Object key naming <https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html>`_
+
+    :raises S3ValidationError: if the key is not valid.
     """
-    if len(key) > 1024:
-        raise ValueError(
-            "S3 key must be less that 1024 chars "
-            "to construct the S3 console url!"
-        )
+    try:
+        n_bytes = len(key.encode("utf-8"))
+    except UnicodeEncodeError as e:
+        raise S3ValidationError(f"S3 key {key!r} is not valid UTF-8: {e}") from e
 
-    invalid_chars = set(key).difference(valid_key_charset)
-    if len(invalid_chars) != 0:
-        doc_url = "https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html#object-key-guidelines"
-        raise ValueError(
-            (
-                "Invalid char found {}, "
-                "read {} "
-                "for more info"
-            ).format(invalid_chars, doc_url)
+    if n_bytes > S3_KEY_MAX_BYTES:
+        raise S3ValidationError(
+            f"S3 key must be at most {S3_KEY_MAX_BYTES} bytes in UTF-8, "
+            f"got {n_bytes} bytes."
         )
 
 
 def validate_s3_uri(uri: str) -> None:
     """
-    Raise exception if validation not passed.
+    Check an S3 URI: ``s3://{bucket}``, ``s3://{bucket}/`` or
+    ``s3://{bucket}/{key}``.
 
-    S3 URI is just ``s3://{bucket}/{key}``
+    The format is checked by :func:`~s3pathlib.utils.split_s3_uri`, then the
+    bucket and key by :func:`validate_s3_bucket` and :func:`validate_s3_key`.
+
+    :raises S3ValidationError: if the URI is not valid.
     """
-    if not uri.startswith("s3://"):
-        raise ValueError("S3 URI must starts with 's3://'")
-
-    if uri.count("/") < 3:
-        raise ValueError(
-            "S3 URI must have at least three '/', "
-            "for example: s3://bucket/"
-        )
-
-    parts = uri.split("/", 3)
-    bucket = parts[2]
-    key = parts[3]
+    bucket, key = split_s3_uri(uri)
     validate_s3_bucket(bucket)
     validate_s3_key(key)
 
 
 def validate_s3_arn(arn: str) -> None:
     """
-    Raise exception if validation not passed.
+    Check an S3 ARN:
 
-    S3 ARN is just:
+    - bucket: ``arn:{partition}:s3:::{bucket}``
+    - object: ``arn:{partition}:s3:::{bucket}/{key}``
+    - directory: ``arn:{partition}:s3:::{bucket}/{prefix}/``
 
-    - for bucket: ``arn:aws:s3:::{bucket}``
-    - for object: ``arn:aws:s3:::{bucket}/{key}``
-    - for directory: ``arn:aws:s3:::{bucket}/{prefix}/``
+    ``partition`` is one of :class:`~s3pathlib.constants.AwsPartitionEnum`.
+    The format is checked by :func:`~s3pathlib.utils.split_s3_arn`, then the
+    bucket and key by :func:`validate_s3_bucket` and :func:`validate_s3_key`.
+
+    :raises S3ValidationError: if the ARN is not valid.
     """
-    if not arn.startswith("arn:aws:s3:::"):
-        raise ValueError("S3 ARN must starts with 'arn:aws:s3:::'")
-
-    path = arn.replace("arn:aws:s3:::", "", 1)
-
-    if "/" not in path:  # path is the bucket
-        validate_s3_bucket(path)
-    else:
-        bucket, key = path.split("/", 1)
-        validate_s3_bucket(bucket)
-        validate_s3_key(key)
+    _, bucket, key = split_s3_arn(arn)
+    validate_s3_bucket(bucket)
+    validate_s3_key(key)

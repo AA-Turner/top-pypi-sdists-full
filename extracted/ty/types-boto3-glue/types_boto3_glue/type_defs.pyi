@@ -2510,6 +2510,7 @@ class IntegrationConfigOutputTypeDef(TypedDict):
     RefreshInterval: NotRequired[str]
     SourceProperties: NotRequired[dict[str, str]]
     ContinuousSync: NotRequired[bool]
+    TargetNamespace: NotRequired[str]
 
 class IntegrationErrorTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
@@ -3517,6 +3518,7 @@ class IntegrationConfigTypeDef(TypedDict):
     RefreshInterval: NotRequired[str]
     SourceProperties: NotRequired[Mapping[str, str]]
     ContinuousSync: NotRequired[bool]
+    TargetNamespace: NotRequired[str]
 
 class IntegrationPartitionTypeDef(TypedDict):
     FieldName: NotRequired[str]

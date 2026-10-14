@@ -94,12 +94,20 @@ SyncFinderObj_find (SyncFinderObject *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char  *_kwlist[]      = { "bits", "max_errors", NULL };
-  PyObject     *bits_obj       = NULL;
-  unsigned long max_errors_raw = 0;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|k", _kwlist, &bits_obj,
+  static char *_kwlist[]      = { "bits", "max_errors", NULL };
+  PyObject    *bits_obj       = NULL;
+  long long    max_errors_raw = 0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|L", _kwlist, &bits_obj,
                                     &max_errors_raw))
     return NULL;
+  if (max_errors_raw < 0 || max_errors_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (
+          PyExc_OverflowError,
+          "max_errors: %lld is out of range for uint32_t [%lld, %lld]",
+          (long long)max_errors_raw, (long long)0, (long long)UINT32_MAX);
+      return NULL;
+    }
   uint32_t       max_errors = (uint32_t)max_errors_raw;
   PyArrayObject *bits_arr
       = jm_array_arg (bits_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "bits");
@@ -148,10 +156,18 @@ SyncFinderObj_pfa (SyncFinderObject *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char  *_kwlist[]      = { "max_errors", NULL };
-  unsigned long max_errors_raw = 0UL;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "k", _kwlist, &max_errors_raw))
+  static char *_kwlist[]      = { "max_errors", NULL };
+  long long    max_errors_raw = 0LL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "L", _kwlist, &max_errors_raw))
     return NULL;
+  if (max_errors_raw < 0 || max_errors_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (
+          PyExc_OverflowError,
+          "max_errors: %lld is out of range for uint32_t [%lld, %lld]",
+          (long long)max_errors_raw, (long long)0, (long long)UINT32_MAX);
+      return NULL;
+    }
   uint32_t max_errors = (uint32_t)max_errors_raw;
   double   y          = dp_syncword_pfa (self->handle, max_errors);
   return PyFloat_FromDouble (y);
@@ -167,11 +183,31 @@ SyncFinderObj_max_errors_for (SyncFinderObject *self, PyObject *args,
       return NULL;
     }
   static char       *_kwlist[]       = { "window_bits", "pfa", NULL };
+  PyObject          *window_bits_obj = NULL;
   unsigned long long window_bits_raw = 0ULL;
   double             pfa             = 0.0;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Kd", _kwlist,
-                                    &window_bits_raw, &pfa))
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Od", _kwlist,
+                                    &window_bits_obj, &pfa))
     return NULL;
+  if (window_bits_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (window_bits_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      window_bits_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((window_bits_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || window_bits_raw > (unsigned long long)SIZE_MAX)
+        {
+          PyErr_Format (PyExc_OverflowError,
+                        "window_bits: %S is out of range for size_t [0, %llu]",
+                        _ix, (unsigned long long)SIZE_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
   size_t window_bits = (size_t)window_bits_raw;
   int    y = dp_syncword_max_errors_for (self->handle, window_bits, pfa);
   return PyLong_FromLong ((long)y);

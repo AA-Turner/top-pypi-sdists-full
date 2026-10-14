@@ -19,8 +19,16 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from testmu_appium._reporter import reporter
+from testmu_appium import _router
+from testmu_appium._step_variables import pop_step_variables, reset_step_variables
 from testmu_appium._test_state import mark_step_failed
+
+
+def reporter():
+    """The active mode's reporter. Module-level (looked up at call time) so a
+    host or test can patch ``testmu_appium._step.reporter`` as before."""
+    return _router.active_reporter()
+
 
 _log = logging.getLogger("testmu_appium")
 
@@ -60,6 +68,8 @@ _step_counter: int = 0
 def _reset_step_counter() -> None:
     global _step_counter
     _step_counter = 0
+    # a leftover step-variable buffer would be attributed to this run's first step
+    reset_step_variables()
 
 
 def get_step_count() -> int:
@@ -150,6 +160,7 @@ def step(
             is_autohealed=info.is_autohealed,
             autoheal_source=info.autoheal_source,
             interacted_element=info.interacted_element,
+            variables=pop_step_variables(),
         )
         _current_step.reset(token)
 

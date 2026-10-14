@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Name:        tests/sizers/gridsizer.cpp
-// Purpose:     Unit tests for wxGridSizer and wxFlexGridSizer.
+// Purpose:     Unit tests for wxGridSizer, wxFlexGridSizer and wxGridBagSizer.
 // Author:      Vadim Zeitlin
 // Created:     2015-04-03
 // Copyright:   (c) 2015 Vadim Zeitlin <vadim@wxwidgets.org>
@@ -12,12 +12,16 @@
 
 #include "testprec.h"
 
+#include <memory>
+
 
 #ifndef WX_PRECOMP
     #include "wx/app.h"
     #include "wx/sizer.h"
     #include "wx/vector.h"
 #endif // WX_PRECOMP
+
+#include "wx/gbsizer.h"
 
 #include "asserthelper.h"
 
@@ -30,13 +34,12 @@ class GridSizerTestCaseBase
 {
 protected:
     explicit GridSizerTestCaseBase(wxGridSizer* sizer);
-    ~GridSizerTestCaseBase();
     // Clear the current sizer contents and add the specified windows to it,
     // using the same flags for all of them.
     void SetChildren(const wxVector<wxWindow*>& children,
                      const wxSizerFlags& flags);
 
-    wxWindow *m_win;
+    std::unique_ptr<wxWindow> m_win;
     wxGridSizer* const m_sizerBase;
 
     wxDECLARE_NO_COPY_CLASS(GridSizerTestCaseBase);
@@ -71,16 +74,12 @@ protected:
 GridSizerTestCaseBase::GridSizerTestCaseBase(wxGridSizer* sizer)
     : m_sizerBase(sizer)
 {
-    m_win = new wxWindow(wxTheApp->GetTopWindow(), wxID_ANY);
+    m_win = make_unique<wxWindow>(wxTheApp->GetTopWindow(), wxID_ANY);
     m_win->SetClientSize(127, 35);
 
     m_win->SetSizer(m_sizerBase);
 }
 
-GridSizerTestCaseBase::~GridSizerTestCaseBase()
-{
-    delete m_win;
-}
 
 // ----------------------------------------------------------------------------
 // helpers
@@ -114,7 +113,7 @@ TEST_CASE_METHOD(GridSizerTestCase,
     wxVector<wxWindow*> children;
     for ( int n = 0; n < 3; n++ )
     {
-        children.push_back(new wxWindow(m_win, wxID_ANY));
+        children.push_back(new wxWindow(m_win.get(), wxID_ANY));
     }
 
     SetChildren(children, wxSizerFlags().Expand());
@@ -135,7 +134,8 @@ TEST_CASE_METHOD(FlexGridSizerTestCase,
     wxVector<wxWindow*> children;
     for ( int n = 0; n < 4; n++ )
     {
-        children.push_back(new wxWindow(m_win, wxID_ANY, wxDefaultPosition,
+        children.push_back(new wxWindow(m_win.get(), wxID_ANY,
+                                        wxDefaultPosition,
                                         sizeChild));
     }
 
@@ -226,7 +226,7 @@ TEST_CASE_METHOD(FlexGridSizerTestCase,
     wxVector<wxWindow*> children;
     for ( int n = 0; n < 4; n++ )
     {
-        children.push_back(new wxWindow(m_win, wxID_ANY));
+        children.push_back(new wxWindow(m_win.get(), wxID_ANY));
     }
 
     // Proportions of growable columns should be respected.
@@ -251,4 +251,21 @@ TEST_CASE_METHOD(FlexGridSizerTestCase,
     CHECK( children[1]->GetSize() == wxSize(80, 50) );
     CHECK( children[2]->GetSize() == wxSize(20, 50) );
     CHECK( children[3]->GetSize() == wxSize(80, 50) );
+}
+
+TEST_CASE("wxGridBagSizer::EmptyCellSize", "[grid-bag-sizer][sizer]")
+{
+    wxGridBagSizer sizer;
+
+    sizer.Add(2, 1, wxGBPosition(0, 0), wxGBSpan(1, 2));
+    CHECK( sizer.CalcMin() == wxSize(2, 1) );
+
+    sizer.Add(1, 1, wxGBPosition(0, 3));
+    CHECK( sizer.CalcMin() == wxSize(13, 1) );
+
+    sizer.Add(1, 1, wxGBPosition(2, 0));
+    CHECK( sizer.CalcMin() == wxSize(13, 22) );
+
+    sizer.SetEmptyCellSize(wxSize(0, 0));
+    CHECK( sizer.CalcMin() == wxSize(3, 2) );
 }

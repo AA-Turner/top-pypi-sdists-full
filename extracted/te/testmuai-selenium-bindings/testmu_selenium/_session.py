@@ -271,6 +271,9 @@ def run(fn: Callable, profile: str = "default") -> None:
     # {{smart.browser_name|browser_version|os_type|os_version}} resolve (V2 parity).
     _export_smart_env_from_session(driver)
 
+    from testmu_selenium._downloads import download_uploaded_files
+    download_uploaded_files(_config_dict.get("uploaded_files") or [])
+
     try:
         fn(driver)
         # fn returned cleanly. If any step was wrapped in

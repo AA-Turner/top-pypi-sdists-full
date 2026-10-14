@@ -21,6 +21,8 @@ class ComponentStatsPerOffering:
         billing_type (str):
         usage (float):
         limit_usage (float):
+        usage_terminated (float): Part of usage that came from terminated resources.
+        limit_usage_terminated (float): Part of limit_usage that came from terminated resources.
         limit (Union[None, float]):
         offering_name (str):
         offering_uuid (UUID):
@@ -37,6 +39,8 @@ class ComponentStatsPerOffering:
     billing_type: str
     usage: float
     limit_usage: float
+    usage_terminated: float
+    limit_usage_terminated: float
     limit: Union[None, float]
     offering_name: str
     offering_uuid: UUID
@@ -60,6 +64,10 @@ class ComponentStatsPerOffering:
         usage = self.usage
 
         limit_usage = self.limit_usage
+
+        usage_terminated = self.usage_terminated
+
+        limit_usage_terminated = self.limit_usage_terminated
 
         limit: Union[None, float]
         limit = self.limit
@@ -96,6 +104,8 @@ class ComponentStatsPerOffering:
                 "billing_type": billing_type,
                 "usage": usage,
                 "limit_usage": limit_usage,
+                "usage_terminated": usage_terminated,
+                "limit_usage_terminated": limit_usage_terminated,
                 "limit": limit,
                 "offering_name": offering_name,
                 "offering_uuid": offering_uuid,
@@ -124,6 +134,10 @@ class ComponentStatsPerOffering:
         usage = d.pop("usage")
 
         limit_usage = d.pop("limit_usage")
+
+        usage_terminated = d.pop("usage_terminated")
+
+        limit_usage_terminated = d.pop("limit_usage_terminated")
 
         def _parse_limit(data: object) -> Union[None, float]:
             if data is None:
@@ -183,6 +197,8 @@ class ComponentStatsPerOffering:
             billing_type=billing_type,
             usage=usage,
             limit_usage=limit_usage,
+            usage_terminated=usage_terminated,
+            limit_usage_terminated=limit_usage_terminated,
             limit=limit,
             offering_name=offering_name,
             offering_uuid=offering_uuid,

@@ -3305,7 +3305,7 @@ def test_capture_release_imports_cannot_modify_the_publish_artifact() -> None:
 
 
 def test_release_publishes_only_from_protected_tags_with_every_wheel() -> None:
-    """A release tag publishes only once protected, and never a partial wheel matrix."""
+    """A release publishes only from a protected ref, with every wheel and the stored token."""
     repository = Path(__file__).resolve().parent.parent.parent
     text = (repository / ".gitlab" / "ci" / "python-package.yml").read_text(encoding="utf-8")
     wheels = re.findall(r"^(python-package-wheel-[a-z0-9_-]+):\n", text, re.MULTILINE)
@@ -3322,8 +3322,16 @@ def test_release_publishes_only_from_protected_tags_with_every_wheel() -> None:
             line for line in _ci_job("python-package", job).splitlines() if "CI_COMMIT_TAG" in line
         )
         assert '$CI_COMMIT_REF_PROTECTED == "true"' in tag_rule
-    assert "      aud: pypi\n" in publish
+    assert "id_tokens" not in publish
     assert "    name: pypi\n" in publish
+    native_upload = publish.index('UV_PUBLISH_TOKEN="${PYPI_TOKEN_EXP_GATEWAY_NATIVE}"')
+    flagship_upload = publish.index('UV_PUBLISH_TOKEN="${PYPI_TOKEN_EXPERIENTIAL}"')
+    assert native_upload < flagship_upload, "experiential must not precede its native release"
+    assert "dist/exp_gateway_native-*\n" in publish[native_upload:flagship_upload]
+    assert publish.count("--trusted-publishing never") == 2
+    # The token's environment scope is pypi, so only the job in that environment
+    # receives it.
+    assert re.findall(r"^  environment:\n    name: (\S+)$", text, re.MULTILINE) == ["pypi"]
 
 
 def test_windows_authority_gate_executes_kernel_cases_without_weakening_capture() -> None:

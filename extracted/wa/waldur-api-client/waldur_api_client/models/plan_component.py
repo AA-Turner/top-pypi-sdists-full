@@ -23,7 +23,7 @@ class PlanComponent:
         plan_name (str):
         plan_unit (BillingUnit):
         component_name (str): Display name for the measured unit, for example, Floating IP.
-        measured_unit (str): Unit of measurement, for example, GB.
+        measured_unit (Union[None, str]):
         billing_type (BillingTypeEnum):
         amount (Union[Unset, int]):
         price (Union[Unset, str]):
@@ -40,7 +40,7 @@ class PlanComponent:
     plan_name: str
     plan_unit: BillingUnit
     component_name: str
-    measured_unit: str
+    measured_unit: Union[None, str]
     billing_type: BillingTypeEnum
     amount: Union[Unset, int] = UNSET
     price: Union[Unset, str] = UNSET
@@ -62,6 +62,7 @@ class PlanComponent:
 
         component_name = self.component_name
 
+        measured_unit: Union[None, str]
         measured_unit = self.measured_unit
 
         billing_type = self.billing_type.value
@@ -124,7 +125,12 @@ class PlanComponent:
 
         component_name = d.pop("component_name")
 
-        measured_unit = d.pop("measured_unit")
+        def _parse_measured_unit(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        measured_unit = _parse_measured_unit(d.pop("measured_unit"))
 
         billing_type = BillingTypeEnum(d.pop("billing_type"))
 

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import math
 import time
+from dataclasses import replace
 
 import numpy as np
 
@@ -39,6 +40,7 @@ from . import _printout
 from ._nec4_printout import (
     FarFieldGround,
     Nec4Printout,
+    Nec4Report,
     Nec4Run,
     Preamble,
     SegmentRow,
@@ -82,7 +84,8 @@ _SERVED_CARDS = frozenset(
 _SERVED_GEOMETRY = frozenset({"GW", "GE"})
 
 # The pattern request forms captured: XNDA 1000 (a cut) and 1001 (the 3-D
-# grid, with its average-gain trailer), RP mode 0, no range.
+# grid, with its average-gain trailer), RP mode 0, at no range or at one
+# (the range form, momwire#1463: `_at_range`).
 _SERVED_XNDA = frozenset({1000, 1001})
 
 # A GD card's leading integer, as the one captured value prints it.
@@ -144,9 +147,75 @@ def _unmeasured(what: str) -> str:
 
 
 _EXECUTE = frozenset({"RP", "XQ", "NE", "NH"})
+_REPORTS = frozenset({"RP", "NE", "NH"})
 
 
-def _served_shape(deck) -> list[tuple[int, object]]:
+def _further_tables(text: str, deck) -> tuple[list[int | None], dict[int, list]]:
+    """Where each run's cards sit in the echo, and the tables asked of a run
+    after it ran.
+
+    Returns ``(echo_at, further)``.  ``echo_at`` has one entry per entry of
+    ``deck.groups``: the echo number of its execute card, ``None`` for an
+    idle one.  ``further`` maps a run's group index to the ``(echo number,
+    card)`` of every ``RP``/``NE``/``NH`` card after it that the deck reader
+    found nothing new for (its ``None`` groups): the licensed engine prints
+    one more table of the same run for each, in card order (momwire#1463,
+    p20-p28).  An idle ``XQ`` is not among them: it prints nothing (p27), so
+    its echo joins the cards echoed in front of whatever follows.
+
+    Until momwire#1463 every idle card was skipped, an ``RP`` or ``NE``
+    included, and its table was missing from the printout with nothing said.
+    """
+    numbered = [
+        (i, card)
+        for i, card in enumerate(_printout._post_ge_cards(text), start=1)
+        if card.mnemonic in _EXECUTE
+    ]
+    if len(numbered) != len(deck.groups):
+        raise Nec4Refusal(
+            f"{len(numbered)} execute cards against {len(deck.groups)} execute "
+            f"runs: this engine cannot place the card echo"
+        )
+    echo_at: list[int | None] = []
+    further: dict[int, list] = {}
+    run = None
+    for index, ((number, card), group) in enumerate(
+        zip(numbered, deck.groups, strict=True)
+    ):
+        if group is not None:
+            run = index
+            echo_at.append(number)
+            continue
+        echo_at.append(None)
+        if card.mnemonic in _REPORTS:
+            # The first execute card of a deck always runs, so a run stands
+            # in front of every idle card.
+            further.setdefault(run, []).append((number, card))
+    return echo_at, further
+
+
+def _served_table(card) -> None:
+    """:class:`Nec4Refusal` for an ``RP`` form no NEC-4.2 printout shows.
+
+    Asked of every ``RP`` the printout answers, the card that ran and any
+    after it alike.  ``NE``/``NH`` pass: rectangular and spherical grids,
+    free space, a perfect ground and the Sommerfeld one (GN 2 and GN 3
+    alike) each print in one layout (probes p4 and p11-p15, momwire#1352).
+    The dialect refuses every other coordinate system before this is asked;
+    the cells a finite ground cannot answer refuse in :func:`_near_field`,
+    which owns the grid.
+    """
+    if card.mnemonic != "RP":
+        return
+    if card.i(0) != 0:
+        raise Nec4Refusal(_unmeasured(f"RP mode {card.i(0)}"))
+    if card.i(3) not in _SERVED_XNDA:
+        raise Nec4Refusal(_unmeasured(f"RP with XNDA {card.i(3)}"))
+    if card.f(8) < 0.0:
+        raise Nec4Refusal(_unmeasured("RP at a negative range"))
+
+
+def _served_shape(text: str, deck, echo_at, further) -> list[tuple[int, object]]:
     """``(group index, group)`` for every run the deck executes, or
     :class:`Nec4Refusal` for a shape no NEC-4.2 printout shows.
 
@@ -155,6 +224,14 @@ def _served_shape(deck) -> list[tuple[int, object]]:
     changing only the sources (p8).  A later run that refills the matrix (a
     new ``FR``, ``GN`` or load between execute cards), or a sweep with more
     than one execute card, is unmeasured.
+
+    A further ``RP``/``NE``/``NH`` card of a run (:func:`_further_tables`) is
+    measured at one frequency (p20-p28).  After a sweep it is not, and
+    neither is one that follows a ``GD`` card read since the run: the
+    licensed engine prints a FREQUENCY and an ANTENNA ENVIRONMENT block
+    there and no input parameters (p32's second pattern, kept out of the
+    fixtures), a layout this printout does not lay out.  Both refuse by
+    name: a table left out with nothing said is momwire#1463's fault.
     """
     for card in deck.geometry:
         if card.mnemonic not in _SERVED_GEOMETRY:
@@ -176,45 +253,35 @@ def _served_shape(deck) -> list[tuple[int, object]]:
             raise Nec4Refusal(
                 _unmeasured("a later execute card after a card that refills the matrix")
             )
-    for _index, group in runs:
+    gd_at = [
+        i
+        for i, card in enumerate(_printout._post_ge_cards(text), start=1)
+        if card.mnemonic == "GD"
+    ]
+    for index, group in runs:
         if group.ground.kind == "refl":
             raise Nec4Refusal(_unmeasured("the GN 0 reflection-coefficient ground"))
         if group.pq is not None and group.pq.restricted:
             raise Nec4Refusal(_unmeasured("a PQ card restricted to a segment range"))
-        report = group.report
-        if report is None:
-            continue
-        if report.mnemonic in ("NE", "NH"):
-            # Rectangular and spherical grids, free space, a perfect ground
-            # and the Sommerfeld one (GN 2 and GN 3 alike): probes p4 and
-            # p11-p15 print each, in one layout (momwire#1352).  The dialect
-            # refuses every other coordinate system before this is asked;
-            # the cells a finite ground cannot answer refuse in
-            # :func:`_near_field`, which owns the grid.
-            continue
-        if report.i(0) != 0:
-            raise Nec4Refusal(_unmeasured(f"RP mode {report.i(0)}"))
-        if report.i(3) not in _SERVED_XNDA:
-            raise Nec4Refusal(_unmeasured(f"RP with XNDA {report.i(3)}"))
-        if report.f(8) != 0.0:
-            raise Nec4Refusal(_unmeasured("RP at a nonzero range"))
+        if group.report is not None:
+            _served_table(group.report)
+        for number, card in further.get(index, ()):
+            if len(group.freqs_mhz) != 1:
+                raise Nec4Refusal(
+                    _unmeasured(
+                        f"a further {card.mnemonic} card after a frequency sweep's "
+                        f"execute card"
+                    )
+                )
+            if any(echo_at[index] < at < number for at in gd_at):
+                raise Nec4Refusal(
+                    _unmeasured(
+                        f"a further {card.mnemonic} card after a GD card read "
+                        f"since the run it follows"
+                    )
+                )
+            _served_table(card)
     return runs
-
-
-def _execute_card_numbers(text: str, deck) -> list[int | None]:
-    """Per entry of ``deck.groups``, the echo number of its execute card
-    (``None`` for an idle one), numbered as the card echo numbers them."""
-    numbers = [
-        i
-        for i, card in enumerate(_printout._post_ge_cards(text), start=1)
-        if card.mnemonic in _EXECUTE
-    ]
-    if len(numbers) != len(deck.groups):
-        raise Nec4Refusal(
-            f"{len(numbers)} execute cards against {len(deck.groups)} execute "
-            f"runs: this engine cannot place the card echo"
-        )
-    return [n if g is not None else None for n, g in zip(numbers, deck.groups)]
 
 
 def solve(text: str, *, basis: str) -> Nec4Printout:
@@ -239,9 +306,9 @@ def solve(text: str, *, basis: str) -> Nec4Printout:
         deck = parse_deck(text, dialect="nec4")
     except _DECK_REFUSALS as exc:
         raise Nec4Refusal(str(exc)) from exc
-    plan = _served_shape(deck)
-    echo_at = _execute_card_numbers(text, deck)
-    runs = []
+    echo_at, further = _further_tables(text, deck)
+    plan = _served_shape(text, deck, echo_at, further)
+    runs: list[Nec4Run | Nec4Report] = []
     try:
         solver = DeckSolver(deck, basis=basis)
         connections = _connections(solver, deck)
@@ -261,6 +328,10 @@ def solve(text: str, *, basis: str) -> Nec4Printout:
                         preamble=count == 0,
                     )
                 )
+            # One frequency here (`_served_shape`), so `records` is the run
+            # every further table is read from.
+            for number, card in further.get(index, ()):
+                runs.append(_report(deck, solver, group, freq, records, card, number))
     except (
         PortalError,
         ValueError,
@@ -306,13 +377,7 @@ def _run(
     networks, excitation = _networks(solver, result, index)
     gd = _far_ground_card(deck)
     second = group.second_medium
-    report = group.report
-    patterns = ()
-    near = ()
-    if report is not None and report.mnemonic == "RP":
-        patterns = (_pattern(report, result, freq, gd),)
-    elif report is not None:
-        near = (_near_field(report, result, solver),)
+    patterns, near = _tables(group.report, result, solver, freq, gd, medium)
     charges = (
         _charge_rows(_charges(solver, result, connections, freq), solver, local)
         if group.pq is not None and group.pq.prints
@@ -389,17 +454,45 @@ def _run(
             network_loss=result.p_network if excitation else None,
         ),
         near_fields=near,
-        far_field_ground=(
-            None
-            if gd is None or second is None
-            else FarFieldGround(
-                _GD_KIND[gd.i(0)],
-                second.edge_distance,
-                second.height,
-                second.eps_r2,
-                second.sigma2,
-            )
-        ),
+        far_field_ground=_far_field_ground(gd, second),
+        patterns=patterns,
+    )
+
+
+def _tables(card, result, solver, freq: float, gd, medium):
+    """``(patterns, near fields)`` one ``RP``/``NE``/``NH`` card asks of a
+    solved run; both empty for an ``XQ`` (``card`` is ``None``)."""
+    if card is None:
+        return (), ()
+    if card.mnemonic == "RP":
+        return (_pattern(card, result, freq, gd, medium),), ()
+    return (), (_near_field(card, result, solver),)
+
+
+def _far_field_ground(gd, second) -> FarFieldGround | None:
+    if gd is None or second is None:
+        return None
+    return FarFieldGround(
+        _GD_KIND[gd.i(0)],
+        second.edge_distance,
+        second.height,
+        second.eps_r2,
+        second.sigma2,
+    )
+
+
+def _report(deck, solver, group, freq: float, records, card, number: int) -> Nec4Report:
+    """One further table of a run already solved (:func:`_further_tables`):
+    nothing is solved again, the card reads the run's own currents."""
+    result = records.result
+    gd = _far_ground_card(deck)
+    patterns, near = _tables(
+        card, result, solver, freq, gd, _medium(group.ground, freq)
+    )
+    return Nec4Report(
+        echo_through=number,
+        near_fields=near,
+        far_field_ground=_far_field_ground(gd, group.second_medium),
         patterns=patterns,
     )
 
@@ -501,9 +594,13 @@ def _environment_label(deck, ground) -> str:
 
 
 def _ground_file(deck) -> str | None:
-    """The Sommerfeld-table file name the deck's ``GN 2`` card carries, or
-    ``None``.  The nec4 dialect reads the card without it (momwire#1317); the
-    printout says the file was not read, as the licensed engine does."""
+    """The Sommerfeld-table file name the deck's ``GN`` card carries, or
+    ``None``.  The nec4 dialect reads the card without it, on every GN type
+    (momwire#1317, momwire#1443); the caller asks only under a Sommerfeld
+    ground (``GN 2``/``GN 3``), the one place a table file means anything, and
+    the printout says the file was not read, as the licensed engine does on
+    ``GN 2``.  Under any other ground the name is only echoed on the card's
+    continuation line (``_printout._card_echo``)."""
     written = [c for c in deck.data_cards if c.mnemonic == "GN"]
     return written[-1].trailer if written else None
 
@@ -772,7 +869,7 @@ def _far_ground_card(deck):
     return gd[-1] if gd else None
 
 
-def _pattern(card, result, freq_mhz: float, gd):
+def _pattern(card, result, freq_mhz: float, gd, medium: GroundMedium | None):
     """One ``RP 0`` card's answer, through the NEC-5 seam's row builder.
 
     Under a ``GD`` card the reflected far field takes the card's second
@@ -798,7 +895,7 @@ def _pattern(card, result, freq_mhz: float, gd):
     cliff = None
     if gd is not None and second is not None and result.ground.kind != "free":
         cliff = (_CIRCULAR_CLIFF, second)
-    return pattern_block(
+    block = pattern_block(
         request,
         result.solver,
         result.coeffs,
@@ -809,6 +906,78 @@ def _pattern(card, result, freq_mhz: float, gd):
         ground_z=result.ground_z or 0.0,
         cliff=cliff,
     )
+    range_m = card.f(8)
+    if range_m == 0.0:
+        return block
+    return _at_range(block, range_m, freq_mhz, medium, result.ground.kind != "free")
+
+
+def _at_range(
+    block, range_m: float, freq_mhz: float, medium: GroundMedium | None, grounded: bool
+):
+    """A pattern as NEC-4.2 prints it for an ``RP`` with a range field
+    (momwire#1463: SimNEC writes ``RP 0 19 73 1001 0 0 5 5 1000``).
+
+    Read off the licensed binary's printouts of one deck at range 0 and at
+    1000 m (p17 against p16 over GN 3, p19 against p18 in free space, and
+    p29, p30, p31 for the other grounds), as black-box output:
+
+    * the heading gains ``RANGE=`` and ``EXP(-JKR)/R=`` lines and the field
+      columns read ``VOLTS/M``, the NEC-5 printout's range form to the byte;
+    * every gain, the axial ratio, the tilt and the sense are the range-0
+      row's, and so is the average-gain trailer;
+    * each E magnitude is the range-0 one divided by the range, and each E
+      phase is the range-0 one plus the heading's phase, in degrees and not
+      wrapped again (p18 prints 293.42 for 179.10 + 114.32), so a component
+      that is zero prints the bare shift;
+    * the heading's phase is that of ``exp(-jkR)`` at the wavelength the
+      printout itself prints, 299.8/f (7.1 MHz at 1000 m prints 114.32; the
+      SI speed of light gives 114.10);
+    * over a Sommerfeld ground, GN 2 and GN 3 alike, one more line gives the
+      LOWER MEDIUM's ``exp(-jkR)/R`` at ``k*sqrt(eps_c)``, ``eps_c`` being
+      the complex constant the environment block prints (2.23389-107 at
+      -164.12 degrees for 13 / 0.005 S/m, every digit).  A perfect ground
+      prints no such line, with or without ``GD`` (p29, p28);
+    * a row below the horizon over a ground is all zeros as at range 0, and
+      its two phases are the LOWER MEDIUM's phase over a Sommerfeld ground
+      (p31) and 0.00 over a perfect one (p32).
+
+    The row builder is asked for the range-0 block and the range is applied
+    here rather than through its own ``range_m``: its wavenumber is the
+    solve's, and the two phases printed here follow the printed wavelength.
+    """
+    k = 2.0 * math.pi * freq_mhz / _C_MHZ_M
+    shift = _phase_of(-k * range_m)
+    lower = {}
+    below_shift = 0.0
+    if medium is not None:
+        k_lower = k * np.sqrt(medium.eps_c)
+        below_shift = _phase_of(-k_lower.real * range_m)
+        lower = {
+            "lower_range_mag": math.exp(k_lower.imag * range_m) / range_m,
+            "lower_range_phase_deg": below_shift,
+        }
+    rows = []
+    for row in block.rows:
+        below = grounded and row.theta_deg > 90.0 + 1e-9
+        rows.append(
+            row._replace(
+                e_theta_magnitude=row.e_theta_magnitude / range_m,
+                e_phi_magnitude=row.e_phi_magnitude / range_m,
+                e_theta_phase_deg=below_shift
+                if below
+                else row.e_theta_phase_deg + shift,
+                e_phi_phase_deg=below_shift if below else row.e_phi_phase_deg + shift,
+            )
+        )
+    return replace(
+        block, rows=tuple(rows), range_m=range_m, range_phase_deg=shift, **lower
+    )
+
+
+def _phase_of(radians: float) -> float:
+    """The phase of ``exp(j*radians)`` in degrees, in (-180, 180]."""
+    return math.degrees(math.atan2(math.sin(radians), math.cos(radians)))
 
 
 # --------------------------------------------------------------------------

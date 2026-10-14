@@ -18,7 +18,7 @@ from packaging.version import InvalidVersion, Version
 from cozy_runtime import __version__ as RUNTIME_VERSION
 from cozy_runtime import canonical_json
 from cozy_runtime.author._calls import _CallType
-from cozy_runtime.internal import effect_interfaces, source_interfaces
+from cozy_runtime.internal import effect_interfaces
 from cozy_runtime.internal.canonical import Json
 
 if TYPE_CHECKING:
@@ -38,10 +38,7 @@ class Statement(msgspec.Struct, frozen=True):
     operations: dict[str, Operation]
 
 
-_SERVICES = {
-    source_interfaces.MODULE: (source_interfaces, "native_source"),
-    effect_interfaces.MODULE: (effect_interfaces, "native_effect"),
-}
+_SERVICES = {effect_interfaces.MODULE: (effect_interfaces, "native_effect")}
 
 UPDATE_RENTAL = "run `cozy rental update <rental>`"
 

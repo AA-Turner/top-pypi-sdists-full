@@ -68,6 +68,10 @@ class TestResourceListUnregisteredAgentActionResponse(unittest.TestCase):
                             source_ids = [
                                 ''
                                 ], 
+                            data_plane_ids = [
+                                ''
+                                ], 
+                            has_source = True, 
                             external_ids = [
                                 ''
                                 ], 
@@ -127,6 +131,10 @@ class TestResourceListUnregisteredAgentActionResponse(unittest.TestCase):
                             source_ids = [
                                 ''
                                 ], 
+                            data_plane_ids = [
+                                ''
+                                ], 
+                            has_source = True, 
                             external_ids = [
                                 ''
                                 ], 

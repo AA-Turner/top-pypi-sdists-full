@@ -115,7 +115,10 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: on the allowlist at all, and the daemon may not pass `--team` anyway
 #: (`precheck`). A write that failed mid-way is reported,
 #: and the model checks what landed before it tries again. Any other write is
-#: never retried: the CLI cannot say that nothing was written.
+#: never retried: the CLI cannot say that nothing was written. `feedback send` is
+#: the one exception to the route list: it keys its POST /v1/feedback in the BODY
+#: with this key (`probe.feedback.send_asked`), and anywhere else it only holds a
+#: question on the local board, which `probe.feedback.hold` never doubles.
 IDEMPOTENT_COMMANDS = frozenset({
     "project create", "group create",
     "experiment create", "experiment set", "experiment move", "experiment fork",
@@ -123,7 +126,7 @@ IDEMPOTENT_COMMANDS = frozenset({
     "run set", "run tag", "run move", "group set",
     "artifact set", "artifact move", "paper add", "paper update", "paper tag",
     "project reference add", "edge add", "views create", "views rename", "views update",
-    "notes create", "notes rename",
+    "notes create", "notes rename", "feedback send",
 })
 #: The tools that can write -- run a `probe` write, or a shell command that
 #: changes files. Their calls run one at a time, in the order the model made
@@ -1189,16 +1192,61 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
     deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["probe", *argv], head=parsed.path,
                          status=write_status(code, result.stderr), output=output, exit_code=code,
                          reason=_cap(why, 300) or None)
+    fact = None
     if code == 0:
         _remember_note(deps, parsed, result.stdout)
         # After the logbook line: a bite cut short during the lookup must not
         # read as a write cut short. Not for a queued write: nothing landed yet.
         if write_status(code, result.stderr) == "ran":
             await scope.stamp(deps, parsed)
+            fact = branch_fact(deps, parsed, result.stdout)
     elif parsed.path not in IDEMPOTENT_COMMANDS:
         output += "\n[not retried: it may have written part of its work]"
     stop = write_refusal(deps) if deps.key_refused else None
-    return f"[exit {code}]\n{_cap(scrub(output))}" + (f"\n{stop}" if stop else ""), result
+    text = f"[exit {code}]\n{_cap(scrub(output))}" + (f"\n{fact}" if fact else "")
+    return text + (f"\n{stop}" if stop else ""), result
+
+
+#: The fact a run move adds when it files a branch of a run outside any
+#: experiment, and earlier moves filed its siblings the same way (writer channel
+#: PR-2: six SFT arms of one base run went project-direct, one by one).
+BRANCH_FACT = "{n} runs branch from {parent}; none is in an experiment"
+
+
+def _moved_run(text: str | None) -> dict | None:
+    """The run a `run move` printed (its first JSON value), or None."""
+    try:
+        value, _end = json.JSONDecoder().raw_decode((text or "").lstrip())
+    except ValueError:
+        return None
+    return value if isinstance(value, dict) and value.get("id") else None
+
+
+def branch_fact(deps: Deps, parsed: precheck.Parsed, stdout: str) -> str | None:
+    """After a `run move` that left the run in no experiment: when the runs this
+    session moved that branch from the same parent number two or more and none is
+    in an experiment, one plain fact line (BRANCH_FACT). From the logbook's own
+    outputs: no call to Probe."""
+    if parsed.path != "run move":
+        return None
+    run = _moved_run(stdout)
+    if run is None or run.get("experiment_id") or not run.get("parent_run_id"):
+        return None
+    parent = run["parent_run_id"]
+    siblings: dict[str, dict] = {}
+    names: dict[str, str] = {}
+    for row in deps.store.db.execute("SELECT output FROM writes WHERE head = 'run move' AND status = 'ran' "
+                                     "ORDER BY id"):
+        moved = _moved_run(row["output"])
+        if moved is None:
+            continue
+        names[moved["id"]] = moved.get("slug") or moved["id"]
+        if moved.get("parent_run_id") == parent:
+            siblings[moved["id"]] = moved  # the newest move of each run wins
+    siblings[run["id"]] = run
+    if len(siblings) < 2 or any(r.get("experiment_id") for r in siblings.values()):
+        return None
+    return BRANCH_FACT.format(n=len(siblings), parent=names.get(parent, parent))
 
 
 _ANCHORS = ("project", "experiment", "run", "group", "artifact", "note")
@@ -1517,8 +1565,10 @@ SESSION_OPTIONS: dict[SessionOp, tuple[str, ...]] = {
 }
 
 
-#: The reader's ops: the session itself. `logbook` and `status` are the writer's record.
-READER_SESSION_OPS: frozenset[SessionOp] = frozenset({SessionOp.OPEN, SessionOp.OUTLINE, SessionOp.SEARCH})
+#: The reader's ops: the session itself, and the writer's logbook (read only: so the
+#: reader can say what the writer filed). `status` is the writer's own.
+READER_SESSION_OPS: frozenset[SessionOp] = frozenset({SessionOp.OPEN, SessionOp.OUTLINE, SessionOp.SEARCH,
+                                                      SessionOp.LOGBOOK})
 ReaderSessionOpName = Literal[tuple(op.value for op in SessionOp if op in READER_SESSION_OPS)]  # type: ignore[valid-type]
 
 
@@ -1573,9 +1623,10 @@ def session_search(deps: Deps, query: str, kind: str | None = None, turn_from: i
     if stop is not None:
         return stop
     if logbook:
-        rows = deps.store.search_logbook(query, limit=SEARCH_LIMIT)
+        rows = deps.store.search_logbook(query, limit=SEARCH_LIMIT, writes_only=deps.reader)
         if not rows:
-            return f"nothing in your logbook matches {query!r}"
+            whose = "the writer's" if deps.reader else "your"
+            return f"nothing in {whose} logbook matches {query!r}"
         return "\n".join(f"- {r['what']} #{r['id']}: {r['body'][:300]} {r['status'] or ''} {(r['reason'] or '')[:200]}"
                          for r in rows)
     kinds = [kind] if kind else None

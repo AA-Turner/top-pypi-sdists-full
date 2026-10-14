@@ -24,6 +24,9 @@ export declare class CanvasView extends UIElementView {
     ui_event_bus: UIEventBus;
     protected readonly _size: InlineStyleSheet;
     readonly touch_action: InlineStyleSheet;
+    /** Resize a canvas, setting the shrinking dimension first to minimize
+     *  the transient intermediate area. Only assigns when the value changes. */
+    private _resize_canvas;
     initialize(): void;
     get layers(): (HTMLElement | CanvasLayer)[];
     lazy_initialize(): Promise<void>;

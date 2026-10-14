@@ -37,7 +37,10 @@ from geocif.experiments import s2s_eligibility as elig
 logger = logging.getLogger(__name__)
 
 MAX_OFFSET = 4          # offsets (months before planting) 1..4; 4 has no GF
-SEASON_LEN = 4          # season aggregate = planting .. planting+3
+SEASON_LEN = elig.SEASON_LEN    # season aggregate = planting .. planting+3
+# Most negative offset (init AFTER planting) whose lead 1 still reaches the
+# season's last month. This pooled model itself only uses 1..MAX_OFFSET.
+MIN_OFFSET = 2 - SEASON_LEN
 REAL_INIT_YEARS = (1993, 2016)   # NOAA S2S hindcast members
 N_BOOT = 500
 
@@ -50,11 +53,15 @@ def season_months(planting):
 
 
 def lead_map(planting, offset):
-    """{target_month: lead} for the init issued `offset` months pre-planting."""
+    """{target_month: lead} for the init issued `offset` months pre-planting.
+
+    A negative offset is an init issued AFTER planting: season months at
+    lead < 1 have already started when it is issued and are not forecast.
+    """
     out = {}
     for i, tm in enumerate(season_months(planting)):
         lead = offset + i
-        if lead <= 6:
+        if 1 <= lead <= 6:
             out[tm] = lead
     return out
 
@@ -67,6 +74,9 @@ def init_calendar(planting, offset, harvest_year, wraps):
     if im <= 0:
         im += 12
         iy -= 1
+    elif im > 12:               # post-planting init in the next calendar year
+        im -= 12
+        iy += 1
     return iy, im
 
 

@@ -15,6 +15,7 @@ class MatrixAppserviceStatus:
         as_token_configured (bool):
         hs_token_configured (bool):
         sender_localpart (str):
+        tokens_managed_by (str):
         bot_user_id (str):
         webhook_path (str):
         homeserver_url (str):
@@ -26,6 +27,7 @@ class MatrixAppserviceStatus:
     as_token_configured: bool
     hs_token_configured: bool
     sender_localpart: str
+    tokens_managed_by: str
     bot_user_id: str
     webhook_path: str
     homeserver_url: str
@@ -41,6 +43,8 @@ class MatrixAppserviceStatus:
         hs_token_configured = self.hs_token_configured
 
         sender_localpart = self.sender_localpart
+
+        tokens_managed_by = self.tokens_managed_by
 
         bot_user_id = self.bot_user_id
 
@@ -60,6 +64,7 @@ class MatrixAppserviceStatus:
                 "as_token_configured": as_token_configured,
                 "hs_token_configured": hs_token_configured,
                 "sender_localpart": sender_localpart,
+                "tokens_managed_by": tokens_managed_by,
                 "bot_user_id": bot_user_id,
                 "webhook_path": webhook_path,
                 "homeserver_url": homeserver_url,
@@ -81,6 +86,8 @@ class MatrixAppserviceStatus:
 
         sender_localpart = d.pop("sender_localpart")
 
+        tokens_managed_by = d.pop("tokens_managed_by")
+
         bot_user_id = d.pop("bot_user_id")
 
         webhook_path = d.pop("webhook_path")
@@ -96,6 +103,7 @@ class MatrixAppserviceStatus:
             as_token_configured=as_token_configured,
             hs_token_configured=hs_token_configured,
             sender_localpart=sender_localpart,
+            tokens_managed_by=tokens_managed_by,
             bot_user_id=bot_user_id,
             webhook_path=webhook_path,
             homeserver_url=homeserver_url,

@@ -65,7 +65,8 @@ def sync_detailed(
 ) -> Response[Customer]:
     """Retrieve customer details
 
-     Fetch the details of a specific customer by its UUID.
+     Fetch the details of a specific customer by its UUID. A user whose only link to the organization is
+    a role on its service provider receives the restricted field set described on the list operation.
 
     Args:
         uuid (UUID):
@@ -99,7 +100,8 @@ def sync(
 ) -> Customer:
     """Retrieve customer details
 
-     Fetch the details of a specific customer by its UUID.
+     Fetch the details of a specific customer by its UUID. A user whose only link to the organization is
+    a role on its service provider receives the restricted field set described on the list operation.
 
     Args:
         uuid (UUID):
@@ -128,7 +130,8 @@ async def asyncio_detailed(
 ) -> Response[Customer]:
     """Retrieve customer details
 
-     Fetch the details of a specific customer by its UUID.
+     Fetch the details of a specific customer by its UUID. A user whose only link to the organization is
+    a role on its service provider receives the restricted field set described on the list operation.
 
     Args:
         uuid (UUID):
@@ -160,7 +163,8 @@ async def asyncio(
 ) -> Customer:
     """Retrieve customer details
 
-     Fetch the details of a specific customer by its UUID.
+     Fetch the details of a specific customer by its UUID. A user whose only link to the organization is
+    a role on its service provider receives the restricted field set described on the list operation.
 
     Args:
         uuid (UUID):

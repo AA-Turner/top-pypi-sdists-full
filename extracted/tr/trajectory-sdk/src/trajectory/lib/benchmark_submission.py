@@ -21,12 +21,16 @@ from trajectory import Client
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
 from trajectory.lib.benchmark_progress import _SubmissionProgress
-from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UPLOAD_BATCH_FILES, UploadFile
-from trajectory.lib.upload_pool import DEFAULT_UPLOAD_CONCURRENCY, UploadPool
+from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
+from trajectory.lib.upload_pool import BENCHMARK_UPLOAD_CONCURRENCY, UploadPool
 
 MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
 MAX_REQUEST_BYTES = 128 * 1024
+MAX_ALLOCATION_FILES = 1000
+MAX_ALLOCATION_BYTES = 1024 * 1024
+# Bounds allocated-but-unstarted upload bytes so signed URLs are used before their 60-minute expiry.
+MAX_ALLOCATION_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024
 MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024
 MAX_RUNTIME_CONTEXT_FILES = 4096
 MAX_PENDING_HASHES = 64
@@ -265,12 +269,12 @@ class SubmissionUpload:
         upload_client,
         timeout=upload_timeout,
         max_retries=client.max_retries,
-        max_concurrency=DEFAULT_UPLOAD_CONCURRENCY,
+        max_concurrency=BENCHMARK_UPLOAD_CONCURRENCY,
         progress=reporter,
       ) as pool:
         for batch in self._upload_batches():
           declarations = [declaration for _, declaration, _ in batch]
-          self._require_bounded({"files": declarations})
+          self._require_bounded({"files": declarations}, MAX_ALLOCATION_BYTES)
           response = client.benchmarks.ingestion.allocate_uploads(operation_id, files=declarations)
           files = [
             self._declared_file(source, declaration, mtime_ns)
@@ -347,16 +351,22 @@ class SubmissionUpload:
     batch: list[tuple[str, dict[str, Any], int | None]] = []
     empty_size = len(json.dumps({"files": []}).encode())
     size = empty_size
+    upload_bytes = 0
     for source, encoded, mtime_ns in self.database.execute(
       "SELECT source, declaration, mtime_ns FROM files ORDER BY path"
     ):
       declaration = json.loads(encoded)
       item_size = len(json.dumps(declaration, ensure_ascii=False).encode())
-      self._require_bounded({"files": [declaration]})
-      if batch and (len(batch) == UPLOAD_BATCH_FILES or size + 2 + item_size > MAX_REQUEST_BYTES):
+      self._require_bounded({"files": [declaration]}, MAX_ALLOCATION_BYTES)
+      if batch and (
+        len(batch) == MAX_ALLOCATION_FILES
+        or size + 2 + item_size > MAX_ALLOCATION_BYTES
+        or upload_bytes + declaration["size_bytes"] > MAX_ALLOCATION_UPLOAD_BYTES
+      ):
         yield batch
-        batch, size = [], empty_size
+        batch, size, upload_bytes = [], empty_size, 0
       size += item_size + (2 if batch else 0)
+      upload_bytes += declaration["size_bytes"]
       batch.append((source, declaration, mtime_ns))
     if batch:
       yield batch
@@ -379,6 +389,6 @@ class SubmissionUpload:
       raise ValueError(f"benchmark name must be at most {BENCHMARK_NAME_MAX_LENGTH} characters")
 
   @staticmethod
-  def _require_bounded(body: dict) -> None:
-    if len(json.dumps(body, ensure_ascii=False).encode()) > MAX_REQUEST_BYTES:
-      raise ValueError("Submission API request exceeds the 128 KiB limit")
+  def _require_bounded(body: dict, limit: int = MAX_REQUEST_BYTES) -> None:
+    if len(json.dumps(body, ensure_ascii=False).encode()) > limit:
+      raise ValueError(f"Submission API request exceeds the {limit // 1024} KiB limit")

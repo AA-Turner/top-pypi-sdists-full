@@ -519,8 +519,10 @@ from ..networks import NetworkReducer
 from .._far_readout import (
     Ground,
     _FIELD_FLOOR2,
-    _gain_db,
-    _polarisation,
+    _gain_db_grid,
+    _libm,
+    _phase_deg_grid,
+    _polarisation_grid,
     average_gain,
     pattern_fields,
 )
@@ -1098,28 +1100,55 @@ def _plane_crossings(deck: Nec5Deck) -> dict[int, _PlaneCrossing]:
     crossings: dict[int, _PlaneCrossing] = {}
     if not _has_interface(deck):
         return crossings
-    for wire in deck.wires:
-        a = np.asarray(wire.end1, dtype=float)
-        b = np.asarray(wire.end2, dtype=float)
-        tol = _ground_spec.ground_touch_tol(np.array([a, b]))
-        za, zb = float(a[2]), float(b[2])
-        if not ((za < -tol and zb > tol) or (za > tol and zb < -tol)):
-            continue
-        z = [p[2] for p in node_points(wire)]
-        node = next((k for k, zk in enumerate(z) if abs(zk) <= tol), None)
-        if node is not None:
-            x, y = node_points(wire)[node][:2]
-            segment = None
-        else:
-            t = za / (za - zb)
-            x, y = (a + (b - a) * t)[:2]
-            segment = next(
-                k for k in range(wire.segment_count) if (z[k] < 0.0) != (z[k + 1] < 0.0)
-            )
-        crossings[wire.tag] = _PlaneCrossing(
-            tag=wire.tag, point=(float(x), float(y), 0.0), node=node, segment=segment
-        )
+    ends, tol = _card_ends(deck)
+    if not len(tol):
+        return crossings
+    za, zb = ends[:, 0, 2], ends[:, 1, 2]
+    across = ((za < -tol) & (zb > tol)) | ((za > tol) & (zb < -tol))
+    # momwire#1420: the per-card test above is one array expression; only a
+    # card that does cross (rare: a radial field crossing the plane has one
+    # per radial, an elevated antenna none) walks its nodes in Python.
+    for i in np.flatnonzero(across).tolist():
+        crossings_add(crossings, deck.wires[i], float(tol[i]))
     return crossings
+
+
+def _card_ends(deck: Nec5Deck) -> tuple[np.ndarray, np.ndarray]:
+    """Every ``GW``'s two ends as one ``(n, 2, 3)`` array, end 1 first, and
+    each card's own ``_ground_spec.ground_touch_tol`` — the same value, bit
+    for bit, as asking the card's two-point polyline one at a time
+    (``_ground_spec.segment_touch_tols``).  Rebuilt on every call rather than
+    cached: it is one array build, and a long-lived server sees many decks
+    (momwire#1420)."""
+    wires = deck.wires
+    if not wires:
+        return np.zeros((0, 2, 3)), np.zeros(0)
+    ends = np.array([(w.end1, w.end2) for w in wires], dtype=float)
+    return ends, _ground_spec.segment_touch_tols(ends[:, 0], ends[:, 1])
+
+
+def crossings_add(
+    crossings: dict[int, _PlaneCrossing], wire: Nec5Wire, tol: float
+) -> None:
+    """Record where ``wire`` — already known to cross the plane, judged on
+    its own tolerance ``tol`` — meets it."""
+    a = np.asarray(wire.end1, dtype=float)
+    b = np.asarray(wire.end2, dtype=float)
+    za, zb = float(a[2]), float(b[2])
+    z = [p[2] for p in node_points(wire)]
+    node = next((k for k, zk in enumerate(z) if abs(zk) <= tol), None)
+    if node is not None:
+        x, y = node_points(wire)[node][:2]
+        segment = None
+    else:
+        t = za / (za - zb)
+        x, y = (a + (b - a) * t)[:2]
+        segment = next(
+            k for k in range(wire.segment_count) if (z[k] < 0.0) != (z[k + 1] < 0.0)
+        )
+    crossings[wire.tag] = _PlaneCrossing(
+        tag=wire.tag, point=(float(x), float(y), 0.0), node=node, segment=segment
+    )
 
 
 def _spans(deck: Nec5Deck) -> list[tuple[int, np.ndarray]]:
@@ -1131,18 +1160,34 @@ def _spans(deck: Nec5Deck) -> list[tuple[int, np.ndarray]]:
     split at z = 0 is judged exactly as the two cards a user would have
     written in its place — the spelling momwire#667 already serves.
     """
+    tags, ends, _tol = _span_table(deck)
+    return [(tag, ends[i]) for i, tag in enumerate(tags)]
+
+
+def _span_table(deck: Nec5Deck) -> tuple[list[int], np.ndarray, np.ndarray]:
+    """:func:`_spans` as arrays: the spans' tags in order, their ends as one
+    ``(m, 2, 3)`` array, and each span's ``ground_touch_tol``.  The geometry
+    rules below read this so that each asks its question of every span in
+    one array expression and walks only the spans that answer it
+    (momwire#1420).  Values are those :func:`_spans` hands out, bit for
+    bit: a half's ends are the card's end and the crossing point, exactly as
+    ``np.array([pl[0], x])`` spells them."""
     crossings = _plane_crossings(deck)
-    spans = []
+    if not crossings:
+        ends, tol = _card_ends(deck)
+        return [wire.tag for wire in deck.wires], ends, tol
+    tags: list[int] = []
+    rows: list[tuple] = []
     for wire in deck.wires:
-        pl = np.array([wire.end1, wire.end2], dtype=float)
         crossing = crossings.get(wire.tag)
         if crossing is None:
-            spans.append((wire.tag, pl))
+            tags.append(wire.tag)
+            rows.append((wire.end1, wire.end2))
             continue
-        x = np.asarray(crossing.point, dtype=float)
-        spans.append((wire.tag, np.array([pl[0], x])))
-        spans.append((wire.tag, np.array([x, pl[1]])))
-    return spans
+        tags += [wire.tag, wire.tag]
+        rows += [(wire.end1, crossing.point), (crossing.point, wire.end2)]
+    ends = np.array(rows, dtype=float)
+    return tags, ends, _ground_spec.segment_touch_tols(ends[:, 0], ends[:, 1])
 
 
 def _crossing_nodes(deck: Nec5Deck) -> set[tuple[int, int, int]]:
@@ -1154,12 +1199,12 @@ def _crossing_nodes(deck: Nec5Deck) -> set[tuple[int, int, int]]:
     nodes: set[tuple[int, int, int]] = set()
     if not _has_interface(deck):
         return nodes
-    for _tag, pl in _spans(deck):
-        tol = _ground_spec.ground_touch_tol(pl)
-        if float(pl[:, 2].min()) < -tol:
-            for end in pl:
-                if abs(float(end[2])) <= tol:
-                    nodes.add(_node_key(tuple(end)))
+    _tags, ends, tol = _span_table(deck)
+    below = np.minimum(ends[:, 0, 2], ends[:, 1, 2]) < -tol
+    for i in np.flatnonzero(below).tolist():
+        for end in ends[i]:
+            if abs(float(end[2])) <= tol[i]:
+                nodes.add(_node_key(tuple(end)))
     return nodes
 
 
@@ -1176,11 +1221,8 @@ def _has_buried_wire(deck: Nec5Deck) -> bool:
     spelling too (momwire#1281)."""
     if not _has_interface(deck):
         return False
-    for _tag, pl in _spans(deck):
-        tol = _ground_spec.ground_touch_tol(pl)
-        if float(pl[:, 2].min()) < -tol:
-            return True
-    return False
+    _tags, ends, tol = _span_table(deck)
+    return bool(np.any(np.minimum(ends[:, 0, 2], ends[:, 1, 2]) < -tol))
 
 
 def _geometry_refusal(deck: Nec5Deck) -> str | None:
@@ -1217,27 +1259,25 @@ def _geometry_refusal(deck: Nec5Deck) -> str | None:
         return None
     sommerfeld = isinstance(deck.ground, Nec5SommerfeldGround)
     card = "GD" if isinstance(deck.ground, Nec5MininecGround) else "GN 1"
-    spans = _spans(deck)
-    for tag, pl in spans:
-        tol = _ground_spec.ground_touch_tol(pl)
-        zmin = float(pl[:, 2].min())
-        if zmin < -tol:
-            # Wholly below, or ENDING in the plane — the below member of a
-            # crossing junction (momwire#667), served through
-            # `grounded_crossing_exemption` at serve time. No span reaches
-            # above as well: `_spans` has already split the one card that did.
-            if not sommerfeld:
-                return _REFUSE_BURIED_NO_MEDIUM.format(
-                    tag=tag, zmin=zmin, card=card, why=_WHY_NO_MEDIUM[card]
-                )
-            continue
-        if abs(pl[0, 2]) <= tol and abs(pl[1, 2]) <= tol:
-            return _REFUSE_IN_PLANE_WIRE.format(tag=tag)
-    buried = [
-        tag
-        for tag, pl in spans
-        if float(pl[:, 2].max()) < -_ground_spec.ground_touch_tol(pl)
-    ]
+    tags, ends, tol = _span_table(deck)
+    z0, z1 = ends[:, 0, 2], ends[:, 1, 2]
+    zmin = np.minimum(z0, z1)
+    zmax = np.maximum(z0, z1)
+    # momwire#1420: the spans are judged in one array expression each, and
+    # the FIRST span that refuses names the sentence, as the per-span walk
+    # this replaced did. A span reaching below is buried (a refusal unless
+    # the ground is Sommerfeld) and is never also judged in-plane.
+    below = zmin < -tol
+    in_plane = ~below & (np.abs(z0) <= tol) & (np.abs(z1) <= tol)
+    refusing = in_plane if sommerfeld else below | in_plane
+    if np.any(refusing):
+        i = int(np.argmax(refusing))
+        if below[i]:
+            return _REFUSE_BURIED_NO_MEDIUM.format(
+                tag=tags[i], zmin=float(zmin[i]), card=card, why=_WHY_NO_MEDIUM[card]
+            )
+        return _REFUSE_IN_PLANE_WIRE.format(tag=tags[i])
+    buried = [tags[i] for i in np.flatnonzero(zmax < -tol).tolist()]
     if buried:
         # A contact end that a buried wire also ENDS on is a crossing
         # junction, not a contact (momwire#667): exempt those nodes here on
@@ -1245,13 +1285,13 @@ def _geometry_refusal(deck: Nec5Deck) -> str | None:
         # through `grounded_crossing_exemption` and has the last word.
         crossing_nodes = _crossing_nodes(deck)
         contacts = []
-        for tag, pl in spans:
-            if float(pl[:, 2].max()) <= _ground_spec.ground_touch_tol(pl):
-                continue  # not an above wire
+        # the above wires; spelled `not <=` as the walk spelled its skip
+        for i in np.flatnonzero(~(zmax <= tol)).tolist():
+            pl = ends[i]
             for end_index in _ground_spec.contact_ends([pl], 0.0):
                 end = pl[0] if end_index[1] == "start" else pl[1]
                 if _node_key(tuple(end)) not in crossing_nodes:
-                    contacts.append(tag)
+                    contacts.append(tags[i])
                     break
         if contacts:
             return _REFUSE_BURIED_WITH_CONTACT.format(cw=contacts[0], bw=buried[0])
@@ -1564,13 +1604,48 @@ def node_points(wire: Nec5Wire) -> list[tuple[float, float, float]]:
     into one node without leaning on the tolerance to save them (the same
     line ``momwire.deck._polylines`` draws).
     """
+    return _wire_nodes(wire)[0]
+
+
+def _node_grid(wire: Nec5Wire) -> np.ndarray:
+    """``node_points`` as one ``(segment_count + 1, 3)`` array, ends authored.
+
+    Built in one shot rather than a node at a time (momwire#1445): the same
+    ``a + (b - a) * (k / n)`` per element -- ``arange / n`` is ``k / n``
+    correctly rounded, exactly as the Python division is -- so the same
+    bits, at a fraction of the per-node array overhead.
+    """
     n = wire.segment_count
     a = np.asarray(wire.end1, dtype=float)
     b = np.asarray(wire.end2, dtype=float)
-    points = [tuple(a + (b - a) * (k / n)) for k in range(n + 1)]
+    grid = a + (b - a) * (np.arange(n + 1) / n)[:, None]
+    grid[0] = wire.end1
+    grid[-1] = wire.end2
+    return grid
+
+
+def _wire_nodes(
+    wire: Nec5Wire,
+) -> tuple[list[tuple[float, float, float]], list[tuple[int, int, int]]]:
+    """A wire's ``node_points`` and their ``_node_key`` s, from one grid.
+
+    The points keep their old element types (``numpy.float64`` inside, the
+    authored values at the ends), and the keys are ``_node_key``'s own
+    rounding -- division by the tolerance, then round-half-even -- done as
+    one array; anything ``rint`` could not hand back as an exact int64 (a
+    non-finite or astronomically large coordinate) takes ``_node_key``
+    itself, node by node.
+    """
+    grid = _node_grid(wire)
+    points = list(map(tuple, grid))
     points[0] = wire.end1
     points[-1] = wire.end2
-    return points
+    scaled = np.rint(grid / _NODE_EPS)
+    if np.all(np.abs(scaled) < 2.0**62):
+        keys = list(map(tuple, scaled.astype(np.int64).tolist()))
+    else:
+        keys = [_node_key(point) for point in points]
+    return points, keys
 
 
 def _node_key(point) -> tuple[int, int, int]:
@@ -1645,13 +1720,13 @@ class Structure:
 
 def structure_of(deck: Nec5Deck) -> Structure:
     """Count a deck's nodes, elements and unknowns."""
-    points = tuple(tuple(node_points(w)) for w in deck.wires)
+    nodes = [_wire_nodes(w) for w in deck.wires]
+    points = tuple(tuple(wire_points) for wire_points, _ in nodes)
     ground_plane = deck.ge_flag != 0
     degree: dict[tuple[int, int, int], int] = {}
-    for wire, wire_points in zip(deck.wires, points, strict=True):
+    for wire, (_, keys) in zip(deck.wires, nodes, strict=True):
         last = wire.segment_count
-        for k, point in enumerate(wire_points):
-            key = _node_key(point)
+        for k, key in enumerate(keys):
             ends = 1 if k in (0, last) else 2
             degree[key] = degree.get(key, 0) + ends
     if ground_plane:
@@ -1730,6 +1805,42 @@ def _phantom_tags(deck: Nec5Deck, wavelength: float) -> frozenset[int]:
     # 1.3 ms and 3.0 ms.  3.0 ms for the whole corpus is what makes it
     # affordable on every deck rather than only behind a candidate card.
     ends = [(tuple(wire.end1), tuple(wire.end2)) for wire in deck.wires]
+    # momwire#1420: the same three tests, asked in an order that stops early.
+    # A wire too long to be the phantom needs no clearance at all, and the
+    # clearance tests, "the nearest endpoint is farther than both floors",
+    # are "EVERY endpoint is farther than the larger floor", which the first
+    # near endpoint settles: on a real antenna that is the first one tried,
+    # so the scan is O(wires) rather than O(wires^2). Exact, not close: the
+    # same `math.dist` values meet the same comparisons. A non-finite
+    # coordinate or wavelength keeps the full scan, whose `min` over a NaN
+    # depends on where in the list the NaN sits.
+    if not (
+        math.isfinite(wavelength)
+        and all(math.isfinite(c) for pair in ends for end in pair for c in end)
+    ):
+        return _phantom_tags_full(deck, ends, wavelength)
+    tags = []
+    for index, (a, b) in enumerate(ends):
+        extent = math.dist(a, b)
+        if not extent < _PHANTOM_EXTENT_LAMBDA * wavelength:
+            continue
+        floor = max(
+            _PHANTOM_CLEARANCE_LAMBDA * wavelength, _PHANTOM_CLEARANCE_EXTENTS * extent
+        )
+        if all(
+            math.dist(here, there) > floor
+            for other, pair in enumerate(ends)
+            if other != index
+            for here in (a, b)
+            for there in pair
+        ):
+            tags.append(deck.wires[index].tag)
+    return frozenset(tags)
+
+
+def _phantom_tags_full(deck: Nec5Deck, ends, wavelength: float) -> frozenset[int]:
+    """:func:`_phantom_tags`' full scan, the spelling before momwire#1420,
+    kept for the non-finite decks whose answer depends on its order."""
     tags = []
     for index, (a, b) in enumerate(ends):
         extent = math.dist(a, b)
@@ -3719,13 +3830,23 @@ def _element_geometry(structure: Structure, wavelength: float):
     """
     centres, lengths, tags = [], [], []
     for wire, points in zip(structure.wires, structure.points, strict=True):
-        for k in range(wire.segment_count):
-            a = np.asarray(points[k], dtype=float)
-            b = np.asarray(points[k + 1], dtype=float)
-            centres.append(0.5 * (a + b) / wavelength)
-            lengths.append(float(np.linalg.norm(b - a)) / wavelength)
-            tags.append(wire.tag)
+        n = wire.segment_count
+        if n <= 0:
+            continue
+        # momwire#1420: one array per wire rather than two per element. The
+        # centre is the same elementwise ``0.5 * (a + b) / wavelength``, and
+        # the length keeps ``np.linalg.norm``'s own arithmetic for a vector,
+        # ``sqrt(d.dot(d))``, row by row — so both columns are bit-identical
+        # to the per-element walk this replaced.
+        p = np.asarray(points[: n + 1], dtype=float)
+        a, b = p[:-1], p[1:]
+        centres.extend(0.5 * (a + b) / wavelength)
+        lengths.extend(float(_sqrt(d.dot(d))) / wavelength for d in b - a)
+        tags.extend([wire.tag] * n)
     return centres, lengths, tags
+
+
+_sqrt = np.sqrt
 
 
 def _element_currents_and_charges(
@@ -3765,22 +3886,27 @@ def _element_currents_and_charges(
         )
     slopes = solver.current_slopes(coeffs, centres_per_piece)
 
+    # momwire#1420: each piece's knot array converted once, not once per
+    # element; the per-element arithmetic is unchanged, scalar for scalar.
+    knot_currents = [np.asarray(k) for k in knot_currents]
+    jw = 1j * omega
+    split_elements = mesh.split_elements
     currents, charges = [], []
     for index, (piece_index, element) in enumerate(mesh.element_of):
         if piece_index == _NO_PIECE:
             currents.append(0j)
             charges.append(0j)
             continue
-        split = mesh.split_elements.get(index)
+        split = split_elements.get(index) if split_elements else None
         if split is not None:
-            first = np.asarray(knot_currents[split.lower])[0]
-            last = np.asarray(knot_currents[split.upper])[-1]
+            first = knot_currents[split.lower][0]
+            last = knot_currents[split.upper][-1]
             currents.append(0.5 * (first + last))
-            charges.append(-slopes[split.centre_piece][-1] / (1j * omega))
+            charges.append(-slopes[split.centre_piece][-1] / jw)
             continue
-        knots = np.asarray(knot_currents[piece_index])
+        knots = knot_currents[piece_index]
         currents.append(0.5 * (knots[element] + knots[element + 1]))
-        charges.append(-slopes[piece_index][element] / (1j * omega))
+        charges.append(-slopes[piece_index][element] / jw)
     return currents, charges
 
 
@@ -3817,6 +3943,108 @@ def _far_ground(deck: Nec5Deck, medium: GroundMedium | None) -> Ground:
     if isinstance(deck.ground, Nec5MininecGround):
         return Ground("refl", medium.eps_r, medium.sigma)
     return Ground("sommerfeld", medium.eps_r, medium.sigma)
+
+
+def _pattern_rows(
+    thetas: np.ndarray,
+    phis: np.ndarray,
+    e_theta: np.ndarray,
+    e_phi: np.ndarray,
+    g_v: np.ndarray,
+    g_h: np.ndarray,
+    below_horizon: np.ndarray | None,
+    floor_scale: float,
+    range_m: float,
+    range_phase_deg: float | None,
+) -> tuple[PatternRow, ...]:
+    """The ``(n_theta, n_phi)`` grid's rows, phi-major as the printout walks
+    them (every theta of the first phi, then the next phi).
+
+    This was a per-point loop over the scalar readouts until momwire#1448,
+    and on a small deck SimNEC paid more for it than for the solve. It is now
+    the same arithmetic over the whole grid at once — the grid forms in
+    :mod:`momwire._far_readout` are the scalar ones operation for operation
+    (that module's note says how the bits are kept) — and every printed-digit
+    rule the loop carried is a mask here, applied in the loop's order.
+    """
+    # Phi-major, the printed order: row r is (theta[r % n_theta], phi[r // n_theta]).
+    n_theta, n_phi = len(thetas), len(phis)
+    et = e_theta.T.ravel()
+    ep = e_phi.T.ravel()
+    # A component that is EXACTLY zero — the vertical's zenith, a linear
+    # dipole's co-polar null, where a spherical unit vector has an exactly
+    # zero component and every moment term cancels term for term — still
+    # carries the sign of its zeros out of the sum, and ``atan2(-0.0, 0.0)``
+    # prints ``-0.00`` where the capture prints ``0.00``.  The angle of zero
+    # is not a number; normalize the zero rather than invent an angle for it.
+    #
+    # ...and a component that is merely dust is zeroed outright, for the same
+    # reason one decimal further down: its magnitude and its phase are both
+    # noise, and they move with thread count and process history (momwire#578,
+    # class A — 92.5% of the moving lines). Done BEFORE the polarisation so
+    # the ellipse is formed from what the row actually prints. An exact zero
+    # is under this floor too, so the one mask carries both rules; either way
+    # the component becomes a POSITIVE ``0j``, which is what the ``0.00``
+    # phase needs.
+    #
+    # Zeroing one component does not blank the row's TILT: with ``a = 0`` the
+    # tilt is ``½·atan2(±0.0, -b²)``, and the sign of that zero is the sign of
+    # ``cos δ``, so the row prints TILT +90 or -90 by the phase of E(PHI). The
+    # grid form keeps that signed zero because it is the same IEEE product.
+    # (0010's capture prints -90 on its exact-zero ``phi = 0`` row and +90 on
+    # the dust rows after it, whose own phase it kept; this seam zeroes that
+    # dust, so it prints -90 on all of them, as it did before #1448 too.)
+    et = np.where(et.real * et.real + et.imag * et.imag <= _PRINTED_DUST_FLOOR2, 0j, et)
+    ep = np.where(ep.real * ep.real + ep.imag * ep.imag <= _PRINTED_DUST_FLOOR2, 0j, ep)
+    below = None
+    if below_horizon is not None and below_horizon.any():
+        # Rows the engine does not compute (see the caller) are not computed
+        # here either: zeroed going in, and overwritten coming out.
+        below = np.tile(below_horizon, n_phi)
+        et[below] = 0j
+        ep[below] = 0j
+    et_mag = _libm(abs, et)
+    ep_mag = _libm(abs, ep)
+    et_deg = _phase_deg_grid(et)
+    ep_deg = _phase_deg_grid(ep)
+    axial, tilt, sense = _polarisation_grid(
+        et_mag, ep_mag, et_deg, ep_deg, floor_scale, linear_below=_AXIAL_PRINTS_ZERO
+    )
+    if range_phase_deg is not None:
+        et_mag, ep_mag = et_mag / range_m, ep_mag / range_m
+        et_deg = et_deg + range_phase_deg
+        ep_deg = ep_deg + range_phase_deg
+    g_v_rows = g_v.T.ravel()
+    g_h_rows = g_h.T.ravel()
+    vert = _gain_db_grid(g_v_rows)
+    hor = _gain_db_grid(g_h_rows)
+    total = _gain_db_grid(g_v_rows + g_h_rows)
+    if below is not None:
+        # The licensed engine's all-zero row (see the caller): its gains are
+        # already at the floor (the caller zeroed g_v/g_h), and everything
+        # else prints 0, with no range phase added to it.
+        for column in (axial, tilt, et_mag, et_deg, ep_mag, ep_deg):
+            column[below] = 0.0
+        sense[below] = ""
+    theta_col = np.tile(thetas, n_phi).tolist()
+    phi_col = np.repeat(phis, n_theta).tolist()
+    return tuple(
+        map(
+            PatternRow,
+            theta_col,
+            phi_col,
+            vert.tolist(),
+            hor.tolist(),
+            total.tolist(),
+            axial.tolist(),
+            tilt.tolist(),
+            sense.tolist(),
+            et_mag.tolist(),
+            et_deg.tolist(),
+            ep_mag.tolist(),
+            ep_deg.tolist(),
+        )
+    )
 
 
 def _pattern(
@@ -3915,78 +4143,18 @@ def _pattern(
     else:
         range_phase_deg = None
 
-    rows = []
-    for j in range(request.n_phi):
-        for i in range(request.n_theta):
-            if below_horizon is not None and below_horizon[i]:
-                rows.append(
-                    PatternRow(
-                        theta_deg=float(thetas[i]),
-                        phi_deg=float(phis[j]),
-                        vert_db=_gain_db(0.0),
-                        hor_db=_gain_db(0.0),
-                        total_db=_gain_db(0.0),
-                        axial_ratio=0.0,
-                        tilt_deg=0.0,
-                        sense="",
-                        e_theta_magnitude=0.0,
-                        e_theta_phase_deg=0.0,
-                        e_phi_magnitude=0.0,
-                        e_phi_phase_deg=0.0,
-                    )
-                )
-                continue
-            et, ep = complex(e_theta[i, j]), complex(e_phi[i, j])
-            # A component that is EXACTLY zero — the vertical's zenith, a
-            # linear dipole's co-polar null, where a spherical unit vector
-            # has an exactly zero component and every moment term cancels
-            # term for term — still carries the sign of its zeros out of the
-            # sum, and ``atan2(-0.0, 0.0)`` prints ``-0.00`` where the
-            # capture prints ``0.00``.  The angle of zero is not a number;
-            # normalize the zero rather than invent an angle for it.  Only
-            # an exact zero is touched: a dust component is a real (tiny)
-            # field with a real phase, and 0010's TILT column reads +90 or
-            # -90 off it (compare its ``phi = 0`` and ``phi = 1`` rows).
-            if et == 0:
-                et = 0j
-            if ep == 0:
-                ep = 0j
-            # ...and a component that is merely dust is zeroed outright, for
-            # the same reason one decimal further down: its magnitude and its
-            # phase are both noise, and they move with thread count and
-            # process history (momwire#578, class A — 92.5% of the moving
-            # lines). Done BEFORE `_polarisation` so the ellipse is formed
-            # from what the row actually prints.
-            if et.real * et.real + et.imag * et.imag <= _PRINTED_DUST_FLOOR2:
-                et = 0j
-            if ep.real * ep.real + ep.imag * ep.imag <= _PRINTED_DUST_FLOOR2:
-                ep = 0j
-            axial, tilt, sense = _polarisation(
-                et, ep, floor_scale, linear_below=_AXIAL_PRINTS_ZERO
-            )
-            et_mag, ep_mag = abs(et), abs(ep)
-            et_deg = math.degrees(math.atan2(et.imag, et.real))
-            ep_deg = math.degrees(math.atan2(ep.imag, ep.real))
-            if range_phase_deg is not None:
-                et_mag, ep_mag = et_mag / range_m, ep_mag / range_m
-                et_deg += range_phase_deg
-                ep_deg += range_phase_deg
-            rows.append(
-                PatternRow(
-                    theta_deg=float(thetas[i]),
-                    phi_deg=float(phis[j]),
-                    vert_db=_gain_db(float(g_v[i, j])),
-                    hor_db=_gain_db(float(g_h[i, j])),
-                    total_db=_gain_db(float(g_v[i, j] + g_h[i, j])),
-                    axial_ratio=axial,
-                    tilt_deg=tilt,
-                    sense=sense,
-                    e_theta_magnitude=et_mag,
-                    e_theta_phase_deg=et_deg,
-                    e_phi_magnitude=ep_mag,
-                    e_phi_phase_deg=ep_deg,
-                )
-            )
+    rows = _pattern_rows(
+        thetas,
+        phis,
+        e_theta,
+        e_phi,
+        g_v,
+        g_h,
+        below_horizon,
+        floor_scale,
+        range_m,
+        range_phase_deg,
+    )
 
     ranged = {"range_m": range_m, "range_phase_deg": range_phase_deg} if range_m else {}
     if range_m and lower_k is not None:
@@ -4001,12 +4169,12 @@ def _pattern(
     if request.xnda % 10 == 0:
         # XNDA's A digit asks for the average gain; 1000 (0010, 0044) does
         # not and 1001 (0013, 0035) does.
-        return PatternBlock(rows=tuple(rows), **ranged)
+        return PatternBlock(rows=rows, **ranged)
     average, solid = average_gain(
         g_v + g_h, thetas, request.d_theta_deg, request.d_phi_deg, request.n_phi
     )
     return PatternBlock(
-        rows=tuple(rows),
+        rows=rows,
         **ranged,
         average_power_gain=average,
         solid_angle_pi=abs(solid) / math.pi,

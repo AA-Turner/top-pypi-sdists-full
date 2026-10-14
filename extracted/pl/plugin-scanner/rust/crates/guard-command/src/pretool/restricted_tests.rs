@@ -1,5 +1,13 @@
 use crate::CanonicalCommandV1;
 
+#[path = "bun_eval_screen.rs"]
+mod bun_eval_screen;
+
+/// Bun evaluation shares the Node evaluation profile under its own reason, so
+/// a receipt can admit Bun's package-protection permission without admitting
+/// it for `node -e`.
+const BUN_EVAL_REASON: &str = "native_bun_eval_readonly_containment_required";
+
 fn python_runtime_name(name: &str) -> bool {
     name.strip_prefix("python").is_some_and(|suffix| {
         suffix.is_empty()
@@ -40,6 +48,17 @@ fn python_inline_eval_args(arguments: &[String]) -> bool {
 fn python_test_script_args(arguments: &[String]) -> bool {
     python_after_isolation_flags(arguments).is_some_and(|rest| {
         matches!(rest, [script, ..] if workspace_relative(script) && test_script_name(script))
+    })
+}
+
+/// `python3 -m unittest`: imports workspace test modules, which read-only is
+/// no more capable than inline evaluation, so it shares that boundary.
+fn python_unittest_args(arguments: &[String]) -> bool {
+    python_after_isolation_flags(arguments).is_some_and(|rest| {
+        matches!(rest, [flag, module, ..] if flag == "-m" && module == "unittest")
+            && rest[2..]
+                .iter()
+                .all(|argument| !argument.contains(['<', '>', '|', '&', ';', '`', '$']))
     })
 }
 
@@ -175,6 +194,51 @@ fn workspace_relative(directory: &str) -> bool {
             .all(|part| !part.is_empty() && part != "..")
 }
 
+fn bun_eval_flag(flag: &str) -> bool {
+    matches!(flag, "-e" | "--eval" | "-p" | "--print")
+}
+
+/// Whether `reason` may carry the Node package-protection permission. Bun is a
+/// package manager image, so its inline evaluation always reports it; the
+/// evaluation still runs in the Node read-only boundary.
+pub(super) fn package_permission_contained(
+    reason: Option<&str>,
+    model: Option<&CanonicalCommandV1>,
+) -> bool {
+    match reason {
+        Some(
+            "native_vitest_readonly_containment_required"
+            | "native_package_test_readonly_containment_required"
+            | "native_node_tool_readonly_containment_required"
+            | "native_node_build_output_containment_required",
+        ) => true,
+        Some(BUN_EVAL_REASON) => model.is_some_and(bun_inline_eval),
+        _ => false,
+    }
+}
+
+/// `bun -e <program>` whose program passes the read-only screen. Anything
+/// else keeps Bun's package-protection review.
+fn bun_eval_args(arguments: &[String]) -> bool {
+    matches!(arguments, [flag, program]
+        if bun_eval_flag(flag) && bun_eval_screen::reads_only(program))
+}
+
+/// The whole command is `bun -e|--eval|-p|--print <program>` with a screened
+/// program: an evaluation with no package operation, environment assignment
+/// or wrapper.
+pub(super) fn bun_inline_eval(model: &CanonicalCommandV1) -> bool {
+    model.confidence == "exact"
+        && !model.path_overridden
+        && model.wrapper_chain.is_empty()
+        && matches!(model.segments.as_slice(), [segment]
+            if segment.environment_names.is_empty()
+                && segment.wrapper_chain.is_empty()
+                && !segment.path_overridden
+                && segment.executable.as_deref().map(super::executable_basename) == Some("bun")
+                && bun_eval_args(&segment.arguments))
+}
+
 pub(super) fn readonly_test_reason(model: &CanonicalCommandV1) -> Option<&'static str> {
     if requires_pytest_containment(model) {
         return Some("native_pytest_readonly_containment_required");
@@ -227,13 +291,17 @@ pub(super) fn readonly_test_reason(model: &CanonicalCommandV1) -> Option<&'stati
     match (super::executable_basename(executable), arguments) {
         (name, args)
             if python_runtime_name(name)
-                && (python_inline_eval_args(args) || python_test_script_args(args)) =>
+                && (python_inline_eval_args(args)
+                    || python_test_script_args(args)
+                    || python_unittest_args(args)) =>
         {
             return Some("native_python_eval_readonly_containment_required");
         }
         ("node" | "nodejs", [flag, _program]) if matches!(flag.as_str(), "-e" | "--eval") => {
             return Some("native_node_eval_readonly_containment_required");
         }
+        // Same evaluation boundary as Node; the sink approves the Bun image.
+        ("bun", args) if bun_eval_args(args) => return Some(BUN_EVAL_REASON),
         (name, args) if tsx_test_script_args(name, args) => {
             return Some("native_vitest_readonly_containment_required");
         }
@@ -257,6 +325,26 @@ pub(super) fn readonly_test_reason(model: &CanonicalCommandV1) -> Option<&'stati
             return Some("native_package_test_readonly_containment_required");
         }
     }
+    // `bun x` is Bun's spelling of `bunx`; the later proofs read it as one.
+    // Bun takes `--cwd` only before `x`, so a later one is not unwrapped.
+    let (executable, arguments) = match arguments {
+        [wrapper, no_install, rest @ ..]
+            if super::executable_basename(executable) == "bun"
+                && wrapper == "x"
+                && no_install == "--no-install"
+                && !rest.first().is_some_and(|word| word.starts_with("--cwd")) =>
+        {
+            ("bunx", rest)
+        }
+        [wrapper, rest @ ..]
+            if super::executable_basename(executable) == "bun"
+                && wrapper == "x"
+                && !rest.first().is_some_and(|word| word.starts_with("--cwd")) =>
+        {
+            ("bunx", rest)
+        }
+        _ => (executable, arguments),
+    };
     let build = match super::executable_basename(executable) {
         "bun" | "npm" | "pnpm" => {
             matches!(arguments, [run, task] if run == "run" && task == "build")
@@ -266,7 +354,7 @@ pub(super) fn readonly_test_reason(model: &CanonicalCommandV1) -> Option<&'stati
         }
         "vite" => arguments.first().is_some_and(|arg| arg == "build"),
         "node" | "nodejs" => {
-            matches!(arguments, [entry, task, ..] if entry.ends_with("/node_modules/vite/bin/vite.js") && task == "build")
+            matches!(arguments, [entry, task, ..] if local_package_entry(entry, "vite/bin/vite.js") && task == "build")
         }
         _ => false,
     };
@@ -283,7 +371,7 @@ pub(super) fn readonly_test_reason(model: &CanonicalCommandV1) -> Option<&'stati
         "eslint" => true,
         "tsc" => arguments.iter().any(|arg| arg == "--noEmit"),
         "node" | "nodejs" => {
-            matches!(arguments, [entry, rest @ ..] if entry.ends_with("/node_modules/eslint/bin/eslint.js") || (entry.ends_with("/node_modules/typescript/bin/tsc") && rest.iter().any(|arg| arg == "--noEmit")))
+            matches!(arguments, [entry, rest @ ..] if local_package_entry(entry, "eslint/bin/eslint.js") || (local_package_entry(entry, "typescript/bin/tsc") && rest.iter().any(|arg| arg == "--noEmit")))
         }
         _ => false,
     };
@@ -357,4 +445,13 @@ pub(super) fn readonly_test_reason(model: &CanonicalCommandV1) -> Option<&'stati
         return Some("native_node_test_readonly_containment_required");
     }
     None
+}
+
+/// `node node_modules/<entry>` and `node <dir>/node_modules/<entry>`. The sink
+/// still proves the file is the project's own installed entrypoint.
+fn local_package_entry(entry: &str, package_entry: &str) -> bool {
+    entry
+        .strip_suffix(package_entry)
+        .and_then(|prefix| prefix.strip_suffix("node_modules/"))
+        .is_some_and(|prefix| prefix.is_empty() || prefix.ends_with('/'))
 }

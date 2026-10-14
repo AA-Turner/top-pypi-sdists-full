@@ -20,12 +20,6 @@
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch.hpp>
 
-// Also define our own global variables.
-namespace wxPrivate
-{
-std::string wxTheCurrentTestClass, wxTheCurrentTestMethod;
-}
-
 // for all others, include the necessary headers
 #ifndef WX_PRECOMP
     #include "wx/wx.h"
@@ -49,11 +43,29 @@ std::string wxTheCurrentTestClass, wxTheCurrentTestMethod;
 
 #ifdef __WXGTK__
     #include <glib.h>
+    #include "wx/gtk/private/backend.h"
 #endif // __WXGTK__
 #endif // wxUSE_GUI
 
 #include "wx/socket.h"
 #include "wx/evtloop.h"
+
+#if wxUSE_THREADS && defined(TEST_HAS_IPC_SERVER)
+    #define wxHAS_TEST_IPC_SERVER
+
+    #include "net/ipc_test_server.h"
+
+    // Return true if the test should run in the special "IPC server" mode.
+    static bool ShouldRunTestIPCServer()
+    {
+        return wxGetEnv("WX_IPC_TEST_SERVER", nullptr);
+    }
+#else // not using IPC test server
+    static bool ShouldRunTestIPCServer()
+    {
+        return false;
+    }
+#endif
 
 using namespace std;
 
@@ -340,6 +352,21 @@ public:
 
     virtual int OnRun() override
     {
+#ifdef wxHAS_TEST_IPC_SERVER
+        // The IPC test re-executes this same binary as its server (with
+        // WX_IPC_TEST_SERVER set), so test_gui must run the server here too,
+        // exactly as the console test does in the non-GUI OnRun() below.
+        if ( ShouldRunTestIPCServer() )
+        {
+            // Suppress the idle-driven test runner: RunIPCServerUntilStopped()
+            // spins its own event loop, and our OnIdle() would otherwise fire
+            // there and run the whole test suite inside the server process.
+            m_runTests = false;
+            RunIPCServerUntilStopped();
+            return 0;
+        }
+#endif // wxHAS_TEST_IPC_SERVER
+
         if ( !IsGUIEnabled() )
             return 0;
 
@@ -351,6 +378,18 @@ public:
 #else // !wxUSE_GUI
     virtual int OnRun() override
     {
+#ifdef wxHAS_TEST_IPC_SERVER
+        // The IPC test starts its server by re-executing this same binary with
+        // WX_IPC_TEST_SERVER set and then running a bare event loop here. The IPC
+        // sources and TEST_HAS_IPC_SERVER are built into both the console "test"
+        // and "test_gui" programs, so the GUI OnRun() above has the same hook.
+        if ( ShouldRunTestIPCServer() )
+        {
+            RunIPCServerUntilStopped();
+            return 0;
+        }
+#endif // wxHAS_TEST_IPC_SERVER
+
         return RunTests();
     }
 #endif // wxUSE_GUI/!wxUSE_GUI
@@ -494,6 +533,18 @@ extern bool IsAutomaticTest()
     return s_isAutomatic == 1;
 }
 
+#if wxUSE_GUI
+
+extern bool IsRunningUnderWayland()
+{
+#ifdef __WXGTK3__
+    if ( !wxGTKImpl::IsX11(nullptr) )
+        return true;
+#endif // __WXGTK3__
+
+    return false;
+}
+
 extern bool IsRunningUnderXVFB()
 {
     static int s_isRunningUnderXVFB = -1;
@@ -505,8 +556,6 @@ extern bool IsRunningUnderXVFB()
 
     return s_isRunningUnderXVFB == 1;
 }
-
-#if wxUSE_GUI
 
 bool EnableUITests()
 {
@@ -533,6 +582,20 @@ bool EnableUITests()
 #else // !(__WXMSW__ || __WXGTK__ || __WXQT__)
             s_enabled = 0;
 #endif // (__WXMSW__ || __WXGTK__ || __WXQT__)
+
+#ifdef __WXGTK3__
+            // wxUIActionSimulator injects X11 events, which never reach a
+            // native Wayland client, so disable UI tests by default there
+            // (WX_UI_TESTS=1 above still overrides this).
+            if ( s_enabled == 1 && IsRunningUnderWayland() )
+            {
+                s_enabled = 0;
+                wxFprintf(stderr, wxASCII_STR(
+                    "Disabling UI tests: wxUIActionSimulator doesn't work "
+                    "when running as a native Wayland client (use "
+                    "WX_UI_TESTS=1 to force them anyway).\n"));
+            }
+#endif // __WXGTK3__
         }
     }
 
@@ -624,21 +687,8 @@ TestApp::TestApp()
 #endif // wxUSE_GUI
 }
 
-// Init
-//
-bool TestApp::OnInit()
+static void ShowTestInformation()
 {
-#if wxUSE_GUI
-    if ( !IsGUIEnabled() )
-    {
-        wxFputs(wxASCII_STR("Not running tests because GUI is disabled.\n"), stderr);
-        return true;
-    }
-#endif // wxUSE_GUI
-
-    // Hack: don't call TestAppBase::OnInit() to let CATCH handle command line.
-
-    // Output some important information about the test environment.
 #if wxUSE_GUI
     cout << "Test program for wxWidgets GUI features\n"
 #else
@@ -671,6 +721,41 @@ bool TestApp::OnInit()
 
     cout << " as " << wxGetUserId()
          << std::endl;
+}
+
+static bool IsCatchListCommandLine(const wxCmdLineArgsArray& argv)
+{
+    const wxArrayString& args = argv.GetArguments();
+
+    for ( size_t n = 1; n < args.GetCount(); ++n )
+    {
+        if ( args[n] == "--list-test-names-only" ||
+             args[n] == "--list-reporters" )
+            return true;
+    }
+
+    return false;
+}
+
+// Init
+//
+bool TestApp::OnInit()
+{
+#if wxUSE_GUI
+    if ( !IsGUIEnabled() )
+    {
+        wxFputs(wxASCII_STR("Not running tests because GUI is disabled.\n"), stderr);
+        return true;
+    }
+#endif // wxUSE_GUI
+
+    // Hack: don't call TestAppBase::OnInit() to let CATCH handle command line.
+
+    // Output some important information about the test environment unless
+    // we're running as a helper IPC server process or producing machine-readable
+    // Catch discovery output.
+    if ( !ShouldRunTestIPCServer() && !IsCatchListCommandLine(argv) )
+        ShowTestInformation();
 
     // Optionally allow executing the tests in the locale specified by the
     // standard environment variable, this is especially useful to use UTF-8
@@ -678,6 +763,27 @@ bool TestApp::OnInit()
     wxString testLoc;
     if ( wxGetEnv(wxASCII_STR("WX_TEST_LOCALE"), &testLoc) )
         wxSetlocale(LC_ALL, testLoc);
+#if wxUSE_UTF8_LOCALE_ONLY
+    else
+    {
+        // This build supposes that the program always runs in a UTF-8 locale
+        // and non-ASCII characters are not handled correctly if this is not
+        // the case, so ensure that it does.
+        //
+        // Note that only LC_CTYPE matters for this, so don't change the other
+        // categories to avoid affecting the other tests.
+#ifdef __WINDOWS__
+        constexpr const char* const UTF8_LOCALE = ".UTF-8";
+#else
+        constexpr const char* const UTF8_LOCALE = "C.UTF-8";
+#endif
+        if ( !wxSetlocale(LC_CTYPE, UTF8_LOCALE) )
+        {
+            wxFputs(wxASCII_STR("Warning: failed to set UTF-8 locale, "
+                                "some tests may fail.\n"), stderr);
+        }
+    }
+#endif // wxUSE_UTF8_LOCALE_ONLY
 
 #if wxUSE_GUI
     // create a parent window to be used as parent for the GUI controls

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 8.54.0
+Version: 8.58.0
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -28,10 +28,10 @@ Requires-Dist: pre-commit==4.7.0
 Requires-Dist: pydantic==2.14.1
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
-Requires-Dist: repo-standards==6.5.0
+Requires-Dist: repo-standards==6.6.0
 Requires-Dist: ruff==0.17.0
 Requires-Dist: sarj-iac-lint==0.21.0
-Requires-Dist: sarj-python-lint==1.35.0
+Requires-Dist: sarj-python-lint==1.37.0
 Requires-Dist: sarj-rule-contracts==0.2.4
 Requires-Dist: sarj-sql-lint==0.20.0
 Requires-Dist: shellcheck-py==0.11.0.1; (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'darwin' and platform_machine == 'x86_64') or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')
@@ -50,6 +50,10 @@ uv tool install --python 3.15 code-standards
 
 Adopt the repository once with `code-standards setup`. It installs one canonical staged gate that includes semantic lint and repository policy, plus commit-message and pull-request history enforcement. Do not install Repo Standards separately.
 
+The pre-commit gate runs once on every commit and discovers paths directly from the Git index, including mixed file types and deletion-only commits. The shared dispatcher selects applicable rules and retains type analysis, repository policy, exclusions and suppression accountability. Errors and incomplete analysis block the commit; warning-stage findings stay visible even when the hook passes. Agents should address the diagnostics, run `code-standards fix --staged` for safe mechanical fixes, review and stage intended edits, then retry. Staged fixes never fall back to the whole repository and refuse files with unstaged changes.
+
+Setup installs the selected hook manager. In a fresh checkout, run `code-standards doctor --repair` before committing; doctor checks installation and the exact unconditional command. Conditional Lefthook jobs must be moved to an unconditional job without changing unrelated hooks. Git can bypass local hooks with `--no-verify`; the canonical CI gate independently enforces policy.
+
 ```bash
 code-standards setup
 code-standards check
@@ -60,6 +64,12 @@ code-standards update
 ```
 
 Use repeatable `check --rule ENGINE:ID` selectors to select native rules, ESLint rules, or managed security audits. Exclusions, baselines, and severities still apply; Ruff selectors are not supported. Native linters and ESLint execute only selected rules. ESLint retains configured parsers, options, severities, and suppression directives.
+
+Selected ESLint checks apply live inline suppressions and validate selected bulk suppression counts. The complete lint gate owns unused inline-directive and inline-configuration checks: a partial run cannot establish whether an unselected rule's directive is needed.
+
+The shared ESLint policy includes `@shadcn/lint` design-system guidance at warning severity. It runs where upstream discovery finds `components.json` or a Tailwind theme, or where the consumer explicitly declares `settings.shadcn.ui` or `componentImports`. Ordinary CSS projects receive no Tailwind-specific findings. Component layout classes and arbitrary layout measurements remain allowed; appearance overrides and off-token appearance values receive guidance. Discovered component implementation files are exempt from restyling, arbitrary-value and static-class checks, while inline-style and unknown-class checks remain active. Raw colors remain owned by `@sarj/prefer-semantic-colors`.
+
+Use `code-standards check --rule eslint:shadcn/no-restyle` to inspect one upstream rule. Declare shared-package imports and custom class helpers in `settings.shadcn`, scoped to each application's files in the consumer's ESLint configuration. Add reviewed component contracts or exact class/property allowances through the upstream rule options; do not replace every warning with a global error. Tailwind theme-loading warnings indicate grammar fallback with reduced coverage. The project-discovery API is experimental and is protected by an exact dependency pin and executable integration tests.
 
 Terraform, Kubernetes, and GitHub Actions adoption adds isolated Checkov 3.3.20 and zizmor 1.30.1 runtimes. Setup and generated CI prewarm these tools; checks run offline with packaged policy. Use `--rule checkov:CKV_GCP_95` or `--rule zizmor:template-injection` to select upstream audits. Their findings start as warnings, use the canonical diagnostic baseline, and retain upstream IDs. Checkov honors its inline suppression directives; zizmor ignore comments are disabled. Explicit zizmor selectors include auditor-persona checks; online-only audits cannot run offline. Parsing or execution failures leave the analysis incomplete. Image digest evidence for source templates is deferred to their rendered deployment artifacts.
 

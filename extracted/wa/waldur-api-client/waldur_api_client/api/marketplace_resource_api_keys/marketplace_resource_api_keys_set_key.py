@@ -58,10 +58,10 @@ def sync_detailed(
     client: AuthenticatedClient,
     body: ResourceApiKeySetKeyRequest,
 ) -> Response[ResourceApiKeyStatus]:
-    """Report a rotated API key value
+    """Report a created or rotated API key value
 
-     Used by the site agent after it applied a rotated key. Replaces the stored value and marks the key
-    OK.
+     Used by the site agent after it applied a requested or rotated key. Replaces the stored value and
+    marks the key OK. A requested key carries the client_id the agent gave it.
 
     Args:
         uuid (UUID):
@@ -93,10 +93,10 @@ def sync(
     client: AuthenticatedClient,
     body: ResourceApiKeySetKeyRequest,
 ) -> ResourceApiKeyStatus:
-    """Report a rotated API key value
+    """Report a created or rotated API key value
 
-     Used by the site agent after it applied a rotated key. Replaces the stored value and marks the key
-    OK.
+     Used by the site agent after it applied a requested or rotated key. Replaces the stored value and
+    marks the key OK. A requested key carries the client_id the agent gave it.
 
     Args:
         uuid (UUID):
@@ -123,10 +123,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     body: ResourceApiKeySetKeyRequest,
 ) -> Response[ResourceApiKeyStatus]:
-    """Report a rotated API key value
+    """Report a created or rotated API key value
 
-     Used by the site agent after it applied a rotated key. Replaces the stored value and marks the key
-    OK.
+     Used by the site agent after it applied a requested or rotated key. Replaces the stored value and
+    marks the key OK. A requested key carries the client_id the agent gave it.
 
     Args:
         uuid (UUID):
@@ -156,10 +156,10 @@ async def asyncio(
     client: AuthenticatedClient,
     body: ResourceApiKeySetKeyRequest,
 ) -> ResourceApiKeyStatus:
-    """Report a rotated API key value
+    """Report a created or rotated API key value
 
-     Used by the site agent after it applied a rotated key. Replaces the stored value and marks the key
-    OK.
+     Used by the site agent after it applied a requested or rotated key. Replaces the stored value and
+    marks the key OK. A requested key carries the client_id the agent gave it.
 
     Args:
         uuid (UUID):

@@ -21,13 +21,15 @@ jobs:
         uses: gungraun/setup-gungraun@v1
       # Instruction counts are deterministic, so both sides can run on the same runner one after
       # the other without the noise a wall-clock comparison would pick up.
+      # `--bench '*'` keeps the lib's libtest harness out of the run, since it rejects gungraun's
+      # flags.
       - name: Bench main
         run: |
           git checkout --detach HEAD^1
-          cargo bench -- --save-baseline=main
+          cargo bench --bench '*' -- --save-baseline=main
           git checkout -
       - name: Bench PR
-        run: cargo bench -- --baseline=main --save-summary=pretty-json | tee bench-comparison.txt
+        run: cargo bench --bench '*' -- --baseline=main --save-summary=pretty-json | tee bench-comparison.txt
         env:
           GUNGRAUN_COLOR: never
       - name: Upload comparison

@@ -9,6 +9,7 @@ class ComponentUsageFieldEnum(str, Enum):
     DATE = "date"
     DESCRIPTION = "description"
     MEASURED_UNIT = "measured_unit"
+    MISSING_USAGE_POLICY = "missing_usage_policy"
     MODIFIED_BY = "modified_by"
     NAME = "name"
     OFFERING_NAME = "offering_name"

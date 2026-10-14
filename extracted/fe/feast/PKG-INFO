@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.66.0
+Version: 0.67.0
 Summary: Python SDK for Feast
 Author: Feast
 License-Expression: Apache-2.0
@@ -14,7 +14,7 @@ License-File: LICENSE
 Requires-Dist: attrs
 Requires-Dist: click<9.0.0,>=7.0.0
 Requires-Dist: colorama<1,>=0.3.9
-Requires-Dist: dill~=0.3.0
+Requires-Dist: dill<0.5,>=0.3.0
 Requires-Dist: protobuf>=4.24.0
 Requires-Dist: Jinja2<4,>=2
 Requires-Dist: mmh3
@@ -63,7 +63,7 @@ Requires-Dist: couchbase-columnar==1.0.0; extra == "couchbase"
 Provides-Extra: delta
 Requires-Dist: deltalake<1.0.0; extra == "delta"
 Provides-Extra: docling
-Requires-Dist: docling==2.27.0; extra == "docling"
+Requires-Dist: docling>=2.135.0; extra == "docling"
 Provides-Extra: duckdb
 Requires-Dist: ibis-framework[duckdb]>=10.0.0; extra == "duckdb"
 Provides-Extra: elasticsearch
@@ -84,6 +84,8 @@ Requires-Dist: google-cloud-bigtable<3,>=2.11.0; extra == "gcp"
 Requires-Dist: fsspec>=2024.1.0; extra == "gcp"
 Provides-Extra: ge
 Requires-Dist: great_expectations<1,>=0.15.41; extra == "ge"
+Provides-Extra: glide
+Requires-Dist: valkey-glide-sync<3,>=2.5; extra == "glide"
 Provides-Extra: go
 Requires-Dist: cffi>=1.15.0; extra == "go"
 Provides-Extra: grpcio
@@ -128,6 +130,9 @@ Provides-Extra: spark
 Requires-Dist: pyspark>=4.0.0; extra == "spark"
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg>=0.7.0; extra == "iceberg"
+Provides-Extra: lance
+Requires-Dist: pylance>=12.0.0; extra == "lance"
+Requires-Dist: lance-namespace>=0.11.1; extra == "lance"
 Provides-Extra: trino
 Requires-Dist: trino<0.400.0,>=0.305.0; extra == "trino"
 Requires-Dist: regex; extra == "trino"
@@ -161,7 +166,11 @@ Provides-Extra: sqlite-vec
 Requires-Dist: sqlite-vec==v0.1.6; extra == "sqlite-vec"
 Provides-Extra: mcp
 Requires-Dist: fastapi_mcp; extra == "mcp"
-Requires-Dist: mcp<2,>=1.0; extra == "mcp"
+Requires-Dist: mcp<1.30,>=1.0; extra == "mcp"
+Provides-Extra: mcp-server
+Requires-Dist: fastmcp>=3.0; extra == "mcp-server"
+Requires-Dist: httpx>=0.24; extra == "mcp-server"
+Requires-Dist: python-dotenv>=1.0; extra == "mcp-server"
 Provides-Extra: mlflow
 Requires-Dist: mlflow>=2.10.0; extra == "mlflow"
 Provides-Extra: dbt
@@ -180,18 +189,18 @@ Requires-Dist: pytest-asyncio<=0.24.0; extra == "test"
 Requires-Dist: py>=1.11.0; extra == "test"
 Requires-Dist: testcontainers>=4.15.0rc2; extra == "test"
 Requires-Dist: minio==7.2.11; extra == "test"
-Requires-Dist: python-keycloak==4.2.2; extra == "test"
+Requires-Dist: python-keycloak<5,>=4.7.3; extra == "test"
 Requires-Dist: cryptography>=43.0; extra == "test"
 Provides-Extra: ci
-Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,iceberg,image,k8s,mcp,milvus,mlflow,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,scylladb,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
+Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,glide,go,grpcio,hazelcast,hbase,ibis,iceberg,image,k8s,lance,mcp,mcp-server,milvus,mlflow,mongodb,mssql,mysql,openlineage,opentelemetry,oracle,postgres,pytorch,qdrant,rag,ray,redis,scylladb,singlestore,snowflake,spark,sqlite_vec,test,trino]; extra == "ci"
 Requires-Dist: build; extra == "ci"
-Requires-Dist: virtualenv==20.23.0; extra == "ci"
+Requires-Dist: virtualenv==21.14.1; extra == "ci"
 Requires-Dist: dbt-artifacts-parser; extra == "ci"
 Requires-Dist: ruff>=0.8.0; extra == "ci"
 Requires-Dist: mypy-protobuf>=3.1; extra == "ci"
 Requires-Dist: grpcio-tools>=1.56.2; extra == "ci"
 Requires-Dist: grpcio-testing>=1.56.2; extra == "ci"
-Requires-Dist: httpx==0.27.2; extra == "ci"
+Requires-Dist: httpx>=0.28.1; extra == "ci"
 Requires-Dist: mock==2.0.0; extra == "ci"
 Requires-Dist: moto<5; extra == "ci"
 Requires-Dist: mypy<1.11.3,>=1.4.1; extra == "ci"
@@ -220,24 +229,7 @@ Requires-Dist: feast[ci]; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: feast[ci]; extra == "docs"
 Provides-Extra: minimal
-Requires-Dist: feast[aws,duckdb,gcp,go,grpcio,k8s,mcp,milvus,mysql,opentelemetry,postgres-c,redis,snowflake]; extra == "minimal"
-Provides-Extra: minimal-sdist-build
-Requires-Dist: feast[minimal]; extra == "minimal-sdist-build"
-Requires-Dist: feast[ibis]; extra == "minimal-sdist-build"
-Requires-Dist: meson<1.7.2; extra == "minimal-sdist-build"
-Requires-Dist: pybindgen==0.22.0; extra == "minimal-sdist-build"
-Requires-Dist: sphinx!=4.0.0; extra == "minimal-sdist-build"
-Requires-Dist: types_psutil<7.0.0.20250401; extra == "minimal-sdist-build"
-Requires-Dist: greenlet!=0.4.17; extra == "minimal-sdist-build"
-Requires-Dist: meson-python<0.16.0,>=0.15.0; extra == "minimal-sdist-build"
-Requires-Dist: Cython<3.1,>=0.29.34; extra == "minimal-sdist-build"
-Requires-Dist: flit_core<4,>=3.8; extra == "minimal-sdist-build"
-Requires-Dist: patchelf>=0.11.0; extra == "minimal-sdist-build"
-Requires-Dist: scikit-build-core>=0.10; extra == "minimal-sdist-build"
-Requires-Dist: hatch-fancy-pypi-readme>=23.2.0; extra == "minimal-sdist-build"
-Requires-Dist: hatch-vcs==0.4.0; extra == "minimal-sdist-build"
-Requires-Dist: hatchling<2,>=1.6.0; extra == "minimal-sdist-build"
-Requires-Dist: calver<2025.4.1; extra == "minimal-sdist-build"
+Requires-Dist: feast[aws,duckdb,gcp,go,grpcio,k8s,mcp,mcp-server,milvus,mysql,opentelemetry,postgres-c,redis,snowflake]; extra == "minimal"
 Provides-Extra: setuptools
 Requires-Dist: setuptools<81,>=60; extra == "setuptools"
 Dynamic: license-file
@@ -371,7 +363,7 @@ feast materialize 2021-04-12T00:00:00 $CURRENT_TIME
 feast materialize --disable-event-timestamp
 ```
 
-The `--disable-event-timestamp` flag allows you to materialize all available feature data using the current datetime as the event timestamp, without needing to specify start and end timestamps. This is useful when your source data lacks proper event timestamp columns.
+The `--disable-event-timestamp` flag allows you to materialize all available data (from 1970-01-01 up to the current UTC time) without specifying start and end timestamps. Rows keep the event timestamps from the source.
 
 ```commandline
 Materializing feature view driver_hourly_stats from 2021-04-14 to 2021-04-15 done!
@@ -417,6 +409,7 @@ The list below contains the functionality that contributors are planning to deve
   * [x] Vector Search (Alpha release. See [RFC](https://docs.google.com/document/d/18IWzLEA9i2lDWnbfbwXnMCg3StlqaLVI-uRpQjr_Vos/edit#heading=h.9gaqqtox9jg6))
   * [ ] [Enhanced Feature Server and SDK for native support for NLP](https://github.com/feast-dev/feast/issues/4964)
 * **Data Sources**
+  * [x] [Chronon source (contrib)](https://docs.feast.dev/reference/data-sources/chronon)
   * [x] [Snowflake source](https://docs.feast.dev/reference/data-sources/snowflake)
   * [x] [Redshift source](https://docs.feast.dev/reference/data-sources/redshift)
   * [x] [BigQuery source](https://docs.feast.dev/reference/data-sources/bigquery)
@@ -433,6 +426,7 @@ The list below contains the functionality that contributors are planning to deve
   * [x] [Ray source (contrib plugin)](https://docs.feast.dev/reference/data-sources/ray)
   * [x] Kafka / Kinesis sources (via [push support into the online store](https://docs.feast.dev/reference/data-sources/push))
 * **Offline Stores**
+  * [x] [Chronon (contrib)](https://docs.feast.dev/reference/offline-stores/chronon)
   * [x] [Snowflake](https://docs.feast.dev/reference/offline-stores/snowflake)
   * [x] [Redshift](https://docs.feast.dev/reference/offline-stores/redshift)
   * [x] [BigQuery](https://docs.feast.dev/reference/offline-stores/bigquery)
@@ -453,6 +447,7 @@ The list below contains the functionality that contributors are planning to deve
   * [x] [Hybrid](https://docs.feast.dev/reference/offline-stores/hybrid)
   * [x] [Custom offline store support](https://docs.feast.dev/how-to-guides/customizing-feast/adding-a-new-offline-store)
 * **Online Stores**
+  * [x] [Chronon](https://docs.feast.dev/reference/online-stores/chronon)
   * [x] [Snowflake](https://docs.feast.dev/reference/online-stores/snowflake)
   * [x] [DynamoDB](https://docs.feast.dev/reference/online-stores/dynamodb)
   * [x] [Redis](https://docs.feast.dev/reference/online-stores/redis)

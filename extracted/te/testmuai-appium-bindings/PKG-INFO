@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testmuai-appium-bindings
-Version: 0.4.5
+Version: 0.4.9
 Summary: Testmu binding for Appium Python — thin mobile test runtime for LambdaTest exports
 Author-email: LambdaTest <engineering@lambdatest.com>
 License-Expression: LicenseRef-Proprietary
@@ -20,9 +20,12 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: tenacity>=8.5.0
 Requires-Dist: pyotp>=2.9.0
 Requires-Dist: requests>=2.28.0
+Requires-Dist: jsonschema>=4.18.0
+Requires-Dist: python-jsonpath>=2.2.1
 Requires-Dist: Pillow>=11.0.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: lambdatest-selenium-driver>=1.0.9
+Requires-Dist: websocket-client>=1.6.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-mock>=3.12; extra == "dev"
@@ -76,6 +79,22 @@ if __name__ == "__main__":
 The generated code is platform-portable: it carries selector *data* and semantic key
 names only. Strategy compilation, keycode maps and picker machinery are runtime data
 tables keyed off the configured `platform`.
+
+### Host-owned sessions
+
+A host process that drives the device itself opens and closes the cloud session
+instead of handing a test function to `run()`:
+
+```python
+driver = testmu_appium.open_session(entry, username=user, access_key=key)
+...
+testmu_appium.close_session("passed")  # or close_session("failed", remark)
+```
+
+`entry` is one test-config entry (the dict `test_config_overrides` takes), plus
+an optional `app_package`. The session is the one `run()` starts for that entry;
+`open_session` emits no verdict and `close_session` emits exactly one. Requires
+`TESTMU_RUN_TARGET=cloud`.
 
 ## Configuration
 
@@ -283,3 +302,30 @@ pytest -v
 ```
 
 Tests are hermetic — no live device, no live grid, no live HTTP.
+
+### Package layout (runtime modes)
+
+Mobile export is v4-only today (`configure(kane_version=...)` rejects anything
+else), but the package has the same layout as the Playwright binding, so a v3
+implementation can plug in without touching v4 code:
+
+| Path | What |
+|---|---|
+| `testmu_appium/__init__.py` | public surface: shared names + per-mode forwarders |
+| `testmu_appium/_router.py` | picks the mode's package on each call (both modes → `_v4` today) |
+| `testmu_appium/_configure.py`, `_config.py`, `_errors.py`, `_step.py`, `_test_state.py` | shared: one of each whatever the mode |
+| `testmu_appium/_aliases.py` | keeps old module paths working (below) |
+| `testmu_appium/_v4/` | the v4 implementation |
+
+**Old module paths still work.** Modules that used to live at
+`testmu_appium.<name>` (`testmu_appium._vars`, `testmu_appium._helpers._tree`,
+the public `testmu_appium.perception`, …) are aliases of the v4 modules:
+importing the old path returns the *same* module object, so state and
+`mock.patch` / `setattr` through it reach the real module. Public verbs are forwarders, so
+`testmu_appium.click is <module function>` no longer holds (use
+`.__wrapped__`); every exception is a real shared class, so `except` works as
+before. The heal outcome classes (`HealHit`, `HealNoMatch`, …) are proxies:
+`isinstance` and `match` work, subclassing raises `TypeError`. Tests follow the split: `tests/v4/` for the v4 implementation (with its
+`fixtures/`), `tests/shared/` for the public surface, the routing, the aliases
+and the import boundaries.
+

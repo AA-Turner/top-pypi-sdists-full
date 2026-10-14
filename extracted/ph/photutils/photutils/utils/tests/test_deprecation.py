@@ -4,11 +4,11 @@ Tests for the _deprecation module.
 """
 
 import warnings
+from copy import deepcopy
 
 import numpy as np
 import pytest
 from astropy.table import QTable, Table, TableMergeError, join, unique
-from astropy.utils.exceptions import AstropyDeprecationWarning
 
 from photutils.utils._deprecation import (DeprecatedColumnQTable,
                                           DeprecatedColumnTable,
@@ -19,6 +19,7 @@ from photutils.utils._deprecation import (DeprecatedColumnQTable,
                                           deprecated_positional_kwargs,
                                           deprecated_renamed_argument,
                                           use_future_column_names)
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 DEPRECATION_MAP = {'old': 'new', 'old_b': 'new_b'}
 
@@ -68,12 +69,12 @@ class TestDeprecatedColumn:
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
 
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             col = table['old']
         assert np.all(col == table['new'])
 
         match = "'old_b' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             sub_table = table[['stable', 'old_b']]
         assert sub_table.colnames == ['stable', 'new_b']
 
@@ -83,7 +84,7 @@ class TestDeprecatedColumn:
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table['old'] = [100, 200, 300]
         assert np.all(table['new'] == [100, 200, 300])
 
@@ -93,12 +94,12 @@ class TestDeprecatedColumn:
         """
         table1 = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             del table1['old']
         assert 'new' not in table1.colnames
 
         table2 = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table2.remove_column('old')
         assert 'new' not in table2.colnames
 
@@ -108,7 +109,7 @@ class TestDeprecatedColumn:
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table.keep_columns(['stable', 'old'])
         assert set(table.colnames) == {'stable', 'new'}
 
@@ -118,13 +119,13 @@ class TestDeprecatedColumn:
         """
         table1 = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table1.rename_column('old', 'final_name_1')
         assert 'final_name_1' in table1.colnames
         assert 'new' not in table1.colnames
 
         table2 = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             table2.rename_columns(['old', 'old_b'], ['final1', 'final2'])
         assert set(table2.colnames) == {'final1', 'final2', 'stable'}
 
@@ -135,21 +136,21 @@ class TestDeprecatedColumn:
         table_sort = create_deprecated_table_from_data(raw_data,
                                                        DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table_sort.sort('old')
         assert table_sort['new'][0] == 1
 
         table_group = create_deprecated_table_from_data(raw_data,
                                                         DEPRECATION_MAP)
         match = "'old_b' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             groups = table_group.group_by('old_b')
         assert len(groups.groups) == 3
 
         table_unique = create_deprecated_table_from_data(raw_data,
                                                          DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             unique_table = unique(table_unique, keys='old')
         assert len(unique_table) == 3
 
@@ -177,7 +178,7 @@ class TestDeprecatedColumn:
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table.add_index('old')
 
         assert len(table.indices) == 1
@@ -191,7 +192,7 @@ class TestDeprecatedColumn:
 
     def test_non_string_access_no_warning(self, raw_data, recwarn):
         """
-        Test that non-string access does not trigger warnings.
+        Test that nonstring access does not trigger warnings.
 
         This ensures that row access via integers or slices does not
         incorrectly engage the name translation logic.
@@ -215,14 +216,41 @@ class TestDeprecatedColumn:
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             assert 'old' in table
 
-        # Non-deprecated column: no warning
+        # Nondeprecated column: no warning
         assert 'stable' in table
 
         # Missing column: no warning
         assert 'missing' not in table
+
+    def test_deepcopy_preserves_deprecation(self, raw_data):
+        """
+        Test that deepcopy() preserves deprecation behavior and copies
+        the data and metadata.
+        """
+        table = create_deprecated_table_from_data(
+            raw_data, DEPRECATION_MAP, since='3.0', until='4.0')
+        table.meta['key'] = [1, 2]
+        copied = deepcopy(table)
+
+        assert isinstance(copied, DeprecatedColumnTable)
+        match = "'old' was deprecated"
+        with pytest.warns(PhotutilsDeprecationWarning, match=match) as record:
+            col = copied['old']
+        assert np.all(col == [3, 2, 1])
+        msg = str(record[0].message)
+        assert 'in version 3.0' in msg
+        assert 'version 4.0' in msg
+
+        # Ensure the column data are deep-copied
+        table['new'][0] = 999
+        assert copied['new'][0] == 3
+
+        # Ensure the metadata are deep-copied
+        table.meta['key'].append(3)
+        assert copied.meta['key'] == [1, 2]
 
     def test_copy_preserves_deprecation(self, raw_data):
         """
@@ -233,11 +261,11 @@ class TestDeprecatedColumn:
 
         assert isinstance(copied, DeprecatedColumnTable)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             col = copied['old']
         assert np.all(col == [3, 2, 1])
 
-        # Ensure it's a true copy; modifying original doesn't affect copy
+        # Ensure it's a true copy. Modifying original doesn't affect copy
         table['new'][0] = 999
         assert copied['new'][0] == 3
 
@@ -246,7 +274,7 @@ class TestDeprecatedColumn:
         Test deprecated use in remove_columns (plural).
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             table.remove_columns(['old', 'old_b'])
         assert table.colnames == ['stable']
 
@@ -256,7 +284,7 @@ class TestDeprecatedColumn:
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             table.replace_column('old', [100, 200, 300])
         assert np.all(table['new'] == [100, 200, 300])
 
@@ -278,7 +306,7 @@ class TestDeprecatedColumn:
         Test deprecated use in add_index with a list of column names.
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             table.add_index(['old', 'old_b'])
         assert len(table.indices) == 1
         index_col_names = [c.name for c in table.indices[0].columns]
@@ -291,7 +319,7 @@ class TestDeprecatedColumn:
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
         table.add_index('new')
         assert len(table.indices) == 1
-        with pytest.warns(AstropyDeprecationWarning):
+        with pytest.warns(PhotutilsDeprecationWarning):
             table.remove_indices('old')
         assert len(table.indices) == 0
 
@@ -319,7 +347,7 @@ class TestDeprecatedColumn:
 
         # Access via deprecated name
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             col = table['old']
         assert np.all(col == [1, 2, 3])
 
@@ -332,18 +360,18 @@ class TestDeprecatedColumn:
 
         assert isinstance(sliced, DeprecatedColumnTable)
         match = "'old' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             col = sliced['old']
         assert np.all(col == [3, 2])
 
     def test_translate_names_non_string(self, raw_data, recwarn):
         """
-        Test that _translate_names passes through non-string/non-sequence
+        Test that _translate_names passes through nonstring/nonsequence
         values unchanged (e.g., a Table used as group_by keys).
         """
         table = create_deprecated_table_from_data(raw_data, DEPRECATION_MAP)
 
-        # group_by accepts a Table as keys; _translate_names should pass
+        # group_by accepts a Table as keys. _translate_names should pass
         # it through without modification or warnings
         key_table = Table({'new': [3, 2, 1]})
         groups = table.group_by(key_table)
@@ -553,19 +581,19 @@ class TestDeprecatedPositionalKwargs:
 
     def test_warns_when_exceeded(self):
         match = "'_example_func'"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             result = _example_func(1, 2)
         assert result == 23
 
     def test_warning_message_versions(self):
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _example_func(1, 2, 3)
         msg = str(record[0].message)
         assert '1.0' in msg
         assert '2.0' in msg
 
     def test_warning_names_single(self):
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _example_func(1, 2)
         msg = str(record[0].message)
         assert "Passing 'b' positionally" in msg
@@ -574,7 +602,7 @@ class TestDeprecatedPositionalKwargs:
         assert 'b=...' in msg
 
     def test_warning_names_two(self):
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _example_func(1, 2, 3)
         msg = str(record[0].message)
         assert "'b' and 'c'" in msg
@@ -586,7 +614,7 @@ class TestDeprecatedPositionalKwargs:
         def _func(a, b=1, c=2, d=3):
             return a + b + c + d
 
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _func(1, 2, 3, 4)
         msg = str(record[0].message)
         assert "'b', 'c', and 'd'" in msg
@@ -613,7 +641,7 @@ class TestDeprecatedPositionalKwargs:
             result = _no_pos(x=42)
         assert result == 42
 
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             result = _no_pos(42)
         assert result == 42
         msg = str(record[0].message)
@@ -626,7 +654,7 @@ class TestDeprecatedPositionalKwargs:
         def _func(a, b=10):
             return a + b
 
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             result = _func(1, 2)
         assert result == 3
         msg = str(record[0].message)
@@ -646,7 +674,7 @@ class TestDeprecatedPositionalKwargs:
         def _func(a, b=10):
             return a + b
 
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             result = _func(1, 2)
         assert result == 3
         msg = str(record[0].message)
@@ -665,7 +693,7 @@ class TestDeprecatedPositionalKwargs:
         assert result == 13
 
         # Third (optional) arg passed positionally should warn
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             result = _func(1, 2, 3)
         assert result == 6
         msg = str(record[0].message)
@@ -686,7 +714,7 @@ class TestDeprecatedPositionalKwargs:
         assert result == 11
 
         # Optional arg passed positionally should warn
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             result = _func(1, 2)
         assert result == 3
         msg = str(record[0].message)
@@ -694,7 +722,7 @@ class TestDeprecatedPositionalKwargs:
 
 
 @deprecated_renamed_argument('b', 'new', '1.0', until='2.0')
-def _example_func2(a, new, c=20):
+def _example_func2(a, new, *, c=20):
     """
     Example function for testing deprecated_renamed_argument.
     """
@@ -702,7 +730,7 @@ def _example_func2(a, new, c=20):
 
 
 @deprecated_renamed_argument('b', 'new', '1.0', until=None)
-def _example_func3(a, new, c=20):
+def _example_func3(a, new, *, c=20):
     """
     Example function for testing deprecated_renamed_argument
     with no "until" version specified.
@@ -716,7 +744,7 @@ def test_deprecated_renamed_argument():
     assert result == 9
 
     # Test that using the old name issues a warning and still works
-    with pytest.warns(AstropyDeprecationWarning) as record:
+    with pytest.warns(PhotutilsDeprecationWarning) as record:
         result = _example_func2(1, b=5, c=3)
     assert result == 9
     msg = str(record[0].message)
@@ -726,7 +754,7 @@ def test_deprecated_renamed_argument():
 
     # Test that if until=None, the warning is issued but no end version
     # is mentioned
-    with pytest.warns(AstropyDeprecationWarning) as record:
+    with pytest.warns(PhotutilsDeprecationWarning) as record:
         result = _example_func3(1, b=5, c=3)
     assert result == 9
     msg = str(record[0].message)
@@ -737,9 +765,9 @@ def test_deprecated_renamed_argument():
 def test_deprecated_renamed_argument_always_warns():
     # Test that the warning is issued on every call, not just the first
     # time from a given call site.
-    with pytest.warns(AstropyDeprecationWarning):
+    with pytest.warns(PhotutilsDeprecationWarning):
         _example_func2(1, b=5)
-    with pytest.warns(AstropyDeprecationWarning):
+    with pytest.warns(PhotutilsDeprecationWarning):
         _example_func2(1, b=5)
 
 
@@ -754,7 +782,7 @@ class TestColumnDeprecationUntil:
         """
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP, until='5.0')
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'version 5.0' in msg
@@ -766,7 +794,7 @@ class TestColumnDeprecationUntil:
         """
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'a future version' in msg
@@ -777,7 +805,7 @@ class TestColumnDeprecationUntil:
         """
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'future_column_names' in msg
@@ -789,7 +817,7 @@ class TestColumnDeprecationUntil:
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP, until='5.0')
         copied = table.copy()
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = copied['old']
         msg = str(record[0].message)
         assert 'version 5.0' in msg
@@ -801,7 +829,7 @@ class TestColumnDeprecationUntil:
         table = create_deprecated_table_from_data(
             {'old': [1, 2]}, DEPRECATION_MAP, until='5.0')
         sliced = table[0:1]
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = sliced['old']
         msg = str(record[0].message)
         assert 'version 5.0' in msg
@@ -813,7 +841,7 @@ class TestColumnDeprecationUntil:
         table = create_empty_deprecated_qtable(
             DEPRECATION_MAP, until='6.0')
         table['new'] = [1, 2]
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'version 6.0' in msg
@@ -825,7 +853,7 @@ class TestColumnDeprecationUntil:
         """
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP, since='3.0')
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'in version 3.0' in msg
@@ -837,7 +865,7 @@ class TestColumnDeprecationUntil:
         """
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP)
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'was deprecated.' in msg
@@ -849,7 +877,7 @@ class TestColumnDeprecationUntil:
         """
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP, since='3.0', until='4.0')
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'in version 3.0' in msg
@@ -862,7 +890,7 @@ class TestColumnDeprecationUntil:
         table = create_deprecated_table_from_data(
             {'old': [1]}, DEPRECATION_MAP, since='3.0', until='4.0')
         copied = table.copy()
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = copied['old']
         msg = str(record[0].message)
         assert 'in version 3.0' in msg
@@ -875,7 +903,7 @@ class TestColumnDeprecationUntil:
         table = create_deprecated_table_from_data(
             {'old': [1, 2]}, DEPRECATION_MAP, since='3.0', until='4.0')
         sliced = table[0:1]
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = sliced['old']
         msg = str(record[0].message)
         assert 'in version 3.0' in msg
@@ -887,7 +915,7 @@ class TestColumnDeprecationUntil:
         table = create_empty_deprecated_qtable(
             DEPRECATION_MAP, since='3.0', until='4.0')
         table['new'] = [1, 2]
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = table['old']
         msg = str(record[0].message)
         assert 'in version 3.0' in msg
@@ -932,7 +960,7 @@ class TestDeprecatedGetattr:
         """
         obj = _ExampleObj()
         match = "'old_attr'.*deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             val = obj.old_attr
         assert val == 42
 
@@ -957,7 +985,7 @@ class TestDeprecatedGetattr:
         Test the default message (no "since", no "until").
         """
         obj = _ExampleObj()
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = obj.old_attr
         msg = str(record[0].message)
         assert "'old_attr'" in msg
@@ -970,7 +998,7 @@ class TestDeprecatedGetattr:
         Test the message includes "since" and "until" versions.
         """
         obj = _ExampleObjSinceUntil()
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             _ = obj.old_attr
         msg = str(record[0].message)
         assert 'in version 3.0' in msg
@@ -983,7 +1011,7 @@ class TestDeprecatedGetattr:
         obj = _ExampleObj()
         dep_map = {'x': 'y'}
         obj.y = 99
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             val = deprecated_getattr(obj, 'x', dep_map, since='2.0')
         assert val == 99
         msg = str(record[0].message)
@@ -997,7 +1025,7 @@ class TestDeprecatedGetattr:
         obj = _ExampleObj()
         dep_map = {'x': 'y'}
         obj.y = 99
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             val = deprecated_getattr(obj, 'x', dep_map, until='5.0')
         assert val == 99
         msg = str(record[0].message)
@@ -1026,14 +1054,14 @@ def test_deprecated():
     """
     Test the basic functionality of the @deprecated decorator.
     """
-    with pytest.warns(AstropyDeprecationWarning) as record:
+    with pytest.warns(PhotutilsDeprecationWarning) as record:
         result = _example_func4(1, 2, 3)
     assert result == 6
     msg = str(record[0].message)
     assert 'version 1.0' in msg
     assert 'version 2.0' in msg
 
-    with pytest.warns(AstropyDeprecationWarning) as record:
+    with pytest.warns(PhotutilsDeprecationWarning) as record:
         result = _example_func5(1, 2, 3)
     assert result == 6
     msg = str(record[0].message)

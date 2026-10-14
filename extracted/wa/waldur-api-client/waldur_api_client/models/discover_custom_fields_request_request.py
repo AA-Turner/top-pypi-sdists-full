@@ -14,13 +14,16 @@ T = TypeVar("T", bound="DiscoverCustomFieldsRequestRequest")
 class DiscoverCustomFieldsRequestRequest:
     """
     Attributes:
-        api_url (str): Atlassian API URL (e.g., https://your-domain.atlassian.net)
+        api_url (str): Atlassian site or API URL (e.g., https://your-domain.atlassian.net). With OAuth 2.0 client
+            credentials a Cloud site URL is resolved to the API gateway URL.
         auth_method (AuthMethodEnum):
         email (Union[Unset, str]):
         token (Union[Unset, str]):
         personal_access_token (Union[Unset, str]):
         username (Union[Unset, str]):
         password (Union[Unset, str]):
+        client_id (Union[Unset, str]):
+        client_secret (Union[Unset, str]):
         verify_ssl (Union[Unset, bool]):  Default: True.
         project_id (Union[Unset, str]):
         request_type_id (Union[Unset, str]): Optional: Filter fields by request type
@@ -33,6 +36,8 @@ class DiscoverCustomFieldsRequestRequest:
     personal_access_token: Union[Unset, str] = UNSET
     username: Union[Unset, str] = UNSET
     password: Union[Unset, str] = UNSET
+    client_id: Union[Unset, str] = UNSET
+    client_secret: Union[Unset, str] = UNSET
     verify_ssl: Union[Unset, bool] = True
     project_id: Union[Unset, str] = UNSET
     request_type_id: Union[Unset, str] = UNSET
@@ -52,6 +57,10 @@ class DiscoverCustomFieldsRequestRequest:
         username = self.username
 
         password = self.password
+
+        client_id = self.client_id
+
+        client_secret = self.client_secret
 
         verify_ssl = self.verify_ssl
 
@@ -77,6 +86,10 @@ class DiscoverCustomFieldsRequestRequest:
             field_dict["username"] = username
         if password is not UNSET:
             field_dict["password"] = password
+        if client_id is not UNSET:
+            field_dict["client_id"] = client_id
+        if client_secret is not UNSET:
+            field_dict["client_secret"] = client_secret
         if verify_ssl is not UNSET:
             field_dict["verify_ssl"] = verify_ssl
         if project_id is not UNSET:
@@ -103,6 +116,10 @@ class DiscoverCustomFieldsRequestRequest:
 
         password = d.pop("password", UNSET)
 
+        client_id = d.pop("client_id", UNSET)
+
+        client_secret = d.pop("client_secret", UNSET)
+
         verify_ssl = d.pop("verify_ssl", UNSET)
 
         project_id = d.pop("project_id", UNSET)
@@ -117,6 +134,8 @@ class DiscoverCustomFieldsRequestRequest:
             personal_access_token=personal_access_token,
             username=username,
             password=password,
+            client_id=client_id,
+            client_secret=client_secret,
             verify_ssl=verify_ssl,
             project_id=project_id,
             request_type_id=request_type_id,

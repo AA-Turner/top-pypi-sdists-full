@@ -6,11 +6,12 @@ Tests for the daofinder module.
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.utils.exceptions import AstropyDeprecationWarning
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_allclose, assert_array_equal
+from scipy.ndimage import convolve as ndi_convolve
 
 from photutils.detection.daofinder import DAOStarFinder
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 
 class TestDAOStarFinder:
@@ -32,7 +33,7 @@ class TestDAOStarFinder:
         tbl1 = finder1(data << units)
         assert_array_equal(tbl0, tbl1)
 
-        assert np.min(tbl0['flux']) > 150
+        assert np.min(tbl0['flux']) > 100
 
         # Test that sources are returned with threshold = 0
         finder = DAOStarFinder(0, fwhm)
@@ -142,6 +143,26 @@ class TestDAOStarFinder:
         tbl_int = finder(data, mask=int_mask)
         assert_array_equal(tbl_bool, tbl_int)
 
+    def test_flux_kernel_footprint(self, data):
+        """
+        Test that the flux is the sum of the data values within the
+        kernel footprint, not the full kernel array.
+        """
+        finder = DAOStarFinder(threshold=5.0, fwhm=3.0)
+        mask = finder.kernel.mask.astype(bool)
+        assert not np.all(mask)
+
+        tbl = finder(data)
+        ysize, xsize = mask.shape
+        xypos = finder._get_raw_catalog(data).apply_all_filters().xypos
+        for row, (xpos, ypos) in zip(tbl, xypos, strict=True):
+            y0 = ypos - ysize // 2
+            x0 = xpos - xsize // 2
+            cutout = data[y0:y0 + ysize, x0:x0 + xsize]
+            assert_allclose(row['flux'], np.sum(cutout[mask]))
+            assert row['flux'] < np.sum(cutout)
+        assert_allclose(tbl['mag'], -2.5 * np.log10(tbl['flux']))
+
     def test_xycoords(self, data):
         """
         Test source detection at specified coordinates.
@@ -155,6 +176,38 @@ class TestDAOStarFinder:
         finder1 = DAOStarFinder(threshold=8.0, fwhm=2, xycoords=xycoords)
         tbl1 = finder1(data)
         assert_array_equal(tbl0, tbl1)
+
+    def test_xycoords_non_integer(self, data):
+        """
+        Test that noninteger xycoords are rounded to the nearest pixel.
+        """
+        finder0 = DAOStarFinder(threshold=8.0, fwhm=2)
+        tbl0 = finder0(data)
+        xycoords = np.transpose((tbl0['x_centroid'], tbl0['y_centroid']))
+        xycoords = np.round(xycoords)
+
+        finder1 = DAOStarFinder(threshold=8.0, fwhm=2,
+                                xycoords=xycoords + 0.3)
+        tbl1 = finder1(data)
+        assert_array_equal(tbl0, tbl1)
+
+    @pytest.mark.parametrize('xycoords', [[[500, 50]], [[50, 500]],
+                                          [[-50, 50]], [[50, -50]]])
+    def test_xycoords_out_of_bounds(self, data, xycoords):
+        """
+        Test that out-of-bounds xycoords raise a ValueError.
+        """
+        match = 'xycoords must be within the bounds'
+        finder = DAOStarFinder(threshold=5.0, fwhm=2.0,
+                               xycoords=np.array(xycoords))
+        with pytest.raises(ValueError, match=match):
+            finder(data)
+
+        # 2D threshold uses per-source threshold lookups
+        finder = DAOStarFinder(threshold=np.full(data.shape, 5.0),
+                               fwhm=2.0, xycoords=np.array(xycoords))
+        with pytest.raises(ValueError, match=match):
+            finder(data)
 
     def test_min_separation(self, data):
         """
@@ -256,6 +309,59 @@ class TestDAOStarFinder:
             tbl = finder(data)
         assert tbl is None
 
+    @pytest.mark.parametrize('theta', [0.0, 90.0])
+    def test_roundness1_nonsquare_kernel(self, data, theta):
+        """
+        Test that roundness1 is computed over the central square of a
+        non-square kernel, as in DAOFIND.
+        """
+        tbl0 = DAOStarFinder(threshold=5.0, fwhm=3.5)(data)
+        xycoords = np.round(np.transpose((tbl0['x_centroid'],
+                                          tbl0['y_centroid'])))
+        xycoords = xycoords.astype(int)
+        finder = DAOStarFinder(threshold=1, fwhm=8.0, ratio=0.5,
+                               theta=theta, xycoords=xycoords,
+                               sharpness_range=None, roundness_range=None)
+        ny, nx = finder.kernel.shape
+        assert ny != nx
+        tbl = finder(data)
+        assert len(tbl) == len(xycoords)
+
+        # Explicit DAOFIND sums over the convolved data
+        conv = ndi_convolve(data, finder.kernel.data, mode='constant')
+        n_half = min(ny, nx) // 2
+        expected = []
+        for xpos, ypos in xycoords:
+            sum2 = 0.0
+            sum4 = 0.0
+            for k in range(n_half + 1):
+                for j in range(1, n_half + 1):
+                    values = (conv[ypos - j, xpos - k],
+                              conv[ypos + j, xpos + k],
+                              -conv[ypos + k, xpos - j],
+                              -conv[ypos - k, xpos + j])
+                    sum2 += np.sum(values)
+                    sum4 += np.sum(np.abs(values))
+            expected.append(2.0 * sum2 / sum4)
+
+        assert_allclose(tbl['roundness1'], expected, rtol=1e-12)
+
+    def test_centroid_outside_image(self):
+        """
+        Test that sources with a centroid outside the image are
+        rejected, as in DAOFIND.
+        """
+        rng = np.random.default_rng(1)
+        shape = (80, 90)
+        data = rng.normal(0.0, 1.0, shape)
+        finder = DAOStarFinder(threshold=1.0, fwhm=2.0, min_separation=0,
+                               sharpness_range=None, roundness_range=None)
+        tbl = finder(data)
+        assert np.all(tbl['x_centroid'] >= -0.5)
+        assert np.all(tbl['x_centroid'] <= shape[1] - 0.5)
+        assert np.all(tbl['y_centroid'] >= -0.5)
+        assert np.all(tbl['y_centroid'] <= shape[0] - 0.5)
+
     @pytest.mark.parametrize('roundness_range', [0.5, (0.5,), (1, 2, 3)])
     def test_invalid_roundness_range(self, roundness_range):
         match = 'roundness_range must be a 2-element .* tuple'
@@ -326,11 +432,33 @@ class TestDAOStarFinder:
         flux = cat.flux[0]  # evaluate the flux so it can be sliced
         assert cat[0].flux == flux
 
+    def test_getitem_int_index_cached_multidim(self, data):
+        """
+        Regression test for integer indexing of the catalog after
+        multidimensional per-source arrays (e.g., the cutouts and
+        marginal-fit results) have been computed.
+
+        Previously, the integer index dropped the leading source axis
+        of those cached arrays, and accessing dependent properties
+        (e.g., ``peak``) on the indexed catalog raised an IndexError.
+        """
+        finder = DAOStarFinder(threshold=5.0, fwhm=2.0)
+        cat = finder._get_raw_catalog(data)
+        _ = cat.cutout_data
+        _ = cat.dx_hx
+
+        sub = cat[0]
+        assert sub.cutout_data.shape == (1, *cat.cutout_shape)
+        assert sub.dx_hx.shape == (1, 2)
+        assert sub.peak[0] == cat.peak[0]
+        assert sub.x_centroid[0] == cat.x_centroid[0]
+
     def test_interval_ends_included(self):
         """
         Test that filter interval endpoints are inclusive.
+
+        See issue: https://github.com/astropy/photutils/issues/1977
         """
-        # https://github.com/astropy/photutils/issues/1977
         data = np.zeros((46, 64))
 
         x = 33
@@ -530,15 +658,15 @@ class TestDAOStarFinder:
         warning and still work.
         """
         match = "The 'sharplo' and 'sharphi' parameters are deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0, sharplo=0.1)
         assert finder.sharpness_range == (0.1, 1.0)
 
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0, sharphi=2.0)
         assert finder.sharpness_range == (0.2, 2.0)
 
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0,
                                    sharplo=0.1, sharphi=2.0)
         assert finder.sharpness_range == (0.1, 2.0)
@@ -549,15 +677,15 @@ class TestDAOStarFinder:
         warning and still work.
         """
         match = "The 'roundlo' and 'roundhi' parameters are deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0, roundlo=-0.5)
         assert finder.roundness_range == (-0.5, 1.0)
 
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0, roundhi=0.5)
         assert finder.roundness_range == (-1.0, 0.5)
 
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0,
                                    roundlo=-0.5, roundhi=0.5)
         assert finder.roundness_range == (-0.5, 0.5)
@@ -568,7 +696,7 @@ class TestDAOStarFinder:
         and still works.
         """
         match = "'brightest' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0, brightest=5)
         assert finder.n_brightest == 5
 
@@ -578,6 +706,6 @@ class TestDAOStarFinder:
         and still works.
         """
         match = "'peakmax' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = DAOStarFinder(threshold=5.0, fwhm=3.0, peakmax=100.0)
         assert finder.peak_max == 100.0

@@ -218,3 +218,34 @@ class ViewportScriptRuntimeError(Exception):
 
 class ViewportResultTypeError(Exception):
     """Raised when a viewport extraction does not return its declared scalar type."""
+
+
+# --- network capture (moved from _helpers/network_query; shared so `except`
+# matches whichever implementation raised) ---
+
+class NetworkCaptureError(Exception):
+    """Base class for invalid or inaccessible network-capture providers."""
+
+
+class NetworkCaptureUnavailable(NetworkCaptureError, NetworkQueryUnavailable):
+    """Raised when no capture provider has been configured for this run."""
+
+
+class NetworkCaptureTimeout(NetworkCaptureError):
+    """Raised when a matching flow did not arrive before the polling budget."""
+
+
+class NetworkCaptureNotFound(NetworkCaptureError):
+    """Raised when a requested flow id is not present in the capture provider."""
+
+
+class NetworkCaptureContractError(NetworkCaptureError):
+    """Raised when a provider response cannot satisfy the pinned contract."""
+
+
+class NetworkAssertionError(AssertionError):
+    """AssertionError-compatible failure carrying the deterministic verdict."""
+
+    def __init__(self, message: str, result: dict):
+        super().__init__(message)
+        self.result = result

@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
 
 """
-Improve the list_objects_v2_ and ListObjectsV2_ API.
+Improve the list_objects_v2_ API.
 
-.. _list_objects_v2: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.list_objects_v2
-.. _ListObjectsV2: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListObjectsV2.html
+.. _list_objects_v2: https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/list_objects_v2.html
 """
+
+from __future__ import annotations
 
 import typing as T
 
-from func_args import NOTHING, resolve_kwargs
 from iterproxy import IterProxy
 
+from .._arg import OPT
+from ._paginate import iter_pages
+from ._paginate import yield_items
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_s3 import S3Client
@@ -26,141 +29,114 @@ if T.TYPE_CHECKING:  # pragma: no cover
 
 class ObjectTypeDefIterproxy(IterProxy["ObjectTypeDef"]):
     """
-    An iterproxy that yields the "Contents" part of the ListObjectsV2_ response.
-
-    .. versionadded:: 2.0.1
+    An iterproxy that yields the "Contents" part of the list_objects_v2_
+    responses.
     """
 
 
 class CommonPrefixTypeDefIterproxy(IterProxy["CommonPrefixTypeDef"]):
     """
-    An iterproxy that yields the "CommonPrefixes" part of the ListObjectsV2_ response.
-
-    .. versionadded:: 2.0.1
+    An iterproxy that yields the "CommonPrefixes" part of the list_objects_v2_
+    or list_object_versions responses.
     """
 
 
 class ListObjectsV2OutputTypeDefIterproxy(IterProxy["ListObjectsV2OutputTypeDef"]):
     """
-    An iterproxy that yields the original ListObjectsV2_ response.
-    It has two utility methods to get the contents and common prefixes.
+    An iterproxy that yields the original list_objects_v2_ responses, one per
+    page. :meth:`contents`, :meth:`common_prefixes` and
+    :meth:`contents_and_common_prefixes` give the objects and the folders.
 
-    .. versionadded:: 2.0.1
+    It can be iterated only once: the pages are fetched while iterating, and
+    using one of the methods consumes it. To get both the objects and the
+    folders, use :meth:`contents_and_common_prefixes`.
     """
-
-    def _yield_content(self) -> T.Iterator["ObjectTypeDef"]:
-        for response in self:
-            for content in response.get("Contents", []):
-                yield content
 
     def contents(self) -> ObjectTypeDefIterproxy:
         """
         Iterate object contents.
-
-        .. versionadded:: 2.0.1
         """
-        return ObjectTypeDefIterproxy(self._yield_content())
+        return ObjectTypeDefIterproxy(yield_items(self, "Contents"))
 
-    def _yield_common_prefixes(self) -> T.Iterator["CommonPrefixTypeDef"]:
-        for response in self:
-            for common_prefix in response.get("CommonPrefixes", []):
-                yield common_prefix
-
-    def common_prefixs(self) -> CommonPrefixTypeDefIterproxy:
+    def common_prefixes(self) -> CommonPrefixTypeDefIterproxy:
         """
         Iterate folders.
-
-        .. versionadded:: 2.0.1
         """
-        return CommonPrefixTypeDefIterproxy(self._yield_common_prefixes())
+        return CommonPrefixTypeDefIterproxy(yield_items(self, "CommonPrefixes"))
 
     def extract_contents_and_common_prefixes(
         self, response: dict
-    ) -> T.Tuple[
-        T.List["ObjectTypeDef"],
-        T.List["CommonPrefixTypeDef"],
+    ) -> tuple[
+        list[ObjectTypeDef],
+        list[CommonPrefixTypeDef],
     ]:
         return (
             response.get("Contents", []),
             response.get("CommonPrefixes", []),
         )
 
-    def contents_and_common_prefixs(
+    def contents_and_common_prefixes(
         self,
-    ) -> T.Tuple[T.List["ObjectTypeDef"], T.List["CommonPrefixTypeDef"]]:
+    ) -> tuple[list[ObjectTypeDef], list[CommonPrefixTypeDef]]:
         """
         Return the full list of object contents and folders.
-
-        .. versionadded:: 2.0.1
         """
         contents = list()
-        common_prefixs = list()
+        common_prefixes = list()
         for response in self:
             (
                 _contents,
-                _common_prefixs,
+                _common_prefixes,
             ) = self.extract_contents_and_common_prefixes(response)
             contents.extend(_contents)
-            common_prefixs.extend(_common_prefixs)
-        return contents, common_prefixs
+            common_prefixes.extend(_common_prefixes)
+        return contents, common_prefixes
 
 
 def paginate_list_objects_v2(
-    s3_client: "S3Client",
+    s3_client: S3Client,
     bucket: str,
     prefix: str,
     batch_size: int = 1000,
-    limit: int = NOTHING,
-    delimiter: str = NOTHING,
-    encoding_type: str = NOTHING,
-    fetch_owner: bool = NOTHING,
-    start_after: str = NOTHING,
-    request_payer: str = NOTHING,
-    expected_bucket_owner: str = NOTHING,
+    limit: int | None = None,
+    delimiter: str = OPT,
+    encoding_type: str = OPT,
+    fetch_owner: bool = OPT,
+    start_after: str = OPT,
+    request_payer: str = OPT,
+    expected_bucket_owner: str = OPT,
 ) -> ListObjectsV2OutputTypeDefIterproxy:
     """
-    Wrapper of list_objects_v2_ and ListObjectsV2_. However, it returns
-    a user-friendly :class:`ListObjectsV2OutputTypeDefIterproxy` object.
+    Call list_objects_v2_ page by page, and return the responses as a
+    :class:`ListObjectsV2OutputTypeDefIterproxy`.
+
+    ``prefix`` is a string prefix, not a folder: ``"my-folder"`` also matches
+    ``my-folder-2/...``. End it with ``/`` to list a folder.
+
+    The pages are fetched lazily, while iterating the result: errors of the
+    AWS call (e.g. ``NoSuchBucket``, ``AccessDenied``) are raised as is, when
+    the iteration starts, not when this function is called.
 
     Example::
 
-        >>> result = paginate_list_objects_v2(
-        ...     s3_client=s3_client,
-        ...     bucket="my-bucket",
-        ...     prefix="my-folder",
-        ... )
-        >>> for content in result.contents():
-        ...     print(content)
-        {"Key": "1.json", "ETag": "...", "Size": 123, "LastModified": datetime(2015, 1, 1), "StorageClass": "...", "Owner", {...}}
-        {"Key": "2.json", "ETag": "...", "Size": 123, "LastModified": datetime(2015, 1, 1), "StorageClass": "...", "Owner", {...}}
-        {"Key": "3.json", "ETag": "...", "Size": 123, "LastModified": datetime(2015, 1, 1), "StorageClass": "...", "Owner", {...}}
-        ...
+        result = paginate_list_objects_v2(s3_client, "my-bucket", "my-folder/")
+        for content in result.contents():
+            print(content["Key"])
 
-    :param s3_client: ``boto3.session.Session().client("s3")`` object.
-    :param bucket: See ListObjectsV2_.
-    :param prefix: See ListObjectsV2_.
-    :param batch_size: See ListObjectsV2_.
-    :param limit: See ListObjectsV2_.
-    :param delimiter: See ListObjectsV2_.
-    :param encoding_type: See ListObjectsV2_.
-    :param fetch_owner: See ListObjectsV2_.
-    :param start_after: See ListObjectsV2_.
-    :param request_payer: See ListObjectsV2_.
-    :param expected_bucket_owner: See ListObjectsV2_.
+    :param batch_size: The number of entries per API call (``MaxKeys``),
+        1 to 1000.
+    :param limit: The maximum number of entries in total, objects and folders
+        (common prefixes, when ``delimiter`` is given) counted together, the
+        same as ``MaxKeys``. ``0`` returns nothing without calling AWS.
+        ``None`` (default): no limit.
 
-    :return: a :class:`ListObjectsV2OutputTypeDefIterproxy` object.
-
-    .. versionadded:: 2.0.1
+    :raises ValueError: if ``batch_size`` is not 1 to 1000, or ``limit`` is
+        negative.
     """
-    # validate arguments
-    if batch_size < 1 or batch_size > 1000:
-        raise ValueError("``batch_size`` has to be 1 ~ 1000.")
-    if (limit is not NOTHING) and (batch_size > limit):
-        batch_size = limit
-
-    def _paginate_list_objects_v2():
-        paginator = s3_client.get_paginator("list_objects_v2")
-        kwargs = resolve_kwargs(
+    pages = iter_pages(
+        s3_client=s3_client,
+        method="list_objects_v2",
+        params=dict(
             Bucket=bucket,
             Prefix=prefix,
             Delimiter=delimiter,
@@ -169,50 +145,49 @@ def paginate_list_objects_v2(
             StartAfter=start_after,
             RequestPayer=request_payer,
             ExpectedBucketOwner=expected_bucket_owner,
-            PaginationConfig=resolve_kwargs(
-                MaxItems=limit,
-                PageSize=batch_size,
-            ),
-        )
-        for response in paginator.paginate(**kwargs):
-            yield response
+        ),
+        batch_size=batch_size,
+        limit=limit,
+        entry_keys=("Contents", "CommonPrefixes"),
+        next_params=lambda response: dict(
+            ContinuationToken=response["NextContinuationToken"]
+        ),
+    )
+    return ListObjectsV2OutputTypeDefIterproxy(pages)
 
-    return ListObjectsV2OutputTypeDefIterproxy(_paginate_list_objects_v2())
 
-
-def is_content_an_object(content: "ObjectTypeDef") -> bool:
+def is_content_an_object(content: ObjectTypeDef) -> bool:
     """
-    Return True if the content is an object (not a folder).
+    Return True if the content is an object, False if it is a folder marker
+    (an empty object whose key ends with ``/``, made by "Create folder" in
+    the S3 console).
 
-    Truth table
+    Truth table:
 
-    - ends with "/", size is 0: False
-    - ends with "/", size > 0: False
-    - ends without "/", size is 0:
-    - ends without "/", size > 0:
+    - key ends with ``/``, size is 0: False (folder marker)
+    - key ends with ``/``, size > 0: True (an object that has data)
+    - key ends without ``/``, size is 0: True (an empty file)
+    - key ends without ``/``, size > 0: True
     """
     return (not content["Key"].endswith("/")) or (content["Size"] != 0)
 
 
 def calculate_total_size(
-    s3_client: "S3Client",
+    s3_client: S3Client,
     bucket: str,
     prefix: str,
     include_folder: bool = False,
-) -> T.Tuple[int, int]:
+) -> tuple[int, int]:
     """
-    Perform the "Calculate Total Size" action in AWS S3 console.
+    Perform the "Calculate Total Size" action of the AWS S3 console.
+    ``prefix`` is a string prefix, e.g. ``"my-folder/"``; ``"my-folder"`` also
+    matches ``my-folder-2/...``.
 
-    :param s3_client: ``boto3.session.Session().client("s3")`` object
-    :param bucket: S3 bucket name
-    :param prefix: The s3 prefix (logic directory) you want to calculate
-    :param include_folder: Default False, whether counting the hard folder
-        (an empty "/" object).
+    :param include_folder: whether to count the folder markers (see
+        :func:`is_content_an_object`).
 
-    :return: Tuple of ``(count, total_size)``. First value is number of objects,
-        Second value is total size in bytes.
-
-    .. versionadded:: 2.0.1
+    :return: ``(count, total_size)``: the number of objects and their total
+        size in bytes.
     """
     count = 0
     total_size = 0
@@ -230,23 +205,17 @@ def calculate_total_size(
 
 
 def count_objects(
-    s3_client: "S3Client",
+    s3_client: S3Client,
     bucket: str,
     prefix: str,
     include_folder: bool = False,
 ) -> int:
     """
-    Count number of objects under prefix.
+    Count the objects under ``prefix``, a string prefix like
+    ``"my-folder/"``; ``"my-folder"`` also matches ``my-folder-2/...``.
 
-    :param s3_client: ``boto3.session.Session().client("s3")`` object
-    :param bucket: S3 bucket name
-    :param prefix: The s3 prefix (logic directory) you want to calculate
-    :param include_folder: Default False, whether counting the hard folder
-        (an empty "/" object).
-
-    :return: Number of objects under prefix.
-
-    .. versionadded:: 2.0.1
+    :param include_folder: whether to count the folder markers (see
+        :func:`is_content_an_object`).
     """
     contents_iterproxy = paginate_list_objects_v2(
         s3_client=s3_client,

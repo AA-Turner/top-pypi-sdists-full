@@ -59,7 +59,8 @@ def sync_detailed(
 ) -> Response[InvitationDuplicateCheckResponse]:
     """Check for duplicate invitations
 
-     Returns pending invitations that already exist for the same email and role within the given scope.
+     Returns pending invitations that already exist for the same email and role within the given scope,
+    along with the active roles those emails already hold in it.
 
     Args:
         body (InvitationDuplicateCheckRequest):
@@ -90,7 +91,8 @@ def sync(
 ) -> InvitationDuplicateCheckResponse:
     """Check for duplicate invitations
 
-     Returns pending invitations that already exist for the same email and role within the given scope.
+     Returns pending invitations that already exist for the same email and role within the given scope,
+    along with the active roles those emails already hold in it.
 
     Args:
         body (InvitationDuplicateCheckRequest):
@@ -116,7 +118,8 @@ async def asyncio_detailed(
 ) -> Response[InvitationDuplicateCheckResponse]:
     """Check for duplicate invitations
 
-     Returns pending invitations that already exist for the same email and role within the given scope.
+     Returns pending invitations that already exist for the same email and role within the given scope,
+    along with the active roles those emails already hold in it.
 
     Args:
         body (InvitationDuplicateCheckRequest):
@@ -145,7 +148,8 @@ async def asyncio(
 ) -> InvitationDuplicateCheckResponse:
     """Check for duplicate invitations
 
-     Returns pending invitations that already exist for the same email and role within the given scope.
+     Returns pending invitations that already exist for the same email and role within the given scope,
+    along with the active roles those emails already hold in it.
 
     Args:
         body (InvitationDuplicateCheckRequest):

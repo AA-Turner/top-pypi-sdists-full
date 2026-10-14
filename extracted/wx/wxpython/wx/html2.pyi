@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -49,6 +52,7 @@ but these classes will minimize those differences as much as possible.
 import wx
 #-- end-_html2 --#
 #-- begin-webview --#
+import wx.siplib
 
 # On Windows we need to ensure that the wx package folder is on on the
 # PATH, so the MS Edge Loader DLLs can be found when they are dynamically
@@ -59,132 +63,132 @@ if os.name == 'nt':
     _pkg_path = os.path.abspath(os.path.dirname(wx.__file__))
     if _pkg_path.lower() not in _path.lower():
         os.environ['PATH'] = _path + os.pathsep + _pkg_path
-WebViewDefaultURLStr: str
-WebViewNameStr: str
-WebViewBackendWebKit: str
-WebViewBackendEdge: str
-WebViewBackendIE: str
-WebViewBackendDefault: str
+WebViewDefaultURLStr: bytes
+WebViewNameStr: bytes
+WebViewBackendWebKit: bytes
+WebViewBackendEdge: bytes
+WebViewBackendIE: bytes
+WebViewBackendDefault: bytes
 
-class _WebViewZoom(IntEnum):
-    WEBVIEW_ZOOM_TINY = auto()
-    WEBVIEW_ZOOM_SMALL = auto()
-    WEBVIEW_ZOOM_MEDIUM = auto()
-    WEBVIEW_ZOOM_LARGE = auto()
-    WEBVIEW_ZOOM_LARGEST = auto()
-WebViewZoom: TypeAlias = Union[_WebViewZoom, int]
-WEBVIEW_ZOOM_TINY = _WebViewZoom.WEBVIEW_ZOOM_TINY
-WEBVIEW_ZOOM_SMALL = _WebViewZoom.WEBVIEW_ZOOM_SMALL
-WEBVIEW_ZOOM_MEDIUM = _WebViewZoom.WEBVIEW_ZOOM_MEDIUM
-WEBVIEW_ZOOM_LARGE = _WebViewZoom.WEBVIEW_ZOOM_LARGE
-WEBVIEW_ZOOM_LARGEST = _WebViewZoom.WEBVIEW_ZOOM_LARGEST
+@final
+class WebViewZoom(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_ZOOM_TINY: ClassVar[WebViewZoom]
+    WEBVIEW_ZOOM_SMALL: ClassVar[WebViewZoom]
+    WEBVIEW_ZOOM_MEDIUM: ClassVar[WebViewZoom]
+    WEBVIEW_ZOOM_LARGE: ClassVar[WebViewZoom]
+    WEBVIEW_ZOOM_LARGEST: ClassVar[WebViewZoom]
+WEBVIEW_ZOOM_TINY: WebViewZoom
+WEBVIEW_ZOOM_SMALL: WebViewZoom
+WEBVIEW_ZOOM_MEDIUM: WebViewZoom
+WEBVIEW_ZOOM_LARGE: WebViewZoom
+WEBVIEW_ZOOM_LARGEST: WebViewZoom
 
-class _WebViewZoomType(IntEnum):
-    WEBVIEW_ZOOM_TYPE_LAYOUT = auto()
-    WEBVIEW_ZOOM_TYPE_TEXT = auto()
-WebViewZoomType: TypeAlias = Union[_WebViewZoomType, int]
-WEBVIEW_ZOOM_TYPE_LAYOUT = _WebViewZoomType.WEBVIEW_ZOOM_TYPE_LAYOUT
-WEBVIEW_ZOOM_TYPE_TEXT = _WebViewZoomType.WEBVIEW_ZOOM_TYPE_TEXT
+@final
+class WebViewZoomType(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_ZOOM_TYPE_LAYOUT: ClassVar[WebViewZoomType]
+    WEBVIEW_ZOOM_TYPE_TEXT: ClassVar[WebViewZoomType]
+WEBVIEW_ZOOM_TYPE_LAYOUT: WebViewZoomType
+WEBVIEW_ZOOM_TYPE_TEXT: WebViewZoomType
 
-class _WebViewNavigationError(IntEnum):
-    WEBVIEW_NAV_ERR_CONNECTION = auto()
-    WEBVIEW_NAV_ERR_CERTIFICATE = auto()
-    WEBVIEW_NAV_ERR_AUTH = auto()
-    WEBVIEW_NAV_ERR_SECURITY = auto()
-    WEBVIEW_NAV_ERR_NOT_FOUND = auto()
-    WEBVIEW_NAV_ERR_REQUEST = auto()
-    WEBVIEW_NAV_ERR_USER_CANCELLED = auto()
-    WEBVIEW_NAV_ERR_OTHER = auto()
-WebViewNavigationError: TypeAlias = Union[_WebViewNavigationError, int]
-WEBVIEW_NAV_ERR_CONNECTION = _WebViewNavigationError.WEBVIEW_NAV_ERR_CONNECTION
-WEBVIEW_NAV_ERR_CERTIFICATE = _WebViewNavigationError.WEBVIEW_NAV_ERR_CERTIFICATE
-WEBVIEW_NAV_ERR_AUTH = _WebViewNavigationError.WEBVIEW_NAV_ERR_AUTH
-WEBVIEW_NAV_ERR_SECURITY = _WebViewNavigationError.WEBVIEW_NAV_ERR_SECURITY
-WEBVIEW_NAV_ERR_NOT_FOUND = _WebViewNavigationError.WEBVIEW_NAV_ERR_NOT_FOUND
-WEBVIEW_NAV_ERR_REQUEST = _WebViewNavigationError.WEBVIEW_NAV_ERR_REQUEST
-WEBVIEW_NAV_ERR_USER_CANCELLED = _WebViewNavigationError.WEBVIEW_NAV_ERR_USER_CANCELLED
-WEBVIEW_NAV_ERR_OTHER = _WebViewNavigationError.WEBVIEW_NAV_ERR_OTHER
+@final
+class WebViewNavigationError(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_NAV_ERR_CONNECTION: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_CERTIFICATE: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_AUTH: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_SECURITY: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_NOT_FOUND: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_REQUEST: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_USER_CANCELLED: ClassVar[WebViewNavigationError]
+    WEBVIEW_NAV_ERR_OTHER: ClassVar[WebViewNavigationError]
+WEBVIEW_NAV_ERR_CONNECTION: WebViewNavigationError
+WEBVIEW_NAV_ERR_CERTIFICATE: WebViewNavigationError
+WEBVIEW_NAV_ERR_AUTH: WebViewNavigationError
+WEBVIEW_NAV_ERR_SECURITY: WebViewNavigationError
+WEBVIEW_NAV_ERR_NOT_FOUND: WebViewNavigationError
+WEBVIEW_NAV_ERR_REQUEST: WebViewNavigationError
+WEBVIEW_NAV_ERR_USER_CANCELLED: WebViewNavigationError
+WEBVIEW_NAV_ERR_OTHER: WebViewNavigationError
 
-class _WebViewReloadFlags(IntFlag):
-    WEBVIEW_RELOAD_DEFAULT = auto()
-    WEBVIEW_RELOAD_NO_CACHE = auto()
-WebViewReloadFlags: TypeAlias = Union[_WebViewReloadFlags, int]
-WEBVIEW_RELOAD_DEFAULT = _WebViewReloadFlags.WEBVIEW_RELOAD_DEFAULT
-WEBVIEW_RELOAD_NO_CACHE = _WebViewReloadFlags.WEBVIEW_RELOAD_NO_CACHE
+@final
+class WebViewReloadFlags(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_RELOAD_DEFAULT: ClassVar[WebViewReloadFlags]
+    WEBVIEW_RELOAD_NO_CACHE: ClassVar[WebViewReloadFlags]
+WEBVIEW_RELOAD_DEFAULT: WebViewReloadFlags
+WEBVIEW_RELOAD_NO_CACHE: WebViewReloadFlags
 
-class _WebViewFindFlags(IntFlag):
-    WEBVIEW_FIND_WRAP = auto()
-    WEBVIEW_FIND_ENTIRE_WORD = auto()
-    WEBVIEW_FIND_MATCH_CASE = auto()
-    WEBVIEW_FIND_HIGHLIGHT_RESULT = auto()
-    WEBVIEW_FIND_BACKWARDS = auto()
-    WEBVIEW_FIND_DEFAULT = auto()
-WebViewFindFlags: TypeAlias = Union[_WebViewFindFlags, int]
-WEBVIEW_FIND_WRAP = _WebViewFindFlags.WEBVIEW_FIND_WRAP
-WEBVIEW_FIND_ENTIRE_WORD = _WebViewFindFlags.WEBVIEW_FIND_ENTIRE_WORD
-WEBVIEW_FIND_MATCH_CASE = _WebViewFindFlags.WEBVIEW_FIND_MATCH_CASE
-WEBVIEW_FIND_HIGHLIGHT_RESULT = _WebViewFindFlags.WEBVIEW_FIND_HIGHLIGHT_RESULT
-WEBVIEW_FIND_BACKWARDS = _WebViewFindFlags.WEBVIEW_FIND_BACKWARDS
-WEBVIEW_FIND_DEFAULT = _WebViewFindFlags.WEBVIEW_FIND_DEFAULT
+@final
+class WebViewFindFlags(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_FIND_WRAP: ClassVar[WebViewFindFlags]
+    WEBVIEW_FIND_ENTIRE_WORD: ClassVar[WebViewFindFlags]
+    WEBVIEW_FIND_MATCH_CASE: ClassVar[WebViewFindFlags]
+    WEBVIEW_FIND_HIGHLIGHT_RESULT: ClassVar[WebViewFindFlags]
+    WEBVIEW_FIND_BACKWARDS: ClassVar[WebViewFindFlags]
+    WEBVIEW_FIND_DEFAULT: ClassVar[WebViewFindFlags]
+WEBVIEW_FIND_WRAP: WebViewFindFlags
+WEBVIEW_FIND_ENTIRE_WORD: WebViewFindFlags
+WEBVIEW_FIND_MATCH_CASE: WebViewFindFlags
+WEBVIEW_FIND_HIGHLIGHT_RESULT: WebViewFindFlags
+WEBVIEW_FIND_BACKWARDS: WebViewFindFlags
+WEBVIEW_FIND_DEFAULT: WebViewFindFlags
 
-class _WebViewNavigationActionFlags(IntFlag):
-    WEBVIEW_NAV_ACTION_NONE = auto()
-    WEBVIEW_NAV_ACTION_USER = auto()
-    WEBVIEW_NAV_ACTION_OTHER = auto()
-WebViewNavigationActionFlags: TypeAlias = Union[_WebViewNavigationActionFlags, int]
-WEBVIEW_NAV_ACTION_NONE = _WebViewNavigationActionFlags.WEBVIEW_NAV_ACTION_NONE
-WEBVIEW_NAV_ACTION_USER = _WebViewNavigationActionFlags.WEBVIEW_NAV_ACTION_USER
-WEBVIEW_NAV_ACTION_OTHER = _WebViewNavigationActionFlags.WEBVIEW_NAV_ACTION_OTHER
+@final
+class WebViewNavigationActionFlags(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_NAV_ACTION_NONE: ClassVar[WebViewNavigationActionFlags]
+    WEBVIEW_NAV_ACTION_USER: ClassVar[WebViewNavigationActionFlags]
+    WEBVIEW_NAV_ACTION_OTHER: ClassVar[WebViewNavigationActionFlags]
+WEBVIEW_NAV_ACTION_NONE: WebViewNavigationActionFlags
+WEBVIEW_NAV_ACTION_USER: WebViewNavigationActionFlags
+WEBVIEW_NAV_ACTION_OTHER: WebViewNavigationActionFlags
 
-class _WebViewUserScriptInjectionTime(IntEnum):
-    WEBVIEW_INJECT_AT_DOCUMENT_START = auto()
-    WEBVIEW_INJECT_AT_DOCUMENT_END = auto()
-WebViewUserScriptInjectionTime: TypeAlias = Union[_WebViewUserScriptInjectionTime, int]
-WEBVIEW_INJECT_AT_DOCUMENT_START = _WebViewUserScriptInjectionTime.WEBVIEW_INJECT_AT_DOCUMENT_START
-WEBVIEW_INJECT_AT_DOCUMENT_END = _WebViewUserScriptInjectionTime.WEBVIEW_INJECT_AT_DOCUMENT_END
+@final
+class WebViewUserScriptInjectionTime(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_INJECT_AT_DOCUMENT_START: ClassVar[WebViewUserScriptInjectionTime]
+    WEBVIEW_INJECT_AT_DOCUMENT_END: ClassVar[WebViewUserScriptInjectionTime]
+WEBVIEW_INJECT_AT_DOCUMENT_START: WebViewUserScriptInjectionTime
+WEBVIEW_INJECT_AT_DOCUMENT_END: WebViewUserScriptInjectionTime
 
-class _WebViewIE_EmulationLevel(IntEnum):
-    WEBVIEWIE_EMU_DEFAULT = auto()
-    WEBVIEWIE_EMU_IE7 = auto()
-    WEBVIEWIE_EMU_IE8 = auto()
-    WEBVIEWIE_EMU_IE8_FORCE = auto()
-    WEBVIEWIE_EMU_IE9 = auto()
-    WEBVIEWIE_EMU_IE9_FORCE = auto()
-    WEBVIEWIE_EMU_IE10 = auto()
-    WEBVIEWIE_EMU_IE10_FORCE = auto()
-    WEBVIEWIE_EMU_IE11 = auto()
-    WEBVIEWIE_EMU_IE11_FORCE = auto()
-WebViewIE_EmulationLevel: TypeAlias = Union[_WebViewIE_EmulationLevel, int]
-WEBVIEWIE_EMU_DEFAULT = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_DEFAULT
-WEBVIEWIE_EMU_IE7 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE7
-WEBVIEWIE_EMU_IE8 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE8
-WEBVIEWIE_EMU_IE8_FORCE = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE8_FORCE
-WEBVIEWIE_EMU_IE9 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE9
-WEBVIEWIE_EMU_IE9_FORCE = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE9_FORCE
-WEBVIEWIE_EMU_IE10 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE10
-WEBVIEWIE_EMU_IE10_FORCE = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE10_FORCE
-WEBVIEWIE_EMU_IE11 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE11
-WEBVIEWIE_EMU_IE11_FORCE = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE11_FORCE
+@final
+class WebViewIE_EmulationLevel(int, metaclass=wx.siplib.enumtype):
+    WEBVIEWIE_EMU_DEFAULT: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE7: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE8: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE8_FORCE: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE9: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE9_FORCE: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE10: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE10_FORCE: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE11: ClassVar[WebViewIE_EmulationLevel]
+    WEBVIEWIE_EMU_IE11_FORCE: ClassVar[WebViewIE_EmulationLevel]
+WEBVIEWIE_EMU_DEFAULT: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE7: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE8: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE8_FORCE: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE9: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE9_FORCE: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE10: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE10_FORCE: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE11: WebViewIE_EmulationLevel
+WEBVIEWIE_EMU_IE11_FORCE: WebViewIE_EmulationLevel
 
-class _WebViewBrowsingDataTypes(IntEnum):
-    WEBVIEW_BROWSING_DATA_COOKIES = auto()
-    WEBVIEW_BROWSING_DATA_CACHE = auto()
-    WEBVIEW_BROWSING_DATA_DOM_STORAGE = auto()
-    WEBVIEW_BROWSING_DATA_OTHER = auto()
-    WEBVIEW_BROWSING_DATA_ALL = auto()
-WebViewBrowsingDataTypes: TypeAlias = Union[_WebViewBrowsingDataTypes, int]
-WEBVIEW_BROWSING_DATA_COOKIES = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_COOKIES
-WEBVIEW_BROWSING_DATA_CACHE = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_CACHE
-WEBVIEW_BROWSING_DATA_DOM_STORAGE = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_DOM_STORAGE
-WEBVIEW_BROWSING_DATA_OTHER = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_OTHER
-WEBVIEW_BROWSING_DATA_ALL = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_ALL
+@final
+class WebViewBrowsingDataTypes(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_BROWSING_DATA_COOKIES: ClassVar[WebViewBrowsingDataTypes]
+    WEBVIEW_BROWSING_DATA_CACHE: ClassVar[WebViewBrowsingDataTypes]
+    WEBVIEW_BROWSING_DATA_DOM_STORAGE: ClassVar[WebViewBrowsingDataTypes]
+    WEBVIEW_BROWSING_DATA_OTHER: ClassVar[WebViewBrowsingDataTypes]
+    WEBVIEW_BROWSING_DATA_ALL: ClassVar[WebViewBrowsingDataTypes]
+WEBVIEW_BROWSING_DATA_COOKIES: WebViewBrowsingDataTypes
+WEBVIEW_BROWSING_DATA_CACHE: WebViewBrowsingDataTypes
+WEBVIEW_BROWSING_DATA_DOM_STORAGE: WebViewBrowsingDataTypes
+WEBVIEW_BROWSING_DATA_OTHER: WebViewBrowsingDataTypes
+WEBVIEW_BROWSING_DATA_ALL: WebViewBrowsingDataTypes
 
-class _WebViewPrintFlags(IntFlag):
-    WEBVIEW_PRINT_DEFAULT = auto()
-    WEBVIEW_PRINT_HIDE_HEADER_FOOTER = auto()
-WebViewPrintFlags: TypeAlias = Union[_WebViewPrintFlags, int]
-WEBVIEW_PRINT_DEFAULT = _WebViewPrintFlags.WEBVIEW_PRINT_DEFAULT
-WEBVIEW_PRINT_HIDE_HEADER_FOOTER = _WebViewPrintFlags.WEBVIEW_PRINT_HIDE_HEADER_FOOTER
+@final
+class WebViewPrintFlags(int, metaclass=wx.siplib.enumtype):
+    WEBVIEW_PRINT_DEFAULT: ClassVar[WebViewPrintFlags]
+    WEBVIEW_PRINT_HIDE_HEADER_FOOTER: ClassVar[WebViewPrintFlags]
+WEBVIEW_PRINT_DEFAULT: WebViewPrintFlags
+WEBVIEW_PRINT_HIDE_HEADER_FOOTER: WebViewPrintFlags
 wxEVT_WEBVIEW_CREATED: int
 wxEVT_WEBVIEW_NAVIGATING: int
 wxEVT_WEBVIEW_NAVIGATED: int
@@ -200,7 +204,7 @@ wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED: int
 wxEVT_WEBVIEW_BROWSING_DATA_CLEARED: int
 wxEVT_WEBVIEW_PDF_SAVED: int
 
-class WebViewHistoryItem:
+class WebViewHistoryItem(wx.siplib.wrapper):
     """
     WebViewHistoryItem(url, title) -> None
     
@@ -232,7 +236,7 @@ class WebViewHistoryItem:
 # end of class WebViewHistoryItem
 
 
-class WebViewHandler:
+class WebViewHandler(wx.siplib.wrapper):
     """
     WebViewHandler(scheme) -> None
     
@@ -343,7 +347,7 @@ class WebViewFSHandler(WebViewHandler):
 # end of class WebViewFSHandler
 
 
-class WebViewConfiguration:
+class WebViewConfiguration(wx.siplib.wrapper):
     """
     This class allows access to web view configuration options and
     settings, that have to be specified before placing a webview in a
@@ -412,7 +416,7 @@ class WebViewFactory(wx.Object):
     """
 
     @overload
-    def Create(self, parent: wx.Window, id: int, url: str=WebViewDefaultURLStr, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=WebViewNameStr) -> WebView:
+    def Create(self, parent: wx.Window, id: int, url: str=..., pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> WebView:
         ...
 
     @overload
@@ -464,9 +468,9 @@ class WebView(wx.Control):
         Runs the given JavaScript code.
         """
 
-    def RunScriptAsync(self, javascript: str, clientData: Any=nullptr) -> None:
+    def RunScriptAsync(self, javascript: str, clientData: Optional[Any]=None) -> None:
         """
-        RunScriptAsync(javascript, clientData=nullptr) -> None
+        RunScriptAsync(javascript, clientData=None) -> None
         
         Runs the given JavaScript code asynchronously and returns the result
         via a wxEVT_WEBVIEW_SCRIPT_RESULT.
@@ -487,7 +491,7 @@ class WebView(wx.Control):
         previously added via AddScriptMessageHandler().
         """
 
-    def AddUserScript(self, javascript: str, injectionTime: WebViewUserScriptInjectionTime=WEBVIEW_INJECT_AT_DOCUMENT_START) -> bool:
+    def AddUserScript(self, javascript: str, injectionTime: Union[WebViewUserScriptInjectionTime, int]=WEBVIEW_INJECT_AT_DOCUMENT_START) -> bool:
         """
         AddUserScript(javascript, injectionTime=WEBVIEW_INJECT_AT_DOCUMENT_START) -> bool
         
@@ -720,14 +724,14 @@ class WebView(wx.Control):
         Undos the last action.
         """
 
-    def Find(self, text: str, flags: WebViewFindFlags=WEBVIEW_FIND_DEFAULT) -> int:
+    def Find(self, text: str, flags: Union[WebViewFindFlags, int]=WEBVIEW_FIND_DEFAULT) -> int:
         """
         Find(text, flags=WEBVIEW_FIND_DEFAULT) -> int
         
         Finds a phrase on the current page and if found, the control will scroll the phrase into view and select it.
         """
 
-    def CanSetZoomType(self, type: WebViewZoomType) -> bool:
+    def CanSetZoomType(self, type: Union[WebViewZoomType, int]) -> bool:
         """
         CanSetZoomType(type) -> bool
         
@@ -755,7 +759,7 @@ class WebView(wx.Control):
         Get how the zoom factor is currently interpreted.
         """
 
-    def SetZoom(self, zoom: WebViewZoom) -> None:
+    def SetZoom(self, zoom: Union[WebViewZoom, int]) -> None:
         """
         SetZoom(zoom) -> None
         
@@ -769,14 +773,14 @@ class WebView(wx.Control):
         Set the zoom factor of the page.
         """
 
-    def SetZoomType(self, zoomType: WebViewZoomType) -> None:
+    def SetZoomType(self, zoomType: Union[WebViewZoomType, int]) -> None:
         """
         SetZoomType(zoomType) -> None
         
         Set how to interpret the zoom factor.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, url: str=WebViewDefaultURLStr, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=WebViewNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, url: str=..., pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> bool:
         """
         Create(parent, id=wx.ID_ANY, url=WebViewDefaultURLStr, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=WebViewNameStr) -> bool
         
@@ -875,7 +879,7 @@ class WebView(wx.Control):
         Registers a custom scheme handler.
         """
 
-    def Reload(self, flags: WebViewReloadFlags=WEBVIEW_RELOAD_DEFAULT) -> None:
+    def Reload(self, flags: Union[WebViewReloadFlags, int]=WEBVIEW_RELOAD_DEFAULT) -> None:
         """
         Reload(flags=WEBVIEW_RELOAD_DEFAULT) -> None
         
@@ -930,7 +934,7 @@ class WebView(wx.Control):
         Set the proxy to use for all requests.
         """
 
-    def ClearBrowsingData(self, types: int=WEBVIEW_BROWSING_DATA_ALL, since: wx.DateTime={}) -> bool:
+    def ClearBrowsingData(self, types: int=WEBVIEW_BROWSING_DATA_ALL, since: Union[wx.DateTime, datetime, date]={}) -> bool:
         """
         ClearBrowsingData(types=WEBVIEW_BROWSING_DATA_ALL, since={}) -> bool
         
@@ -944,12 +948,12 @@ class WebView(wx.Control):
 
     @overload
     @staticmethod
-    def New(parent: wx.Window, id: int=wx.ID_ANY, url: str=WebViewDefaultURLStr, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, backend: str=WebViewBackendDefault, style: int=0, name: str=WebViewNameStr) -> WebView:
+    def New(parent: wx.Window, id: int=wx.ID_ANY, url: str=..., pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, backend: str=..., style: int=0, name: str=...) -> WebView:
         ...
 
     @overload
     @staticmethod
-    def New(backend: str=WebViewBackendDefault) -> WebView:
+    def New(backend: str=...) -> WebView:
         """
         New(backend=WebViewBackendDefault) -> WebView
         New(config) -> WebView
@@ -975,19 +979,14 @@ class WebView(wx.Control):
         Allows to check if a specific backend is currently available.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
 
     @staticmethod
-    def MSWSetEmulationLevel(level: WebViewIE_EmulationLevel=WEBVIEWIE_EMU_IE11) -> bool:
+    def MSWSetEmulationLevel(level: Union[WebViewIE_EmulationLevel, int]=WEBVIEWIE_EMU_IE11) -> bool:
         """
         MSWSetEmulationLevel(level=WEBVIEWIE_EMU_IE11) -> bool
         
@@ -1024,7 +1023,7 @@ class WebView(wx.Control):
     @property
     def Zoom(self) -> WebViewZoom: ...
     @Zoom.setter
-    def Zoom(self, value: WebViewZoom, /) -> None: ...
+    def Zoom(self, value: Union[WebViewZoom, int], /) -> None: ...
     @property
     def ZoomFactor(self) -> float: ...
     @ZoomFactor.setter
@@ -1032,7 +1031,7 @@ class WebView(wx.Control):
     @property
     def ZoomType(self) -> WebViewZoomType: ...
     @ZoomType.setter
-    def ZoomType(self, value: WebViewZoomType, /) -> None: ...
+    def ZoomType(self, value: Union[WebViewZoomType, int], /) -> None: ...
 # end of class WebView
 
 
@@ -1046,7 +1045,7 @@ class WebViewEvent(wx.NotifyEvent):
     """
 
     @overload
-    def __init__(self, type: EventType, id: int, href: str, target: str, flags: WebViewNavigationActionFlags=WEBVIEW_NAV_ACTION_NONE, messageHandler: str="") -> None:
+    def __init__(self, type: int, id: int, href: str, target: str, flags: Union[WebViewNavigationActionFlags, int]=WEBVIEW_NAV_ACTION_NONE, messageHandler: str="") -> None:
         ...
 
     @overload
@@ -1121,7 +1120,7 @@ class WebViewEvent(wx.NotifyEvent):
 # end of class WebViewEvent
 
 
-class WebViewHandlerRequest:
+class WebViewHandlerRequest(wx.siplib.wrapper):
     """
     A class giving access to various parameters of a webview request.
     """
@@ -1164,7 +1163,7 @@ class WebViewHandlerRequest:
 # end of class WebViewHandlerRequest
 
 
-class WebViewHandlerResponse:
+class WebViewHandlerResponse(wx.siplib.wrapper):
     """
     A class giving access to various webview response parameters.
     """
@@ -1199,7 +1198,7 @@ class WebViewHandlerResponse:
 # end of class WebViewHandlerResponse
 
 
-class WebViewHandlerResponseData:
+class WebViewHandlerResponseData(wx.siplib.wrapper):
     """
     A class holding the response data.
     """
@@ -1213,7 +1212,7 @@ class WebViewHandlerResponseData:
 # end of class WebViewHandlerResponseData
 
 
-class WebViewWindowFeatures:
+class WebViewWindowFeatures(wx.siplib.wrapper):
     """
     A class describing the window information for a new child window.
     """
@@ -1282,15 +1281,15 @@ class WebViewWindowFeatures:
 
 USE_WEBVIEW: int
 
-EVT_WEBVIEW_NAVIGATING = wx.PyEventBinder( wxEVT_WEBVIEW_NAVIGATING, 1 )
-EVT_WEBVIEW_NAVIGATED = wx.PyEventBinder( wxEVT_WEBVIEW_NAVIGATED, 1 )
-EVT_WEBVIEW_LOADED = wx.PyEventBinder( wxEVT_WEBVIEW_LOADED, 1 )
-EVT_WEBVIEW_ERROR = wx.PyEventBinder( wxEVT_WEBVIEW_ERROR, 1 )
-EVT_WEBVIEW_NEWWINDOW = wx.PyEventBinder( wxEVT_WEBVIEW_NEWWINDOW, 1 )
-EVT_WEBVIEW_TITLE_CHANGED = wx.PyEventBinder( wxEVT_WEBVIEW_TITLE_CHANGED, 1 )
-EVT_WEBVIEW_FULLSCREEN_CHANGED = wx.PyEventBinder( wxEVT_WEBVIEW_FULLSCREEN_CHANGED, 1)
-EVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED = wx.PyEventBinder( wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, 1)
-EVT_WEBVIEW_SCRIPT_RESULT = wx.PyEventBinder( wxEVT_WEBVIEW_SCRIPT_RESULT, 1)
+EVT_WEBVIEW_NAVIGATING: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_NAVIGATED: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_LOADED: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_ERROR: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_NEWWINDOW: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_TITLE_CHANGED: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_FULLSCREEN_CHANGED: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED: wx.PyEventBinder[WebViewEvent]
+EVT_WEBVIEW_SCRIPT_RESULT: wx.PyEventBinder[WebViewEvent]
 
 # deprecated wxEVT aliases
 wxEVT_COMMAND_WEBVIEW_NAVIGATING     = wxEVT_WEBVIEW_NAVIGATING

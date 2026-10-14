@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar, Hashable, Literal, Sequence, TypeVar
+from collections.abc import Callable, Hashable, Sequence
+from typing import ClassVar, Literal, TypeAlias, TypeVar
 
 import urwid
-from typing_extensions import TypeAlias, override
+from typing_extensions import override
 from urwid import Widget, calc_text_pos, calc_width
 
 
@@ -42,7 +43,7 @@ def make_canvas(
     processed_attr: list[list[tuple[Hashable | None, int]]] = []
     processed_cs: list[list[tuple[Literal["U", "0"] | None, int]]] = []
 
-    for line, line_attr in zip(txt, attr):
+    for line, line_attr in zip(txt, attr, strict=True):
         # filter out zero-length attrs
         line_attr = [(aname, la) for aname, la in line_attr if la > 0]
 
@@ -121,23 +122,23 @@ class SelectableText(urwid.Text):
 
 
 UrwidSize: TypeAlias = "tuple[()] | tuple[int] | tuple[int, int]"
-WrappedWidget = TypeVar("WrappedWidget", bound=Widget, covariant=True)
+WrappedWidget_co = TypeVar("WrappedWidget_co", bound=Widget, covariant=True)
 EventListener: TypeAlias = Callable[
-        ["SignalWrap[WrappedWidget]", UrwidSize, str],
-        "str | None"]
+        ["SignalWrap[WrappedWidget_co]", UrwidSize, str],
+        str | None]
 
 
 # pyright ignore to paper over variance disagreement with urwid
-class SignalWrap(urwid.WidgetWrap[WrappedWidget]):  # pyright: ignore[reportInvalidTypeArguments]
-    event_listeners: list[tuple[str | None, EventListener[WrappedWidget]]]
+class SignalWrap(urwid.WidgetWrap[WrappedWidget_co]):  # pyright: ignore[reportInvalidTypeArguments]
+    event_listeners: list[tuple[str | None, EventListener[WrappedWidget_co]]]
     is_preemptive: bool
 
-    def __init__(self, w: WrappedWidget, is_preemptive: bool = False):
+    def __init__(self, w: WrappedWidget_co, is_preemptive: bool = False):
         super().__init__(w)
         self.event_listeners = []
         self.is_preemptive = is_preemptive
 
-    def listen(self, mask: str | None, handler: EventListener[WrappedWidget]):
+    def listen(self, mask: str | None, handler: EventListener[WrappedWidget_co]):
         self.event_listeners.append((mask, handler))
 
     @override
@@ -218,7 +219,7 @@ class StackFrame(urwid.Widget):
             text += f" [{self.class_name}]"
             attr.append((apfx+"frame class", len(self.class_name)+2))
 
-        loc = " %s:%d" % (self.filename, self.line)
+        loc = f" {self.filename}:{self.line}"
         text += loc
         attr.append((apfx+"frame location", len(loc)))
 

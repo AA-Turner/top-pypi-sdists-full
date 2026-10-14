@@ -16,22 +16,22 @@ if TYPE_CHECKING:
     from .transition_list import TransitionList
 
 
-def _expand_event_id(key: str) -> str:
-    """Apply naming conventions for special event prefixes.
+def _expand_event_id(key: str) -> list[str]:
+    """Return the event ids an attribute name declares.
 
-    Converts underscore-based Python attribute names to their dot-separated
-    event equivalents. Returns a space-separated string so ``Events.add()``
-    registers both forms.
+    ``done_invoke_X``, ``done_state_X`` and ``error_X`` also declare their SCXML dotted form
+    (``done.invoke.X``, ``done.state.X``, ``error.X``), each registered as its own event. Any
+    other name declares only itself.
     """
     if key.startswith("done_invoke_"):
         suffix = key[len("done_invoke_") :]
-        return f"{key} done.invoke.{suffix}"
+        return [key, f"done.invoke.{suffix}"]
     if key.startswith("done_state_"):
         suffix = key[len("done_state_") :]
-        return f"{key} done.state.{suffix}"
+        return [key, f"done.state.{suffix}"]
     if key.startswith("error_"):
-        return f"{key} {key.replace('_', '.')}"
-    return key
+        return [key, key.replace("_", ".")]
+    return [key]
 
 
 _event_data_kwargs = {
@@ -44,6 +44,20 @@ _event_data_kwargs = {
     "source",
     "target",
 }
+
+
+def raise_delayed_internal(event_id: str):
+    """Reject an event that asks to be both delayed and internal.
+
+    The internal queue runs within the current macrostep, which takes no time.
+    """
+    raise InvalidDefinition(
+        _(
+            "Event {id!r} cannot be both delayed and internal: the internal queue runs "
+            "within the current macrostep, which takes no time. Drop 'internal' to "
+            "deliver it later on the external queue, or drop 'delay' to run it now."
+        ).format(id=event_id)
+    )
 
 
 class Event(AddCallbacksMixin, str):
@@ -100,6 +114,9 @@ class Event(AddCallbacksMixin, str):
         _has_real_id = id is not None
         id = str(id) if _has_real_id else f"__event__{uuid4().hex}"
 
+        if delay and internal and _has_real_id:
+            raise_delayed_internal(id)
+
         instance = super().__new__(cls, id)
         instance.id = id
         instance.delay = delay
@@ -146,7 +163,9 @@ class Event(AddCallbacksMixin, str):
         """
         if instance is None:
             return self
-        return BoundEvent(id=self.id, name=self.name, delay=self.delay, _sm=instance)
+        return BoundEvent(
+            id=self.id, name=self.name, delay=self.delay, internal=self.internal, _sm=instance
+        )
 
     def put(self, *args, send_id: "str | None" = None, **kwargs):
         # The `__call__` is declared here to help IDEs knowing that an `Event`

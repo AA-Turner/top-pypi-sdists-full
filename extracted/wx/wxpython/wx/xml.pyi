@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -43,49 +46,50 @@ For more advanced XML needs it would be better to use one of the XML packages
 provided by Python.
 """
 #-- begin-_xml --#
+import wx.siplib
 
 import wx
 XML_NO_INDENTATION: int
 
-class _XmlNodeType(IntEnum):
-    XML_ELEMENT_NODE = auto()
-    XML_ATTRIBUTE_NODE = auto()
-    XML_TEXT_NODE = auto()
-    XML_CDATA_SECTION_NODE = auto()
-    XML_ENTITY_REF_NODE = auto()
-    XML_ENTITY_NODE = auto()
-    XML_PI_NODE = auto()
-    XML_COMMENT_NODE = auto()
-    XML_DOCUMENT_NODE = auto()
-    XML_DOCUMENT_TYPE_NODE = auto()
-    XML_DOCUMENT_FRAG_NODE = auto()
-    XML_NOTATION_NODE = auto()
-    XML_HTML_DOCUMENT_NODE = auto()
-XmlNodeType: TypeAlias = Union[_XmlNodeType, int]
-XML_ELEMENT_NODE = _XmlNodeType.XML_ELEMENT_NODE
-XML_ATTRIBUTE_NODE = _XmlNodeType.XML_ATTRIBUTE_NODE
-XML_TEXT_NODE = _XmlNodeType.XML_TEXT_NODE
-XML_CDATA_SECTION_NODE = _XmlNodeType.XML_CDATA_SECTION_NODE
-XML_ENTITY_REF_NODE = _XmlNodeType.XML_ENTITY_REF_NODE
-XML_ENTITY_NODE = _XmlNodeType.XML_ENTITY_NODE
-XML_PI_NODE = _XmlNodeType.XML_PI_NODE
-XML_COMMENT_NODE = _XmlNodeType.XML_COMMENT_NODE
-XML_DOCUMENT_NODE = _XmlNodeType.XML_DOCUMENT_NODE
-XML_DOCUMENT_TYPE_NODE = _XmlNodeType.XML_DOCUMENT_TYPE_NODE
-XML_DOCUMENT_FRAG_NODE = _XmlNodeType.XML_DOCUMENT_FRAG_NODE
-XML_NOTATION_NODE = _XmlNodeType.XML_NOTATION_NODE
-XML_HTML_DOCUMENT_NODE = _XmlNodeType.XML_HTML_DOCUMENT_NODE
+@final
+class XmlNodeType(int, metaclass=wx.siplib.enumtype):
+    XML_ELEMENT_NODE: ClassVar[XmlNodeType]
+    XML_ATTRIBUTE_NODE: ClassVar[XmlNodeType]
+    XML_TEXT_NODE: ClassVar[XmlNodeType]
+    XML_CDATA_SECTION_NODE: ClassVar[XmlNodeType]
+    XML_ENTITY_REF_NODE: ClassVar[XmlNodeType]
+    XML_ENTITY_NODE: ClassVar[XmlNodeType]
+    XML_PI_NODE: ClassVar[XmlNodeType]
+    XML_COMMENT_NODE: ClassVar[XmlNodeType]
+    XML_DOCUMENT_NODE: ClassVar[XmlNodeType]
+    XML_DOCUMENT_TYPE_NODE: ClassVar[XmlNodeType]
+    XML_DOCUMENT_FRAG_NODE: ClassVar[XmlNodeType]
+    XML_NOTATION_NODE: ClassVar[XmlNodeType]
+    XML_HTML_DOCUMENT_NODE: ClassVar[XmlNodeType]
+XML_ELEMENT_NODE: XmlNodeType
+XML_ATTRIBUTE_NODE: XmlNodeType
+XML_TEXT_NODE: XmlNodeType
+XML_CDATA_SECTION_NODE: XmlNodeType
+XML_ENTITY_REF_NODE: XmlNodeType
+XML_ENTITY_NODE: XmlNodeType
+XML_PI_NODE: XmlNodeType
+XML_COMMENT_NODE: XmlNodeType
+XML_DOCUMENT_NODE: XmlNodeType
+XML_DOCUMENT_TYPE_NODE: XmlNodeType
+XML_DOCUMENT_FRAG_NODE: XmlNodeType
+XML_NOTATION_NODE: XmlNodeType
+XML_HTML_DOCUMENT_NODE: XmlNodeType
 
-class _XmlDocumentLoadFlag(IntEnum):
-    XMLDOC_NONE = auto()
-    XMLDOC_KEEP_WHITESPACE_NODES = auto()
-XmlDocumentLoadFlag: TypeAlias = Union[_XmlDocumentLoadFlag, int]
-XMLDOC_NONE = _XmlDocumentLoadFlag.XMLDOC_NONE
-XMLDOC_KEEP_WHITESPACE_NODES = _XmlDocumentLoadFlag.XMLDOC_KEEP_WHITESPACE_NODES
+@final
+class XmlDocumentLoadFlag(int, metaclass=wx.siplib.enumtype):
+    XMLDOC_NONE: ClassVar[XmlDocumentLoadFlag]
+    XMLDOC_KEEP_WHITESPACE_NODES: ClassVar[XmlDocumentLoadFlag]
+XMLDOC_NONE: XmlDocumentLoadFlag
+XMLDOC_KEEP_WHITESPACE_NODES: XmlDocumentLoadFlag
 
-class XmlNode:
+class XmlNode(wx.siplib.wrapper):
     """
-    XmlNode(parent, type, name, content='', attrs=nullptr, next=nullptr, lineNo=-1) -> None
+    XmlNode(parent, type, name, content='', attrs=None, next=None, lineNo=-1) -> None
     XmlNode(type, name, content='', lineNo=-1) -> None
     XmlNode(node) -> None
     
@@ -93,7 +97,7 @@ class XmlNode:
     """
 
     @overload
-    def __init__(self, type: XmlNodeType, name: str, content: str='', lineNo: int=-1) -> None:
+    def __init__(self, type: Union[XmlNodeType, int], name: str, content: str='', lineNo: int=-1) -> None:
         ...
 
     @overload
@@ -101,9 +105,9 @@ class XmlNode:
         ...
 
     @overload
-    def __init__(self, parent: XmlNode, type: XmlNodeType, name: str, content: str='', attrs: XmlAttribute=nullptr, next: XmlNode=nullptr, lineNo: int=-1) -> None:
+    def __init__(self, parent: XmlNode, type: Union[XmlNodeType, int], name: str, content: str='', attrs: Optional[XmlAttribute]=None, next: Optional[XmlNode]=None, lineNo: int=-1) -> None:
         """
-        XmlNode(parent, type, name, content='', attrs=nullptr, next=nullptr, lineNo=-1) -> None
+        XmlNode(parent, type, name, content='', attrs=None, next=None, lineNo=-1) -> None
         XmlNode(type, name, content='', lineNo=-1) -> None
         XmlNode(node) -> None
         
@@ -167,9 +171,9 @@ class XmlNode:
         Returns the content of this node.
         """
 
-    def GetDepth(self, grandparent: XmlNode=nullptr) -> int:
+    def GetDepth(self, grandparent: Optional[XmlNode]=None) -> int:
         """
-        GetDepth(grandparent=nullptr) -> int
+        GetDepth(grandparent=None) -> int
         
         Returns the number of nodes which separate this node from grandparent.
         """
@@ -302,7 +306,7 @@ class XmlNode:
         Sets as parent the given node.
         """
 
-    def SetType(self, type: XmlNodeType) -> None:
+    def SetType(self, type: Union[XmlNodeType, int]) -> None:
         """
         SetType(type) -> None
         
@@ -341,27 +345,27 @@ class XmlNode:
     @property
     def Type(self) -> XmlNodeType: ...
     @Type.setter
-    def Type(self, value: XmlNodeType, /) -> None: ...
+    def Type(self, value: Union[XmlNodeType, int], /) -> None: ...
 # end of class XmlNode
 
 
-class XmlAttribute:
+class XmlAttribute(wx.siplib.wrapper):
     """
     XmlAttribute() -> None
-    XmlAttribute(name, value, next=nullptr) -> None
+    XmlAttribute(name, value, next=None) -> None
     
     Represents a node attribute.
     """
 
     @overload
-    def __init__(self, name: str, value: str, next: XmlAttribute=nullptr) -> None:
+    def __init__(self, name: str, value: str, next: Optional[XmlAttribute]=None) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         XmlAttribute() -> None
-        XmlAttribute(name, value, next=nullptr) -> None
+        XmlAttribute(name, value, next=None) -> None
         
         Represents a node attribute.
         """
@@ -423,7 +427,7 @@ class XmlAttribute:
 # end of class XmlAttribute
 
 
-class XmlDocument(wx.wx.Object):
+class XmlDocument(wx.Object):
     """
     XmlDocument() -> None
     XmlDocument(doc) -> None
@@ -443,7 +447,7 @@ class XmlDocument(wx.wx.Object):
         ...
 
     @overload
-    def __init__(self, stream: InputStream) -> None:
+    def __init__(self, stream: wx.InputStream) -> None:
         ...
 
     @overload
@@ -494,9 +498,9 @@ class XmlDocument(wx.wx.Object):
         Returns the DOCTYPE declaration data for the document.
         """
 
-    def GetFileType(self) -> TextFileType:
+    def GetFileType(self) -> wx.TextFileType:
         """
-        GetFileType() -> TextFileType
+        GetFileType() -> wx.TextFileType
         
         Returns the output line ending format used for documents.
         """
@@ -537,20 +541,20 @@ class XmlDocument(wx.wx.Object):
         """
 
     @overload
-    def Load(self, stream: InputStream, flags: int=XMLDOC_NONE, err: XmlParseError=nullptr) -> bool:
+    def Load(self, stream: wx.InputStream, flags: int=XMLDOC_NONE, err: Optional[XmlParseError]=None) -> bool:
         ...
 
     @overload
-    def Load(self, filename: str, flags: int=XMLDOC_NONE, err: XmlParseError=nullptr) -> bool:
+    def Load(self, filename: str, flags: int=XMLDOC_NONE, err: Optional[XmlParseError]=None) -> bool:
         """
-        Load(filename, flags=XMLDOC_NONE, err=nullptr) -> bool
-        Load(stream, flags=XMLDOC_NONE, err=nullptr) -> bool
+        Load(filename, flags=XMLDOC_NONE, err=None) -> bool
+        Load(stream, flags=XMLDOC_NONE, err=None) -> bool
         
         Parses filename as an xml document and loads its data.
         """
 
     @overload
-    def Save(self, stream: OutputStream, indentstep: int=2) -> bool:
+    def Save(self, stream: wx.OutputStream, indentstep: int=2) -> bool:
         ...
 
     @overload
@@ -584,7 +588,7 @@ class XmlDocument(wx.wx.Object):
         document is saved.
         """
 
-    def SetFileType(self, fileType: TextFileType) -> None:
+    def SetFileType(self, fileType: Union[wx.TextFileType, int]) -> None:
         """
         SetFileType(fileType) -> None
         
@@ -607,9 +611,9 @@ class XmlDocument(wx.wx.Object):
         """
 
     @staticmethod
-    def GetLibraryVersionInfo() -> VersionInfo:
+    def GetLibraryVersionInfo() -> wx.VersionInfo:
         """
-        GetLibraryVersionInfo() -> VersionInfo
+        GetLibraryVersionInfo() -> wx.VersionInfo
         
         Get expat library version information.
         """
@@ -628,9 +632,9 @@ class XmlDocument(wx.wx.Object):
     @FileEncoding.setter
     def FileEncoding(self, value: str, /) -> None: ...
     @property
-    def FileType(self) -> TextFileType: ...
+    def FileType(self) -> wx.TextFileType: ...
     @FileType.setter
-    def FileType(self, value: TextFileType, /) -> None: ...
+    def FileType(self, value: Union[wx.TextFileType, int], /) -> None: ...
     @property
     def Root(self) -> XmlNode: ...
     @Root.setter
@@ -642,7 +646,7 @@ class XmlDocument(wx.wx.Object):
 # end of class XmlDocument
 
 
-class XmlDoctype:
+class XmlDoctype(wx.siplib.wrapper):
     """
     XmlDoctype(rootName="", systemId="", publicId="") -> None
     
@@ -708,7 +712,7 @@ class XmlDoctype:
 # end of class XmlDoctype
 
 
-class XmlParseError:
+class XmlParseError(wx.siplib.wrapper):
     """
     Pass this structure to wxXmlDocument::Load() to get more information
     if an error occurred during XML parsing.
@@ -716,7 +720,7 @@ class XmlParseError:
     message: str
     line: int
     column: int
-    offset: FileOffset
+    offset: int
 # end of class XmlParseError
 
 

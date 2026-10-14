@@ -276,10 +276,30 @@ public:
         // will return false.
         virtual bool SaveValue(const wxString& name, int value) = 0;
 
+        // Same as above but for string values, not implemented by default
+        // because this only needs to be implemented when using wxGTK with
+        // Wayland XDG session management protocol and so can be ignored when
+        // not targeting this platform.
+        virtual bool SaveString(const wxString& name, const wxString& value)
+        {
+            wxUnusedVar(name);
+            wxUnusedVar(value);
+            return false;
+        }
+
         // If restoring a value returns false, it just means that the value is
         // not present and RestoreToGeometry() still continues with restoring
         // the other values.
         virtual bool RestoreValue(const wxString& name, int* value) const = 0;
+
+        // Same as for but for string values, not implemented by default, see
+        // comment for SaveString() above.
+        virtual bool RestoreString(const wxString& name, wxString* value) const
+        {
+            wxUnusedVar(name);
+            wxUnusedVar(value);
+            return false;
+        }
     };
 
     // Save the current window geometry using the provided serializer and
@@ -301,12 +321,13 @@ public:
 
         virtual bool RestoreValue(const wxString& name, int* value) const override
         {
-            // gcc 4.8 gives a warning for const-cast below.
-            wxGCC_WARNING_SUPPRESS(deprecated-declarations)
+            // Compilers not using [[deprecated]] for wxDEPRECATED_MSG() give a
+            // warning for referencing deprecated class in the const-cast below.
+            wxWARNING_SUPPRESS_DEPRECATED()
 
             return const_cast<GeometrySerializer*>(this)->RestoreField(name, value);
 
-            wxGCC_WARNING_RESTORE(deprecated-declarations)
+            wxWARNING_RESTORE_DEPRECATED()
         }
 
         virtual bool SaveField(const wxString& name, int value) const = 0;

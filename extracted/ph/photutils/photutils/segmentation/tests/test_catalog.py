@@ -3,6 +3,9 @@
 Tests for the catalog module.
 """
 
+import threading
+import tracemalloc
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 from unittest.mock import patch
 
@@ -13,36 +16,27 @@ from astropy.convolution import convolve
 from astropy.coordinates import SkyCoord
 from astropy.modeling.models import Gaussian2D
 from astropy.table import QTable
-from astropy.utils.exceptions import AstropyDeprecationWarning
+from astropy.wcs import WCS
 from numpy.testing import assert_allclose, assert_equal
-from scipy.optimize import root_scalar
 
 from photutils.aperture import (BoundingBox, CircularAperture,
                                 EllipticalAperture)
 from photutils.background import Background2D, MedianBackground
+from photutils.centroids import centroid_quadratic
 from photutils.datasets import (make_100gaussians_image, make_gwcs,
                                 make_noise_image, make_wcs)
 from photutils.segmentation.catalog import SourceCatalog
 from photutils.segmentation.core import SegmentationImage
+from photutils.segmentation.deblend import deblend_sources
 from photutils.segmentation.detect import detect_sources
 from photutils.segmentation.finder import SourceFinder
+from photutils.segmentation.flags import SEGMENTATION_FLAGS
+from photutils.segmentation.tests._batch_scene import make_batch_scene
 from photutils.segmentation.utils import make_2dgaussian_kernel
-from photutils.utils._optional_deps import (HAS_GWCS, HAS_MATPLOTLIB,
-                                            HAS_SKIMAGE)
+from photutils.utils._optional_deps import HAS_GWCS, HAS_MATPLOTLIB
+from photutils.utils._wcs_helpers import compute_pixel_to_sky_jacobians
 from photutils.utils.cutouts import CutoutImage
-
-
-@pytest.fixture
-def progress_bar_catalog():
-    """
-    A two-source SourceCatalog on a 101x101 grid with progress_bar=True.
-    """
-    yy, xx = np.mgrid[0:101, 0:101]
-    g1 = Gaussian2D(100, 50, 50, 5, 5)
-    g2 = Gaussian2D(80, 30, 30, 4, 4)
-    data = g1(xx, yy) + g2(xx, yy)
-    segm = detect_sources(data, 10.0, n_pixels=5)
-    return SourceCatalog(data, segm, progress_bar=True)
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 
 @pytest.fixture
@@ -104,7 +98,7 @@ def centroid_win_data():
     kernel = make_2dgaussian_kernel(3.0, size=5)
     convolved_data = convolve(data, kernel)
     n_pixels = 10
-    finder = SourceFinder(n_pixels=n_pixels, progress_bar=False)
+    finder = SourceFinder(n_pixels=n_pixels)
     threshold = 107.9
     segment_map = finder(convolved_data, threshold)
     return data, segment_map, convolved_data
@@ -165,7 +159,7 @@ class TestSourceCatalog:
 
         props = self.cat.properties
 
-        # Add extra properties
+        # Add custom properties
         cat1.circular_photometry(5.0, name='circ5')
         cat1.kron_photometry((2.5, 1.4), name='kron2')
         cat1.flux_radius(0.5, name='r_hl')
@@ -359,16 +353,64 @@ class TestSourceCatalog:
         with pytest.raises(ValueError, match=match):
             self.cat.select_labels([1, 2, 1000])
 
+    @pytest.mark.parametrize('cached', ['moments', 'moments_central',
+                                        'cutout_centroid', 'centroid',
+                                        'covariance_eigvals',
+                                        'data_cutout_masked', 'x_centroid',
+                                        'semimajor_axis', 'kron_radius',
+                                        'centroid_win', 'centroid_quad',
+                                        'min_value_index'])
+    def test_scalar_slice_after_cached_dependency(self, cached):
+        """
+        Test that per-source properties are computed correctly for a
+        scalar catalog obtained by slicing a multisource catalog when
+        only some properties were cached on the parent before slicing.
+
+        The ``_array`` accessor is used internally by several properties
+        to index along the source axis. A per-source array can be stored
+        either with its leading length-1 axis intact (freshly computed
+        for a scalar catalog) or with that axis removed (a multisource
+        value cached on the parent and then sliced). If ``_array`` does
+        not normalize both cases, moment-derived properties such as
+        ``cutout_centroid`` raise an ``IndexError`` (or return wrong
+        values) when a dependency was cached on the parent but the
+        dependent property was not.
+
+        This parametrizes over the dependencies that feed other
+        properties through ``_array``, caches exactly one of them on
+        the parent, slices to a scalar, and checks that every property
+        matches the same scalar computed from scratch.
+        """
+        kwargs = {'error': self.error, 'background': self.background,
+                  'mask': self.mask, 'wcs': self.wcs, 'local_bkg_width': 24}
+
+        # Source index 1 has no NaN values (see ``test_catalog``), which
+        # avoids NaN-vs-NaN comparison artifacts for properties such as
+        # ``sky_centroid``.
+        idx = 1
+
+        # Reference scalar catalog that recomputes every property from
+        # scratch (nothing cached on the parent before slicing).
+        ref = SourceCatalog(self.data, self.segm, **kwargs)[idx]
+
+        # Cache exactly one dependency on the parent, then slice.
+        parent = SourceCatalog(self.data, self.segm, **kwargs)
+        _ = getattr(parent, cached)
+        scalar = parent[idx]
+
+        for prop in ref.properties:
+            assert_equal(getattr(scalar, prop), getattr(ref, prop))
+
     def test_iter(self):
         """
-        Test iter.
+        Test that the catalog is iterable.
         """
         labels = [obj.label for obj in self.cat]
         assert len(labels) == len(self.cat)
 
     def test_table(self):
         """
-        Test table.
+        Test that the catalog can be converted to an Astropy Table.
         """
         columns = ['label', 'x_centroid', 'y_centroid']
         tbl = self.cat.to_table(columns=columns)
@@ -385,12 +427,56 @@ class TestSourceCatalog:
             assert isinstance(col, str)
             assert not isinstance(col, np.str_)
 
+    @pytest.mark.parametrize('columns', ['invalid',
+                                         'kron_params',
+                                         ['_mask', '_slices']])
+    def test_invalid_column(self, columns):
+        match = 'Invalid column name'
+        with pytest.raises(ValueError, match=match):
+            self.cat.to_table(columns=columns)
+
+    def test_deprecated_inertia_tensor(self):
+        """
+        Test that the ``inertia_tensor`` attribute is deprecated and
+        keeps its ``(y, x)`` order and its table column.
+        """
+        cat = self.cat
+        match = 'deprecated in version 3.1'
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            tensor = cat.inertia_tensor
+        assert 'inertia_tensor' not in cat.properties
+        mu = cat.moments_central
+        assert tensor.unit == u.pix**2
+        assert_allclose(tensor[:, 0, 0].value, mu[:, 0, 2])
+        assert_allclose(tensor[:, 1, 1].value, mu[:, 2, 0])
+        assert_allclose(tensor[:, 0, 1].value, -mu[:, 1, 1])
+        assert_allclose(tensor[:, 1, 0].value, -mu[:, 1, 1])
+
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            tbl = cat.to_table(columns=['inertia_tensor'])
+        assert_allclose(tbl['inertia_tensor'], tensor)
+
+        # A scalar instance returns a single (2, 2) tensor
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            assert cat[0].inertia_tensor.shape == (2, 2)
+
+    def test_deprecated_column(self):
+        """
+        Regression test to ensure that deprecated column names are still
+        accepted by ``to_table``, not rejected by the new column-name
+        validation.
+        """
+        match = "'xcentroid' attribute was deprecated"
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            tbl = self.cat.to_table(columns='xcentroid')
+        assert tbl.colnames == ['x_centroid']
+
     def test_invalid_inputs(self):
         """
         Test invalid inputs.
         """
         segm = SegmentationImage(np.zeros(self.data.shape, dtype=int))
-        match = 'segmentation_image must have at least one non-zero label'
+        match = 'segmentation_image must have at least one nonzero label'
         with pytest.raises(ValueError, match=match):
             SourceCatalog(self.data, segm)
 
@@ -413,6 +499,10 @@ class TestSourceCatalog:
         match = 'data and background must have the same shape'
         with pytest.raises(ValueError, match=match):
             SourceCatalog(self.data, self.segm, background=wrong_shape)
+
+        match = 'background must be a 2D array'
+        with pytest.raises(ValueError, match=match):
+            SourceCatalog(self.data, self.segm, background=5.1)
 
         match = 'data and mask must have the same shape'
         with pytest.raises(ValueError, match=match):
@@ -551,7 +641,7 @@ class TestSourceCatalog:
 
     def test_masks(self):
         """
-        Test masks, including automatic masking of all non-finite (e.g.,
+        Test masks, including automatic masking of all nonfinite (e.g.,
         NaN, inf) values in the data array.
         """
         data = np.copy(self.data)
@@ -618,6 +708,38 @@ class TestSourceCatalog:
         with pytest.raises(ValueError, match=match):
             SourceCatalog(self.data, self.segm, detection_catalog=cat)
 
+    def test_detection_catalog_segment_flux_localbkg(self):
+        """
+        Test that the segment_flux local-background subtraction uses
+        the measurement catalog's unmasked pixel count when a detection
+        catalog with a different mask is input.
+
+        Regression test for a bug where the local background was
+        multiplied by the detection catalog's "area" property, which
+        counts pixels that are masked (and thus not summed) in the
+        measurement catalog.
+        """
+        yy, xx = np.mgrid[0:101, 0:101]
+        g1 = Gaussian2D(100, 50, 50, 5, 5)
+        data = g1(xx, yy)
+        segm = detect_sources(data, 10.0, n_pixels=5)
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[48:52, 48:52] = True
+
+        det_cat = SourceCatalog(data, segm, local_bkg_width=4)
+        meas_cat = SourceCatalog(data + 3.0, segm, mask=mask,
+                                 local_bkg_width=4,
+                                 detection_catalog=det_cat)
+
+        # The detection-catalog area includes the masked pixels
+        values = meas_cat._data_values.values[0]
+        n_pixels = len(values)
+        assert meas_cat.area.value[0] > n_pixels
+
+        localbkg = meas_cat._local_background[0]
+        expected = np.sum(values) - n_pixels * localbkg
+        assert_allclose(meas_cat.segment_flux[0], expected)
+
     def test_kron_minradius(self):
         """
         Test kron minradius.
@@ -659,6 +781,33 @@ class TestSourceCatalog:
         """
         cat = SourceCatalog(self.data - 10, self.segm)
         assert_allclose(cat.kron_radius.value, cat.kron_params[1])
+
+    def test_kron_radius_measured_negative(self):
+        """
+        Test that the measured Kron radius is NaN when the Kron sums
+        are not positive, while the minimum Kron radius is applied.
+        """
+        cat = SourceCatalog(self.data - 10, self.segm)
+        assert np.all(np.isnan(cat.kron_radius_measured))
+        assert_equal(cat.kron_radius.value, cat.kron_params[1])
+
+    def test_kron_radius_measured_detection_catalog(self):
+        """
+        Test that the measured Kron radius comes from the detection
+        catalog.
+        """
+        cat = SourceCatalog(self.data * 2.0 + 1.0, self.segm,
+                            detection_catalog=self.cat)
+        assert_equal(cat.kron_radius_measured,
+                     self.cat.kron_radius_measured)
+
+    def test_kron_radius_measured_scalar(self):
+        """
+        Test the measured Kron radius of a scalar catalog.
+        """
+        obj = self.cat[1]
+        assert obj.kron_radius_measured.isscalar
+        assert obj.kron_radius_measured == self.cat.kron_radius_measured[1]
 
     def test_kron_photometry(self):
         """
@@ -834,12 +983,19 @@ class TestSourceCatalog:
         assert 0.5 in cat._flux_radius_cache
         assert 0.3 in cat._flux_radius_cache
 
-        # Scalar slice preserves the cache
+        # Scalar slice preserves the cache, with the cached values kept
+        # as length-1 arrays (the same shape a scalar catalog stores
+        # when it computes flux_radius itself).
         obj = cat[1]
         assert 0.5 in obj._flux_radius_cache
         assert 0.3 in obj._flux_radius_cache
+        assert obj._flux_radius_cache[0.5].shape == (1,)
         r_sliced = obj.flux_radius(0.5)
+        assert r_sliced.isscalar
         assert_allclose(r_sliced.value, r_parent_05[1].value)
+        obj.flux_radius(0.5, name='r_hl')
+        assert obj.r_hl.isscalar
+        assert_allclose(obj.r_hl.value, r_parent_05[1].value)
         r_sliced_03 = obj.flux_radius(0.3)
         assert_allclose(r_sliced_03.value, r_parent_03[1].value)
 
@@ -866,43 +1022,6 @@ class TestSourceCatalog:
         # Modifying the parent cache does not affect the sliced cache
         cat.flux_radius(0.7)
         assert 0.7 not in obj._flux_radius_cache
-
-    def test_flux_radius_max_radius_delta(self):
-        """
-        Test that the max_radius_delta fallback loop reduces max_radius
-        by 10 percent on each failed bracketing attempt and still
-        returns a valid result when the second (reduced) bracket
-        succeeds.
-        """
-        # Use a single-source scalar catalog to keep the mock simple
-        cat = SourceCatalog(self.data, self.segm)[1]
-        assert cat.isscalar
-
-        brackets_seen = []
-        call_count = [0]
-
-        def mock_root_scalar(fcn, args, bracket, method):
-            call_count[0] += 1
-            brackets_seen.append(list(bracket))
-            if call_count[0] == 1:
-                # Simulate a bracket with no sign change
-                msg = 'no sign change in bracket'
-                raise ValueError(msg)
-            return root_scalar(fcn, args=args, bracket=bracket, method=method)
-
-        with patch('photutils.segmentation.catalog.root_scalar',
-                   mock_root_scalar):
-            r = cat.flux_radius(0.5)
-
-        # Fallback triggered once then succeeded
-        assert call_count[0] == 2
-
-        # Second bracket max_radius must be 10% smaller than the first
-        assert_allclose(brackets_seen[1][1], 0.9 * brackets_seen[0][1],
-                        rtol=1e-10)
-
-        # Result is a valid radius (not NaN)
-        assert np.isfinite(r.value)
 
     def test_flux_radius(self):
         """
@@ -951,7 +1070,7 @@ class TestSourceCatalog:
     @pytest.mark.parametrize('scalar', [True, False])
     def test_custom_properties(self, scalar):
         """
-        Test extra properties.
+        Test custom properties.
         """
         cat = SourceCatalog(self.data, self.segm)
         if scalar:
@@ -967,8 +1086,11 @@ class TestSourceCatalog:
             # Built-in property
             cat.add_property('label', segment_snr)
         with pytest.raises(ValueError, match=match):
-            # Built-in lazyproperty
+            # Built-in cached property
             cat.add_property('area', segment_snr)
+        with pytest.raises(ValueError, match=match):
+            # Built-in method, which must raise even with overwrite=True
+            cat.add_property('to_table', segment_snr, overwrite=True)
 
         cat.add_property('segment_snr', segment_snr)
 
@@ -1002,7 +1124,7 @@ class TestSourceCatalog:
         cat.rename_property('segment_snr', new_name)
         assert new_name in cat.custom_properties
 
-        # Key in extra_properties, but not a defined attribute
+        # Key in custom_properties, but not a defined attribute
         cat._custom_properties.append('invalid')
         match = 'already exists in the custom_properties attribute'
         with pytest.raises(ValueError, match=match):
@@ -1015,9 +1137,43 @@ class TestSourceCatalog:
         cat.add_property('segment_snr4', segment_snr, overwrite=True)
         cat.add_property('segment_snr4', segment_snr, overwrite=True)
 
+    def test_sliced_catalog_state_isolation(self):
+        """
+        Test that a sliced catalog does not share mutable state with its
+        parent catalog.
+
+        Regression test for a bug where ``__getitem__`` copied the
+        ``_custom_properties`` list (and other mutable containers) by
+        reference, so adding a custom property to a slice polluted the
+        parent's ``custom_properties`` list, breaking ``add_property``
+        and ``to_table`` on the parent for that name.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        obj = cat[0]
+        obj.add_property('foo', 1.0)
+        assert 'foo' in obj.custom_properties
+        assert 'foo' not in cat.custom_properties
+
+        # The parent must still be able to add and use the same name
+        cat.add_property('foo', np.arange(cat.n_labels))
+        tbl = cat.to_table(columns='foo')
+        assert_equal(tbl['foo'], np.arange(cat.n_labels))
+
+        # Parent additions must not leak into existing slices
+        cat.add_property('bar', np.arange(cat.n_labels))
+        assert 'bar' not in obj.custom_properties
+
+        # Other mutable containers must also be isolated
+        obj.meta['extra'] = 1
+        assert 'extra' not in cat.meta
+        obj.default_columns.append('foo')
+        assert 'foo' not in cat.default_columns
+        obj._aperture_mask_kwargs['circ']['method'] = 'center'
+        assert cat._aperture_mask_kwargs['circ']['method'] == 'exact'
+
     def test_custom_properties_invalid(self):
         """
-        Test extra properties invalid.
+        Test custom properties invalid.
         """
         cat = SourceCatalog(self.data, self.segm)
         match = 'value must have the same number of elements as the catalog'
@@ -1047,24 +1203,14 @@ class TestSourceCatalog:
         for attr in attrs:
             assert attr in self.cat.properties
 
-    def test_lazyproperties_class_cache(self):
+    def test_cached_properties_class_cache(self):
         """
-        Test that _lazyproperties is cached on the class and shared
+        Test that _cached_properties is cached on the class and shared
         across instances.
         """
         cat2 = SourceCatalog(self.data, self.segm)
-        result1 = self.cat._lazyproperties
-        result2 = cat2._lazyproperties
-        assert result1 is result2
-
-    def test_properties_class_cache(self):
-        """
-        Test that _properties is cached on the class and shared across
-        instances.
-        """
-        cat2 = SourceCatalog(self.data, self.segm)
-        result1 = self.cat._properties
-        result2 = cat2._properties
+        result1 = self.cat._cached_properties
+        result2 = cat2._cached_properties
         assert result1 is result2
 
     def test_copy(self):
@@ -1123,7 +1269,192 @@ class TestSourceCatalog:
         aper = obj.make_kron_apertures()
         assert isinstance(aper, EllipticalAperture)
 
-    @pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
+    def test_sky_bbox_corners(self):
+        """
+        Test that the sky bounding box vertices are at the outer pixel
+        corners of the bounding box.
+        """
+        cat = self.cat
+        xmin = cat.bbox_xmin - 0.5
+        xmax = cat.bbox_xmax + 0.5
+        ymin = cat.bbox_ymin - 0.5
+        ymax = cat.bbox_ymax + 0.5
+        corners = {'ll': (xmin, ymin), 'ul': (xmin, ymax),
+                   'lr': (xmax, ymin), 'ur': (xmax, ymax)}
+        for name, (xpos, ypos) in corners.items():
+            expected = self.wcs.pixel_to_world(xpos, ypos)
+            skycoord = getattr(cat, f'sky_bbox_{name}')
+            assert_allclose(skycoord.separation(expected).arcsec, 0.0,
+                            atol=1.0e-8)
+
+    def test_select_labels_sliced(self):
+        """
+        Test that select_label and select_labels on a sliced catalog
+        use the labels of the sliced catalog.
+        """
+        cat = self.cat[[0, 2, 4]]
+        assert_equal(cat.labels, (1, 3, 5))
+        assert cat.select_label(3).label == 3
+        assert_equal(cat.select_labels((5, 1)).labels, (5, 1))
+
+        # Labels 2 and 7 are in the segmentation image, but not in the
+        # sliced catalog
+        match = r'label \[2\] is invalid \(not in this catalog\)'
+        with pytest.raises(ValueError, match=match):
+            cat.select_label(2)
+        match = r'labels \[2, 7\] are invalid \(not in this catalog\)'
+        with pytest.raises(ValueError, match=match):
+            cat.select_labels((1, 7, 2))
+
+    def test_rename_property_invalid(self):
+        """
+        Test that renaming a name that is not a user-defined property
+        raises an error and leaves the catalog unchanged.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        cat.add_property('prop1', np.arange(len(cat)))
+        for name in ('area', 'not_a_property'):
+            match = f'{name} is not a defined property'
+            with pytest.raises(ValueError, match=match):
+                cat.rename_property(name, 'new_prop')
+            assert cat.custom_properties == ['prop1']
+            assert 'new_prop' not in cat.__dict__
+
+    @pytest.mark.parametrize('cat_kron_params', [(2.5, 1.4, 0.0),
+                                                 (2.5, 1.4)])
+    def test_make_kron_apertures_min_circ_radius(self, cat_kron_params):
+        """
+        Test that make_kron_apertures uses the minimum circular radius
+        of the input kron_params.
+        """
+        cat = SourceCatalog(self.data, self.segm,
+                            kron_params=cat_kron_params,
+                            aperture_mask_method='none')
+        kron_params = (2.5, 1.4, 20.0)
+        apertures = cat.make_kron_apertures(kron_params=kron_params)
+        circular = np.array([isinstance(aperture, CircularAperture)
+                             for aperture in apertures])
+        assert 0 < np.count_nonzero(circular) < len(cat)
+        for aperture in np.array(apertures, dtype=object)[circular]:
+            assert aperture.r == 20.0
+
+        # The apertures are those used by kron_photometry
+        kron_flux, _ = cat.kron_photometry(kron_params)
+        flux = []
+        for aperture in apertures:
+            aperture_mask = aperture.to_mask(method='exact')
+            weights = aperture_mask.to_image(self.data.shape)
+            flux.append(np.sum(weights * self.data))
+        assert_allclose(kron_flux, flux)
+
+        # The Kron apertures of the catalog, which have no minimum
+        # circular radius, are unchanged
+        for aperture in cat.kron_aperture:
+            assert isinstance(aperture, EllipticalAperture)
+
+    def test_make_kron_apertures_invalid(self):
+        """
+        Test that make_kron_apertures and plot_kron_apertures validate
+        the input kron_params.
+        """
+        match = r'kron_params\[0\] must be > 0'
+        with pytest.raises(ValueError, match=match):
+            self.cat.make_kron_apertures(kron_params=(-2.5, 1.4))
+        with pytest.raises(ValueError, match=match):
+            self.cat.plot_kron_apertures(kron_params=(-2.5, 1.4))
+        match = 'kron_params must have 2 or 3 elements'
+        with pytest.raises(ValueError, match=match):
+            self.cat.make_kron_apertures(kron_params=(2.5,))
+        with pytest.raises(ValueError, match=match):
+            self.cat.plot_kron_apertures(kron_params=(2.5,))
+
+    def test_flux_radius_detection_catalog(self):
+        """
+        Test that flux_radius with a detection catalog encloses the
+        fraction of the Kron flux measured in the catalog data.
+        """
+        # The measurement image has narrower sources and a pedestal
+        yy, xx = np.mgrid[0:101, 0:101]
+        data2 = (Gaussian2D(300.0, 51.0, 52.7, 5.0, 2.0,
+                            theta=np.pi / 6.0)(xx, yy)
+                 + Gaussian2D(90.0, 20, 80, 3.0, 2.5)(xx, yy)
+                 + Gaussian2D(150.0, 75, 18, 5.5, 3.0)(xx, yy)
+                 + Gaussian2D(200.0, 90, 90, 2.5, 1.5,
+                              theta=-np.pi / 6.0)(xx, yy) + 3.0)
+        detcat = SourceCatalog(self.data, self.segm, local_bkg_width=24)
+        det_radius = detcat.flux_radius(0.5).copy()
+        det_centroid_win = detcat.centroid_win.copy()
+        cat = SourceCatalog(data2, self.segm, local_bkg_width=10,
+                            detection_catalog=detcat)
+
+        fraction = 0.5
+        radius = cat.flux_radius(fraction)
+        labels = (1, 2, 6, 7)  # the sources in the measurement image
+        idx = np.searchsorted(cat.labels, labels)
+        assert np.all(np.isfinite(radius[idx]))
+        assert np.all(np.abs(radius[idx] - det_radius[idx]) > 0.3 * u.pix)
+
+        # The radius encloses the fraction of the Kron flux of the
+        # catalog, measured in the catalog data with the catalog local
+        # background at the detection catalog centroid
+        for i in idx:
+            flux, _ = cat.circular_photometry(radius[i].value)
+            assert_allclose(flux[i], fraction * cat.kron_flux[i],
+                            rtol=1.0e-5)
+
+        # A catalog sliced before the measurement gives the same radius
+        cat2 = SourceCatalog(data2, self.segm, local_bkg_width=10,
+                             detection_catalog=detcat)
+        assert_equal(cat2[idx[1]].flux_radius(fraction), radius[idx[1]])
+
+        # The windowed centroid is that of the detection catalog, which
+        # uses the half-light radius of the detection catalog
+        assert_equal(detcat.flux_radius(0.5), det_radius)
+        assert_equal(cat.centroid_win, det_centroid_win)
+
+    def test_local_background_aperture_detection_catalog(self):
+        """
+        Test that local_background_aperture uses the local_bkg_width of
+        the catalog instead of that of the detection catalog.
+        """
+        detcat = SourceCatalog(self.data, self.segm, local_bkg_width=24)
+        cat = SourceCatalog(self.data, self.segm, local_bkg_width=10,
+                            detection_catalog=detcat)
+        for aperture, det_aperture in zip(cat.local_background_aperture,
+                                          detcat.local_background_aperture,
+                                          strict=True):
+            assert_allclose(aperture.w_out - aperture.w_in, 20.0)
+            assert_allclose(aperture.h_out - aperture.h_in, 20.0)
+            assert aperture.w_in == det_aperture.w_in
+            assert_allclose(det_aperture.w_out - det_aperture.w_in, 48.0)
+
+        cat = SourceCatalog(self.data, self.segm, local_bkg_width=0,
+                            detection_catalog=detcat)
+        assert cat.local_background_aperture[0] is None
+        assert_equal(cat.local_background, 0.0)
+
+    @pytest.mark.parametrize('dtype', [int, np.uint8, float])
+    def test_non_boolean_mask(self, dtype):
+        """
+        Test that a nonboolean mask gives the same catalog as the
+        equivalent boolean mask.
+        """
+        kwargs = {'error': self.error, 'local_bkg_width': 24}
+        cat1 = SourceCatalog(self.data, self.segm, mask=self.mask, **kwargs)
+        cat2 = SourceCatalog(self.data, self.segm,
+                             mask=self.mask.astype(dtype), **kwargs)
+        assert cat1._mask is self.mask
+        assert np.isnan(cat1.segment_flux[0])
+        props = ('segment_flux', 'segment_flux_err', 'centroid', 'area',
+                 'semimajor_axis', 'min_value', 'max_value',
+                 'local_background', 'kron_flux', 'kron_flux_err',
+                 'centroid_win', 'centroid_quad', 'flags')
+        for prop in props:
+            assert_equal(getattr(cat2, prop), getattr(cat1, prop))
+        for cutout1, cutout2 in zip(cat1.data_cutout_masked,
+                                    cat2.data_cutout_masked, strict=True):
+            assert_equal(cutout2.mask, cutout1.mask)
+
     def test_make_cutouts(self):
         """
         Test make cutouts.
@@ -1137,7 +1468,7 @@ class TestSourceCatalog:
         kernel = make_2dgaussian_kernel(3.0, size=5)
         convolved_data = convolve(data, kernel)
         n_pixels = 10
-        finder = SourceFinder(n_pixels=n_pixels, progress_bar=False)
+        finder = SourceFinder(n_pixels=n_pixels)
         segment_map = finder(convolved_data, threshold)
         cat = SourceCatalog(data, segment_map, convolved_data=convolved_data)
 
@@ -1217,7 +1548,7 @@ class TestSourceCatalog:
         """
         Test meta aliases for deprecated keyword names.
         """
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             cat = SourceCatalog(self.data, self.segm, error=self.error,
                                 background=self.background, mask=self.mask,
                                 wcs=self.wcs, localbkg_width=24,
@@ -1238,7 +1569,7 @@ class TestSourceCatalog:
 
         monkeypatch.setattr(photutils, 'future_column_names', True)
 
-        with pytest.warns(AstropyDeprecationWarning) as record:
+        with pytest.warns(PhotutilsDeprecationWarning) as record:
             cat = SourceCatalog(self.data, self.segm, error=self.error,
                                 background=self.background, mask=self.mask,
                                 wcs=self.wcs, localbkg_width=24,
@@ -1281,7 +1612,894 @@ class TestSourceCatalog:
         assert_allclose(cat.fwhm, [0.67977799, np.nan] * u.pix)
 
 
-@pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
+class TestSourceCatalogFlags:
+    """
+    Tests for the SourceCatalog flags property.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        yy, xx = np.mgrid[0:51, 0:51]
+        # Interior source and edge-touching source
+        interior = Gaussian2D(100, 25, 25, 3, 3)(xx, yy)
+        edge = Gaussian2D(100, 2, 40, 3, 3)(xx, yy)
+        self.data = interior + edge
+        self.segm = detect_sources(self.data, 10, 5)
+        assert self.segm.n_labels == 2
+
+    def test_flags_zero(self):
+        """
+        Test that flags are zero for clean interior sources.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        interior_idx = np.argmax(cat.bbox_xmin > 0)
+        assert cat.flags[interior_idx] == 0
+
+    def test_edge_touch(self):
+        """
+        Test the edge_touch flag for a source segment touching the image
+        boundary.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        edge_bits = cat.flags & SEGMENTATION_FLAGS.EDGE_TOUCH
+        assert np.count_nonzero(edge_bits) == 1
+
+    def test_masked_pixels(self):
+        """
+        Test the masked_pixels flag for input-masked pixels within the
+        source segment.
+        """
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[25, 25] = True  # inside the interior source
+        cat = SourceCatalog(self.data, self.segm, mask=mask)
+        idx = np.argmax(cat.bbox_xmin > 0)
+        assert cat.flags[idx] & SEGMENTATION_FLAGS.MASKED_PIXELS
+        other = 1 - idx
+        assert not (cat.flags[other]
+                    & SEGMENTATION_FLAGS.MASKED_PIXELS)
+
+    def test_non_finite_data(self):
+        """
+        Test the non_finite_data flag.
+        """
+        data = self.data.copy()
+        data[25, 25] = np.nan
+        cat = SourceCatalog(data, self.segm)
+        idx = np.argmax(cat.bbox_xmin > 0)
+        assert cat.flags[idx] & SEGMENTATION_FLAGS.NON_FINITE_DATA
+        other = 1 - idx
+        assert not (cat.flags[other]
+                    & SEGMENTATION_FLAGS.NON_FINITE_DATA)
+
+    def test_non_finite_error(self):
+        """
+        Test the non_finite_error flag.
+        """
+        error = np.ones(self.data.shape)
+        error[25, 25] = np.inf
+        cat = SourceCatalog(self.data, self.segm, error=error)
+        idx = np.argmax(cat.bbox_xmin > 0)
+        assert cat.flags[idx] & SEGMENTATION_FLAGS.NON_FINITE_ERROR
+        other = 1 - idx
+        assert not (cat.flags[other]
+                    & SEGMENTATION_FLAGS.NON_FINITE_ERROR)
+
+    def test_masked_non_finite_pixel(self):
+        """
+        Test that a pixel that is both input-masked and nonfinite
+        sets the masked_pixels, non_finite_data, and non_finite_error
+        flags together.
+        """
+        data = self.data.copy()
+        data[25, 25] = np.nan
+        error = np.ones(self.data.shape)
+        error[25, 25] = np.nan
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[25, 25] = True
+        cat = SourceCatalog(data, self.segm, error=error, mask=mask)
+        idx = np.argmax(cat.bbox_xmin > 0)
+        expected = (SEGMENTATION_FLAGS.MASKED_PIXELS
+                    | SEGMENTATION_FLAGS.NON_FINITE_DATA
+                    | SEGMENTATION_FLAGS.NON_FINITE_ERROR)
+        assert cat.flags[idx] & expected == expected
+        other = 1 - idx
+        assert not (cat.flags[other] & expected)
+
+        # The flags are sliced with the catalog
+        assert cat[idx].flags & expected == expected
+
+    def test_all_masked(self):
+        """
+        Test the all_masked flag when every segment pixel is masked.
+        """
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[self.segm.data == self.segm.labels[0]] = True
+        cat = SourceCatalog(self.data, self.segm, mask=mask)
+        assert cat.flags[0] & SEGMENTATION_FLAGS.ALL_MASKED
+
+    def test_undefined_shape(self):
+        """
+        Test the undefined_shape flag for a source with nonpositive
+        net flux.
+        """
+        data = np.zeros((11, 11))
+        data[3:8, 3:8] = -1.0
+        segm_data = np.zeros((11, 11), dtype=int)
+        segm_data[3:8, 3:8] = 1
+        cat = SourceCatalog(data, SegmentationImage(segm_data))
+        assert cat.flags[0] & SEGMENTATION_FLAGS.UNDEFINED_SHAPE
+
+    def test_undefined_shape_not_set(self):
+        """
+        Test that undefined_shape is not set for a normal source.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        assert not np.any(cat.flags
+                          & SEGMENTATION_FLAGS.UNDEFINED_SHAPE)
+
+    def test_singular_covariance(self):
+        """
+        Test the singular_covariance flag for a one-pixel-wide source.
+        """
+        data = np.zeros((11, 11))
+        data[5, 2:9] = 10.0
+        segm_data = np.zeros((11, 11), dtype=int)
+        segm_data[5, 2:9] = 1
+        cat = SourceCatalog(data, SegmentationImage(segm_data))
+        assert cat.flags[0] & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+
+    def test_singular_covariance_elongated(self):
+        """
+        Test the singular_covariance flag for an elongated source that
+        is unresolved along only its minor axis.
+
+        The covariance determinant of such a source exceeds
+        ``(1/12)**2``, so it is flagged only by the minor-axis variance
+        test. The minor-axis variance is raised to the 1/12 single-pixel
+        floor while the resolved major axis and the orientation are
+        unchanged.
+        """
+        data = np.zeros((11, 11))
+        data[4, 2:9] = 0.04
+        data[5, 2:9] = 1.0
+        data[6, 2:9] = 0.04
+        segm_data = np.zeros((11, 11), dtype=int)
+        segm_data[4:7, 2:9] = 1
+        cat = SourceCatalog(data, SegmentationImage(segm_data))
+        assert cat.flags[0] & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+
+        # The raw variances are 4 along x (seven pixels of equal flux)
+        # and 0.08 / 1.08 along y, which is below 1/12.
+        assert_allclose(cat.semiminor_axis.value[0], np.sqrt(1 / 12))
+        assert_allclose(cat.semimajor_axis.value[0], 2.0)
+        assert_allclose(cat.orientation.value[0], 0.0, atol=1e-12)
+        assert_allclose(cat.covariance.value[0],
+                        [[4.0, 0.0], [0.0, 1 / 12]], atol=1e-12)
+
+    @pytest.mark.parametrize(('step', 'angle'),
+                             [((1, 1), 45.0), ((3, 1), 18.434948822922),
+                              ((3, 2), 33.690067525980)])
+    def test_singular_covariance_tilted_line(self, step, angle):
+        """
+        Test a tilted line that is one pixel wide.
+
+        Its covariance matrix has rank 1, so its determinant is zero
+        apart from rounding, which can make it slightly negative. The
+        shape must be regularized and not set to NaN.
+        """
+        step_x, step_y = step
+        data = np.zeros((41, 41))
+        segm_data = np.zeros(data.shape, dtype=int)
+        for i in range(6):
+            data[5 + i * step_y, 5 + i * step_x] = 1.0 + i
+            segm_data[5 + i * step_y, 5 + i * step_x] = 1
+        cat = SourceCatalog(data, SegmentationImage(segm_data))
+        assert cat.flags[0] & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+        assert_allclose(cat.semiminor_axis.value[0], np.sqrt(1 / 12))
+        assert cat.semimajor_axis.value[0] > 1.0
+        assert_allclose(cat.orientation.value[0], angle)
+
+    def test_singular_covariance_isotropic(self):
+        """
+        Test a tilted source that is unresolved along both axes.
+
+        Both variances are raised to the 1/12 floor, so the source is
+        isotropic and its orientation is exactly zero.
+        """
+        data = np.zeros((11, 11))
+        data[5, 5] = 97.0
+        data[6, 6] = 3.0
+        segm_data = np.zeros(data.shape, dtype=int)
+        segm_data[5, 5] = 1
+        segm_data[6, 6] = 1
+        cat = SourceCatalog(data, SegmentationImage(segm_data))
+        assert cat.flags[0] & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+        assert_equal(cat.covariance.value[0], np.eye(2) / 12)
+        assert cat.orientation.value[0] == 0.0
+        assert cat.eccentricity[0] == 0.0
+
+    def test_singular_covariance_not_set(self):
+        """
+        Test that singular_covariance is not set for a well-resolved
+        source.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        assert not np.any(cat.flags
+                          & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE)
+
+    def test_centroid_fallbacks_fully_masked(self):
+        """
+        Test that a fully-masked source reports both centroid fallbacks
+        (windowed centroid NaN, quadratic centroid NaN).
+        """
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[self.segm.data == self.segm.labels[0]] = True
+        cat = SourceCatalog(self.data, self.segm, mask=mask)
+        assert np.all(np.isnan(cat.centroid_quad[0]))
+        assert cat.centroid_win_fallback[0]
+        assert cat.centroid_quad_fallback[0]
+
+    def test_centroid_fallbacks_fully_masked_small(self):
+        """
+        Test that a fully-masked source smaller than the 3x3 quadratic
+        fit box reports both centroid fallbacks.
+        """
+        data = np.zeros((21, 21))
+        data[5:7, 5:7] = 10.0
+        segm_data = np.zeros((21, 21), dtype=int)
+        segm_data[5:7, 5:7] = 1
+        mask = segm_data.astype(bool)
+        cat = SourceCatalog(data, SegmentationImage(segm_data),
+                            mask=mask)
+        assert cat.centroid_win_fallback
+        assert cat.centroid_quad_fallback
+
+    def test_centroid_fallbacks_not_set(self):
+        """
+        Test that the centroid fallbacks are not set for clean resolved
+        sources, and that computing the flags does not compute the
+        windowed or quadratic centroids.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        cat.flags  # noqa: B018
+        assert '_centroid_win_results' not in cat.__dict__
+        assert '_centroid_quad_results' not in cat.__dict__
+        assert not np.any(cat.centroid_win_fallback)
+        assert not np.any(cat.centroid_quad_fallback)
+
+    def test_centroid_quad_fallback(self):
+        """
+        Test that centroid_quad_fallback marks the peak pixel and
+        isophotal substitutions, whose values are finite.
+        """
+        data = np.zeros((30, 30))
+        segm_data = np.zeros((30, 30), dtype=int)
+        # Peak on the segment edge (the peak pixel is returned)
+        data[2:7, 2:7] = 1.0 + np.arange(5)
+        segm_data[2:7, 2:7] = 1
+        # A saddle without a maximum (the isophotal centroid is
+        # returned)
+        yy, xx = np.mgrid[-2:3, -2:3]
+        data[12:17, 12:17] = 10.0 + xx**2 - yy**2 + 0.1 * (xx == 0)
+        segm_data[12:17, 12:17] = 2
+        # A well-sampled peak (the fit is used)
+        y, x = np.mgrid[0:30, 0:30]
+        data += 10 * np.exp(-((x - 23.3)**2 + (y - 23.6)**2) / 4.0)
+        segm_data[20:27, 20:27] = 3
+        cat = SourceCatalog(data, SegmentationImage(segm_data))
+
+        assert_equal(cat.centroid_quad_fallback, [True, True, False])
+        assert np.all(np.isfinite(cat.centroid_quad))
+        assert_equal(cat.centroid_quad[0], [6.0, 2.0])
+        assert_allclose(cat.centroid_quad[2], [23.3, 23.6], atol=0.05)
+
+    def test_kron_partial_overlap(self):
+        """
+        Test the kron_partial_overlap flag when the Kron aperture
+        extends beyond the image while the segment does not.
+        """
+        yy, xx = np.mgrid[0:41, 0:41]
+        data = Gaussian2D(100, 6, 20, 3, 3)(xx, yy)
+        segm = detect_sources(data, 25, 5)  # compact segment
+        cat = SourceCatalog(data, segm)
+        assert not (cat.flags[0] & SEGMENTATION_FLAGS.EDGE_TOUCH)
+        assert (cat.flags[0]
+                & SEGMENTATION_FLAGS.KRON_PARTIAL_OVERLAP)
+
+    def test_kron_partial_overlap_not_set(self):
+        """
+        Test that kron_partial_overlap is not set for a source whose
+        Kron aperture is completely inside the image.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        idx = np.argmax(cat.bbox_xmin > 0)
+        assert not (cat.flags[idx]
+                    & SEGMENTATION_FLAGS.KRON_PARTIAL_OVERLAP)
+
+    @staticmethod
+    def _make_deblended_pair():
+        """
+        Make the data and deblended segmentation image for a pair of
+        overlapping sources.
+        """
+        yy, xx = np.mgrid[0:61, 0:61]
+        data = (Gaussian2D(100, 25, 30, 4, 4)(xx, yy)
+                + Gaussian2D(100, 38, 30, 4, 4)(xx, yy))
+        segm = detect_sources(data, 10, 5)
+        return data, deblend_sources(data, segm, 5)
+
+    def test_kron_neighbor_pixels(self):
+        """
+        Test the kron_neighbor_pixels flag when a neighbor segment falls
+        within the Kron aperture.
+        """
+        data, segm = self._make_deblended_pair()
+        cat = SourceCatalog(data, segm, aperture_mask_method='correct')
+        assert np.all(cat.flags
+                      & SEGMENTATION_FLAGS.KRON_NEIGHBOR_PIXELS)
+
+    def test_kron_uncorrected_pixels(self):
+        """
+        Test the kron_uncorrected_pixels flag for neighbor pixels within
+        the Kron aperture that could not be replaced by a mirrored
+        value.
+        """
+        data, segm = self._make_deblended_pair()
+        cat = SourceCatalog(data, segm, aperture_mask_method='correct')
+        assert np.all(cat.flags
+                      & SEGMENTATION_FLAGS.KRON_UNCORRECTED_PIXELS)
+
+        # Neighboring sources are neither masked nor corrected
+        cat2 = SourceCatalog(data, segm, aperture_mask_method='none')
+        bits = (SEGMENTATION_FLAGS.KRON_NEIGHBOR_PIXELS
+                | SEGMENTATION_FLAGS.KRON_UNCORRECTED_PIXELS)
+        assert not np.any(cat2.flags & bits)
+
+        # Neighboring sources are masked, not corrected, so no pixels
+        # are left uncorrected
+        cat3 = SourceCatalog(data, segm, aperture_mask_method='mask')
+        assert np.all(cat3.flags
+                      & SEGMENTATION_FLAGS.KRON_NEIGHBOR_PIXELS)
+        assert not np.any(cat3.flags
+                          & SEGMENTATION_FLAGS.KRON_UNCORRECTED_PIXELS)
+
+    def test_kron_neighbor_pixels_not_set(self):
+        """
+        Test that kron_neighbor_pixels is not set when the Kron aperture
+        contains no neighboring source pixels.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        assert not np.any(cat.flags
+                          & SEGMENTATION_FLAGS.KRON_NEIGHBOR_PIXELS)
+
+    def test_kron_masked_pixels(self):
+        """
+        Test the kron_masked_pixels flag for a masked pixel inside the
+        Kron aperture but outside the segment.
+        """
+        cat0 = SourceCatalog(self.data, self.segm)
+        interior_idx = np.argmax(cat0.bbox_xmin > 0)
+        # Mask a pixel just outside the segment bbox, inside the
+        # Kron aperture of the interior source
+        x_out = int(cat0.bbox_xmax[interior_idx]) + 1
+        y_cen = int(cat0.bbox_ymin[interior_idx]
+                    + cat0.bbox_ymax[interior_idx]) // 2
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[y_cen, x_out] = True
+        cat = SourceCatalog(self.data, self.segm, mask=mask)
+        assert (cat.flags[interior_idx]
+                & SEGMENTATION_FLAGS.KRON_MASKED_PIXELS)
+        assert not (cat.flags[interior_idx]
+                    & SEGMENTATION_FLAGS.MASKED_PIXELS)
+        assert not (cat.flags[interior_idx]
+                    & SEGMENTATION_FLAGS.KRON_NON_FINITE_DATA)
+
+    def test_kron_non_finite_data(self):
+        """
+        Test the kron_non_finite_data flag for a nonfinite pixel inside
+        the Kron aperture but outside the segment.
+        """
+        cat0 = SourceCatalog(self.data, self.segm)
+        interior_idx = np.argmax(cat0.bbox_xmin > 0)
+        x_out = int(cat0.bbox_xmax[interior_idx]) + 1
+        y_cen = int(cat0.bbox_ymin[interior_idx]
+                    + cat0.bbox_ymax[interior_idx]) // 2
+        data = self.data.copy()
+        data[y_cen, x_out] = np.nan
+        cat = SourceCatalog(data, self.segm)
+        flags = cat.flags[interior_idx]
+        assert flags & SEGMENTATION_FLAGS.KRON_NON_FINITE_DATA
+        assert not flags & SEGMENTATION_FLAGS.KRON_MASKED_PIXELS
+        assert not flags & SEGMENTATION_FLAGS.NON_FINITE_DATA
+
+    def test_local_bkg_too_few_pixels(self):
+        """
+        Test the local_bkg_too_few_pixels flag, including that it is
+        not set without a local background and that slicing keeps it.
+        """
+        data = np.zeros((31, 31))
+        data[4:7, 4:7] = 100.0
+        data[20:23, 20:23] = 100.0
+        segm_data = np.zeros(data.shape, dtype=int)
+        segm_data[4:7, 4:7] = 1
+        segm_data[20:23, 20:23] = 2
+        segm = SegmentationImage(segm_data)
+        # Mask everything around the first source except its segment
+        # and inner rectangle, leaving no usable annulus pixels
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[:12, :12] = True
+        mask[3:8, 3:8] = False
+        bit = SEGMENTATION_FLAGS.LOCAL_BKG_TOO_FEW_PIXELS
+
+        cat = SourceCatalog(data, segm, mask=mask)
+        assert not np.any(cat.flags & bit)
+
+        cat = SourceCatalog(data, segm, mask=mask, local_bkg_width=2)
+        assert_equal((cat.flags & bit) > 0, [True, False])
+        assert_equal(cat.local_background, [0.0, 0.0])
+
+        # Slicing before and after the flags are computed
+        cat = SourceCatalog(data, segm, mask=mask, local_bkg_width=2)
+        assert cat[0].flags & bit
+        assert not cat[1].flags & bit
+        cat.flags  # noqa: B018
+        assert cat[0].flags & bit
+        assert_equal((cat[[1, 0]].flags & bit) > 0, [False, True])
+
+    def test_kron_non_finite_error(self):
+        """
+        Test the kron_non_finite_error flag for a nonfinite error value
+        inside the Kron aperture but outside the segment.
+        """
+        cat0 = SourceCatalog(self.data, self.segm)
+        interior_idx = np.argmax(cat0.bbox_xmin > 0)
+        x_out = int(cat0.bbox_xmax[interior_idx]) + 1
+        y_cen = int(cat0.bbox_ymin[interior_idx]
+                    + cat0.bbox_ymax[interior_idx]) // 2
+        error = np.ones(self.data.shape)
+        cat = SourceCatalog(self.data, self.segm, error=error)
+        assert not np.any(cat.flags
+                          & SEGMENTATION_FLAGS.KRON_NON_FINITE_ERROR)
+
+        error[y_cen, x_out] = np.nan
+        cat = SourceCatalog(self.data, self.segm, error=error)
+        flags = cat.flags[interior_idx]
+        assert flags & SEGMENTATION_FLAGS.KRON_NON_FINITE_ERROR
+        assert not flags & SEGMENTATION_FLAGS.NON_FINITE_ERROR
+        assert np.isfinite(cat.kron_flux[interior_idx])
+        assert np.isnan(cat.kron_flux_err[interior_idx])
+
+    def test_kron_undefined(self):
+        """
+        Test the kron_undefined flag for a fully-masked source (whose
+        Kron aperture is undefined).
+        """
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[self.segm.data == self.segm.labels[0]] = True
+        cat = SourceCatalog(self.data, self.segm, mask=mask)
+        assert cat.kron_aperture[0] is None
+        assert cat.flags[0] & SEGMENTATION_FLAGS.KRON_UNDEFINED
+
+    @pytest.mark.parametrize('local_bkg_width', [0, 5])
+    def test_kron_undefined_detection_catalog(self, local_bkg_width):
+        """
+        Test the kron_undefined flag for a source that is fully masked
+        in the catalog, but not in its detection catalog.
+        """
+        mask = np.zeros(self.data.shape, dtype=bool)
+        mask[self.segm.data == self.segm.labels[0]] = True
+        error = np.ones(self.data.shape)
+        detcat = SourceCatalog(self.data, self.segm)
+        cat = SourceCatalog(self.data, self.segm, error=error, mask=mask,
+                            local_bkg_width=local_bkg_width,
+                            detection_catalog=detcat)
+        assert cat.kron_aperture[0] is not None
+        assert np.isnan(cat.kron_flux[0])
+        assert np.isnan(cat.kron_flux_err[0])
+        flags = cat.flags[0]
+        assert flags & SEGMENTATION_FLAGS.ALL_MASKED
+        assert flags & SEGMENTATION_FLAGS.KRON_UNDEFINED
+        assert not flags & SEGMENTATION_FLAGS.KRON_NON_FINITE_DATA
+        names = cat.decode_flags()[cat.labels[0]]
+        assert names == ['masked_pixels', 'all_masked', 'kron_undefined']
+
+        # The other source is measured
+        assert np.isfinite(cat.kron_flux[1])
+        assert np.isfinite(cat.kron_flux_err[1])
+        assert not cat.flags[1] & SEGMENTATION_FLAGS.KRON_UNDEFINED
+
+    @pytest.mark.parametrize('circular', [False, True])
+    def test_kron_undefined_oversized(self, circular):
+        """
+        Test the kron_undefined flag when the Kron photometry is skipped
+        because the aperture is too large.
+        """
+        if circular:
+            # A huge minimum circular radius makes every Kron aperture
+            # the circle of that radius
+            cat = SourceCatalog(self.data, self.segm,
+                                kron_params=(2.5, 1.4, 2000.0))
+            assert np.all(cat.kron_radius.value == 0)
+            assert np.all(cat.flags & SEGMENTATION_FLAGS.KRON_UNDEFINED)
+        else:
+            # A huge semimajor axis with a normal Kron radius makes a
+            # huge Kron ellipse
+            cat = SourceCatalog(self.data, self.segm)
+            huge = np.full(cat.n_labels, 2000.0) << u.pix
+            kron_radius = np.full(cat.n_labels, 1.5)
+            with (patch.object(type(cat), 'semimajor_axis',
+                               new_callable=lambda: property(
+                                   lambda _self: huge)),
+                  patch.object(type(cat), 'semiminor_axis',
+                               new_callable=lambda: property(
+                                   lambda _self: huge)),
+                  patch.object(type(cat), '_measured_kron_radius',
+                               new_callable=lambda: property(
+                                   lambda _self: kron_radius))):
+                assert np.all(cat.flags
+                              & SEGMENTATION_FLAGS.KRON_UNDEFINED)
+
+    def test_kron_no_overlap(self):
+        """
+        Test the kron_no_overlap flag when the Kron aperture is
+        completely outside the data array.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        _ = cat.kron_radius  # measure the Kron radii before moving
+        cat.__dict__['x_centroid'] = np.full(cat.n_labels, -1000.0)
+        cat.__dict__['y_centroid'] = np.full(cat.n_labels, -1000.0)
+        assert np.all(cat.flags & SEGMENTATION_FLAGS.KRON_NO_OVERLAP)
+
+    def test_kron_no_overlap_zero_weights(self):
+        """
+        Test the kron_no_overlap flag when the Kron aperture bounding
+        box overlaps the data, but no pixel within the data has a
+        nonzero aperture weight.
+        """
+        # A minimum circular radius of 11 makes every Kron aperture a
+        # circle of that radius, then centered at (-11.5, -11.5) its
+        # bounding box reaches the first data column, but no pixel
+        # center lies within the circle
+        cat = SourceCatalog(self.data, self.segm,
+                            kron_params=(2.5, 1.4, 11.0))
+        assert np.all(cat.kron_radius.value == 0)
+        cat.__dict__['x_centroid'] = np.full(cat.n_labels, -11.5)
+        cat.__dict__['y_centroid'] = np.full(cat.n_labels, -11.5)
+        assert np.all(np.isnan(cat.kron_flux))
+        assert np.all(cat.flags & SEGMENTATION_FLAGS.KRON_NO_OVERLAP)
+        assert not np.any(cat.flags
+                          & SEGMENTATION_FLAGS.KRON_PARTIAL_OVERLAP)
+
+    def test_kron_minimum_radius(self):
+        """
+        Test the kron_minimum_radius flag when the measured Kron radius
+        is clipped to the kron_params minimum.
+        """
+        # A large minimum unscaled Kron radius forces clipping for
+        # every source
+        cat = SourceCatalog(self.data, self.segm,
+                            kron_params=(2.5, 5.9, 0.0))
+        assert np.all(cat.flags
+                      & SEGMENTATION_FLAGS.KRON_MINIMUM_RADIUS)
+
+        # The default minimum is not triggered by these resolved
+        # sources. The measured unscaled Kron radii are approximately
+        # [1.4318, 1.4058] against the default minimum of 1.4, a margin
+        # of about 0.006 for the smaller value. A future failure here
+        # likely indicates a fixture-tolerance drift rather than a flag
+        # regression.
+        cat2 = SourceCatalog(self.data, self.segm)
+        assert not np.any(cat2.flags
+                          & SEGMENTATION_FLAGS.KRON_MINIMUM_RADIUS)
+
+    def test_kron_minimum_circular_radius(self):
+        """
+        Test the kron_minimum_radius flag when the minimum circular
+        aperture is used (kron_radius set to zero).
+        """
+        # A large minimum circular radius forces the circular fallback
+        # for every source
+        cat = SourceCatalog(self.data, self.segm,
+                            kron_params=(2.5, 1.4, 50.0))
+        assert_equal(cat.kron_radius.value, np.zeros(2))
+        assert np.all(cat.flags
+                      & SEGMENTATION_FLAGS.KRON_MINIMUM_RADIUS)
+
+    def test_kron_minimum_radius_detection_catalog(self):
+        """
+        Test that the kron_minimum_radius flag follows the kron_params
+        of the detection catalog, which measures the Kron radii.
+
+        A detection catalog overrides the input ``kron_params``, so
+        the minimum radius of the detection catalog is the one that is
+        applied.
+        """
+        # The detection catalog does not apply its minimum, even though
+        # the measured radii are below the requested minimum.
+        detcat = SourceCatalog(self.data, self.segm,
+                               kron_params=(2.5, 1.4))
+        cat = SourceCatalog(self.data, self.segm,
+                            kron_params=(2.5, 5.9),
+                            detection_catalog=detcat)
+        assert cat.kron_params == detcat.kron_params
+        assert not np.any(cat.flags
+                          & SEGMENTATION_FLAGS.KRON_MINIMUM_RADIUS)
+
+        # The detection catalog applies its minimum to every source
+        detcat2 = SourceCatalog(self.data, self.segm,
+                                kron_params=(2.5, 5.9))
+        cat2 = SourceCatalog(self.data, self.segm,
+                             kron_params=(2.5, 1.4),
+                             detection_catalog=detcat2)
+        assert cat2.kron_params == detcat2.kron_params
+        assert np.all(cat2.flags
+                      & SEGMENTATION_FLAGS.KRON_MINIMUM_RADIUS)
+
+    def test_kron_minimum_radius_two_element_params(self):
+        """
+        Test the kron_minimum_radius flag with a two-element kron_params
+        (no minimum circular radius).
+        """
+        cat = SourceCatalog(self.data, self.segm,
+                            kron_params=(2.5, 5.9))
+        assert np.all(cat.flags
+                      & SEGMENTATION_FLAGS.KRON_MINIMUM_RADIUS)
+
+    def test_provenance_from_deblending(self):
+        """
+        Test that deblending provenance flags propagate into the catalog
+        flags.
+        """
+        yy, xx = np.mgrid[0:101, 0:101]
+        data = (Gaussian2D(100, 50, 50, 5, 5)(xx, yy)
+                + Gaussian2D(100, 35, 50, 5, 5)(xx, yy))
+        segm = detect_sources(data, 10, 5)
+        segm2 = deblend_sources(data, segm, 5)
+        cat = SourceCatalog(data, segm2)
+        assert np.all(cat.flags & SEGMENTATION_FLAGS.DEBLENDED)
+
+    def test_flags_in_table(self):
+        """
+        Test that flags is a default table column with int values.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        tbl = cat.to_table()
+        assert 'flags' in tbl.colnames
+        assert np.issubdtype(tbl['flags'].dtype, np.integer)
+
+    def test_flags_slicing(self):
+        """
+        Test that flags slice consistently with the catalog.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        flags = cat.flags
+        assert cat[1:].flags[0] == flags[1]
+
+    def test_flags_scalar_fresh(self):
+        """
+        Test that a scalar catalog sliced before the parent catalog's
+        flags are cached computes a flags value that matches the parent
+        catalog's flags.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        scalar_cat = cat[0]  # slice before flags is accessed/cached
+        assert scalar_cat.flags == cat.flags[0]
+
+    def test_flags_scalar_cached(self):
+        """
+        Test that a scalar catalog sliced after the parent catalog's
+        flags are already cached carries the matching flags value.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        flags = cat.flags  # cache flags on the parent catalog
+        scalar_cat = cat[0]  # slice after flags is cached
+        assert scalar_cat.flags == flags[0]
+
+    def test_flags_docstring_lists_all_flags(self):
+        """
+        Test that the flags docstring documents every flag name.
+        """
+        doc = SourceCatalog.flags.func.__doc__
+        for name in SEGMENTATION_FLAGS.names:
+            assert name in doc
+
+    def test_decode_flags(self):
+        """
+        Test that decode_flags returns a dictionary mapping each
+        source label to its active flag names.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        decoded = cat.decode_flags()
+        interior_idx = np.argmax(cat.bbox_xmin > 0)
+        interior_label = cat.labels[interior_idx]
+        edge_label = cat.labels[1 - interior_idx]
+        assert list(decoded) == list(cat.labels)
+        assert all(type(key) is int for key in decoded)
+        assert decoded[interior_label] == []
+        assert decoded[edge_label] == ['edge_touch',
+                                       'kron_partial_overlap']
+
+    def test_decode_flags_bit_values(self):
+        """
+        Test that decode_flags returns bit values when requested.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        decoded = cat.decode_flags(return_bit_values=True)
+        interior_idx = np.argmax(cat.bbox_xmin > 0)
+        interior_label = cat.labels[interior_idx]
+        edge_label = cat.labels[1 - interior_idx]
+        assert decoded[interior_label] == []
+        assert decoded[edge_label] == [
+            SEGMENTATION_FLAGS.EDGE_TOUCH,
+            SEGMENTATION_FLAGS.KRON_PARTIAL_OVERLAP]
+
+    def test_decode_flags_scalar(self):
+        """
+        Test that decode_flags on a scalar catalog returns a
+        single-entry dictionary keyed by the source label.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        interior_idx = int(np.argmax(cat.bbox_xmin > 0))
+        scalar_cat = cat[1 - interior_idx]
+        edge_label = int(cat.labels[1 - interior_idx])
+        assert scalar_cat.decode_flags() == {
+            edge_label: ['edge_touch', 'kron_partial_overlap']}
+
+    def test_decode_flags_keyword_only(self):
+        """
+        Test that return_bit_values must be passed as a keyword.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+        match = 'takes 1 positional argument but 2 were given'
+        with pytest.raises(TypeError, match=match):
+            cat.decode_flags(1)
+
+
+class TestThreadSafety:
+    """
+    Thread-safety tests for the SourceCatalog class.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        yy, xx = np.mgrid[0:101, 0:101]
+        g1 = Gaussian2D(100, 50, 50, 5, 5)
+        g2 = Gaussian2D(80, 30, 30, 4, 4)
+        g3 = Gaussian2D(60, 70, 30, 3, 3)
+        self.data = g1(xx, yy) + g2(xx, yy) + g3(xx, yy)
+        self.segm = detect_sources(self.data, 10.0, n_pixels=5)
+
+    @pytest.mark.parametrize('n_threads', [1, 4])
+    def test_concurrent_cached_property_access(self, n_threads):
+        """
+        Test concurrent first access of cached properties on a shared
+        catalog, with and without the catalog's own n_threads chunking
+        (whose thread pools then run inside the caller's threads).
+
+        cached_property does not lock, so concurrent first accesses may
+        run a getter more than once, but every thread must see values
+        identical to the serial computation.
+        """
+        expected = SourceCatalog(self.data, self.segm)
+        cat = SourceCatalog(self.data, self.segm, n_threads=n_threads)
+
+        n_threads = 8
+        barrier = threading.Barrier(n_threads)
+
+        def worker(_):
+            barrier.wait()
+            return (cat.segment_flux, cat.centroid, cat.kron_flux)
+
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            results = list(executor.map(worker, range(n_threads)))
+
+        for segment_flux, centroid, kron_flux in results:
+            assert_equal(segment_flux, expected.segment_flux)
+            assert_equal(centroid, expected.centroid)
+            assert_equal(kron_flux, expected.kron_flux)
+
+    @pytest.mark.parametrize('n_threads', [1, 4])
+    def test_concurrent_flux_radius(self, n_threads):
+        """
+        Test concurrent first flux_radius calls on a shared catalog,
+        with and without the catalog's own n_threads chunking of the
+        preparation and the solve.
+
+        The _flux_radius_cache dict uses an unlocked check-then-set, so
+        concurrent first calls may compute more than once, but every
+        thread must see values identical to the serial computation.
+        """
+        expected = SourceCatalog(self.data, self.segm).flux_radius(0.5)
+        cat = SourceCatalog(self.data, self.segm, n_threads=n_threads)
+
+        n_threads = 8
+        barrier = threading.Barrier(n_threads)
+
+        def worker(_):
+            barrier.wait()
+            return cat.flux_radius(0.5)
+
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            results = list(executor.map(worker, range(n_threads)))
+
+        for radius in results:
+            assert_allclose(radius.value, expected.value)
+
+    def test_concurrent_slice_add_property(self):
+        """
+        Test that threads slicing a shared catalog and adding custom
+        properties to their own slices do not interfere with each other
+        or with the parent catalog.
+        """
+        cat = SourceCatalog(self.data, self.segm)
+
+        n_threads = 8
+        barrier = threading.Barrier(n_threads)
+
+        def worker(index):
+            barrier.wait()
+            obj = cat[index % cat.n_labels]
+            obj.add_property(f'prop{index}', float(index))
+            return obj
+
+        with ThreadPoolExecutor(max_workers=n_threads) as executor:
+            results = list(executor.map(worker, range(n_threads)))
+
+        assert cat.custom_properties == []
+        for index, obj in enumerate(results):
+            assert obj.custom_properties == [f'prop{index}']
+            assert getattr(obj, f'prop{index}') == float(index)
+
+    def test_concurrent_slice_and_property_access(self):
+        """
+        Regression test that a shared catalog can be sliced while other
+        threads read its properties and call flux_radius.
+
+        Slicing collects the cached properties that were already
+        calculated from the instance dict and copies the flux_radius
+        cache. On a free-threaded build this raised "dictionary changed
+        size during iteration" when another thread added a cached
+        property at the same time.
+        """
+        names = ('segment_flux', 'centroid', 'kron_flux', 'area',
+                 'semimajor_axis', 'orientation', 'fwhm', 'gini',
+                 'perimeter', 'max_value', 'centroid_win', 'centroid_quad',
+                 'covariance', 'moments_central', 'kron_radius', 'flags')
+        expected_cat = SourceCatalog(self.data, self.segm)
+        expected = {name: np.asarray(getattr(expected_cat, name))
+                    for name in names}
+        fractions = np.linspace(0.2, 0.8, len(names))
+        expected_radius = [expected_cat.flux_radius(fraction).value
+                           for fraction in fractions]
+
+        n_threads = 8
+        for _ in range(30):
+            cat = SourceCatalog(self.data, self.segm)
+            barrier = threading.Barrier(n_threads)
+
+            def worker(start, cat=cat, barrier=barrier):
+                barrier.wait()
+                result = []
+                for i in range(start, start + len(names)):
+                    i %= len(names)
+                    name = names[i]
+                    _ = getattr(cat, name)
+                    _ = cat.flux_radius(fractions[i])
+                    obj = cat[1:3]
+                    result.append((i, np.asarray(getattr(obj, name)),
+                                   obj.flux_radius(fractions[i]).value))
+                return result
+
+            with ThreadPoolExecutor(max_workers=n_threads) as executor:
+                results = list(executor.map(worker,
+                                            range(0, 2 * n_threads, 2)))
+
+            for result in results:
+                for i, value, radius in result:
+                    assert_equal(value, expected[names[i]][1:3])
+                    assert_equal(radius, expected_radius[i][1:3])
+
+
 def test_kron_params():
     """
     Test kron params.
@@ -1298,7 +2516,7 @@ def test_kron_params():
     convolved_data = convolve(data, kernel)
 
     n_pixels = 10
-    finder = SourceFinder(n_pixels=n_pixels, progress_bar=False)
+    finder = SourceFinder(n_pixels=n_pixels)
     segm = finder(convolved_data, threshold)
 
     minrad = 1.4
@@ -1309,6 +2527,15 @@ def test_kron_params():
     assert_allclose(cat.kron_flux.min(), 264.775307)
     rh = cat.flux_radius(0.5)
     assert_allclose(rh.value.min(), 1.293722, rtol=1e-6)
+
+    # The measured Kron radius is not clipped to the minimum
+    measured = cat.kron_radius_measured
+    assert measured.unit == u.pix
+    assert_allclose(measured.value.min(), 0.677399, rtol=1e-6)
+    clipped = measured.value < minrad
+    assert np.count_nonzero(clipped) == 48
+    assert_equal(cat.kron_radius.value[clipped], minrad)
+    assert_equal(cat.kron_radius[~clipped], measured[~clipped])
 
     minrad = 1.2
     kron_params = (2.5, minrad, 0.0)
@@ -1328,6 +2555,12 @@ def test_kron_params():
     rh = cat.flux_radius(0.5)
     assert_allclose(rh.value.min(), 1.232554)
 
+    # The measured Kron radius does not depend on the minimum values
+    for kron_params in ((2.5, 1.4, 0.0), (2.5, 1.4, 7.0)):
+        cat2 = SourceCatalog(data, segm, convolved_data=convolved_data,
+                             kron_params=kron_params)
+        assert_equal(cat2.kron_radius_measured, cat.kron_radius)
+
     kron_params = (2.5, 1.4, 7.0)
     cat = SourceCatalog(data, segm, convolved_data=convolved_data,
                         kron_params=kron_params)
@@ -1338,7 +2571,6 @@ def test_kron_params():
     assert isinstance(cat.kron_aperture[0], CircularAperture)
 
 
-@pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
 def test_centroid_win(centroid_win_data):
     """
     Test centroid win.
@@ -1353,6 +2585,9 @@ def test_centroid_win(centroid_win_data):
     # isophotal centroid
     assert cat.x_centroid[1] == cat.x_centroid_win[1]
     assert cat.y_centroid[1] == cat.y_centroid_win[1]
+
+    # Only the reset source reports the fallback
+    assert_equal(cat.centroid_win_fallback, [False, True])
 
 
 def test_centroid_win_migrate():
@@ -1373,6 +2608,9 @@ def test_centroid_win_migrate():
     indices = (0, 3, 14, 30)
     for idx in indices:
         assert_equal(cat.centroid_win[idx], cat.centroid[idx])
+        # The windowed centroid diverged off the image (a nonellipse
+        # fallback condition), so the fallback is reported
+        assert cat.centroid_win_fallback[idx]
 
 
 def test_background_centroid_coordinate_order():
@@ -1454,19 +2692,9 @@ def test_flux_radius_nan_fallback():
     assert np.isnan(radius.value)
 
 
-def test_reduceat_empty_input():
+def test_reduce_negative_data():
     """
-    Test that _reduceat returns empty arrays when given an empty list.
-    """
-    result, sizes = SourceCatalog._reduceat([], np.add)
-    assert len(result) == 0
-    assert len(sizes) == 0
-    assert sizes.dtype == int
-
-
-def test_reduceat_negative_data():
-    """
-    Test that the _reduceat optimization gives correct results for
+    Test that the packed per-source reductions give correct results for
     min_value, max_value, and segment_flux when data contains negative
     pixel values.
     """
@@ -1479,7 +2707,7 @@ def test_reduceat_negative_data():
     cat = SourceCatalog(data, segm)
     for i in range(cat.n_labels):
         obj = cat[i]
-        vals = obj._data_values[0]
+        vals = obj._data_values.values[0]
         expected_min = np.min(vals) - obj._local_background
         expected_max = np.max(vals) - obj._local_background
         expected_flux = np.sum(vals) - obj._local_background * len(vals)
@@ -1522,61 +2750,21 @@ def test_make_cutouts_trim_mode():
     assert any(s == shape for s in shapes)
 
 
-def test_progress_bar_centroid_win(progress_bar_catalog):
+def test_progress_bar_deprecated():
     """
-    Test that centroid_win works with progress_bar=True.
+    Test that the progress_bar keyword is deprecated and has no effect.
     """
-    cat = progress_bar_catalog
-    cwin = cat.centroid_win
-    assert cwin.shape == (cat.n_labels, 2)
-    assert np.all(np.isfinite(cwin))
-
-
-def test_progress_bar_centroid_quad(progress_bar_catalog):
-    """
-    Test that centroid_quad works with progress_bar=True.
-    """
-    cat = progress_bar_catalog
-    cquad = cat.centroid_quad
-    assert cquad.shape == (cat.n_labels, 2)
-    assert np.all(np.isfinite(cquad))
-
-
-def test_progress_bar_kron_radius(progress_bar_catalog):
-    """
-    Test that kron_radius works with progress_bar=True.
-    """
-    cat = progress_bar_catalog
-    kr = cat.kron_radius
-    assert len(kr) == cat.n_labels
-
-
-def test_progress_bar_kron_photometry(progress_bar_catalog):
-    """
-    Test that kron_photometry (aperture photometry) works with
-    progress_bar=True.
-    """
-    cat = progress_bar_catalog
-    flux, _flux_err = cat.kron_photometry((2.5, 1.4))
-    assert len(flux) == cat.n_labels
-
-
-def test_progress_bar_flux_radius(progress_bar_catalog):
-    """
-    Test that flux_radius and its prep work with progress_bar=True.
-    """
-    cat = progress_bar_catalog
-    r = cat.flux_radius(0.5)
-    assert len(r) == cat.n_labels
-
-
-def test_progress_bar_circular_photometry(progress_bar_catalog):
-    """
-    Test that circular_photometry works with progress_bar=True.
-    """
-    cat = progress_bar_catalog
-    flux, _fluxerr = cat.circular_photometry(5.0)
-    assert len(flux) == cat.n_labels
+    yy, xx = np.mgrid[0:101, 0:101]
+    data = Gaussian2D(100, 50, 50, 5, 5)(xx, yy)
+    segm = detect_sources(data, 10.0, n_pixels=5)
+    match = "'progress_bar' was deprecated"
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        cat = SourceCatalog(data, segm, progress_bar=True)
+    assert cat.progress_bar
+    cat2 = SourceCatalog(data, segm)
+    assert not cat2.progress_bar
+    assert_allclose(cat.centroid_win, cat2.centroid_win)
+    assert_allclose(cat.flux_radius(0.5), cat2.flux_radius(0.5))
 
 
 def test_negative_covariance_eigvals(single_source_catalog):
@@ -1586,17 +2774,47 @@ def test_negative_covariance_eigvals(single_source_catalog):
     """
     _data, _segm, cat = single_source_catalog
 
-    # Patch np.linalg.eigvalsh to return negative eigenvalues
-    real_eigvalsh = np.linalg.eigvalsh
-
-    def mock_eigvalsh(a):
-        result = real_eigvalsh(a)
-        result[:] = -1.0  # force negative eigenvalues
-        return result
-
-    with patch('numpy.linalg.eigvalsh', mock_eigvalsh):
-        eigvals = cat.covariance_eigvals
+    # A covariance matrix with eigenvalues 3 and -1
+    covar = np.array([[[1.0, 2.0], [2.0, 1.0]]])
+    cat.__dict__['_covariance'] = covar
+    eigvals = cat.covariance_eigvals
     assert np.all(np.isnan(eigvals.value))
+
+
+def test_invalid_covariance_flag(single_source_catalog):
+    """
+    Test that a raw covariance matrix that is not positive semidefinite
+    sets the undefined_shape flag, not the singular_covariance flag,
+    and gives a NaN covariance.
+    """
+    data, segm, cat = single_source_catalog
+    assert not cat.flags[0] & SEGMENTATION_FLAGS.UNDEFINED_SHAPE
+
+    cat = SourceCatalog(data, segm)
+    # A covariance matrix with eigenvalues 3 and -1
+    cat.__dict__['_raw_covariance'] = np.array([[[1.0, 2.0], [2.0, 1.0]]])
+    assert cat.flags[0] & SEGMENTATION_FLAGS.UNDEFINED_SHAPE
+    assert not cat.flags[0] & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+    assert np.all(np.isnan(cat.covariance))
+
+
+def test_partially_finite_covariance_eigvals(centroid_win_data):
+    """
+    Test that a covariance matrix with any nonfinite element gives NaN
+    eigenvalues, while wholly finite matrices are unaffected.
+    """
+    data, segm, _convolved_data = centroid_win_data
+    cat = SourceCatalog(data, segm)
+    expected = cat.covariance_eigvals.value
+
+    covar = cat._covariance.copy()
+    covar[0, 0, 1] = np.nan
+    cat.__dict__['_covariance'] = covar
+    del cat.__dict__['covariance_eigvals']
+    eigvals = cat.covariance_eigvals.value
+
+    assert np.all(np.isnan(eigvals[0]))
+    assert_allclose(eigvals[1:], expected[1:])
 
 
 def test_local_background_few_pixels():
@@ -1635,23 +2853,20 @@ def test_validate_kron_params_wrong_element_count():
         SourceCatalog._validate_kron_params([2.5])
 
 
-def test_error_values_with_error(single_source_catalog):
+def test_error_values_without_error(single_source_catalog):
     """
-    Test that _error_values returns null objects when error is None.
-    """
-    _data, _segm, cat = single_source_catalog
-    err_vals = cat._error_values
-    assert err_vals is cat._null_objects
-
-
-def test_background_values_with_background(single_source_catalog):
-    """
-    Test that _background_values returns null objects when background is
-    None.
+    Test that _error_values is None when error is None.
     """
     _data, _segm, cat = single_source_catalog
-    bkg_vals = cat._background_values
-    assert bkg_vals is cat._null_objects
+    assert cat._error_values is None
+
+
+def test_background_values_without_background(single_source_catalog):
+    """
+    Test that _background_values is None when background is None.
+    """
+    _data, _segm, cat = single_source_catalog
+    assert cat._background_values is None
 
 
 def test_sky_centroid_quad_with_wcs(single_source_catalog):
@@ -1727,24 +2942,6 @@ def test_centroid_quad_edge_cases():
     assert np.all(np.isfinite(cquad4))
 
 
-def test_flux_radius_no_solution(single_source_catalog):
-    """
-    Test that flux_radius returns NaN when no solution is found
-    (root_scalar always raises ValueError).
-    """
-    _data, _segm, cat = single_source_catalog
-
-    # Make root_scalar always raise ValueError so no solution is found
-    def mock_root_scalar(*_args, **_kwargs):
-        msg = 'bracket signs'
-        raise ValueError(msg)
-
-    with patch('photutils.segmentation.catalog.root_scalar',
-               mock_root_scalar):
-        result = cat.flux_radius(0.5)
-    assert np.isnan(result.value[0])
-
-
 def test_kron_radius_max(gauss_101_catalog):
     """
     Test that measured kron_radius values exceeding the measurement
@@ -1767,113 +2964,60 @@ def test_kron_radius_max(gauss_101_catalog):
         cat2 = SourceCatalog(data, segm)
         assert np.isnan(cat2.kron_radius.value)
 
+        # The measured value is reported as is
+        assert cat2.kron_radius_measured.value == 100.0
+
         # Downstream properties should also be NaN / None
         assert cat2.kron_aperture[0] is None
         assert np.isnan(cat2.kron_flux[0])
         assert np.isnan(cat2.flux_radius(0.5).value[0])
 
 
-def test_aperture_to_mask_size_check():
-    """
-    Test that _aperture_to_mask returns None when the aperture bounding
-    box exceeds the allowed size, preventing out-of-memory errors from
-    pathologically large apertures (e.g., from huge Kron radii).
-
-    The check happens before to_mask() allocates the mask array.
-    """
-    data = np.zeros((11, 11))
-    data[4:7, 4:7] = 100.0
-    segm_data = np.zeros((11, 11), dtype=int)
-    segm_data[4:7, 4:7] = 1
-    segm = SegmentationImage(segm_data)
-    cat = SourceCatalog(data, segm)
-
-    # A small aperture is fine
-    small_aper = CircularAperture((5, 5), r=3)
-    result = cat._aperture_to_mask(small_aper, method='center')
-    assert result is not None
-
-    # An aperture larger than data.size but within the 1M floor is fine
-    big_aper = CircularAperture((5, 5), r=100)
-    assert big_aper.bbox.shape[0] * big_aper.bbox.shape[1] > data.size
-    result = cat._aperture_to_mask(big_aper, method='center')
-    assert result is not None
-
-    # An aperture whose bbox exceeds 1_000_000 pixels returns None
-    huge_aper = CircularAperture((5, 5), r=600)
-    bbox_size = huge_aper.bbox.shape[0] * huge_aper.bbox.shape[1]
-    assert bbox_size > 1_000_000
-    result = cat._aperture_to_mask(huge_aper, method='center')
-    assert result is None
-
-
-def test_aperture_to_mask_none_branches(gauss_101_catalog):
-    """
-    Test that _aperture_photometry gracefully returns NaN when
-    _aperture_to_mask returns None (i.e., aperture too large to
-    allocate).
-
-    This covers the None-guard branch in _aperture_photometry (used by
-    the general circle photometry path).
-    """
-    _, _, cat = gauss_101_catalog
-
-    # _aperture_photometry (general path) with _aperture_to_mask
-    # returning None
-    with patch.object(type(cat), '_aperture_to_mask', return_value=None):
-        circ_aper = [CircularAperture((50, 50), r=10)] * cat.n_labels
-        flux, _ = cat._aperture_photometry(circ_aper, method='exact')
-        assert np.all(np.isnan(flux))
-
-
 def test_kron_photometry_oom_guard(gauss_101_catalog):
     """
     Test that _calc_kron_photometry returns NaN when the Kron aperture
-    is too large (OOM guard).
+    is too large (OOM guard), does not overlap the data, or has no
+    contributing pixels.
     """
     data, segm, cat = gauss_101_catalog
-    _ = cat.kron_aperture  # cache
 
-    # Create huge elliptical apertures that exceed the max_size check
-    huge_aper = [EllipticalAperture((50, 50), 2000, 2000, theta=0.0)
-                 for _ in range(cat.n_labels)]
-    cat.__dict__['kron_aperture'] = huge_aper
-    assert np.all(np.isnan(cat.kron_flux))
+    # A huge semimajor axis with a normal Kron radius makes a huge
+    # Kron ellipse that exceeds the max_size check
+    huge = np.array([2000.0]) << u.pix
+    kron_radius = np.array([1.5])
+    with (patch.object(type(cat), 'semimajor_axis',
+                       new_callable=lambda: property(lambda _self: huge)),
+          patch.object(type(cat), 'semiminor_axis',
+                       new_callable=lambda: property(lambda _self: huge)),
+          patch.object(type(cat), '_measured_kron_radius',
+                       new_callable=lambda: property(
+                           lambda _self: kron_radius))):
+        assert np.all(np.isnan(cat.kron_flux))
 
-    # Create huge circular apertures that exceed the max_size check
-    cat2 = SourceCatalog(data, segm)
-    _ = cat2.kron_aperture
-    huge_circ = [CircularAperture((50, 50), r=2000)
-                 for _ in range(cat2.n_labels)]
-    cat2.__dict__['kron_aperture'] = huge_circ
+    # A huge minimum circular radius makes a huge circular aperture
+    # that exceeds the max_size check
+    cat2 = SourceCatalog(data, segm, kron_params=(2.5, 1.4, 2000.0))
+    assert np.all(cat2.kron_radius.value == 0)
     assert np.all(np.isnan(cat2.kron_flux))
 
-    # Aperture completely off-image triggers data=None guard
+    # An aperture completely off-image has no overlap
     cat3 = SourceCatalog(data, segm)
-    _ = cat3.kron_aperture
-    off_aper = [EllipticalAperture((-1000, -1000), 5, 3, theta=0.0)
-                for _ in range(cat3.n_labels)]
-    cat3.__dict__['kron_aperture'] = off_aper
+    _ = cat3.kron_radius  # measure the Kron radius before moving
+    cat3.__dict__['x_centroid'] = np.array([-1000.0])
+    cat3.__dict__['y_centroid'] = np.array([-1000.0])
     assert np.all(np.isnan(cat3.kron_flux))
 
-    # All pixels masked in aperture overlap triggers empty values with
-    # error branch
+    # An aperture whose pixels are all masked has no contributing
+    # pixels, giving NaN flux and flux error
     error = np.ones_like(data)
-    cat4 = SourceCatalog(data, segm, error=error)
-    _ = cat4.kron_aperture  # cache
-    original_make = type(cat4)._make_aperture_data
-
-    def _make_all_masked(self, label, xcen, ycen, bbox, bkg, **kwargs):
-        result = original_make(self, label, xcen, ycen, bbox, bkg, **kwargs)
-        if result[0] is not None:
-            # Set mask to all True (all pixels masked)
-            return (result[0], result[1], np.ones_like(result[2]),
-                    result[3], result[4])
-        return result
-
-    with patch.object(type(cat4), '_make_aperture_data', _make_all_masked):
-        assert np.all(np.isnan(cat4.kron_flux))
-        assert np.all(np.isnan(cat4.kron_flux_err))
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[:40, :40] = True
+    cat4 = SourceCatalog(data, segm, error=error, mask=mask)
+    _ = cat4.kron_radius  # measure the Kron radius before moving
+    cat4.__dict__['x_centroid'] = np.array([10.0])
+    cat4.__dict__['y_centroid'] = np.array([10.0])
+    assert np.all(np.isnan(cat4.kron_flux))
+    assert np.all(np.isnan(cat4.kron_flux_err))
 
 
 def test_flux_radius_cache_not_mutated_by_centroid_win(gauss_101_data):
@@ -1882,7 +3026,7 @@ def test_flux_radius_cache_not_mutated_by_centroid_win(gauss_101_data):
     the flux_radius cache.
 
     ``centroid_win`` calls ``flux_radius(0.5)`` internally and then
-    modifies the returned half-light radius array in-place (replacing
+    modifies the returned half-light radius array in place (replacing
     NaN with a minimum radius). This must not mutate the cached
     ``flux_radius`` Quantity.
 
@@ -1929,33 +3073,298 @@ def test_centroid_win_nan_when_flux_radius_nan(gauss_101_data):
         assert np.all(np.isnan(cwin))
 
 
-def test_centroid_win_aperture_mask_none_in_loop(gauss_101_catalog):
+def assert_allclose_per_source(actual, desired, rtol):
     """
-    Test that centroid_win falls back to the isophotal centroid when
-    _aperture_to_mask returns None during the iteration loop (e.g.,
-    because the circular aperture exceeds the size threshold).
+    Assert that two per-source arrays agree to within ``rtol``.
+
+    The tolerance is relative to each value and also to the largest
+    finite magnitude of the same source (the first axis), because
+    elements that are analytically zero (e.g., the first-order central
+    moments) are rounding residuals of much larger terms of that
+    source.
     """
-    _data, _segm, cat = gauss_101_catalog
+    actual = np.asarray(actual, dtype=float)
+    desired = np.asarray(desired, dtype=float)
+    finite = np.where(np.isfinite(desired), np.abs(desired), 0.0)
+    axes = tuple(range(1, desired.ndim))
+    scale = finite.max(axis=axes, keepdims=True) if axes else finite
+    scale = np.where(scale > 0, scale, 1.0)
+    assert_allclose(actual / scale, desired / scale, rtol=rtol, atol=rtol,
+                    equal_nan=True)
 
-    # Pre-compute flux_radius before mocking, since it also uses
-    # CircularAperture internally
-    hl_val = cat.flux_radius(0.5)
-    original_method = cat._aperture_to_mask
 
-    def mock_aperture_to_mask(aperture, **kwargs):
-        if isinstance(aperture, CircularAperture):
-            return None
-        return original_method(aperture, **kwargs)
+@pytest.fixture
+def float32_catalog_inputs():
+    """
+    Float32 data, error, and convolved data with three sources on a
+    256x256 grid.
 
-    with patch.object(cat, '_aperture_to_mask',
-                      side_effect=mock_aperture_to_mask), \
-         patch.object(type(cat), 'flux_radius',
-                      return_value=hl_val):
-        cwin = cat.centroid_win
-        # NaN from the loop resets to isophotal centroid
-        # because nan_hl is False (flux_radius was valid)
-        assert_allclose(cwin[:, 0], cat.x_centroid)
-        assert_allclose(cwin[:, 1], cat.y_centroid)
+    Returns ``(data, segm, error, convolved_data)``.
+    """
+    yy, xx = np.mgrid[0:256, 0:256]
+    data = (Gaussian2D(100, 60, 60, 4, 4)(xx, yy)
+            + Gaussian2D(80, 180, 90, 5, 3)(xx, yy)
+            + Gaussian2D(60, 120, 200, 3, 3)(xx, yy)).astype(np.float32)
+    error = np.full(data.shape, 0.5, dtype=np.float32)
+    kernel = make_2dgaussian_kernel(2.0, size=5)
+    convolved_data = convolve(data, kernel).astype(np.float32)
+    segm = detect_sources(convolved_data, 5.0, n_pixels=5)
+    return data, segm, error, convolved_data
+
+
+def test_release_cache_frees_memory(float32_catalog_inputs):
+    """
+    Test that release_cache frees the full-image working arrays,
+    including when a sliced catalog is still alive.
+    """
+    data, segm, error, convolved_data = float32_catalog_inputs
+    # With a float64 error array, the float32 data and convolved data
+    # are copied to float64 so that all of the images have the same
+    # dtype.
+    cat = SourceCatalog(data, segm, error=error.astype(np.float64),
+                        convolved_data=convolved_data)
+
+    tracemalloc.start()
+    try:
+        # The float64 data and convolved data working copies and the
+        # mask plane are built on first use.
+        _ = cat.centroid
+        _ = cat.segment_flux_err
+        sub = cat[0:2]
+        _ = sub.kron_flux
+        used = tracemalloc.get_traced_memory()[0]
+        cat.release_cache()
+        freed = used - tracemalloc.get_traced_memory()[0]
+    finally:
+        tracemalloc.stop()
+
+    assert freed >= 2 * data.size * 8
+    assert sub.n_labels == 2
+
+
+def test_release_cache_results_unchanged(float32_catalog_inputs):
+    """
+    Test that properties computed before and after release_cache match
+    those of a catalog whose cache was never released.
+    """
+    data, segm, error, convolved_data = float32_catalog_inputs
+    kwargs = {'error': error, 'convolved_data': convolved_data}
+    cat_ref = SourceCatalog(data, segm, **kwargs)
+    cat = SourceCatalog(data, segm, **kwargs)
+
+    centroid = cat.centroid
+    assert cat.release_cache() is None
+    assert_equal(cat.centroid, centroid)
+
+    # New properties rebuild the working arrays on demand
+    assert_equal(cat.centroid, cat_ref.centroid)
+    assert_equal(cat.segment_flux_err, cat_ref.segment_flux_err)
+    assert_equal(cat.kron_flux, cat_ref.kron_flux)
+
+    # Releasing a catalog that has nothing cached is allowed
+    cat.release_cache()
+    cat.release_cache()
+    assert_equal(cat.kron_flux_err, cat_ref.kron_flux_err)
+
+
+class TestInputDtypes:
+    """
+    Tests that the compiled code reads float32 and float64 images and
+    int32 and intp segmentation images directly, with the same
+    results.
+
+    All calculations are performed in float64, so float32 inputs give
+    the same results as the same values input as float64, up to
+    floating-point rounding. The compiler may fuse multiply-add
+    operations differently in the float32 and float64 specializations
+    of the compiled code, which changes some results by one ulp on some
+    platforms (e.g., GCC on aarch64).
+    """
+
+    # The relative tolerance for float32 versus float64 inputs (a few
+    # ulps)
+    rtol = 1e-13
+
+    @classmethod
+    def assert_properties_close(cls, props, props_ref):
+        """
+        Assert that the numeric properties agree to within ``rtol`` for
+        floating-point values and exactly otherwise.
+
+        See `assert_allclose_per_source` for the tolerance.
+        """
+        assert props.keys() == props_ref.keys()
+        for name, expected in props_ref.items():
+            value = props[name]
+            if expected.dtype.kind == 'f':
+                try:
+                    assert_allclose_per_source(value, expected, cls.rtol)
+                except AssertionError as exc:
+                    msg = f'{name} differs'
+                    raise AssertionError(msg) from exc
+            else:
+                assert_equal(value, expected, err_msg=name)
+
+    @staticmethod
+    def make_inputs(size=200):
+        """
+        Make float64 data, error, background, and convolved data arrays
+        and a segmentation image.
+        """
+        rng = np.random.default_rng(1)
+        yy, xx = np.mgrid[0:size, 0:size]
+        data = rng.normal(0.0, 1.0, (size, size))
+        for _ in range(12):
+            xcen, ycen = rng.uniform(15, size - 15, 2)
+            xsig, ysig = rng.uniform(1.5, 4.0, 2)
+            data += Gaussian2D(rng.uniform(50, 200), xcen, ycen, xsig, ysig,
+                               rng.uniform(0, np.pi))(xx, yy)
+        data[5, 5] = np.nan
+        error = rng.uniform(0.8, 1.2, data.shape)
+        background = rng.uniform(4.9, 5.1, data.shape)
+        kernel = make_2dgaussian_kernel(2.0, size=5)
+        convolved_data = convolve(data, kernel)
+        segm = detect_sources(convolved_data, 5.0, n_pixels=10)
+        return data, error, background, convolved_data, segm
+
+    @staticmethod
+    def numeric_properties(cat):
+        """
+        Return a dict of the per-source numeric property arrays.
+        """
+        results = {}
+        for name in cat.properties:
+            value = getattr(cat, name)
+            if isinstance(value, u.Quantity):
+                value = value.value
+            if isinstance(value, np.ndarray) and value.dtype.kind in 'fiub':
+                results[name] = value
+        return results
+
+    @pytest.mark.parametrize('segm_dtype',
+                             [np.int16, np.int32, '>i4', np.intp])
+    @pytest.mark.parametrize('dtype', [np.float32, np.float64])
+    def test_identical_results(self, dtype, segm_dtype):
+        """
+        Test that the results do not depend on the input dtypes.
+
+        The float32 values are exactly representable as float64, so the
+        results must agree with those for the same values input as
+        float64 to within rounding.
+        """
+        data, error, background, convolved_data, segm = self.make_inputs()
+        data = data.astype(np.float32)
+        error = error.astype(np.float32)
+        background = background.astype(np.float32)
+        convolved_data = convolved_data.astype(np.float32)
+
+        cat_ref = SourceCatalog(
+            data.astype(float), SegmentationImage(segm.data.astype(np.intp)),
+            error=error.astype(float), background=background.astype(float),
+            convolved_data=convolved_data.astype(float))
+        cat = SourceCatalog(
+            data.astype(dtype),
+            SegmentationImage(segm.data.astype(segm_dtype)),
+            error=error.astype(dtype), background=background.astype(dtype),
+            convolved_data=convolved_data.astype(dtype))
+
+        props_ref = self.numeric_properties(cat_ref)
+        props = self.numeric_properties(cat)
+        assert len(props) > 60
+        self.assert_properties_close(props, props_ref)
+        assert_allclose(cat.flux_radius(0.5).value,
+                        cat_ref.flux_radius(0.5).value, rtol=self.rtol,
+                        atol=0, equal_nan=True)
+
+    def test_mixed_dtypes(self):
+        """
+        Test float32 data with float64 error and convolved data,
+        noncontiguous float32 inputs, and Quantity inputs.
+        """
+        data, error, _, convolved_data, segm = self.make_inputs()
+        data32 = data.astype(np.float32)
+        cat_ref = SourceCatalog(data32.astype(float), segm, error=error,
+                                convolved_data=convolved_data)
+        props_ref = self.numeric_properties(cat_ref)
+
+        cat1 = SourceCatalog(data32, segm, error=error,
+                             convolved_data=convolved_data)
+        data_fortran = np.asfortranarray(data32)
+        assert not data_fortran.flags.c_contiguous
+        cat2 = SourceCatalog(data_fortran, segm, error=error,
+                             convolved_data=convolved_data)
+        cat3 = SourceCatalog(data32 << u.Jy, segm, error=error << u.Jy,
+                             convolved_data=convolved_data << u.Jy)
+        # Big-endian float32 (e.g., from a FITS file) and float16 values
+        # are exactly representable in native float32
+        conv32 = convolved_data.astype(np.float32)
+        cat_ref2 = SourceCatalog(data32.astype(float), segm,
+                                 error=error.astype(np.float16).astype(float),
+                                 convolved_data=conv32.astype(float))
+        cat4 = SourceCatalog(data32.astype('>f4'), segm,
+                             error=error.astype(np.float16),
+                             convolved_data=conv32.astype('>f4'))
+        self.assert_properties_close(self.numeric_properties(cat4),
+                                     self.numeric_properties(cat_ref2))
+
+        for cat in (cat1, cat2, cat3):
+            self.assert_properties_close(self.numeric_properties(cat),
+                                         props_ref)
+
+    def test_float32_inputs_not_copied(self):
+        """
+        Test that C-contiguous float32 inputs and an int32 segmentation
+        image are used without making full-image float64 copies.
+        """
+        data, error, _, convolved_data, segm = self.make_inputs(size=512)
+        data = data.astype(np.float32)
+        error = error.astype(np.float32)
+        convolved_data = convolved_data.astype(np.float32)
+        segm = SegmentationImage(segm.data.astype(np.int32))
+        cat = SourceCatalog(data, segm, error=error,
+                            convolved_data=convolved_data)
+
+        tracemalloc.start()
+        try:
+            start = tracemalloc.get_traced_memory()[0]
+            tbl = cat.to_table()
+            _ = cat.centroid_win
+            _ = cat.centroid_quad
+            _ = cat.flux_radius(0.5)
+            current, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+
+        assert len(tbl) == cat.n_labels
+        # A float64 copy of one image needs 8 bytes per pixel. Only the
+        # uint8 mask plane (1 byte per pixel) is kept. The temporary
+        # images used for the flags need about 7 bytes per pixel.
+        assert current - start < 2 * data.size
+        assert peak - start < 8 * data.size
+
+    def test_big_endian_segmentation_image(self):
+        """
+        Test that a big-endian int32 segmentation image (e.g., read from
+        a FITS file) is converted to a native int32 copy, not an intp
+        copy.
+        """
+        data, _, _, _, segm = self.make_inputs(size=512)
+        data = data.astype(np.float32)
+        segm = SegmentationImage(segm.data.astype('>i4'))
+        cat = SourceCatalog(data, segm)
+
+        tracemalloc.start()
+        try:
+            start = tracemalloc.get_traced_memory()[0]
+            _ = cat.segment_flux
+            current = tracemalloc.get_traced_memory()[0]
+        finally:
+            tracemalloc.stop()
+
+        # The native int32 copy needs 4 bytes per pixel and the mask
+        # plane 1 byte per pixel. An intp copy would need 8 bytes per
+        # pixel.
+        assert current - start < 6 * data.size
 
 
 def test_centroid_win_oom_guard(gauss_101_catalog):
@@ -1976,7 +3385,6 @@ def test_centroid_win_oom_guard(gauss_101_catalog):
     assert_allclose(cwin[:, 1], cat.y_centroid)
 
 
-@pytest.mark.skipif(not HAS_SKIMAGE, reason='skimage is required')
 def test_centroid_win_aperture_mask_mask(centroid_win_data):
     """
     Test centroid_win with aperture_mask_method='mask' to cover the
@@ -1993,24 +3401,33 @@ def test_centroid_win_aperture_mask_mask(centroid_win_data):
     assert np.isfinite(cwin[0, 0])
 
 
-def test_make_aperture_data_outside_image(gauss_101_catalog):
+def test_make_scalar(single_source_catalog):
     """
-    Test that _make_aperture_data returns (None,) * 5 when the aperture
-    bbox does not overlap the data.
+    Test the scalar collapse of method results. A length-1 sequence
+    is collapsed for a scalar catalog, a longer sequence is returned
+    unchanged, and a multisource catalog never collapses.
     """
-    _data, _segm, cat = gauss_101_catalog
+    _data, _segm, cat = single_source_catalog
+    assert not cat.isscalar
+    obj = cat[0]
+    assert obj.isscalar
 
-    # BoundingBox completely outside the 101x101 data
-    offimage_bbox = BoundingBox(ixmin=200, ixmax=210,
-                                iymin=200, iymax=210)
-    result = cat._make_aperture_data(1, 205.0, 205.0, offimage_bbox, 0.0)
-    assert result == (None,) * 5
+    assert obj._make_scalar([7.0]) == 7.0
+    assert obj._make_scalar(np.array([3.0]) << u.pix) == 3.0 * u.pix
+
+    # A sequence that is not length-1 is returned unchanged
+    value = [5.0, 6.0]
+    assert obj._make_scalar(value) is value
+
+    # A multisource catalog never collapses
+    assert cat._make_scalar([7.0]) == [7.0]
 
 
 def test_flux_radius_optimizer_args_oom_guard(gauss_101_catalog):
     """
-    Test that _flux_radius_optimizer_args returns None for sources whose
-    max-radius aperture bbox exceeds max_aper_size.
+    Test that _flux_radius_optimizer_args gives a zero pixel count (and
+    thus a NaN flux radius) for sources whose max-radius aperture bbox
+    exceeds max_aper_size.
     """
     data, segm, cat = gauss_101_catalog
 
@@ -2029,16 +3446,17 @@ def test_flux_radius_optimizer_args_oom_guard(gauss_101_catalog):
 
 def test_flux_radius_optimizer_args_off_image(gauss_101_catalog):
     """
-    Test that _flux_radius_optimizer_args returns None for sources whose
-    max-radius aperture bbox doesn't overlap the data.
+    Test that _flux_radius_optimizer_args gives a zero pixel count (and
+    thus a NaN flux radius) for sources whose max-radius aperture bbox
+    doesn't overlap the data.
     """
     _data, _segm, cat = gauss_101_catalog
 
     # Cache kron_photometry, then move the centroid way off-image
     _ = cat._kron_photometry
     off = np.array([500.0])
-    cat.__dict__['_x_centroid'] = off
-    cat.__dict__['_y_centroid'] = off
+    cat.__dict__['x_centroid'] = off
+    cat.__dict__['y_centroid'] = off
     assert np.all(np.isnan(cat.flux_radius(0.5)))
 
 
@@ -2087,8 +3505,8 @@ def test_measured_kron_radius_off_image(gauss_101_catalog):
     _data, _segm, cat = gauss_101_catalog
 
     # Move the centroid off the image
-    cat.__dict__['_x_centroid'] = np.array([5000.0])
-    cat.__dict__['_y_centroid'] = np.array([5000.0])
+    cat.__dict__['x_centroid'] = np.array([5000.0])
+    cat.__dict__['y_centroid'] = np.array([5000.0])
     assert np.all(np.isnan(cat.kron_radius.value))
 
 
@@ -2145,3 +3563,1500 @@ def test_measured_kron_radius_circular_no_min_radius(gauss_101_data):
                        new_callable=lambda: property(lambda _self: cxy_val))):
         kr = cat._measured_kron_radius
         assert np.all(np.isnan(kr))
+
+
+def test_centroid_win_err():
+    """
+    Test that centroid_win_err returns finite 1-sigma position
+    errors when an error array is provided.
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    g2 = Gaussian2D(3596, 13.81, 8.29, 1.44, 1.27, 0.628319)
+    m = g1 + g2
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = m(xx, yy)
+    noise = make_noise_image(data.shape, mean=0, stddev=65.0, seed=123)
+    data += noise
+
+    error = np.full(data.shape, 65.0)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    n_pixels = 10
+    finder = SourceFinder(n_pixels=n_pixels)
+    threshold = 107.9
+    segment_map = finder(convolved_data, threshold)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    errors = cat.centroid_win_err
+    assert errors.shape == (cat.n_labels, 2)
+    # Source 0 converged, so errors should be finite and positive
+    assert np.all(np.isfinite(errors[0]))
+    assert np.all(errors[0] > 0)
+    # Source 1 fell back to the isophotal centroid, so its errors
+    # are the isophotal centroid errors
+    assert_allclose(cat.centroid_win[1], cat.centroid[1])
+    assert_allclose(errors[1], cat.centroid_err[1])
+
+
+def test_centroid_win_err_no_error():
+    """
+    Test that centroid_win_err returns NaN when no error array is
+    provided.
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = g1(xx, yy)
+
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    n_pixels = 10
+    segment_map = detect_sources(convolved_data, 50.0, n_pixels)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        aperture_mask_method='none')
+
+    errors = cat.centroid_win_err
+    # No error array provided, so errors should be NaN
+    assert np.all(np.isnan(errors))
+
+
+def test_centroid_win_err_scalar():
+    """
+    Test that centroid_win_err works for scalar (single-source) case.
+    """
+    g1 = Gaussian2D(1621, 10.0, 10.0, 2.0, 2.0)
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = g1(xx, yy)
+    error = np.full(data.shape, 50.0)
+
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    n_pixels = 10
+    segment_map = detect_sources(convolved_data, 50.0, n_pixels)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    single = cat[0]
+    # Public properties collapse to a single (x, y) pair for a
+    # scalar catalog
+    errors = single.centroid_win_err
+    assert errors.shape == (2,)
+    assert np.all(np.isfinite(errors))
+    assert np.all(errors > 0)
+    assert single.x_centroid_win_err == errors[0]
+    assert single.y_centroid_win_err == errors[1]
+
+
+def test_centroid_win_err_sliced():
+    """
+    Test that centroid_win_err works on a sliced catalog after
+    centroid_win was computed on the parent catalog (regression test
+    for a side-effect attribute that was not propagated by slicing).
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    g2 = Gaussian2D(3596, 13.81, 8.29, 1.44, 1.27, 0.628319)
+    m = g1 + g2
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = m(xx, yy)
+    noise = make_noise_image(data.shape, mean=0, stddev=65.0, seed=123)
+    data += noise
+
+    error = np.full(data.shape, 65.0)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    finder = SourceFinder(n_pixels=10)
+    segment_map = finder(convolved_data, 107.9)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    # Compute centroid_win on the parent before slicing
+    _ = cat.centroid_win
+    errors = cat.centroid_win_err
+    single = cat[0]
+    assert_allclose(single.centroid_win_err, errors[0])
+    sub = cat[[1, 0]]
+    assert_allclose(sub.centroid_win_err, errors[[1, 0]])
+
+
+def test_centroid_win_err_peak_pixel_error():
+    """
+    Test centroid_win_err for a source where nonzero error is limited
+    to a single pixel, which makes the propagated error covariance
+    nearly singular.
+
+    The pixel-size (1/12) variance term is added to both variances, so
+    the errors are finite and nonzero. The source and the errors are
+    symmetric, so the two errors are equal.
+    """
+    data = np.zeros((21, 21))
+    data[10, 10] = 10000.0
+    data[10, 11] = 50.0
+    data[11, 10] = 50.0
+    data[10, 9] = 50.0
+    data[9, 10] = 50.0
+
+    # Nonzero error only at center pixel, where the propagated
+    # position error terms vanish
+    error = np.zeros(data.shape)
+    error[10, 10] = 10000.0
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[9:12, 9:12] = 1
+    segment_map = SegmentationImage(segment_data)
+
+    convolved_data = data.copy()
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    errors = np.ravel(cat.centroid_win_err)
+    assert np.all(np.isfinite(errors))
+    assert np.all(errors > 0)
+    assert_allclose(errors[0], errors[1])
+
+
+def test_centroid_win_err_cov():
+    """
+    Test the windowed pixel error covariance. It is symmetric for
+    every source, near-zero off-diagonal for a circular source with
+    uniform errors, and consistent with centroid_win_err.
+    """
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = Gaussian2D(500.0, 15.2, 15.6, 2.5, 2.5)(xx, yy)
+    error = np.full(data.shape, 5.0)
+    segment_map = detect_sources(data, 10.0, n_pixels=10)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    cov = cat._centroid_win_err_cov
+    assert cov.shape == (1, 2, 2)
+    assert_allclose(cov[0, 0, 1], cov[0, 1, 0])
+    # Circular source, uniform errors: negligible x-y covariance
+    assert abs(cov[0, 0, 1]) < 1e-3 * np.sqrt(cov[0, 0, 0]
+                                              * cov[0, 1, 1])
+    # Errors are the sqrt of the diagonal
+    assert_allclose(cat.centroid_win_err[0],
+                    np.sqrt((cov[0, 0, 0], cov[0, 1, 1])))
+
+
+def test_centroid_win_err_cov_fallback():
+    """
+    Test that fallback sources use the full isophotal covariance.
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    g2 = Gaussian2D(3596, 13.81, 8.29, 1.44, 1.27, 0.628319)
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = (g1 + g2)(xx, yy)
+    data += make_noise_image(data.shape, mean=0, stddev=65.0,
+                             seed=123)
+    error = np.full(data.shape, 65.0)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    finder = SourceFinder(n_pixels=10)
+    segment_map = finder(convolved_data, 107.9)
+    cat = SourceCatalog(data, segment_map,
+                        convolved_data=convolved_data, error=error,
+                        aperture_mask_method='none')
+
+    # Source 1 falls back to the isophotal centroid (pinned by the
+    # existing test_centroid_win_err test)
+    assert_allclose(cat.centroid_win[1], cat.centroid[1])
+    assert_allclose(cat._centroid_win_err_cov[1],
+                    cat._centroid_err_cov[1])
+
+
+def test_centroid_err():
+    """
+    Test that centroid_err returns finite 1-sigma position errors
+    when an error array is provided.
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    g2 = Gaussian2D(3596, 13.81, 8.29, 1.44, 1.27, 0.628319)
+    m = g1 + g2
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = m(xx, yy)
+
+    error = np.full(data.shape, 65.0)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    n_pixels = 10
+    finder = SourceFinder(n_pixels=n_pixels)
+    threshold = 107.9
+    segment_map = finder(convolved_data, threshold)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    errors = cat.centroid_err
+    assert errors.shape == (cat.n_labels, 2)
+    # Both sources should have finite, positive errors
+    assert np.all(np.isfinite(errors))
+    assert np.all(errors > 0)
+    # Errors should be small relative to pixel scale for bright sources
+    assert np.all(errors < 1.0)
+
+
+def test_centroid_err_no_error():
+    """
+    Test that centroid_err returns NaN when no error array is
+    provided.
+    """
+    g1 = Gaussian2D(1621, 10.0, 10.0, 2.0, 2.0)
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = g1(xx, yy)
+
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    n_pixels = 10
+    segment_map = detect_sources(convolved_data, 50.0, n_pixels)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        aperture_mask_method='none')
+
+    errors = cat.centroid_err
+    assert np.all(np.isnan(errors))
+
+
+def test_centroid_err_scalar():
+    """
+    Test that centroid_err works for a scalar (single-source) case.
+    """
+    g1 = Gaussian2D(1621, 10.0, 10.0, 2.0, 2.0)
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = g1(xx, yy)
+    error = np.full(data.shape, 50.0)
+
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    n_pixels = 10
+    segment_map = detect_sources(convolved_data, 50.0, n_pixels)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    single = cat[0]
+    # Public properties collapse to a single (x, y) pair for a
+    # scalar catalog
+    errors = single.centroid_err
+    assert errors.shape == (2,)
+    assert np.all(np.isfinite(errors))
+    assert np.all(errors > 0)
+    assert single.x_centroid_err == errors[0]
+    assert single.y_centroid_err == errors[1]
+
+
+def test_centroid_err_singularity():
+    """
+    Test that the singularity correction in centroid_err is applied to
+    a point-like source.
+
+    The error is nonzero only at the centroid pixel, so the propagated
+    error covariance is zero apart from rounding. Both error variances
+    are raised to the floor ``sum(sigma**2) / (12 F**2)``, which is
+    1/12 here because the error equals the flux.
+    """
+    data = np.zeros((11, 11))
+    data[5, 5] = 10000.0
+    data[5, 6] = 1e-10  # tiny asymmetry to shift centroid
+
+    error = np.zeros(data.shape)
+    error[5, 5] = 10000.0
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[4:7, 4:7] = 1
+    segment_map = SegmentationImage(segment_data)
+
+    convolved_data = data.copy()
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    assert cat.flags & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+    assert_allclose(np.ravel(cat.centroid_err), np.sqrt(1 / 12))
+
+
+def test_centroid_err_thin_source():
+    """
+    Test that the singularity correction in centroid_err is applied to
+    a thin source that is unresolved along only its minor axis.
+
+    The shape covariance determinant of this source exceeds
+    ``(1/12)**2`` because of its long major axis. The pixel errors are
+    concentrated in the bright row, so the error covariance matrix is
+    nearly singular along ``y``. Only the error along ``y`` is raised to
+    the floor. The error along the resolved x-axis is unchanged.
+    """
+    data = np.zeros((15, 25))
+    data[7, 5:20] = 99.5
+    data[8, 5:20] = 0.5
+    error = np.full(data.shape, 1.0e-3)
+    error[7, :] = 1.0
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[7:9, 5:20] = 1
+    cat = SourceCatalog(data, SegmentationImage(segment_data), error=error)
+
+    assert cat.flags & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+    flux = np.sum(data)
+    err_sum_norm = np.sum(error[7:9, 5:20]**2) / (12.0 * flux**2)
+    x_err, y_err = np.ravel(cat.centroid_err)
+    assert_allclose(y_err, np.sqrt(err_sum_norm))
+
+    # The x centroid is at the center of the 15-pixel rows, so the sum
+    # of (x - x_centroid)**2 over one row is 280
+    x_var = 280.0 * (1.0 + 1.0e-6) / flux**2
+    assert_allclose(x_err, np.sqrt(x_var))
+
+
+def test_centroid_err_resolved_source_singular_error():
+    """
+    Test that the singularity correction in centroid_err depends on the
+    error covariance and not on the source shape.
+
+    The source is well resolved, but the error is nonzero only in the
+    row of the centroid. The propagated error covariance is singular
+    along ``y``, so the error along ``y`` is raised to the floor. The
+    error along ``x`` is unchanged.
+    """
+    yy, xx = np.mgrid[:21, :21]
+    data = 100.0 * np.exp(-((xx - 10)**2 + (yy - 10)**2) / (2 * 2.0**2))
+    error = np.zeros(data.shape)
+    error[10, :] = 1.0
+    segment_data = (data > 1.0).astype(int)
+    cat = SourceCatalog(data, SegmentationImage(segment_data), error=error)
+
+    assert not cat.flags & SEGMENTATION_FLAGS.SINGULAR_COVARIANCE
+    segment = segment_data.astype(bool)
+    flux = np.sum(data[segment])
+    err_sum = np.sum(error[segment]**2)
+    x_offsets = xx[10][segment[10]] - 10.0
+    x_err, y_err = np.ravel(cat.centroid_err)
+    assert_allclose(y_err, np.sqrt(err_sum / (12.0 * flux**2)))
+    assert_allclose(x_err, np.sqrt(np.sum(x_offsets**2) / flux**2))
+
+
+def test_centroid_err_tilted_line():
+    """
+    Test the singularity correction for a tilted line that is one pixel
+    wide, which changes the off-diagonal error covariance term.
+
+    The propagated error covariance has rank 1 along the line. With a
+    uniform flux ``f`` and error ``sigma`` on nine pixels, its elements
+    are all ``60 sigma**2 / F**2``, where 60 is the sum of the squared
+    pixel offsets and ``F = 9 f``. The error variance across the line
+    is raised from zero to the floor ``9 sigma**2 / (12 F**2)``, and the
+    error variance along the line is unchanged.
+    """
+    flux_pix = 10.0
+    sigma = 2.0
+    data = np.zeros((15, 15))
+    error = np.zeros(data.shape)
+    segment_data = np.zeros(data.shape, dtype=int)
+    for i in range(9):
+        data[3 + i, 3 + i] = flux_pix
+        error[3 + i, 3 + i] = sigma
+        segment_data[3 + i, 3 + i] = 1
+    cat = SourceCatalog(data, SegmentationImage(segment_data), error=error)
+
+    scale = sigma**2 / (9 * flux_pix)**2
+    floor = 9.0 / 12.0
+    expected = scale * np.array([[60.0 + floor / 2, 60.0 - floor / 2],
+                                 [60.0 - floor / 2, 60.0 + floor / 2]])
+    cov = cat._centroid_err_cov[0]
+    assert_allclose(cov, expected)
+    assert_allclose(np.linalg.eigvalsh(cov), scale * np.array([floor, 120.0]))
+    assert_allclose(np.ravel(cat.centroid_err),
+                    np.sqrt(scale * (60.0 + floor / 2)))
+
+
+def test_centroid_err_formula():
+    """
+    Test that centroid_err matches the analytic error-propagation
+    formula, Var(x_c) = sum(sigma_i^2 * (x_i - x_c)^2) / F^2, for a
+    nonsingular source (this is also the SourceExtractor and SEP
+    formula).
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.5, 2.5)(xx, yy)
+    error = np.full(data.shape, 3.0)
+
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    mask = segment_data == 1
+    flux = np.sum(data[mask])
+    xcen = np.sum(data[mask] * xx[mask]) / flux
+    ycen = np.sum(data[mask] * yy[mask]) / flux
+    var_x = np.sum(error[mask]**2 * (xx[mask] - xcen)**2) / flux**2
+    var_y = np.sum(error[mask]**2 * (yy[mask] - ycen)**2) / flux**2
+
+    errors = cat.centroid_err
+    assert_allclose(cat.centroid[0], (xcen, ycen))
+    assert_allclose(errors[0], np.sqrt((var_x, var_y)))
+
+
+def test_centroid_err_zero_flux():
+    """
+    Test that centroid_err returns NaN when the convolved data
+    total flux is zero within the segment (total_flux <= 0 branch).
+    """
+    data = np.ones((11, 11))
+    # convolved_data has zero flux in the segment region
+    convolved_data = np.zeros((11, 11))
+    error = np.full(data.shape, 10.0)
+
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[4:7, 4:7] = 1
+    segment_map = SegmentationImage(segment_data)
+
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    errors = cat.centroid_err
+    assert np.all(np.isnan(errors))
+
+
+def test_centroid_err_columns():
+    """
+    Test the x/y centroid error properties and their use as to_table
+    columns.
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    g2 = Gaussian2D(3596, 13.81, 8.29, 1.44, 1.27, 0.628319)
+    m = g1 + g2
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = m(xx, yy)
+
+    error = np.full(data.shape, 65.0)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    finder = SourceFinder(n_pixels=10)
+    segment_map = finder(convolved_data, 107.9)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    assert_allclose(cat.x_centroid_err, cat.centroid_err[:, 0])
+    assert_allclose(cat.y_centroid_err, cat.centroid_err[:, 1])
+    assert_allclose(cat.x_centroid_win_err, cat.centroid_win_err[:, 0])
+    assert_allclose(cat.y_centroid_win_err, cat.centroid_win_err[:, 1])
+
+    columns = ['label', 'x_centroid_err', 'y_centroid_err',
+               'x_centroid_win_err', 'y_centroid_win_err']
+    tbl = cat.to_table(columns=columns)
+    assert tbl.colnames == columns
+    assert_allclose(tbl['x_centroid_err'], cat.x_centroid_err)
+    assert_allclose(tbl['y_centroid_win_err'], cat.y_centroid_win_err)
+
+
+def test_centroid_err_cov():
+    """
+    Test that the isophotal pixel error covariance matches the analytic
+    formulas, including the off-diagonal term cov = sum(sigma^2 * (x -
+    xc) * (y - yc)) / F^2.
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.5, 1.5, 0.7)(xx, yy)
+    error = np.full(data.shape, 3.0)
+
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[4:22, 4:22] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    cov = cat._centroid_err_cov
+    assert cov.shape == (1, 2, 2)
+    assert_allclose(cov[0, 0, 1], cov[0, 1, 0])
+
+    mask = segment_data == 1
+    flux = np.sum(data[mask])
+    xcen = np.sum(data[mask] * xx[mask]) / flux
+    ycen = np.sum(data[mask] * yy[mask]) / flux
+    var_x = np.sum(error[mask]**2 * (xx[mask] - xcen)**2) / flux**2
+    var_y = np.sum(error[mask]**2 * (yy[mask] - ycen)**2) / flux**2
+    cov_xy = np.sum(error[mask]**2 * (xx[mask] - xcen)
+                    * (yy[mask] - ycen)) / flux**2
+    assert_allclose(cov[0], [[var_x, cov_xy], [cov_xy, var_y]])
+
+    # The public property is the sqrt of the diagonal
+    assert_allclose(cat.centroid_err[0], np.sqrt((var_x, var_y)))
+
+
+def test_centroid_err_cov_no_error():
+    """
+    Test that the covariance is NaN when error is not input.
+    """
+    data = np.ones((11, 11))
+    data[5, 5] = 10.0
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[4:7, 4:7] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        aperture_mask_method='none')
+    assert np.all(np.isnan(cat._centroid_err_cov))
+
+
+def _quad_peak(box):
+    """
+    Solve for the peak of a quadratic fit to a 3x3 box.
+
+    This is an independent implementation (via lstsq) used to
+    numerically validate the centroid_quad error propagation.
+    """
+    yy, xx = np.mgrid[0:3, 0:3]
+    design = np.column_stack([np.ones(9), xx.ravel(), yy.ravel(),
+                              (xx * yy).ravel(), (xx**2).ravel(),
+                              (yy**2).ravel()])
+    c = np.linalg.lstsq(design, box.ravel(), rcond=None)[0]
+    det = 4.0 * c[4] * c[5] - c[3]**2
+    xm = (c[2] * c[3] - 2.0 * c[5] * c[1]) / det
+    ym = (c[1] * c[3] - 2.0 * c[4] * c[2]) / det
+    return np.array([xm, ym])
+
+
+def test_centroid_quad_err():
+    """
+    Test that centroid_quad_err matches a numerical-Jacobian error
+    propagation through the quadratic peak fit.
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.0, 1.5, 0.5)(xx, yy)
+    rng = np.random.default_rng(42)
+    error = rng.uniform(1.0, 3.0, data.shape)
+
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    # The peak pixel is at (12, 13) and the 3x3 fit box lies fully
+    # within the segment, so no masked pixels are involved
+    yidx, xidx = 13, 12
+    box = data[yidx - 1:yidx + 2, xidx - 1:xidx + 2].copy()
+    box_err = error[yidx - 1:yidx + 2, xidx - 1:xidx + 2].ravel()
+
+    eps = 1e-6
+    jacobian = np.zeros((2, 9))
+    for i in range(9):
+        box_p = box.ravel().copy()
+        box_p[i] += eps
+        box_m = box.ravel().copy()
+        box_m[i] -= eps
+        jacobian[:, i] = (_quad_peak(box_p) - _quad_peak(box_m)) / (2 * eps)
+    var_expected = np.sum(jacobian**2 * box_err**2, axis=1)
+
+    errors = cat.centroid_quad_err
+    assert errors.shape == (1, 2)
+    assert_allclose(errors[0], np.sqrt(var_expected), rtol=1e-6)
+    assert_allclose(cat.x_centroid_quad_err, errors[:, 0])
+    assert_allclose(cat.y_centroid_quad_err, errors[:, 1])
+
+
+def test_centroid_quad_err_no_error():
+    """
+    Test that centroid_quad_err is NaN when no error array is input.
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.0, 2.0)(xx, yy)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        aperture_mask_method='none')
+    assert np.all(np.isfinite(cat.centroid_quad))
+    assert np.all(np.isnan(cat.centroid_quad_err))
+
+
+def test_centroid_quad_err_fallback():
+    """
+    Test that sources where the quadratic centroid fell back to the
+    isophotal centroid have the isophotal centroid errors.
+    """
+    # A 2x2 segment is too small for the 3x3 quadratic fit, so the
+    # centroid falls back to the isophotal centroid
+    data = np.ones((11, 11))
+    data[5, 5] = 10.0
+    error = np.full(data.shape, 1.0)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[5:7, 5:7] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    assert_allclose(cat.centroid_quad, cat.centroid)
+    assert_allclose(cat.centroid_quad_err, cat.centroid_err)
+
+
+def test_centroid_quad_err_peak_at_edge():
+    """
+    Test that sources whose maximum value is at the edge of the
+    cutout return the peak-pixel position with NaN errors.
+    """
+    # Monotonic gradient: the maximum is at the segment cutout edge
+    yy, xx = np.mgrid[0:11, 0:11]
+    data = (xx + yy).astype(float)
+    error = np.full(data.shape, 1.0)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[3:8, 3:8] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    assert np.all(np.isfinite(cat.centroid_quad))
+    assert np.all(np.isnan(cat.centroid_quad_err))
+
+
+def test_centroid_quad_err_columns():
+    """
+    Test the quadratic centroid error properties as to_table columns
+    and the scalar-catalog collapse.
+    """
+    g1 = Gaussian2D(1621, 6.29, 10.95, 1.55, 1.29, 0.296706)
+    g2 = Gaussian2D(3596, 13.81, 8.29, 1.44, 1.27, 0.628319)
+    yy, xx = np.mgrid[0:21, 0:21]
+    data = (g1 + g2)(xx, yy)
+    error = np.full(data.shape, 65.0)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    finder = SourceFinder(n_pixels=10)
+    segment_map = finder(convolved_data, 107.9)
+    cat = SourceCatalog(data, segment_map, convolved_data=convolved_data,
+                        error=error, aperture_mask_method='none')
+
+    columns = ['label', 'x_centroid_quad_err', 'y_centroid_quad_err']
+    tbl = cat.to_table(columns=columns)
+    assert tbl.colnames == columns
+    assert_allclose(tbl['x_centroid_quad_err'], cat.x_centroid_quad_err)
+
+    single = cat[0]
+    errors = single.centroid_quad_err
+    assert errors.shape == (2,)
+    assert single.x_centroid_quad_err == errors[0]
+    assert single.y_centroid_quad_err == errors[1]
+
+
+def test_centroid_quad_err_cov():
+    """
+    Test the quadratic-centroid error covariance against a
+    numerical-Jacobian propagation (cov = sum(Jx * Jy * sigma^2)).
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.0, 1.5, 0.5)(xx, yy)
+    rng = np.random.default_rng(42)
+    error = rng.uniform(1.0, 3.0, data.shape)
+
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+
+    cov = cat._centroid_quad_err_cov
+    assert cov.shape == (1, 2, 2)
+    assert_allclose(cov[0, 0, 1], cov[0, 1, 0])
+
+    # Numerical Jacobian over the 3x3 box around the peak pixel
+    # (12, 13), reusing the independent _quad_peak helper defined
+    # earlier in this test module
+    yidx, xidx = 13, 12
+    box = data[yidx - 1:yidx + 2, xidx - 1:xidx + 2]
+    box_err = error[yidx - 1:yidx + 2, xidx - 1:xidx + 2].ravel()
+    eps = 1e-6
+    jacobian = np.zeros((2, 9))
+    for i in range(9):
+        bp = box.ravel().copy()
+        bp[i] += eps
+        bm = box.ravel().copy()
+        bm[i] -= eps
+        jacobian[:, i] = (_quad_peak(bp) - _quad_peak(bm)) / (2 * eps)
+    var_expected = np.sum(jacobian**2 * box_err**2, axis=1)
+    cov_expected = np.sum(jacobian[0] * jacobian[1] * box_err**2)
+    assert_allclose(cov[0],
+                    [[var_expected[0], cov_expected],
+                     [cov_expected, var_expected[1]]], rtol=1e-6)
+
+
+def test_centroid_quad_err_cov_fallback():
+    """
+    Test that quad fallback sources use the isophotal covariance.
+    """
+    data = np.ones((11, 11))
+    data[5, 5] = 10.0
+    error = np.full(data.shape, 1.0)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[5:7, 5:7] = 1
+    segment_map = SegmentationImage(segment_data)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, aperture_mask_method='none')
+    assert_allclose(cat.centroid_quad, cat.centroid)
+    assert_allclose(cat._centroid_quad_err_cov,
+                    cat._centroid_err_cov)
+
+
+def test_sky_err_from_cov():
+    """
+    Test the pixel-to-sky error covariance transport against a
+    hand-rotated covariance for a rotated TAN WCS.
+    """
+    theta_deg = 30.0
+    scale = 0.25  # arcsec / pixel
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+    wcs.wcs.crpix = [10.0, 10.0]
+    wcs.wcs.crval = [150.0, 30.0]
+    theta = np.deg2rad(theta_deg)
+    cd = (scale / 3600.0) * np.array([[-np.cos(theta), np.sin(theta)],
+                                      [np.sin(theta), np.cos(theta)]])
+    wcs.wcs.cd = cd
+
+    data = np.zeros((21, 21))
+    data[9:12, 9:12] = 10.0
+    segment_map = SegmentationImage((data > 0).astype(int))
+    cat = SourceCatalog(data, segment_map, wcs=wcs)
+
+    pix_cov = np.array([[[0.04, 0.01], [0.01, 0.09]]])
+    xycen = np.array([[10.0, 10.0]])
+    sky_err = cat._sky_err_from_cov(pix_cov, xycen)
+
+    # Reference: compare against the vectorized Jacobian helper
+    # directly (transport identity), and check the isotropic invariant
+    # trace(sky_cov) = scale^2 * trace(pix_cov)
+    jac = compute_pixel_to_sky_jacobians(wcs, xycen[:, 0],
+                                         xycen[:, 1])
+    sky_cov = jac[0] @ pix_cov[0] @ jac[0].T
+    assert_allclose(sky_err.to_value('arcsec')[0],
+                    np.sqrt(np.diag(sky_cov)))
+    assert_allclose(np.trace(sky_cov),
+                    scale**2 * np.trace(pix_cov[0]), rtol=1e-3)
+
+    # NaN positions give NaN errors
+    xycen_nan = np.array([[np.nan, np.nan]])
+    sky_err_nan = cat._sky_err_from_cov(pix_cov, xycen_nan)
+    assert np.all(np.isnan(sky_err_nan.value))
+
+
+def test_sky_centroid_err():
+    """
+    Test the sky centroid error properties for all three centroid
+    flavors: shapes, units, axis views, and consistency with the pixel
+    errors for an axis-aligned WCS at dec=0.
+    """
+    scale = 0.5  # arcsec / pixel
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+    wcs.wcs.crpix = [15.0, 15.0]
+    wcs.wcs.crval = [150.0, 0.0]
+    wcs.wcs.cd = (scale / 3600.0) * np.array([[-1.0, 0.0],
+                                              [0.0, 1.0]])
+
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = Gaussian2D(500.0, 15.2, 15.6, 2.5, 2.0, 0.3)(xx, yy)
+    error = np.full(data.shape, 5.0)
+    segment_map = detect_sources(data, 10.0, n_pixels=10)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, wcs=wcs,
+                        aperture_mask_method='none')
+
+    for prefix, pix_err in (('sky_centroid', cat.centroid_err),
+                            ('sky_centroid_win',
+                             cat.centroid_win_err),
+                            ('sky_centroid_quad',
+                             cat.centroid_quad_err)):
+        sky_err = getattr(cat, f'{prefix}_err')
+        assert sky_err.unit == u.arcsec
+        assert sky_err.shape == (1, 2)
+        # Axis-aligned WCS at dec=0: sky error = scale * pixel error
+        assert_allclose(sky_err.to_value('arcsec')[0],
+                        scale * pix_err[0], rtol=1e-3)
+        assert_allclose(getattr(cat, f'{prefix}_ra_err'),
+                        sky_err[:, 0])
+        assert_allclose(getattr(cat, f'{prefix}_dec_err'),
+                        sky_err[:, 1])
+
+
+def test_sky_centroid_err_no_wcs():
+    """
+    Test that the sky error properties are None without a wcs.
+    """
+    data = np.zeros((11, 11))
+    data[4:7, 4:7] = 10.0
+    segment_map = SegmentationImage((data > 0).astype(int))
+    error = np.ones(data.shape)
+    cat = SourceCatalog(data, segment_map, error=error)
+
+    names = []
+    for prefix in ('sky_centroid', 'sky_centroid_win',
+                   'sky_centroid_quad'):
+        names.extend([f'{prefix}_err', f'{prefix}_ra_err',
+                      f'{prefix}_dec_err'])
+    for name in names:
+        # A length-1 (nonscalar) catalog returns an array of None
+        value = getattr(cat, name)
+        assert np.all(value == np.array(None))
+        # A scalar catalog collapses to a single None
+        assert getattr(cat[0], name) is None
+
+
+def test_sky_centroid_err_columns():
+    """
+    Test sky error columns in to_table and the scalar collapse.
+    """
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+    wcs.wcs.crpix = [15.0, 15.0]
+    wcs.wcs.crval = [150.0, 20.0]
+    wcs.wcs.cd = (0.5 / 3600.0) * np.array([[-1.0, 0.0],
+                                            [0.0, 1.0]])
+
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = Gaussian2D(500.0, 15.2, 15.6, 2.5, 2.5)(xx, yy)
+    error = np.full(data.shape, 5.0)
+    segment_map = detect_sources(data, 10.0, n_pixels=10)
+    cat = SourceCatalog(data, segment_map, convolved_data=data,
+                        error=error, wcs=wcs,
+                        aperture_mask_method='none')
+
+    columns = ['label', 'sky_centroid_ra_err', 'sky_centroid_dec_err']
+    tbl = cat.to_table(columns=columns)
+    assert tbl.colnames == columns
+    assert tbl['sky_centroid_ra_err'].unit == u.arcsec
+
+    single = cat[0]
+    sky_err = single.sky_centroid_err
+    assert sky_err.shape == (2,)
+    assert single.sky_centroid_ra_err == sky_err[0]
+
+
+def _make_rotated_tan_wcs(parity, rotation_deg, *, scale=0.25,
+                          crpix=(15.0, 15.0), crval=(150.0, 20.0)):
+    """
+    Make a TAN WCS whose CD matrix is a rotation of an axis-aligned
+    frame with the given parity.
+
+    With ``parity=-1`` and no rotation, +x points West and +y points
+    North (the standard "North up, East left" orientation). With
+    ``parity=1`` the x-axis is flipped so that +x points East.
+    """
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+    wcs.wcs.crpix = crpix
+    wcs.wcs.crval = crval
+    phi = np.deg2rad(rotation_deg)
+    rotation = np.array([[np.cos(phi), -np.sin(phi)],
+                         [np.sin(phi), np.cos(phi)]])
+    wcs.wcs.cd = (scale / 3600.0) * rotation @ np.diag([parity, 1.0])
+    return wcs
+
+
+def _elongated_source_catalog(theta_deg, wcs):
+    """
+    Make a single-source catalog of an elongated Gaussian centered near
+    the WCS reference pixel.
+    """
+    yy, xx = np.mgrid[0:31, 0:31]
+    theta = np.deg2rad(theta_deg)
+    data = Gaussian2D(500.0, 15.2, 15.6, 3.0, 1.5, theta)(xx, yy)
+    segment_map = detect_sources(data, 10.0, n_pixels=10)
+    return SourceCatalog(data, segment_map, convolved_data=data, wcs=wcs,
+                         aperture_mask_method='none')
+
+
+def _wrap_m90_p90(angle_deg):
+    """
+    Wrap angles in degrees to the range (-90, 90].
+    """
+    return -((-angle_deg + 90.0) % 180.0) + 90.0
+
+
+@pytest.mark.parametrize('theta_deg', [-60.0, 10.0, 45.0, 80.0])
+@pytest.mark.parametrize(('parity', 'rotation_deg'),
+                         [(-1, 0.0), (1, 0.0), (-1, 30.0), (-1, -75.0),
+                          (1, 120.0)])
+def test_sky_orientation(theta_deg, parity, rotation_deg):
+    """
+    Test the sky orientation against the pixel orientation mapped
+    through the CD matrix.
+
+    Near the reference pixel of a TAN projection the local Jacobian is
+    the CD matrix, so the sky position angle of the pixel major-axis
+    direction is known in closed form.
+    """
+    wcs = _make_rotated_tan_wcs(parity, rotation_deg)
+    cat = _elongated_source_catalog(theta_deg, wcs)
+
+    sky_orient = cat.sky_orientation
+    assert sky_orient.unit == u.deg
+    assert sky_orient.shape == (1,)
+    assert np.all(sky_orient > -90 * u.deg)
+    assert np.all(sky_orient <= 90 * u.deg)
+
+    # The major-axis direction on the sky is the CD matrix (columns x
+    # and y, rows xi=East and eta=North) applied to the pixel direction.
+    # The position angle is measured from North toward East.
+    pix_orient = np.deg2rad(cat.orientation.to_value(u.deg)[0])
+    pix_dir = np.array([np.cos(pix_orient), np.sin(pix_orient)])
+    xi, eta = wcs.wcs.cd @ pix_dir
+    expected = _wrap_m90_p90(np.rad2deg(np.arctan2(xi, eta)))
+    assert_allclose(sky_orient.to_value(u.deg)[0], expected, atol=1e-4)
+
+    # A scalar catalog collapses to a scalar Quantity
+    single = cat[0]
+    assert single.sky_orientation.shape == ()
+    assert_allclose(single.sky_orientation, sky_orient[0])
+
+
+def test_sky_orientation_north_up_east_left():
+    """
+    Test the closed-form relation for the standard North-up, East-left
+    orientation, where the position angle is the pixel orientation minus
+    90 degrees.
+    """
+    wcs = _make_rotated_tan_wcs(-1, 0.0)
+    cat = _elongated_source_catalog(30.0, wcs)
+    expected = _wrap_m90_p90(cat.orientation.to_value(u.deg) - 90.0)
+    assert_allclose(cat.sky_orientation.to_value(u.deg), expected, atol=1e-4)
+
+    # A flipped parity (East right) mirrors the position angle
+    wcs_flip = _make_rotated_tan_wcs(1, 0.0)
+    cat_flip = _elongated_source_catalog(30.0, wcs_flip)
+    expected_flip = _wrap_m90_p90(90.0
+                                  - cat_flip.orientation.to_value(u.deg))
+    assert_allclose(cat_flip.sky_orientation.to_value(u.deg), expected_flip,
+                    atol=1e-4)
+
+
+@pytest.mark.parametrize('dec_pole', [90.0, -90.0])
+@pytest.mark.parametrize('ra_ref', [0.0, 37.0, 270.0])
+@pytest.mark.parametrize(('parity', 'rotation_deg'),
+                         [(-1, 0.0), (1, 0.0), (-1, 30.0), (1, 120.0)])
+def test_sky_orientation_at_pole(dec_pole, ra_ref, parity, rotation_deg):
+    """
+    Test the sky orientation of a source whose centroid lies on a
+    celestial pole.
+
+    North is geometrically undefined at the pole. The position angle
+    is measured from the meridian of the right ascension that the WCS
+    reports for the centroid, so it must be finite and consistent with
+    ``sky_centroid``. That right ascension is arbitrary because any
+    roundoff in the centroid changes it, so the expected value is built
+    from the reported one.
+    """
+    # The zero-indexed pixel (15, 15) is the center of the 31 x 31
+    # array and maps exactly to the pole.
+    wcs = _make_rotated_tan_wcs(parity, rotation_deg, crpix=(16.0, 16.0),
+                                crval=(ra_ref, dec_pole))
+    yy, xx = np.mgrid[0:31, 0:31]
+    theta = np.deg2rad(25.0)
+    data = Gaussian2D(500.0, 15.0, 15.0, 3.0, 1.5, theta)(xx, yy)
+    segment_map = detect_sources(data, 10.0, n_pixels=10)
+    cat = SourceCatalog(data, segment_map, convolved_data=data, wcs=wcs,
+                        aperture_mask_method='none')
+    assert_allclose(cat.centroid, [[15.0, 15.0]], atol=1e-10)
+    sky_centroid = cat.sky_centroid[0]
+    assert_allclose(sky_centroid.dec.deg, dec_pole, atol=1e-10)
+
+    sky_orient = cat.sky_orientation.to_value(u.deg)[0]
+    assert np.isfinite(sky_orient)
+    assert -90.0 < sky_orient <= 90.0
+
+    # The meridians through the pole of a TAN projection centered on the
+    # pole are straight lines in the pixel plane. The pixel direction of
+    # North along the reported meridian is the offset to a point on that
+    # meridian one arcsec from the pole.
+    dec_offset = dec_pole - np.sign(dec_pole) / 3600.0
+    x_north, y_north = wcs.world_to_pixel_values(sky_centroid.ra.deg,
+                                                 dec_offset)
+    north_angle = np.arctan2(15.0 - y_north, 15.0 - x_north)
+
+    # East is 90 degrees counterclockwise from North in the pixel plane
+    # for the standard parity and clockwise for the flipped parity.
+    pix_orient = np.deg2rad(cat.orientation.to_value(u.deg)[0])
+    expected = _wrap_m90_p90(np.rad2deg(-parity
+                                        * (pix_orient - north_angle)))
+    diff = _wrap_m90_p90(sky_orient - expected)
+    assert_allclose(diff, 0.0, atol=1e-4)
+
+
+def test_sky_orientation_nan():
+    """
+    Test that a source with an undefined shape has a NaN sky orientation
+    while the other sources are finite.
+    """
+    wcs = _make_rotated_tan_wcs(-1, 0.0)
+    yy, xx = np.mgrid[0:31, 0:31]
+    data = (Gaussian2D(500.0, 8.0, 8.0, 3.0, 1.5, 0.5)(xx, yy)
+            + Gaussian2D(500.0, 22.0, 22.0, 3.0, 1.5, 0.5)(xx, yy))
+    segment_map = detect_sources(data, 10.0, n_pixels=10)
+    assert segment_map.n_labels == 2
+    mask = segment_map.data == 1
+    cat = SourceCatalog(data, segment_map, convolved_data=data, wcs=wcs,
+                        mask=mask, aperture_mask_method='none')
+
+    sky_orient = cat.sky_orientation.to_value(u.deg)
+    assert np.isnan(cat.orientation[0])
+    assert np.isnan(sky_orient[0])
+    assert np.isfinite(sky_orient[1])
+
+
+def test_sky_orientation_no_wcs():
+    """
+    Test that sky_orientation is None without a wcs.
+    """
+    cat = _elongated_source_catalog(30.0, None)
+    assert np.all(cat.sky_orientation == np.array(None))
+    assert cat[0].sky_orientation is None
+
+
+def test_sky_orientation_column():
+    """
+    Test the sky_orientation column in to_table.
+    """
+    wcs = _make_rotated_tan_wcs(-1, 0.0)
+    cat = _elongated_source_catalog(30.0, wcs)
+    columns = ['label', 'orientation', 'sky_orientation']
+    tbl = cat.to_table(columns=columns)
+    assert tbl.colnames == columns
+    assert tbl['sky_orientation'].unit == u.deg
+    assert_allclose(tbl['sky_orientation'], cat.sky_orientation)
+
+
+class TestPartialPixelErrorWeights:
+    """
+    Tests that aperture flux errors weight the pixel variances by the
+    squared overlap fractions.
+
+    The reported flux is sum(w * data) over the aperture pixels, where
+    ``w`` is the pixel overlap fraction. With independent pixel errors,
+    its variance is sum(w**2 * sigma**2), so boundary pixels must
+    contribute their variance weighted by the squared fraction.
+    """
+
+    @staticmethod
+    def _expected_error(aperture, error):
+        """
+        Compute sqrt(sum(w**2 * sigma**2)) from the exact aperture mask.
+        """
+        apermask = aperture.to_mask(method='exact')
+        slc_large, slc_small = apermask.get_overlap_slices(error.shape)
+        weights = apermask.data[slc_small]
+        return np.sqrt(np.sum(weights**2 * error[slc_large] ** 2))
+
+    @pytest.fixture(name='catalog')
+    def fixture_catalog(self):
+        """
+        A single-source catalog with a nonuniform error array.
+        """
+        yy, xx = np.mgrid[0:41, 0:41]
+        gmodel = Gaussian2D(100.0, 20.0, 20.0, 2.5, 2.5)
+        data = gmodel(xx, yy)
+        segm_data = (data > 1.0).astype(int)
+        segm = SegmentationImage(segm_data)
+        rng = np.random.default_rng(seed=789)
+        error = rng.uniform(0.5, 1.5, data.shape)
+        return SourceCatalog(data, segm, error=error)
+
+    def test_circular_photometry_error(self, catalog):
+        radius = 5.0
+        _, flux_err = catalog.circular_photometry(radius)
+        aperture = catalog.make_circular_apertures(radius)[0]
+        expected = self._expected_error(aperture, catalog._error)
+        assert_allclose(flux_err, expected)
+
+    def test_kron_flux_err(self, catalog):
+        aperture = catalog.kron_aperture[0]
+        expected = self._expected_error(aperture, catalog._error)
+        assert_allclose(catalog.kron_flux_err, expected)
+
+
+@pytest.fixture
+def many_source_inputs():
+    """
+    Multisource inputs for the n_threads tests.
+
+    Returns ``(data, segm, error, mask)``.
+    """
+    data = make_100gaussians_image() - 5.0  # subtract the background
+    segm = detect_sources(data, 9.0, n_pixels=5)
+    error = make_noise_image(data.shape, mean=0, stddev=2.0, seed=0)
+    error = np.abs(error) + 1.0
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[0:40, 0:60] = True
+    return data, segm, error, mask
+
+
+def _assert_same_value(value, expected):
+    """
+    Assert that two catalog property values are identical, for arrays,
+    Quantity, SkyCoord, and lists of per-source arrays.
+    """
+    if isinstance(value, SkyCoord):
+        assert_equal(value.ra.deg, expected.ra.deg)
+        assert_equal(value.dec.deg, expected.dec.deg)
+    elif isinstance(value, u.Quantity):
+        assert value.unit == expected.unit
+        assert_equal(value.value, expected.value)
+    elif isinstance(value, list):
+        assert len(value) == len(expected)
+        for item, ref in zip(value, expected, strict=True):
+            assert_equal(item, ref)
+    else:
+        assert_equal(value, expected)
+
+
+class TestNThreads:
+    """
+    Tests for the n_threads keyword.
+    """
+
+    @pytest.mark.parametrize('n_threads', [2, 8])
+    @pytest.mark.parametrize('aperture_mask_method',
+                             ['correct', 'mask', 'none'])
+    @pytest.mark.parametrize('with_error', [True, False])
+    def test_identical_results(self, many_source_inputs, n_threads,
+                               aperture_mask_method, with_error):
+        """
+        Test that every property and measurement is identical for any
+        number of threads, for both circular and elliptical Kron
+        apertures, with and without an error array.
+        """
+        data, segm, error, mask = many_source_inputs
+        kwargs = {'mask': mask, 'local_bkg_width': 10,
+                  'aperture_mask_method': aperture_mask_method,
+                  'kron_params': (2.5, 1.4, 5.0),
+                  'background': np.full(data.shape, 0.1),
+                  'wcs': make_wcs(data.shape)}
+        if with_error:
+            kwargs['error'] = error
+        cat1 = SourceCatalog(data, segm, **kwargs)
+        cat2 = SourceCatalog(data, segm, n_threads=n_threads, **kwargs)
+        assert cat1.n_threads == 1
+        assert cat2.n_threads == n_threads
+        assert segm.n_labels > n_threads
+
+        # The minimum circular radius makes some apertures circular
+        n_circ = sum(isinstance(aper, CircularAperture)
+                     for aper in cat1.kron_aperture)
+        assert 0 < n_circ < segm.n_labels
+
+        for name in cat1.properties:
+            _assert_same_value(getattr(cat2, name), getattr(cat1, name))
+
+        _assert_same_value(cat2.kron_photometry((2.0, 1.0)),
+                           cat1.kron_photometry((2.0, 1.0)))
+        _assert_same_value(cat2.circular_photometry(3.0),
+                           cat1.circular_photometry(3.0))
+        _assert_same_value(cat2.flux_radius(0.5), cat1.flux_radius(0.5))
+        _assert_same_value(cat2.flux_radius(0.9), cat1.flux_radius(0.9))
+
+    def test_n_threads_exceeds_sources(self, many_source_inputs):
+        """
+        Test that n_threads larger than the number of sources gives
+        the same results.
+        """
+        data, segm, error, _ = many_source_inputs
+        cat1 = SourceCatalog(data, segm, error=error)
+        cat2 = SourceCatalog(data, segm, error=error,
+                             n_threads=10 * segm.n_labels)
+        assert_equal(cat2.kron_flux, cat1.kron_flux)
+        assert_equal(cat2.kron_flux_err, cat1.kron_flux_err)
+
+    def test_scalar_catalog(self, many_source_inputs):
+        """
+        Test that a scalar (single-source) catalog with n_threads > 1
+        gives the same results as the parent catalog.
+        """
+        data, segm, error, _ = many_source_inputs
+        cat = SourceCatalog(data, segm, error=error, n_threads=4)
+        obj = cat[3]
+        assert obj.n_threads == 4
+        assert obj.isscalar
+        assert_equal(obj.kron_radius, cat.kron_radius[3])
+        assert_equal(obj.kron_flux, cat.kron_flux[3])
+        assert_equal(obj.kron_photometry((2.0, 1.0))[0],
+                     cat.kron_photometry((2.0, 1.0))[0][3])
+
+    def test_sliced_catalog_new_fraction(self, many_source_inputs):
+        """
+        Test that a multisource slice of a threaded catalog computes
+        a flux radius for a new fraction identically to the parent.
+
+        Slicing drops the packed flux-radius inputs, so the slice
+        recomputes them (chunked over its own sources) on the first
+        call for a fraction that the parent had not cached, while the
+        parent's cached fractions are carried over.
+        """
+        data, segm, error, _ = many_source_inputs
+        cat1 = SourceCatalog(data, segm, error=error)
+        cat2 = SourceCatalog(data, segm, error=error, n_threads=4)
+        cat1.flux_radius(0.5)
+        cat2.flux_radius(0.5)
+
+        index = slice(2, segm.n_labels - 3)
+        sub1 = cat1[index]
+        sub2 = cat2[index]
+        assert '_flux_radius_optimizer_args' not in sub2.__dict__
+        assert_equal(sub2.flux_radius(0.5), cat1.flux_radius(0.5)[index])
+        assert '_flux_radius_optimizer_args' not in sub2.__dict__
+
+        # A new fraction recomputes the packed inputs on the slice
+        assert_equal(sub2.flux_radius(0.3), sub1.flux_radius(0.3))
+        assert_equal(sub2.flux_radius(0.3), cat1.flux_radius(0.3)[index])
+        assert '_flux_radius_optimizer_args' in sub2.__dict__
+
+    def test_indexing_preserves_n_threads(self, many_source_inputs):
+        """
+        Test that slicing and copying a catalog preserve n_threads.
+        """
+        data, segm, _, _ = many_source_inputs
+        cat = SourceCatalog(data, segm, n_threads=4)
+        assert cat[1:].n_threads == 4
+        assert cat[[0, 2]].n_threads == 4
+        assert cat[0].n_threads == 4
+        assert cat.copy().n_threads == 4
+
+    def test_invalid_n_threads(self, many_source_inputs):
+        """
+        Test that an error is raised if n_threads is not a positive
+        integer.
+        """
+        data, segm, _, _ = many_source_inputs
+        match = 'n_threads must be a positive integer'
+        for n_threads in (0, -1, 2.5, True):
+            with pytest.raises(ValueError, match=match):
+                SourceCatalog(data, segm, n_threads=n_threads)
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('local_bkg_width', [0, 8])
+def test_read_only_inputs(dtype, local_bkg_width):
+    """
+    Regression test that read-only (nonwritable) input arrays are
+    accepted, are not modified, and give results identical to writable
+    arrays.
+    """
+    scene = make_batch_scene()
+    data = scene['data'].astype(dtype)
+    error = scene['error'].astype(dtype)
+    mask = scene['mask']
+    segm_data = scene['segm'].data.copy()
+    background = np.full(data.shape, 0.5, dtype=dtype)
+    arrays = (data, error, mask, segm_data, background)
+    originals = [arr.copy() for arr in arrays]
+
+    def compute():
+        cat = SourceCatalog(data, SegmentationImage(segm_data), error=error,
+                            mask=mask, background=background,
+                            local_bkg_width=local_bkg_width)
+        result = {}
+        for name in cat.properties:
+            if name.startswith('sky'):
+                continue
+            value = getattr(cat, name)
+            if isinstance(value, (np.ndarray, u.Quantity)):
+                result[name] = np.asarray(value)
+        result['flux_radius'] = np.asarray(cat.flux_radius(0.5))
+        result['circular'] = np.asarray(cat.circular_photometry(5.0))
+        result['kron'] = np.asarray(cat.kron_photometry((2.0, 1.2, 0.0)))
+        return result
+
+    expected = compute()
+    for arr in arrays:
+        arr.setflags(write=False)
+    result = compute()
+
+    assert len(expected) > 50
+    for name, value in expected.items():
+        assert_equal(result[name], value)
+    for arr, original in zip(arrays, originals, strict=True):
+        assert_equal(arr, original)
+
+
+def test_moments_non_finite_data():
+    """
+    Test that a pixel with a nonfinite data value and a finite
+    convolved_data value is included in the centroid and shape
+    properties, and that it is excluded if it is also masked.
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.0, 1.5, 0.5)(xx, yy)
+    kernel = make_2dgaussian_kernel(3.0, size=5)
+    convolved_data = convolve(data, kernel)
+    error = np.full(data.shape, 2.0)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_map = SegmentationImage(segment_data)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[14, 15] = True
+    data_nan = data.copy()
+    data_nan[mask] = np.nan
+
+    kwargs = {'convolved_data': convolved_data, 'error': error}
+    cat = SourceCatalog(data, segment_map, **kwargs)
+    cat_mask = SourceCatalog(data, segment_map, mask=mask, **kwargs)
+    cat_nan = SourceCatalog(data_nan, segment_map, **kwargs)
+    cat_nan_mask = SourceCatalog(data_nan, segment_map,
+                                 mask=~np.isfinite(data_nan), **kwargs)
+
+    # The convolved_data value of the pixel is used
+    moment_props = ('moments', 'moments_central', 'centroid', 'covariance',
+                    'semimajor_axis', 'semiminor_axis', 'orientation',
+                    'fwhm')
+    for prop in moment_props:
+        assert_equal(getattr(cat_nan, prop), getattr(cat, prop))
+    assert not np.allclose(cat_nan.centroid, cat_mask.centroid, rtol=1.0e-4)
+
+    # The pixel does not contribute to the centroid errors, and it is
+    # excluded from the properties measured from the data
+    assert np.all(cat_nan.centroid_err < cat.centroid_err)
+    assert_equal(cat_nan.centroid_quad, cat_mask.centroid_quad)
+
+    # Masking the pixel excludes it from all of the properties
+    for prop in (*moment_props, 'centroid_err', 'centroid_quad'):
+        assert_equal(getattr(cat_nan_mask, prop), getattr(cat_mask, prop))
+
+
+def _masked_quad_inputs():
+    """
+    Make the inputs for the masked-pixel quadratic centroid tests.
+
+    The source peak pixel is at ``(x, y) = (12, 13)``. The pixel at
+    ``(13, 14)``, a corner of the 3x3 fit box, is outside of the source
+    segment.
+
+    Returns ``(data, error, segment_map)``.
+    """
+    yy, xx = np.mgrid[0:25, 0:25]
+    data = Gaussian2D(100.0, 12.2, 12.6, 2.0, 1.5, 0.5)(xx, yy)
+    rng = np.random.default_rng(42)
+    error = rng.uniform(1.0, 3.0, data.shape)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_data[14, 13] = 0
+    return data, error, SegmentationImage(segment_data)
+
+
+@pytest.mark.parametrize('bad_value', ['mask', 'nan'])
+@pytest.mark.parametrize('bad_pixels', [((12, 11),), ((13, 13),),
+                                        ((12, 11), (14, 12)),
+                                        ((12, 11), (14, 11), (14, 12))])
+def test_centroid_quad_masked_pixels(bad_pixels, bad_value):
+    """
+    Test that masked and nonfinite pixels in the 3x3 box are left out
+    of the quadratic centroid fit and of its error propagation, and that
+    an unmasked box pixel outside of the source segment is fit with its
+    data value.
+    """
+    data, error, segment_map = _masked_quad_inputs()
+    bad = np.zeros(data.shape, dtype=bool)
+    for (yidx, xidx) in bad_pixels:
+        bad[yidx, xidx] = True
+    if bad_value == 'mask':
+        cat = SourceCatalog(data, segment_map, error=error, mask=bad)
+    else:
+        data = data.copy()
+        data[bad] = np.nan
+        cat = SourceCatalog(data, segment_map, error=error)
+    assert not cat.centroid_quad_fallback[0]
+
+    # The reference is centroid_quadratic on the data cutout with the
+    # bad pixels masked
+    slc = cat.slices[0]
+    assert segment_map.data[14, 13] == 0
+    cutout = data[slc]
+    cutout_mask = bad[slc]
+
+    def reference(values):
+        return centroid_quadratic(values, mask=cutout_mask, fit_boxsize=3)
+
+    assert_allclose(cat.cutout_centroid_quad[0], reference(cutout),
+                    rtol=1.0e-10)
+
+    # The errors are propagated with a numerical Jacobian over the
+    # fitted pixels. The masked pixels have no variance.
+    eps = 1.0e-6
+    var_expected = np.zeros(2)
+    for yidx in range(12, 15):
+        for xidx in range(11, 14):
+            idx = (yidx - slc[0].start, xidx - slc[1].start)
+            if cutout_mask[idx]:
+                continue
+            cutout_p = cutout.copy()
+            cutout_p[idx] += eps
+            cutout_m = cutout.copy()
+            cutout_m[idx] -= eps
+            jacobian = (reference(cutout_p) - reference(cutout_m)) / (2 * eps)
+            var_expected += jacobian**2 * error[yidx, xidx]**2
+    assert_allclose(cat.centroid_quad_err[0], np.sqrt(var_expected),
+                    rtol=1.0e-6)
+
+
+def test_centroid_quad_outside_segment():
+    """
+    Test that the unmasked pixels of the 3x3 box that are outside of
+    the source segment, including a pixel of a neighboring source, are
+    fit with their data values.
+    """
+    data, error, segment_map = _masked_quad_inputs()
+    segment_data = segment_map.data.copy()
+    segment_data[12, 11] = 2
+    cat = SourceCatalog(data, SegmentationImage(segment_data), error=error)
+    assert not cat.centroid_quad_fallback[0]
+
+    slc = cat.slices[0]
+    expected = centroid_quadratic(data[slc], fit_boxsize=3)
+    assert_allclose(cat.cutout_centroid_quad[0], expected, rtol=1.0e-10)
+
+    zero_filled = np.where(segment_data[slc] == 1, data[slc], 0.0)
+    biased = centroid_quadratic(zero_filled, fit_boxsize=3)
+    assert not np.allclose(expected, biased, rtol=1.0e-3)
+
+
+@pytest.mark.parametrize('bad_pixels', [
+    # Only 5 pixels are left in the box
+    ((12, 11), (12, 13), (14, 11), (13, 11)),
+    # The 6 remaining pixels are in two rows (a rank-deficient fit)
+    ((12, 11), (12, 12), (12, 13)),
+    # The 6 remaining pixels are in two columns
+    ((12, 11), (13, 11), (14, 11))])
+def test_centroid_quad_masked_pixels_fallback(bad_pixels):
+    """
+    Test that the quadratic centroid falls back to the isophotal
+    centroid if too few pixels are left in the 3x3 box to fit the
+    quadratic polynomial.
+    """
+    data, error, segment_map = _masked_quad_inputs()
+    mask = np.zeros(data.shape, dtype=bool)
+    for (yidx, xidx) in bad_pixels:
+        mask[yidx, xidx] = True
+    cat = SourceCatalog(data, segment_map, error=error, mask=mask)
+    assert cat.centroid_quad_fallback[0]
+    assert_equal(cat.centroid_quad, cat.centroid)
+    assert_equal(cat.centroid_quad_err, cat.centroid_err)
+    assert np.all(np.isfinite(cat.centroid_quad_err))
+
+
+def test_centroid_quad_masked_pixels_sliced():
+    """
+    Test that a sliced catalog reproduces the quadratic centroids of
+    the parent catalog for sources with and without masked pixels in
+    the 3x3 box.
+    """
+    yy, xx = np.mgrid[0:25, 0:75]
+    data = (Gaussian2D(100.0, 12.2, 12.6, 2.0, 1.5, 0.5)(xx, yy)
+            + Gaussian2D(80.0, 37.4, 12.3, 1.5, 2.0, 0.2)(xx, yy)
+            + Gaussian2D(90.0, 62.7, 11.8, 1.8, 1.8)(xx, yy))
+    error = np.full(data.shape, 2.0)
+    segment_data = np.zeros(data.shape, dtype=int)
+    segment_data[6:20, 6:20] = 1
+    segment_data[6:20, 31:45] = 2
+    segment_data[6:20, 56:70] = 3
+    segment_map = SegmentationImage(segment_data)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[12, 11] = True
+    mask[13, 62] = True
+    mask[11:14, 62] = True
+
+    cat = SourceCatalog(data, segment_map, error=error, mask=mask)
+    assert_equal(cat.centroid_quad_fallback, [False, False, True])
+    for i in range(len(cat)):
+        cat2 = SourceCatalog(data, segment_map, error=error, mask=mask)
+        obj = cat2[i]
+        assert_equal(obj.centroid_quad, cat.centroid_quad[i])
+        assert_equal(obj.centroid_quad_err, cat.centroid_quad_err[i])
+        assert obj.centroid_quad_fallback == cat.centroid_quad_fallback[i]

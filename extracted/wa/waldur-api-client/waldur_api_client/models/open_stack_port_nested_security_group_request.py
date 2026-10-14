@@ -11,20 +11,20 @@ T = TypeVar("T", bound="OpenStackPortNestedSecurityGroupRequest")
 class OpenStackPortNestedSecurityGroupRequest:
     """
     Attributes:
-        name (str):
+        url (str):
     """
 
-    name: str
+    url: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        name = self.name
+        url = self.url
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "name": name,
+                "url": url,
             }
         )
 
@@ -33,10 +33,10 @@ class OpenStackPortNestedSecurityGroupRequest:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        name = d.pop("name")
+        url = d.pop("url")
 
         open_stack_port_nested_security_group_request = cls(
-            name=name,
+            url=url,
         )
 
         open_stack_port_nested_security_group_request.additional_properties = d

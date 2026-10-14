@@ -45,6 +45,7 @@ def test_the_refusals_read_word_for_word():
     assert ts_string(GUARD, "DENY_REASON_APPROVALS") == session_marker.DENY_REASON_APPROVALS
     assert ts_string(GUARD, "DAEMON_PROFILE_DENY") == session_marker.DAEMON_PROFILE_DENY
     assert ts_string(GUARD, "DIRECTED_RETRY") == session_marker.DIRECTED_RETRY
+    assert ts_string(GUARD, "WRITER_RETRY") == session_marker.WRITER_RETRY
     assert ts_string(GUARD, "DAEMON_PROFILE_DENY_WRITE") == session_marker.DAEMON_PROFILE_DENY_WRITE
 
 

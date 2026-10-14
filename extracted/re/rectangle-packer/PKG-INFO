@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rectangle-packer
-Version: 2.1.0
+Version: 2.1.1
 Summary: Pack a set of rectangles into a bounding box with minimum area
 Home-page: https://github.com/Penlect/rectangle-packer
 Author: Daniel Andersson
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst

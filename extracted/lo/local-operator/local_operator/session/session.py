@@ -43,6 +43,7 @@ import functools
 import inspect
 import json
 import logging
+import math
 import os
 import string
 import tempfile
@@ -299,6 +300,7 @@ from local_operator.session.spend import (
 )
 from local_operator.session.spend import recall as recall_spend
 from local_operator.session.spend import serving_identity, writer_stamp
+from local_operator.session.tool_readiness import ToolReadiness, ToolReadinessStatus
 from local_operator.session.transcript import (
     CUSTOM_KIND_CUSTOM,
     ENTRY_CUSTOM,
@@ -4629,7 +4631,12 @@ class Session:
         transcript and paint as the user's own words
         (``session/attachment_hints.py`` carries the whole argument).
         """
-        return with_attachment_hints(self._render_history(messages))
+        # The boundary IS the session's installed confinement root
+        # (``SessionSpec.world_root`` seats it there); an unset session renders
+        # exactly as before this argument existed.
+        return with_attachment_hints(
+            self._render_history(messages), world_root=self._confinement_root
+        )
 
     def _wire_bytes_budget(self) -> int:
         """The resolved hard byte ceiling, or 0 when there is none.
@@ -5922,7 +5929,10 @@ class Session:
         # session mirrors exactly those, and routing through an instance method
         # it cannot know about broke the aside-equals-turn equality it pins.
         return blocks, bound_replay_payloads(
-            with_attachment_hints(self._render_history([*history, *turns]))
+            with_attachment_hints(
+                self._render_history([*history, *turns]),
+                world_root=self._confinement_root,
+            )
         )
 
     @property
@@ -10993,6 +11003,81 @@ class Session:
         diagnosed as a harness fault rather than as the declaration it is.
         """
         return tuple(tool.name for tool in self._tools)
+
+    async def wait_for_tools(
+        self, required: Sequence[str], *, timeout_s: float = 30.0
+    ) -> ToolReadiness:
+        """Wait, bounded, until named tools are reachable; report honestly.
+
+        See :mod:`local_operator.session.tool_readiness` for the WHY and the
+        full contract. The short form: the SDK's own gate for callers that
+        must not race MCP's asynchronous discovery. Reads the LIVE enforced
+        inventory first (an already-reachable name -- built-in or connected --
+        returns ready WITHOUT waiting on unrelated servers), then, only when
+        something is still missing, awaits the owning session's existing
+        discovery settle ONCE, bounded. A timeout leaves discovery running
+        (``pending`` here, not a cancellation); a settled-but-absent name, a
+        typo, or a manager-less session reads ``missing``; a manager failure
+        never reads ready. Cancellation of the CALLER propagates and does not
+        disturb the discovery it was waiting on.
+        """
+
+        # Names are validated BEFORE any wait: a malformed request must not
+        # consume the bound (or pay a settle) before refusing. Dedup keeps the
+        # caller's order so `required`/`present`/`missing` partition exactly.
+        if isinstance(required, str) or not isinstance(required, Sequence):
+            raise ValueError("wait_for_tools requires a sequence of tool names, not a bare string")
+        names: list[str] = []
+        for name in required:
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("every required tool name must be a non-empty string")
+            if name not in names:
+                names.append(name)
+        if not math.isfinite(timeout_s) or timeout_s < 0:
+            raise ValueError("timeout_s must be a finite number >= 0")
+        required_names = tuple(names)
+
+        inventory = self.tool_inventory
+        present = tuple(name for name in required_names if name in inventory)
+        if len(present) == len(required_names):
+            return ToolReadiness(
+                status="ready",
+                required=required_names,
+                present=present,
+                missing=(),
+                discovery_settled=None,
+            )
+
+        manager = self.mcp_manager
+        settled: bool | None = None
+        if manager is not None:
+            try:
+                settled = await manager.wait_settled(timeout_s)
+            except Exception:  # noqa: BLE001 - a reduced manager must not read ready;
+                # CancelledError (BaseException) still propagates to the caller.
+                settled = None
+
+        inventory = self.tool_inventory
+        present = tuple(name for name in required_names if name in inventory)
+        missing = tuple(name for name in required_names if name not in inventory)
+        if not missing:
+            status: ToolReadinessStatus = "ready"
+        elif manager is None or settled is True:
+            # Nothing is going to add the name: settled discovery without it,
+            # or no discovery machinery at all. A typo or an excluded name
+            # lands here and never widens the inventory.
+            status = "missing"
+        else:
+            # Still in flight (timed out, or the manager failed mid-wait):
+            # honest pending, and a later fresh call may still read ready.
+            status = "pending"
+        return ToolReadiness(
+            status=status,
+            required=required_names,
+            present=present,
+            missing=missing,
+            discovery_settled=settled,
+        )
 
     @property
     def attached_profile_tools(self) -> tuple[str, ...]:
@@ -21633,7 +21718,12 @@ class Session:
             logger.warning("aida: load-time hold failed; arming unfiltered", exc_info=True)
             return schedules
 
-    async def _aida_reconcile_rows(self, schedules: list[WakeSchedule]) -> list[WakeSchedule]:
+    async def _aida_reconcile_rows(
+        self,
+        schedules: list[WakeSchedule],
+        *,
+        cadence_fired: WakeSchedule | None = None,
+    ) -> list[WakeSchedule]:
         """The engine's reconcile over one schedule list, notes journaled.
 
         Called from the persist (so a fire's automatic re-arm and every wake
@@ -21655,6 +21745,7 @@ class Session:
                 session_id=self._session_id,
                 class_reactive=self._class_reactive(),
                 attended=self._aida_greeting_may_land(),
+                cadence_fired=cadence_fired,
             )
             if result.notes:
                 await proactive.append_notes(self._transcript, result.notes)
@@ -21664,6 +21755,10 @@ class Session:
             self._aida_pending_trigger_settle = result.settle
             return result.schedules
         except Exception:  # noqa: BLE001 — the schedule write outranks the engine
+            if cadence_fired is not None:
+                # Do not commit retirement without its successor: an accepted
+                # interval occurrence must remain retryable on engine failure.
+                raise
             logger.warning("aida: reconcile failed; leaving the list as given", exc_info=True)
             return schedules
 
@@ -22158,6 +22253,13 @@ class Session:
         # into the message (review round 2, R7); the leftover load-time fires
         # are tracked separately as phantoms.
         self._resume_catchup_ids = {m["schedule"].id for m in missed}
+        if getattr(self, "_aida_duty", False):
+            # Keep the original row, not the scheduler's grace-shifted copy.
+            # This is spent only when the existing catch-up take accepts it.
+            self._aida_cadence_catchup = next(
+                (m["schedule"] for m in missed if m["schedule"].id == "aida-cadence"),
+                None,
+            )
         # The swallow bookkeeping starts here: every folded row still OWES its
         # load-time fire (the pump re-armed each to now + grace), and the shim
         # must swallow each exactly once — see _deliver_wake_catchup.
@@ -22268,6 +22370,9 @@ class Session:
         # now + grace) stay covered by ``_resume_catchup_phantoms``, consumed
         # one fire at a time — so a same-batch fire arriving after this take
         # is still swallowed, while an occurrence one interval later is not.
+        if getattr(self, "_aida_duty", False) and "aida-cadence" in self._resume_catchup_ids:
+            self._aida_cadence_delivered = getattr(self, "_aida_cadence_catchup", None)
+            self._aida_cadence_catchup = None
         self._resume_catchup_ids = set()
         return message
 
@@ -22419,12 +22524,62 @@ class Session:
         # precedent), and a host that never ran ``Session.__init__`` has no
         # aida flag — absent means "not her session", which is the same answer
         # every other non-Aida caller gets.
+        cadence_fired = None
         if getattr(self, "_aida_duty", False):
-            schedules = await self._aida_reconcile_rows(schedules)
+            from local_operator.aida import proactive
+
+            accepted = getattr(self, "_aida_cadence_delivered", None)
+            previous = self._transcript.latest_custom_entry(WAKE_SCHEDULES_CUSTOM_TYPE)
+            previous_rows = (
+                previous.payload.get("details", {}).get("schedules", []) if previous else []
+            )
+            # Absence/cancel alone never spends a phase. An accepted occurrence
+            # must also match the authoritative retired arm, so an unrelated
+            # same-id replacement cannot spend an old delivery's receipt.
+            if not any(row.id == proactive.CADENCE_ID for row in schedules):
+                previous_cadence = next(
+                    (
+                        WakeSchedule.model_validate(raw)
+                        for raw in previous_rows
+                        if raw.get("id") == proactive.CADENCE_ID
+                    ),
+                    None,
+                )
+                if accepted is not None and previous_cadence is not None:
+                    if (
+                        accepted.request_id == previous_cadence.request_id
+                        and accepted.created_at == previous_cadence.created_at
+                        and (
+                            proactive.cadence_phase(accepted) is not None
+                            or proactive.policy(self._config_dir).interval_hours
+                        )
+                    ):
+                        cadence_fired = accepted
+                if (
+                    cadence_fired is None
+                    and previous_cadence is not None
+                    and proactive.cadence_phase(previous_cadence) is not None
+                ):
+                    # An unaccepted removal (including a stale same-id receipt)
+                    # cannot consume the authoritative replacement's owed phase.
+                    schedules = [*schedules, previous_cadence]
+            schedules = await self._aida_reconcile_rows(schedules, cadence_fired=cadence_fired)
         await self._transcript.append_custom(
             WAKE_SCHEDULES_CUSTOM_TYPE,
             {"schedules": [schedule.model_dump() for schedule in schedules]},
         )
+        if getattr(self, "_aida_duty", False):
+            from local_operator.aida import proactive
+
+            # The next row's origin+due is now committed atomically. The state
+            # mirror is recoverable if it fails; clear a receipt only after this
+            # append, never on a failed persist or merely on a config/event turn.
+            if cadence_fired is not None:
+                self._aida_cadence_delivered = None
+            try:
+                proactive.remember_cadence(self._config_dir, schedules)
+            except Exception:  # noqa: BLE001 — the transcript remains authority
+                logger.warning("aida: cadence mirror failed after persist", exc_info=True)
         # A persist that follows a delivery stamps `last_fired_at`. The
         # scheduler's pump delivers and THEN persists the advanced list, so
         # the flag set at delivery is still standing here; consuming it (not
@@ -23592,6 +23747,10 @@ class Session:
         )
         if getattr(self, "_aida_duty", False):
             self._stamp_aida_greeting_delivered(due)
+            if due.schedule.id == "aida-cadence":
+                # Aida-only accepted occurrence, consumed by the existing persist
+                # boundary after retirement. No generic fire/dedup behavior changes.
+                self._aida_cadence_delivered = due.schedule
         # The receipt event rides BEFORE the turn spawn so a front end can
         # paint the expandable wake line ahead of the work it triggered —
         # without it the transcript showed the agent starting to work with no

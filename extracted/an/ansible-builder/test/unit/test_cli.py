@@ -6,7 +6,7 @@ import pytest
 
 from ansible_builder import constants
 from ansible_builder.main import AnsibleBuilder
-from ansible_builder.cli import parse_args
+from ansible_builder.cli import parse_args, _should_disable_colors
 from ansible_builder.policies import PolicyChoices
 
 
@@ -388,3 +388,60 @@ def test_extra_build_cli_args(exec_env_definition_file, tmp_path):
 
     for extra in extras:
         assert extra in aee.build_command
+
+
+@pytest.mark.parametrize('no_color,clicolor,term,ci,expected',
+                         [
+                             # NO_COLOR standard
+                             ('1', '', 'xterm', '', True),     # NO_COLOR disables
+                             ('1', '1', 'xterm', '', True),    # NO_COLOR overrides CLICOLOR
+
+                             # TERM=dumb
+                             ('', '', 'dumb', '', True),       # TERM=dumb disables
+
+                             # CLICOLOR
+                             ('', '0', 'xterm', '', True),     # CLICOLOR=0 disables
+                             ('', '1', 'xterm', '', False),    # CLICOLOR=1 enables
+                             ('', '', 'xterm', '', False),     # Default CLICOLOR behavior (enabled)
+
+                             # CI environments
+                             ('', '', 'xterm', '1', True),     # CI disables colors
+                         ])
+def test__should_disable_colors(*, no_color, clicolor, term, ci, expected, monkeypatch, mocker):
+    # pylint: disable=W0613,W0621
+    # Clear environment variables that could interfere with the test
+    # monkeypatch.delenv is safe for concurrent execution
+    for var in ['NO_COLOR', 'CLICOLOR', 'TERM',
+                'CI', 'CONTINUOUS_INTEGRATION', 'BUILD_NUMBER', 'GITHUB_ACTIONS']:
+        monkeypatch.delenv(var, raising=False)
+
+    # Set test values using monkeypatch (thread-safe)
+    if no_color:
+        monkeypatch.setenv('NO_COLOR', no_color)
+    if clicolor:
+        monkeypatch.setenv('CLICOLOR', clicolor)
+    if term:
+        monkeypatch.setenv('TERM', term)
+    if ci:
+        monkeypatch.setenv('CI', ci)
+
+    # Mock TTY detection to return True (simulating terminal environment)
+    # This prevents test environment from interfering with color detection logic
+    mocker.patch('sys.stdout.isatty', return_value=True)
+    assert _should_disable_colors() == expected
+
+
+@pytest.mark.parametrize('isatty_result,expected', [
+    (True, False),   # TTY - colors enabled
+    (False, True),   # Not TTY - colors disabled
+])
+def test__should_disable_colors_tty_detection(isatty_result, expected, monkeypatch, mocker):
+    # pylint: disable=W0613,W0621
+    # Clear all color-related environment variables using monkeypatch
+    for var in ['NO_COLOR', 'CLICOLOR', 'TERM',
+                'CI', 'CONTINUOUS_INTEGRATION', 'BUILD_NUMBER', 'GITHUB_ACTIONS']:
+        monkeypatch.delenv(var, raising=False)
+
+    # Mock sys.stdout.isatty to control TTY detection
+    mocker.patch('sys.stdout.isatty', return_value=isatty_result)
+    assert _should_disable_colors() == expected

@@ -37,6 +37,8 @@ from arthur_client.api_bindings.models.resource_list_llm_model import ResourceLi
 from arthur_client.api_bindings.models.resource_list_sub_agent import ResourceListSubAgent
 from arthur_client.api_bindings.models.resource_list_tool import ResourceListTool
 from arthur_client.api_bindings.models.resource_list_unregistered_agent_action_response import ResourceListUnregisteredAgentActionResponse
+from arthur_client.api_bindings.models.resource_list_unregistered_agent_discovery_source import ResourceListUnregisteredAgentDiscoverySource
+from arthur_client.api_bindings.models.resource_list_unregistered_agent_engine import ResourceListUnregisteredAgentEngine
 from arthur_client.api_bindings.models.sort_order import SortOrder
 from arthur_client.api_bindings.models.source_class import SourceClass
 from arthur_client.api_bindings.models.unmute_unregistered_agents_request import UnmuteUnregisteredAgentsRequest
@@ -2325,6 +2327,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -2377,6 +2381,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -2428,6 +2436,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -2474,6 +2484,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -2526,6 +2538,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -2577,6 +2593,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -2623,6 +2641,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -2675,6 +2695,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -2726,6 +2750,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -2767,6 +2793,8 @@ class AgentsV1Api:
         page,
         page_size,
         source_ids,
+        data_plane_ids,
+        has_source,
         external_ids,
         source_classes,
         evidence_levels,
@@ -2791,6 +2819,7 @@ class AgentsV1Api:
             'llm_model_names': 'multi',
             'data_source_urls': 'multi',
             'source_ids': 'multi',
+            'data_plane_ids': 'multi',
             'external_ids': 'multi',
             'source_classes': 'multi',
             'evidence_levels': 'multi',
@@ -2860,6 +2889,14 @@ class AgentsV1Api:
         if source_ids is not None:
             
             _query_params.append(('source_ids', source_ids))
+            
+        if data_plane_ids is not None:
+            
+            _query_params.append(('data_plane_ids', data_plane_ids))
+            
+        if has_source is not None:
+            
+            _query_params.append(('has_source', has_source))
             
         if external_ids is not None:
             
@@ -5111,6 +5148,1248 @@ class AgentsV1Api:
 
 
     @validate_call
+    def list_unregistered_agent_discovery_sources_for_organization(
+        self,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListUnregisteredAgentDiscoverySource:
+        """List The Discovery Sources Behind The Organization'S Unregistered Agents
+
+        The discovery sources that reported at least one unregistered agent in any workspace of the organization, deleted sources included, for the list's source filter. Requires organization_list_unregistered_agents and organization_list_discovery_sources permission: the options name the sources, which the summary withholds from a caller who cannot list them.
+
+        :param show_muted: Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_discovery_sources_for_organization_serialize(
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentDiscoverySource",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_unregistered_agent_discovery_sources_for_organization_with_http_info(
+        self,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListUnregisteredAgentDiscoverySource]:
+        """List The Discovery Sources Behind The Organization'S Unregistered Agents
+
+        The discovery sources that reported at least one unregistered agent in any workspace of the organization, deleted sources included, for the list's source filter. Requires organization_list_unregistered_agents and organization_list_discovery_sources permission: the options name the sources, which the summary withholds from a caller who cannot list them.
+
+        :param show_muted: Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_discovery_sources_for_organization_serialize(
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentDiscoverySource",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_unregistered_agent_discovery_sources_for_organization_without_preload_content(
+        self,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List The Discovery Sources Behind The Organization'S Unregistered Agents
+
+        The discovery sources that reported at least one unregistered agent in any workspace of the organization, deleted sources included, for the list's source filter. Requires organization_list_unregistered_agents and organization_list_discovery_sources permission: the options name the sources, which the summary withholds from a caller who cannot list them.
+
+        :param show_muted: Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_discovery_sources_for_organization_serialize(
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentDiscoverySource",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_unregistered_agent_discovery_sources_for_organization_serialize(
+        self,
+        show_muted,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if show_muted is not None:
+            
+            _query_params.append(('show_muted', show_muted))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/organization/unregistered_agents/discovery_sources',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def list_unregistered_agent_discovery_sources_for_workspace(
+        self,
+        workspace_id: StrictStr,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListUnregisteredAgentDiscoverySource:
+        """List The Discovery Sources Behind A Workspace'S Unregistered Agents.
+
+        The discovery sources that reported at least one unregistered agent in the workspace, deleted sources included, for the list's source filter. Requires workspace_list_unregistered_agents and organization_list_discovery_sources permission: the options name the sources, which the summary withholds from a caller who cannot list them.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param show_muted: Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_discovery_sources_for_workspace_serialize(
+            workspace_id=workspace_id,
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentDiscoverySource",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_unregistered_agent_discovery_sources_for_workspace_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListUnregisteredAgentDiscoverySource]:
+        """List The Discovery Sources Behind A Workspace'S Unregistered Agents.
+
+        The discovery sources that reported at least one unregistered agent in the workspace, deleted sources included, for the list's source filter. Requires workspace_list_unregistered_agents and organization_list_discovery_sources permission: the options name the sources, which the summary withholds from a caller who cannot list them.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param show_muted: Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_discovery_sources_for_workspace_serialize(
+            workspace_id=workspace_id,
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentDiscoverySource",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_unregistered_agent_discovery_sources_for_workspace_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List The Discovery Sources Behind A Workspace'S Unregistered Agents.
+
+        The discovery sources that reported at least one unregistered agent in the workspace, deleted sources included, for the list's source filter. Requires workspace_list_unregistered_agents and organization_list_discovery_sources permission: the options name the sources, which the summary withholds from a caller who cannot list them.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param show_muted: Only sources of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_discovery_sources_for_workspace_serialize(
+            workspace_id=workspace_id,
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentDiscoverySource",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_unregistered_agent_discovery_sources_for_workspace_serialize(
+        self,
+        workspace_id,
+        show_muted,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        # process the query parameters
+        if show_muted is not None:
+            
+            _query_params.append(('show_muted', show_muted))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/workspaces/{workspace_id}/agents/unregistered/discovery_sources',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def list_unregistered_agent_engines_for_organization(
+        self,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListUnregisteredAgentEngine:
+        """List The Engines Behind The Organization'S Unregistered Agents
+
+        The engines that found at least one unregistered agent in any workspace of the organization, with each engine's workspace, for the list's engine filter. Requires organization_list_unregistered_agents and organization_list_data_planes permission: the options name the engines, which the list itself does not.
+
+        :param show_muted: Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_engines_for_organization_serialize(
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentEngine",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_unregistered_agent_engines_for_organization_with_http_info(
+        self,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListUnregisteredAgentEngine]:
+        """List The Engines Behind The Organization'S Unregistered Agents
+
+        The engines that found at least one unregistered agent in any workspace of the organization, with each engine's workspace, for the list's engine filter. Requires organization_list_unregistered_agents and organization_list_data_planes permission: the options name the engines, which the list itself does not.
+
+        :param show_muted: Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_engines_for_organization_serialize(
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentEngine",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_unregistered_agent_engines_for_organization_without_preload_content(
+        self,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List The Engines Behind The Organization'S Unregistered Agents
+
+        The engines that found at least one unregistered agent in any workspace of the organization, with each engine's workspace, for the list's engine filter. Requires organization_list_unregistered_agents and organization_list_data_planes permission: the options name the engines, which the list itself does not.
+
+        :param show_muted: Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_engines_for_organization_serialize(
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentEngine",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_unregistered_agent_engines_for_organization_serialize(
+        self,
+        show_muted,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if show_muted is not None:
+            
+            _query_params.append(('show_muted', show_muted))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/organization/unregistered_agents/engines',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def list_unregistered_agent_engines_for_workspace(
+        self,
+        workspace_id: StrictStr,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListUnregisteredAgentEngine:
+        """List The Engines Behind A Workspace'S Unregistered Agents.
+
+        The engines that found at least one unregistered agent in the workspace, for the list's engine filter. Requires workspace_list_unregistered_agents permission, and either workspace_list_data_planes on the workspace or organization_list_data_planes on its organization: the options name the engines, which the list itself does not.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param show_muted: Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_engines_for_workspace_serialize(
+            workspace_id=workspace_id,
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentEngine",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_unregistered_agent_engines_for_workspace_with_http_info(
+        self,
+        workspace_id: StrictStr,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListUnregisteredAgentEngine]:
+        """List The Engines Behind A Workspace'S Unregistered Agents.
+
+        The engines that found at least one unregistered agent in the workspace, for the list's engine filter. Requires workspace_list_unregistered_agents permission, and either workspace_list_data_planes on the workspace or organization_list_data_planes on its organization: the options name the engines, which the list itself does not.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param show_muted: Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_engines_for_workspace_serialize(
+            workspace_id=workspace_id,
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentEngine",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_unregistered_agent_engines_for_workspace_without_preload_content(
+        self,
+        workspace_id: StrictStr,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List The Engines Behind A Workspace'S Unregistered Agents.
+
+        The engines that found at least one unregistered agent in the workspace, for the list's engine filter. Requires workspace_list_unregistered_agents permission, and either workspace_list_data_planes on the workspace or organization_list_data_planes on its organization: the options name the engines, which the list itself does not.
+
+        :param workspace_id: (required)
+        :type workspace_id: str
+        :param show_muted: Only engines of muted agents when true, of unmuted agents when false, of all agents when absent.
+        :type show_muted: bool
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_unregistered_agent_engines_for_workspace_serialize(
+            workspace_id=workspace_id,
+            show_muted=show_muted,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListUnregisteredAgentEngine",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_unregistered_agent_engines_for_workspace_serialize(
+        self,
+        workspace_id,
+        show_muted,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if workspace_id is not None:
+            _path_params['workspace_id'] = workspace_id
+        # process the query parameters
+        if show_muted is not None:
+            
+            _query_params.append(('show_muted', show_muted))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/workspaces/{workspace_id}/agents/unregistered/engines',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def list_unregistered_agents_for_organization(
         self,
         sort: Annotated[Optional[AgentSort], Field(description="The field to sort the agents by.")] = None,
@@ -5126,6 +6405,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -5176,6 +6457,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -5226,6 +6511,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -5271,6 +6558,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -5321,6 +6610,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -5371,6 +6664,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -5416,6 +6711,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -5466,6 +6763,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -5516,6 +6817,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -5556,6 +6859,8 @@ class AgentsV1Api:
         page,
         page_size,
         source_ids,
+        data_plane_ids,
+        has_source,
         external_ids,
         source_classes,
         evidence_levels,
@@ -5579,6 +6884,7 @@ class AgentsV1Api:
             'llm_model_names': 'multi',
             'data_source_urls': 'multi',
             'source_ids': 'multi',
+            'data_plane_ids': 'multi',
             'external_ids': 'multi',
             'source_classes': 'multi',
             'evidence_levels': 'multi',
@@ -5646,6 +6952,14 @@ class AgentsV1Api:
         if source_ids is not None:
             
             _query_params.append(('source_ids', source_ids))
+            
+        if data_plane_ids is not None:
+            
+            _query_params.append(('data_plane_ids', data_plane_ids))
+            
+        if has_source is not None:
+            
+            _query_params.append(('has_source', has_source))
             
         if external_ids is not None:
             
@@ -5765,6 +7079,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -5817,6 +7133,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -5868,6 +7188,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -5914,6 +7236,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -5966,6 +7290,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -6017,6 +7345,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -6063,6 +7393,8 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        data_plane_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents found by any engine in this list.")] = None,
+        has_source: Annotated[Optional[StrictBool], Field(description="True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.")] = None,
         external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         evidence_levels: Annotated[Optional[List[EvidenceLevel]], Field(description="Filter agents by evidence level -- full, limited or stale -- as rolled up over all their evidence.")] = None,
@@ -6115,6 +7447,10 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
+        :param data_plane_ids: Filter agents found by any engine in this list.
+        :type data_plane_ids: List[str]
+        :param has_source: True for agents at least one discovery source reported, false for agents no discovery source reported. Sent with source_ids, false is combined with source_ids by OR rather than AND: agents with no source plus agents any of those sources reported.
+        :type has_source: bool
         :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
@@ -6166,6 +7502,8 @@ class AgentsV1Api:
             page=page,
             page_size=page_size,
             source_ids=source_ids,
+            data_plane_ids=data_plane_ids,
+            has_source=has_source,
             external_ids=external_ids,
             source_classes=source_classes,
             evidence_levels=evidence_levels,
@@ -6207,6 +7545,8 @@ class AgentsV1Api:
         page,
         page_size,
         source_ids,
+        data_plane_ids,
+        has_source,
         external_ids,
         source_classes,
         evidence_levels,
@@ -6230,6 +7570,7 @@ class AgentsV1Api:
             'llm_model_names': 'multi',
             'data_source_urls': 'multi',
             'source_ids': 'multi',
+            'data_plane_ids': 'multi',
             'external_ids': 'multi',
             'source_classes': 'multi',
             'evidence_levels': 'multi',
@@ -6299,6 +7640,14 @@ class AgentsV1Api:
         if source_ids is not None:
             
             _query_params.append(('source_ids', source_ids))
+            
+        if data_plane_ids is not None:
+            
+            _query_params.append(('data_plane_ids', data_plane_ids))
+            
+        if has_source is not None:
+            
+            _query_params.append(('has_source', has_source))
             
         if external_ids is not None:
             

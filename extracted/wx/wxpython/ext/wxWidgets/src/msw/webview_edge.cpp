@@ -32,6 +32,8 @@
 #include "wx/msw/private/webview_edge.h"
 #include "wx/msw/private/comstream.h"
 
+#include <algorithm>
+
 #ifdef __VISUALC__
 #include <wrl/event.h>
 using namespace Microsoft::WRL;
@@ -216,11 +218,14 @@ public:
             return false;
         }
         // Mark event as completed
-        hr = m_deferral->Complete();
-        if (FAILED(hr))
+        if ( m_deferral )
         {
-            wxLogApiError("deferral->Complete()", hr);
-            return false;
+            hr = m_deferral->Complete();
+            if (FAILED(hr))
+            {
+                wxLogApiError("deferral->Complete()", hr);
+                return false;
+            }
         }
 
         return true;
@@ -313,12 +318,19 @@ public:
         if (!m_webViewEnvironment)
         {
             m_webViewsWaitingForEnvironment.push_back(impl);
+
+            // keep us alive until the completion handler below runs, see #26491
+            wxWebViewConfiguration keepAlive = impl->m_config;
             HRESULT hr = wxCreateCoreWebView2EnvironmentWithOptions(
                 ms_browserExecutableDir.wc_str(),
                 GetDataPath().wc_str(),
                 m_webViewEnvironmentOptions,
-                Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(this,
-                    &wxWebViewConfigurationImplEdge::OnEnvironmentCreated).Get());
+                Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+                    [this, keepAlive]
+                    (HRESULT result, ICoreWebView2Environment* env) -> HRESULT
+                    {
+                        return OnEnvironmentCreated(result, env);
+                    }).Get());
             if (FAILED(hr))
             {
                 wxLogApiError("CreateWebView2EnvironmentWithOptions", hr);
@@ -334,11 +346,31 @@ public:
         }
     }
 
+    // Called from wxWebViewEdgeImpl dtor to ensure that we don't try to use a
+    // WebView which had been destroyed while waiting for the environment
+    // creation to complete, see #26491.
+    void RemoveWaitingForEnvironment(wxWebViewEdgeImpl* impl)
+    {
+        m_webViewsWaitingForEnvironment.erase(
+            std::remove(
+                m_webViewsWaitingForEnvironment.begin(),
+                m_webViewsWaitingForEnvironment.end(),
+                impl
+            ),
+            m_webViewsWaitingForEnvironment.end()
+        );
+    }
+
     HRESULT OnEnvironmentCreated(HRESULT WXUNUSED(result), ICoreWebView2Environment* environment)
     {
         m_webViewEnvironment = environment;
+
+        // Note that EnvironmentAvailable() doesn't run any user code and so
+        // can't destroy any of the WebViews here, i.e. it can't modify the
+        // vector we're iterating over.
         for (auto impl : m_webViewsWaitingForEnvironment)
             impl->EnvironmentAvailable(m_webViewEnvironment);
+
         m_webViewsWaitingForEnvironment.clear();
         return S_OK;
     }
@@ -369,7 +401,8 @@ public:
     {
         wxPoint result(-1, -1);
         BOOL hasPosition;
-        if (SUCCEEDED(m_windowFeatures->get_HasPosition(&hasPosition)) && hasPosition)
+        if (m_windowFeatures &&
+            SUCCEEDED(m_windowFeatures->get_HasPosition(&hasPosition)) && hasPosition)
         {
             UINT32 x, y;
             if (SUCCEEDED(m_windowFeatures->get_Left(&x)) &&
@@ -383,7 +416,8 @@ public:
     {
         wxSize result(-1, -1);
         BOOL hasSize;
-        if (SUCCEEDED(m_windowFeatures->get_HasSize(&hasSize)) && hasSize)
+        if (m_windowFeatures &&
+            SUCCEEDED(m_windowFeatures->get_HasSize(&hasSize)) && hasSize)
         {
             UINT32 width, height;
             if (SUCCEEDED(m_windowFeatures->get_Width(&width)) &&
@@ -396,7 +430,8 @@ public:
     virtual bool ShouldDisplayMenuBar() const override
     {
         BOOL result;
-        if (SUCCEEDED(m_windowFeatures->get_ShouldDisplayMenuBar(&result)))
+        if (m_windowFeatures &&
+            SUCCEEDED(m_windowFeatures->get_ShouldDisplayMenuBar(&result)))
             return result;
         else
             return true;
@@ -405,7 +440,8 @@ public:
     virtual bool ShouldDisplayStatusBar() const override
     {
         BOOL result;
-        if (SUCCEEDED(m_windowFeatures->get_ShouldDisplayStatus(&result)))
+        if (m_windowFeatures &&
+            SUCCEEDED(m_windowFeatures->get_ShouldDisplayStatus(&result)))
             return result;
         else
             return true;
@@ -413,7 +449,8 @@ public:
     virtual bool ShouldDisplayToolBar() const override
     {
         BOOL result;
-        if (SUCCEEDED(m_windowFeatures->get_ShouldDisplayToolbar(&result)))
+        if (m_windowFeatures &&
+            SUCCEEDED(m_windowFeatures->get_ShouldDisplayToolbar(&result)))
             return result;
         else
             return true;
@@ -422,7 +459,8 @@ public:
     virtual bool ShouldDisplayScrollBars() const override
     {
         BOOL result;
-        if (SUCCEEDED(m_windowFeatures->get_ShouldDisplayScrollBars(&result)))
+        if (m_windowFeatures &&
+            SUCCEEDED(m_windowFeatures->get_ShouldDisplayScrollBars(&result)))
             return result;
         else
             return true;
@@ -451,6 +489,15 @@ wxWebViewEdgeImpl::wxWebViewEdgeImpl(wxWebViewEdge* webview) :
 
 wxWebViewEdgeImpl::~wxWebViewEdgeImpl()
 {
+    *m_alive = false;
+
+    // If we're still waiting for the environment creation to complete, we must
+    // not be notified about it any more.
+    auto* const config =
+        static_cast<wxWebViewConfigurationImplEdge*>(m_config.GetImpl());
+    if (config)
+        config->RemoveWaitingForEnvironment(this);
+
     if (m_webView)
     {
         m_webView->remove_NavigationCompleted(m_navigationCompletedToken);
@@ -473,6 +520,7 @@ bool wxWebViewEdgeImpl::Create()
     m_isBusy = false;
     m_inEventCallback = false;
     m_pendingContextMenuEnabled = -1;
+    // 0 to turn off dev tools by default
     m_pendingAccessToDevToolsEnabled = 0;
     m_pendingEnableBrowserAcceleratorKeys = -1;
 
@@ -488,6 +536,18 @@ void wxWebViewEdgeImpl::EnvironmentAvailable(ICoreWebView2Environment* environme
 {
     environment->QueryInterface(IID_PPV_ARGS(&m_webViewEnvironment));
     wxCOMPtr<ICoreWebView2Environment10> environment10;
+
+    // guard against completing after we're destroyed, see #26491
+    std::shared_ptr<bool> alive = m_alive;
+    auto onWebViewCreated =
+        [this, alive]
+        (HRESULT result, ICoreWebView2Controller* controller) -> HRESULT
+        {
+            if (!*alive)
+                return S_OK;
+            return OnWebViewCreated(result, controller);
+        };
+
     if (SUCCEEDED(m_webViewEnvironment->QueryInterface(IID_PPV_ARGS(&environment10))))
     {
         wxCOMPtr<ICoreWebView2ControllerOptions> controllerOptions;
@@ -500,14 +560,14 @@ void wxWebViewEdgeImpl::EnvironmentAvailable(ICoreWebView2Environment* environme
                 m_ctrl->GetHWND(),
                 controllerOptions.get(),
                 Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                    this, &wxWebViewEdgeImpl::OnWebViewCreated).Get());
+                    onWebViewCreated).Get());
         }
     }
     else
         m_webViewEnvironment->CreateCoreWebView2Controller(
             m_ctrl->GetHWND(),
             Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                this, &wxWebViewEdgeImpl::OnWebViewCreated).Get());
+                onWebViewCreated).Get());
 }
 
 bool wxWebViewEdgeImpl::Initialize()
@@ -554,7 +614,7 @@ void wxWebViewEdgeImpl::UpdateBounds()
 {
     RECT r;
     wxCopyRectToRECT(m_ctrl->GetClientRect(), r);
-    if (m_webView)
+    if ( m_webViewController )
         m_webViewController->put_Bounds(r);
 }
 
@@ -607,6 +667,7 @@ HRESULT wxWebViewEdgeImpl::HandleNavigationStarting(ICoreWebView2NavigationStart
 void wxWebViewEdgeImpl::SendErrorEventForAPI(const wxString& api, HRESULT errorCode)
 {
     wxLogApiError(api, errorCode);
+    wxUnusedVar(api); // unused with wxDEBUG_LEVEL=0
 
     wxWebViewEvent event(wxEVT_WEBVIEW_ERROR, m_ctrl->GetId(), wxString(), wxString());
     event.SetEventObject(m_ctrl);
@@ -827,7 +888,11 @@ HRESULT wxWebViewEdgeImpl::OnWebResourceRequested(ICoreWebView2* WXUNUSED(sender
     wxSharedPtr<wxWebViewHandler> handler;
 
     if (uri.HasServer())
-        handler = m_handlers[uri.GetServer()];
+    {
+        const auto it = m_handlers.find(uri.GetServer());
+        if ( it != m_handlers.end() )
+            handler = it->second;
+    }
 
     if (!handler)
     {
@@ -966,7 +1031,7 @@ HRESULT wxWebViewEdgeImpl::OnWebViewCreated(HRESULT result, ICoreWebView2Control
     if (m_pendingAccessToDevToolsEnabled != -1)
     {
         m_ctrl->EnableAccessToDevTools(m_pendingAccessToDevToolsEnabled == 1);
-        m_pendingContextMenuEnabled = -1;
+        m_pendingAccessToDevToolsEnabled = -1;
     }
 
     if (m_pendingEnableBrowserAcceleratorKeys != -1)
@@ -1004,7 +1069,7 @@ HRESULT wxWebViewEdgeImpl::OnWebViewCreated(HRESULT result, ICoreWebView2Control
     {
         if (FAILED(m_newWindowArgs->put_NewWindow(baseWebView)))
             SendErrorEventForAPI("WebView2::WebViewCreated (put_NewWindow)", hr);
-        if (FAILED(m_newWindowDeferral->Complete()))
+        if (m_newWindowDeferral && FAILED(m_newWindowDeferral->Complete()))
             SendErrorEventForAPI("WebView2::WebViewCreated (Complete)", hr);
         m_newWindowArgs.reset();
         m_newWindowDeferral.reset();
@@ -1551,14 +1616,18 @@ bool wxWebViewEdge::PrintToPDF(const wxString& filePath, const wxPrintData& prin
 
 float wxWebViewEdge::GetZoomFactor() const
 {
-    double old_zoom_factor = 0.0;
-    m_impl->m_webViewController->get_ZoomFactor(&old_zoom_factor);
-    return old_zoom_factor;
+    if ( !m_impl->m_webViewController )
+        return 1.0f;
+
+    double zoomFactor = 1.0;
+    m_impl->m_webViewController->get_ZoomFactor(&zoomFactor);
+    return zoomFactor;
 }
 
 void wxWebViewEdge::SetZoomFactor(float zoom)
 {
-    m_impl->m_webViewController->put_ZoomFactor(zoom);
+    if ( m_impl->m_webViewController )
+        m_impl->m_webViewController->put_ZoomFactor(double(zoom));
 }
 
 bool wxWebViewEdge::CanUndo() const
@@ -1626,6 +1695,9 @@ void wxWebViewEdge::EnableAccessToDevTools(bool enable)
 
 bool wxWebViewEdge::ShowDevTools()
 {
+    if ( !m_impl->m_webView )
+        return false;
+
     const HRESULT hr = m_impl->m_webView->OpenDevToolsWindow();
     if ( FAILED(hr) )
     {
@@ -1713,6 +1785,9 @@ bool wxWebViewEdge::SetProxy(const wxString& proxy)
 
 bool wxWebViewEdge::ClearBrowsingData(int types, wxDateTime since)
 {
+    if ( !m_impl->m_webView )
+        return false;
+
     wxCOMPtr<ICoreWebView2_13> webView13;
     if (FAILED(m_impl->m_webView->QueryInterface(IID_PPV_ARGS(&webView13))))
         return false;
@@ -1745,6 +1820,7 @@ bool wxWebViewEdge::ClearBrowsingData(int types, wxDateTime since)
 
             case wxWEBVIEW_BROWSING_DATA_DOM_STORAGE:
                 dataKinds |= COREWEBVIEW2_BROWSING_DATA_KINDS_ALL_DOM_STORAGE;
+                break;
 
             case wxWEBVIEW_BROWSING_DATA_COOKIES | wxWEBVIEW_BROWSING_DATA_DOM_STORAGE:
                 dataKinds |= COREWEBVIEW2_BROWSING_DATA_KINDS_ALL_SITE;

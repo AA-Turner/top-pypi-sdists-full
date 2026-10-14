@@ -11,6 +11,7 @@ __all__ = [
     'ApertureAttribute',
     'PixelPositions',
     'PositiveScalar',
+    'PositiveScalarAngle',
     'ScalarAngle',
     'ScalarAngleOrValue',
     'SkyCoordPositions',
@@ -43,16 +44,43 @@ class ApertureAttribute:
         self._validate(value)
         if not isinstance(value, (u.Quantity, SkyCoord)):
             value = float(value)
+        self._validate_ordered_pairs(instance, value)
         # No need to reset if not already in the instance dict
         if self.name in instance.__dict__:
-            self._reset_lazyproperties(instance)
+            self._reset_cached_properties(instance)
         instance.__dict__[self.name] = value
 
-    def _reset_lazyproperties(self, instance):
-        # Reset lazyproperties (if they exist) for aperture parameter
+    def _validate_ordered_pairs(self, instance, value):
+        """
+        Validate the ordering invariants between related parameters
+        declared by the owner class in ``_ordered_pairs``.
+
+        ``_ordered_pairs`` is a tuple of ``(inner, outer)`` parameter
+        name pairs, where the inner value must be strictly less than the
+        outer value (e.g., an annulus inner and outer radius). The check
+        runs whenever either parameter of a pair is assigned, comparing
+        the new value against the other parameter's current value. It is
+        skipped while the other parameter is not yet set (e.g., partway
+        through ``__init__``). The check runs before the new value is
+        stored, so a failed assignment leaves the instance unchanged.
+        """
+        for inner, outer in getattr(instance, '_ordered_pairs', ()):
+            if self.name == inner:
+                other = instance.__dict__.get(outer)
+                if other is not None and not other > value:
+                    msg = f'{outer!r} must be greater than {inner!r}'
+                    raise ValueError(msg)
+            elif self.name == outer:
+                other = instance.__dict__.get(inner)
+                if other is not None and not value > other:
+                    msg = f'{outer!r} must be greater than {inner!r}'
+                    raise ValueError(msg)
+
+    def _reset_cached_properties(self, instance):
+        # Reset cached properties (if they exist) for aperture parameter
         # changes
         try:
-            for key in instance._lazyproperties:
+            for key in instance._cached_properties:
                 instance.__dict__.pop(key, None)
         except AttributeError:
             pass
@@ -72,7 +100,8 @@ class PixelPositions(ApertureAttribute):
     """
     Validate and set positions for pixel-based apertures.
 
-    Pixel positions are converted to a 2D `~numpy.ndarray`.
+    Pixel positions are converted to a float `~numpy.ndarray` of shape
+    ``(2,)`` for a single position or ``(N, 2)`` for multiple positions.
     """
 
     def __set__(self, instance, value):
@@ -83,7 +112,7 @@ class PixelPositions(ApertureAttribute):
         value = self._validate(value)  # np.ndarray
         # No need to reset if not already in the instance dict
         if self.name in instance.__dict__:
-            self._reset_lazyproperties(instance)
+            self._reset_cached_properties(instance)
         instance.__dict__[self.name] = value
 
     def _validate(self, value):
@@ -99,7 +128,7 @@ class PixelPositions(ApertureAttribute):
             raise TypeError(msg)
 
         if np.any(~np.isfinite(value)):
-            msg = (f'{self.name!r} must not contain any non-finite '
+            msg = (f'{self.name!r} must not contain any nonfinite '
                    '(e.g., NaN or inf) positions')
             raise ValueError(msg)
 
@@ -130,8 +159,17 @@ class PositiveScalar(ApertureAttribute):
     """
 
     def _validate(self, value):
-        if not np.isscalar(value) or value <= 0:
-            msg = f'{self.name!r} must be a positive scalar'
+        msg = f'{self.name!r} must be a positive scalar'
+        if not np.isscalar(value):
+            raise ValueError(msg)
+        try:
+            # NaN compares False, so it is also rejected here
+            positive = value > 0
+        except TypeError:
+            # Nonnumeric scalars (e.g., strings) do not support
+            # comparison with 0
+            raise TypeError(msg) from None
+        if not positive:
             raise ValueError(msg)
 
 
@@ -156,27 +194,18 @@ class ScalarAngle(ApertureAttribute):
             raise TypeError(msg)
 
 
-class PositiveScalarAngle(ApertureAttribute):
+class PositiveScalarAngle(ScalarAngle):
     """
-    Check that value is a positive scalar angle, either as a
-    `~astropy.coordinates.Angle` or `~astropy.units.Quantity` with
+    Check that value is a strictly positive (> 0) scalar angle, either
+    as a `~astropy.coordinates.Angle` or `~astropy.units.Quantity` with
     angular units.
     """
 
     def _validate(self, value):
-        if isinstance(value, u.Quantity):
-            if not value.isscalar:
-                msg = f'{self.name!r} must be a scalar'
-                raise ValueError(msg)
+        super()._validate(value)
 
-            if value.unit.physical_type != 'angle':
-                msg = f'{self.name!r} must have angular units'
-                raise ValueError(msg)
-        else:
-            msg = f'{self.name!r} must be a scalar angle'
-            raise TypeError(msg)
-
-        if value <= 0:
+        # NaN compares False, so it is also rejected here
+        if not value > 0:
             msg = f'{self.name!r} must be greater than zero'
             raise ValueError(msg)
 
@@ -196,7 +225,7 @@ class ScalarAngleOrValue(ApertureAttribute):
         self._validate(value)
         # No need to reset if not already in the instance dict
         if self.name in instance.__dict__:
-            self._reset_lazyproperties(instance)
+            self._reset_cached_properties(instance)
 
         # If theta is not a Quantity, it is assumed to be in radians
         if not isinstance(value, u.Quantity):

@@ -15,11 +15,21 @@ const selected = new Set([
 const eslint = new ESLint({
   cwd: process.cwd(),
   ...(request.config === null ? {} : { overrideConfigFile: request.config }),
+  // A partial rule run cannot validate whether unrelated inline directives are
+  // needed. Full lint owns those checks; live selected suppressions still apply.
+  overrideConfig: {
+    linterOptions: {
+      reportUnusedDisableDirectives: "off",
+      reportUnusedInlineConfigs: "off",
+    },
+    // Bulk suppressions apply to errors; advisories become warnings in the report.
+    rules: Object.fromEntries((request.upstreamAdvisories ?? []).map((rule) => [rule, "error"])),
+  },
   cache: false,
   warnIgnored: false,
   applySuppressions: true,
-  // ESLint preserves each file's parser, plugins, options, severity and inline
-  // directives; the predicate prevents unrelated rule visitors from running.
+  // Preserve repository parsers, plugins, options, and suppressions;
+  // the predicate prevents unrelated rule visitors from running.
   ruleFilter: ({ ruleId }) => selected.has(ruleId),
 });
 const results = await eslint.lintFiles(process.argv.slice(4));

@@ -21,6 +21,9 @@ class PosixIdPoolRequest:
         max_uid (Union[None, Unset, int]):
         min_gid (Union[None, Unset, int]):
         max_gid (Union[None, Unset, int]):
+        min_group_gid (Union[None, Unset, int]): First GID of the range reserved for provider project groups. Without
+            it, project groups draw from the GID range.
+        max_group_gid (Union[None, Unset, int]): Last GID of the range reserved for project groups.
     """
 
     description: Union[Unset, str] = UNSET
@@ -30,6 +33,8 @@ class PosixIdPoolRequest:
     max_uid: Union[None, Unset, int] = UNSET
     min_gid: Union[None, Unset, int] = UNSET
     max_gid: Union[None, Unset, int] = UNSET
+    min_group_gid: Union[None, Unset, int] = UNSET
+    max_group_gid: Union[None, Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,6 +80,18 @@ class PosixIdPoolRequest:
         else:
             max_gid = self.max_gid
 
+        min_group_gid: Union[None, Unset, int]
+        if isinstance(self.min_group_gid, Unset):
+            min_group_gid = UNSET
+        else:
+            min_group_gid = self.min_group_gid
+
+        max_group_gid: Union[None, Unset, int]
+        if isinstance(self.max_group_gid, Unset):
+            max_group_gid = UNSET
+        else:
+            max_group_gid = self.max_group_gid
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -92,6 +109,10 @@ class PosixIdPoolRequest:
             field_dict["min_gid"] = min_gid
         if max_gid is not UNSET:
             field_dict["max_gid"] = max_gid
+        if min_group_gid is not UNSET:
+            field_dict["min_group_gid"] = min_group_gid
+        if max_group_gid is not UNSET:
+            field_dict["max_group_gid"] = max_group_gid
 
         return field_dict
 
@@ -170,6 +191,24 @@ class PosixIdPoolRequest:
 
         max_gid = _parse_max_gid(d.pop("max_gid", UNSET))
 
+        def _parse_min_group_gid(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        min_group_gid = _parse_min_group_gid(d.pop("min_group_gid", UNSET))
+
+        def _parse_max_group_gid(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        max_group_gid = _parse_max_group_gid(d.pop("max_group_gid", UNSET))
+
         posix_id_pool_request = cls(
             description=description,
             service_provider=service_provider,
@@ -178,6 +217,8 @@ class PosixIdPoolRequest:
             max_uid=max_uid,
             min_gid=min_gid,
             max_gid=max_gid,
+            min_group_gid=min_group_gid,
+            max_group_gid=max_group_gid,
         )
 
         posix_id_pool_request.additional_properties = d

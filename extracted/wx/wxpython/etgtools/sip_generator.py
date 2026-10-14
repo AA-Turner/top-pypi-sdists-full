@@ -82,6 +82,9 @@ class SipWrapperGenerator(generators.WrapperGeneratorBase):
 
 """ % (module.package, module.name))
 
+            if module.name == "_core":
+                stream.write('%MinimumABIVersion "{}"\n\n'.format(cfg.SIP_ABI))
+
             if module.name.startswith('_'):
                 doc = ''
                 if module.docstring:
@@ -321,6 +324,8 @@ from .%s import *
     #-----------------------------------------------------------------------
     def generatePyCode(self, pc, stream, indent=''):
         assert isinstance(pc, extractors.PyCodeDef)
+        if pc.piOnly:
+            return
         if hasattr(pc, 'klass') and isinstance(pc.klass, extractors.ClassDef) and pc.klass.generatingInClass:
             pc.klass.generateAfterClass.append(pc)
         else:

@@ -51,9 +51,25 @@ def test_make_model_params():
     with pytest.raises(ValueError, match=match):
         make_model_params(shape, n_sources, flux=(1, 2, 3))
 
-    match = 'must be a 2-tuple'
+    with pytest.raises(ValueError, match=match):
+        make_model_params(shape, n_sources, flux=5)
+
+    match = 'alpha must be a 2-tuple'
     with pytest.raises(ValueError, match=match):
         make_model_params(shape, n_sources, flux=(1, 2), alpha=(1, 2, 3))
+
+    match = 'n_sources must be >= 0'
+    with pytest.raises(ValueError, match=match):
+        make_model_params(shape, -1, flux=(1, 2))
+
+
+def test_make_model_params_meta():
+    """
+    Test that the output table contains version metadata.
+    """
+    params = make_model_params((50, 50), 2, seed=0)
+    assert 'date' in params.meta
+    assert 'version' in params.meta
 
 
 def test_make_model_params_nsources():
@@ -83,6 +99,28 @@ def test_make_model_params_border_size():
         make_model_params(shape, n_sources, flux=flux, border_size=20)
 
 
+def test_make_model_params_reserved_names():
+    """
+    Test that a keyword argument cannot replace the ID or position
+    columns.
+    """
+    shape = (100, 100)
+    for name in ('id', 'x_0', 'y_0'):
+        match = f'{name} cannot be used as a keyword argument'
+        with pytest.raises(ValueError, match=match):
+            make_model_params(shape, 5, **{name: (1, 2)})
+
+    match = 'x_mean cannot be used as a keyword argument'
+    with pytest.raises(ValueError, match=match):
+        make_model_params(shape, 5, x_name='x_mean', y_name='y_mean',
+                          x_mean=(1, 2))
+
+    # x_0 is an ordinary parameter name when x_name is different
+    params = make_model_params(shape, 5, x_name='x_mean', y_name='y_mean',
+                               x_0=(1, 2))
+    assert params.colnames == ['id', 'x_mean', 'y_mean', 'x_0']
+
+
 def test_make_random_models_table():
     """
     Test the basic functionality of ``make_random_models_table``.
@@ -97,6 +135,26 @@ def test_make_random_models_table():
         assert col in source_table.colnames
         assert np.min(source_table[col]) >= param_ranges[col][0]
         assert np.max(source_table[col]) <= param_ranges[col][1]
+
+
+def test_make_random_models_table_inputs():
+    """
+    Test invalid inputs to ``make_random_models_table``.
+    """
+    match = 'amplitude must be a 2-tuple'
+    with pytest.raises(ValueError, match=match):
+        make_random_models_table(3, {'amplitude': (1, 2, 3)})
+
+    with pytest.raises(ValueError, match=match):
+        make_random_models_table(3, {'amplitude': 5})
+
+    match = 'n_sources must be >= 0'
+    with pytest.raises(ValueError, match=match):
+        make_random_models_table(-1, {'amplitude': (1, 2)})
+
+    match = "param_ranges cannot contain an 'id' key"
+    with pytest.raises(ValueError, match=match):
+        make_random_models_table(3, {'id': (1, 2)})
 
 
 def test_params_table_to_models():
@@ -124,3 +182,7 @@ def test_params_table_to_models():
     match = 'No matching model parameter names found in params_table'
     with pytest.raises(ValueError, match=match):
         params_table_to_models(tbl, model)
+
+    match = 'model must be a Model instance'
+    with pytest.raises(TypeError, match=match):
+        params_table_to_models(tbl, None)

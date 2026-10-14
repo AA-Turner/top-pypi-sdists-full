@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Nan-ignoring statistical functions, using bottleneck for performance if
+NaN-ignoring statistical functions, using bottleneck for performance if
 available.
 
 When bottleneck is installed, it is used only for float64 arrays. For
@@ -39,7 +39,7 @@ if HAS_BOTTLENECK:
             The input array.
 
         axis : tuple of int
-            The axes on which to move and combine.
+            The axes to move and combine.
 
         Returns
         -------
@@ -55,7 +55,7 @@ if HAS_BOTTLENECK:
         # Reshape the array by combining the moved axes
         return array_new.reshape((*array_new.shape[:len(other_axes)], -1))
 
-    def _apply_bottleneck(function, array, axis=None, **kwargs):
+    def _apply_bottleneck(function, array, *, axis=None, **kwargs):
         """
         Wrap a bottleneck function to handle tuple axis.
 
@@ -67,7 +67,7 @@ if HAS_BOTTLENECK:
         function : callable
             The bottleneck function to apply.
 
-        array : `~numpy.ndarray`
+        array : `~numpy.ndarray` or `~astropy.units.Quantity`
             The array on which to operate.
 
         axis : int or tuple of int, optional
@@ -79,7 +79,7 @@ if HAS_BOTTLENECK:
 
         Returns
         -------
-        result : `~numpy.ndarray` or float
+        result : `~numpy.ndarray`, `~astropy.units.Quantity`, or float
             The result of the bottleneck function when called with the
             ``array``, ``axis``, and ``kwargs``.
         """
@@ -111,7 +111,7 @@ if HAS_BOTTLENECK:
         """
         Dispatcher that routes to bottleneck or numpy based on dtype.
 
-        This is done to workaround known accuracy bugs in Bottleneck
+        This is done to work around known accuracy bugs in bottleneck
         affecting float32 calculations. See the following issues for
         more details:
 

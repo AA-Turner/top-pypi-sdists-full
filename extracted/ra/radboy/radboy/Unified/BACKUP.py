@@ -256,6 +256,13 @@ rmc.quikRn(rootdir=ROOTDIR)'''.encode()
                     print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{combinations_receipt}{Style.reset}")
                     gzf.add(combinations_receipt)
 
+            mathdir=Path(detectGetOrSet("mathdir","math.d",setValue=False,literal=True))
+            if mathdir:
+                if mathdir.exists():
+                    print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{mathdir}{Style.reset}")
+                    gzf.add(mathdir)
+
+
             WebArchiveStore_folder=Path(detectGetOrSet("WebArchiveDownloadsFilePath","WebArchiveDownloads",literal=True))
             if WebArchiveStore_folder:
                 WebArchiveStore_folder=Path(WebArchiveStore_folder)

@@ -3,10 +3,15 @@
 Tools for performing PSF-fitting photometry.
 """
 
-import contextlib
 import inspect
+import sys
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
 from dataclasses import dataclass, field
+from itertools import pairwise
+from queue import SimpleQueue
+from typing import NamedTuple
 
 import astropy.units as u
 import numpy as np
@@ -32,6 +37,7 @@ from photutils.utils._parameters import as_pair
 from photutils.utils._progress_bars import add_progress_bar
 from photutils.utils._quantity_helpers import process_quantities
 from photutils.utils._repr import make_repr
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 __all__ = ['PSFPhotometry']
 
@@ -46,7 +52,7 @@ class _PSFParameterMapper:
     alias_to_model_param: dict = field(init=False, repr=False)
 
     # Valid column names that can be used for initial (x, y, flux)
-    # positions. Order matters: the first matched name in each tuple will
+    # positions. Order matters, as the first matched name in each tuple will
     # be used.
     VALID_INIT_COLNAMES = {  # noqa: RUF012
         'x': (
@@ -80,16 +86,16 @@ class _PSFParameterMapper:
         params_map : dict
             A dictionary mapping parameter aliases to their actual
             names in the PSF model. The keys are 'x', 'y', 'flux', and
-            any additional parameters defined in the model.
+            any additional model parameters that are free (not fixed).
         """
-        # the order of the main parameters is important; it defines
-        # the order of table outputs
+        # The order of the main parameters is important. It defines
+        # the order of table outputs.
         main_params = _get_psf_model_main_params(self.psf_model)
         params_map = dict(zip(self.MAIN_ALIASES, main_params, strict=True))
 
-        # extra parameters that are not 'x', 'y', or 'flux', but
+        # Extra parameters that are not 'x', 'y', or 'flux', but
         # are free to be fit (fixed = False), are added to the map
-        # with their own aliases
+        # with their own aliases.
         fitted_params = [
             param for param in self.psf_model.param_names
             if not self.psf_model.fixed[param]
@@ -179,7 +185,7 @@ class _PSFParameterMapper:
         try:
             valid_names = self.VALID_INIT_COLNAMES[param_alias]
         except KeyError:
-            # valid names for extra parameters are more limited
+            # Valid names for extra parameters are more limited
             valid_names = (f'{param_alias}_init', param_alias,
                            f'{param_alias}_fit')
 
@@ -191,7 +197,7 @@ class _PSFParameterMapper:
 
     def rename_table_columns(self, table):
         """
-        Rename columns in-place in an input table to the ``_init``
+        Rename columns in place in an input table to the ``_init``
         format.
 
         Parameters
@@ -202,7 +208,7 @@ class _PSFParameterMapper:
         Returns
         -------
         table : `~astropy.table.Table`
-            The input table with columns renamed to the `_init` format
+            The input table with columns renamed to the ``_init`` format
             based on the parameter aliases.
         """
         for param_alias in self.alias_to_model_param:
@@ -212,6 +218,328 @@ class _PSFParameterMapper:
                 if found_col != target_col:
                     table.rename_column(found_col, target_col)
         return table
+
+
+def _gil_enabled():
+    """
+    Return whether the Python global interpreter lock (GIL) is enabled.
+
+    Returns
+    -------
+    result : bool
+        `False` only on a free-threaded Python build running with the
+        GIL disabled.
+    """
+    return getattr(sys, '_is_gil_enabled', lambda: True)()
+
+
+class _GroupFitResult(NamedTuple):
+    """
+    The fit results of one group of sources (see `_FitEngine.fit_group`).
+
+    The per-source arrays and lists are in the order of the group rows.
+    """
+
+    row_indices: np.ndarray
+    group_size: int
+    n_pixels_fit: np.ndarray
+    invalid_reasons: list
+    valid_mask: np.ndarray
+    param_values: dict
+    param_fixed: dict
+    param_bounds: dict
+    fit_param_errs: np.ndarray
+    fit_info: list
+    sum_abs_residuals: np.ndarray
+    cen_residuals: np.ndarray
+    reduced_chi2: np.ndarray
+
+
+class _FitEngine:
+    """
+    Fit groups of sources independently of a `PSFPhotometry` instance.
+
+    The engine holds the image arrays and the fitting components and
+    returns the results of each group as a `_GroupFitResult` without
+    touching any `PSFPhotometry` state, so groups can be fitted in
+    any order. An engine must not be used by two threads at once
+    because the fitter keeps the information of its last fit. With
+    ``n_threads`` > 1, `PSFPhotometry` gives every thread its own engine
+    from `thread_copy`.
+
+    Parameters
+    ----------
+    psf_model : `~astropy.modeling.Model`
+        The PSF model.
+
+    param_mapper : `_PSFParameterMapper`
+        The parameter mapper of the PSF model.
+
+    data_processor : `~photutils.psf._components.PSFDataProcessor`
+        The cutout extractor.
+
+    psf_fitter : `~photutils.psf._components.PSFFitter`
+        The group model builder and fitter.
+
+    data, mask, error : `~numpy.ndarray` or `None`
+        The image arrays, with any units already stripped.
+    """
+
+    def __init__(self, *, psf_model, param_mapper, data_processor, psf_fitter,
+                 data, mask, error):
+        self.psf_model = psf_model
+        self.param_mapper = param_mapper
+        self.data_processor = data_processor
+        self.psf_fitter = psf_fitter
+        self.data = data
+        self.mask = mask
+        self.error = error
+        self.y_offsets, self.x_offsets = data_processor.get_fit_offsets()
+        self.n_fit_params = len(param_mapper.fitted_param_names)
+
+    def thread_copy(self):
+        """
+        Return an engine that can fit groups in another thread.
+
+        Returns
+        -------
+        engine : `_FitEngine`
+            An engine with its own copies of the PSF model and the
+            fitter, which hold state that is modified during a fit.
+            The image arrays are only read and are shared.
+        """
+        psf_model = self.psf_model.copy()
+        param_mapper = _PSFParameterMapper(psf_model)
+        data_processor = PSFDataProcessor(param_mapper,
+                                          self.data_processor.fit_shape)
+        psf_fitter = PSFFitter(
+            psf_model, param_mapper, fitter=deepcopy(self.psf_fitter.fitter),
+            fitter_maxiters=self.psf_fitter.fitter_maxiters,
+            xy_bounds=self.psf_fitter.xy_bounds)
+        return _FitEngine(psf_model=psf_model, param_mapper=param_mapper,
+                          data_processor=data_processor,
+                          psf_fitter=psf_fitter, data=self.data,
+                          mask=self.mask, error=self.error)
+
+    def fit_groups(self, sources):
+        """
+        Fit the source groups of a table.
+
+        Parameters
+        ----------
+        sources : `~astropy.table.Table`
+            The initial parameters of the sources, which must hold only
+            complete groups.
+
+        Returns
+        -------
+        results : list of `_GroupFitResult`
+            One result per group.
+        """
+        return [self.fit_group(group)
+                for group in sources.group_by('group_id').groups]
+
+    def _fitter_residuals(self):
+        """
+        Return the residual vector of the last fit, or `None` if the
+        fitter does not provide one.
+        """
+        fit_info = getattr(self.psf_fitter.fitter, 'fit_info', None)
+        if not isinstance(fit_info, dict):
+            return None
+        for key in ('fvec', 'fun'):  # fvec is the LevMarLSQFitter key
+            if key in fit_info:
+                return fit_info[key]
+        return None
+
+    def _residual_metrics(self, residuals, valid_mask, n_pixels_fit,
+                          cen_index, xi_all, yi_all):
+        """
+        Calculate the residual-based fit metrics of the valid sources
+        of a group.
+
+        Parameters
+        ----------
+        residuals : `~numpy.ndarray` or `None`
+            The concatenated (weighted) residuals of the group fit.
+
+        valid_mask : `~numpy.ndarray`
+            Which sources of the group were fitted.
+
+        n_pixels_fit, cen_index : `~numpy.ndarray`
+            The number of fitted pixels and the index of the center
+            pixel of each source of the group.
+
+        xi_all, yi_all : list of `~numpy.ndarray`
+            The pixel coordinates of each valid source's cutout.
+
+        Returns
+        -------
+        sum_abs_residuals, cen_residuals, reduced_chi2 : `~numpy.ndarray`
+            The metrics, NaN for invalid sources or where undefined.
+        """
+        n_sources = len(valid_mask)
+        sum_abs_residuals = np.full(n_sources, np.nan)
+        cen_residuals = np.full(n_sources, np.nan)
+        reduced_chi2 = np.full(n_sources, np.nan)
+        if residuals is None:
+            return sum_abs_residuals, cen_residuals, reduced_chi2
+
+        valid_indices = np.flatnonzero(valid_mask)
+        n_pixels_valid = n_pixels_fit[valid_indices]
+        starts = np.concatenate(([0], np.cumsum(n_pixels_valid)))
+        for idx, valid_idx in enumerate(valid_indices):
+            source_residuals = residuals[starts[idx]:starts[idx + 1]]
+
+            # The residuals are (model - data) / error when errors are
+            # input. qfit and cfit need the raw residuals, so multiply
+            # by the errors, which run_fitter has validated as positive
+            # and finite.
+            raw_residuals = source_residuals
+            error_vals = None
+            if self.error is not None:
+                error_vals = self.error[yi_all[idx], xi_all[idx]]
+                raw_residuals = source_residuals * error_vals
+
+            sum_abs_residuals[valid_idx] = float(np.abs(raw_residuals).sum())
+            cen_idx = cen_index[valid_idx]
+            if np.isfinite(cen_idx):
+                # cfit uses (data - model)
+                cen_residuals[valid_idx] = float(-raw_residuals[int(cen_idx)])
+
+            # The reduced chi-squared needs errors and degrees of
+            # freedom
+            dof = float(n_pixels_valid[idx] - self.n_fit_params)
+            if error_vals is not None and dof > 0:
+                reduced_chi2[valid_idx] = np.sum(source_residuals**2) / dof
+
+        return sum_abs_residuals, cen_residuals, reduced_chi2
+
+    def fit_group(self, source_group):
+        """
+        Fit one group of sources.
+
+        Parameters
+        ----------
+        source_group : `~astropy.table.Table`
+            The initial parameters of the sources of the group,
+            including the ``_row_index`` column.
+
+        Returns
+        -------
+        result : `_GroupFitResult`
+            The per-source results, in the order of the group rows.
+            Invalid sources have NaN parameters and metrics, the
+            parameter ``fixed`` and ``bounds`` settings of the PSF
+            model, and an empty ``fit_info``.
+        """
+        data = self.data
+        group_size = len(source_group)
+        xi_all = []
+        yi_all = []
+        cutout_all = []
+        n_pixels_fit = []
+        cen_index = []
+        valid_list = []
+        invalid_reasons = []
+        row_indices = []
+
+        for row in source_group:
+            should_skip, reason = self.data_processor.should_skip_source(
+                row, data.shape)
+            if should_skip:
+                res = {'valid': False, 'reason': reason, 'xx': None,
+                       'yy': None, 'cutout': None, 'n_pixels': 0,
+                       'cen_index': np.nan}
+            else:
+                res = self.data_processor.get_source_cutout_data(
+                    row, data, self.mask, self.y_offsets, self.x_offsets)
+
+            n_pixels_fit.append(res['n_pixels'])
+            cen_index.append(res['cen_index'])
+            invalid_reasons.append(res['reason'] or '')
+            row_indices.append(row['_row_index'])
+            if res['valid'] and res['n_pixels'] >= self.n_fit_params:
+                valid_list.append(True)
+                xi_all.append(res['xx'])
+                yi_all.append(res['yy'])
+                cutout_all.append(res['cutout'])
+            else:
+                if res['valid']:
+                    invalid_reasons[-1] = 'too_few_pixels'
+                valid_list.append(False)
+
+        row_indices = np.array(row_indices, dtype=int)
+        valid_mask = np.array(valid_list, dtype=bool)
+        n_pixels_fit = np.array(n_pixels_fit, dtype=int)
+        cen_index = np.array(cen_index, dtype=float)
+        n_valid = int(np.count_nonzero(valid_mask))
+
+        # The defaults of invalid sources come from the PSF model
+        param_values = {}
+        param_fixed = {}
+        param_bounds = {}
+        for name in self.psf_model.param_names:
+            param = getattr(self.psf_model, name)
+            param_values[name] = np.full(group_size, np.nan)
+            param_fixed[name] = [param.fixed] * group_size
+            param_bounds[name] = [param.bounds] * group_size
+        fit_param_errs = np.full((group_size, self.n_fit_params), np.nan)
+        fit_info = [{} for _ in range(group_size)]
+        residuals = None
+
+        if n_valid > 0:
+            valid_sources = source_group[valid_mask]
+            group_model = self.psf_fitter.make_psf_model(valid_sources)
+            fit_model, group_fit_info = self.psf_fitter.run_fitter(
+                group_model, np.concatenate(xi_all), np.concatenate(yi_all),
+                np.concatenate(cutout_all), self.error)
+            residuals = self._fitter_residuals()
+
+            # Split the group model and covariance into per-source parts
+            param_cov = group_fit_info.get('param_cov')
+            if param_cov is None:
+                source_errs = np.full((n_valid, self.n_fit_params), np.nan)
+                source_covs = [None] * n_valid
+            else:
+                # The flat model parameters are ordered by source,
+                # with all the parameters of the first source followed
+                # by those of the second source and so on
+                source_errs = np.sqrt(np.diag(param_cov)).reshape(
+                    n_valid, self.n_fit_params)
+                source_covs = self.psf_fitter.extract_source_covariances(
+                    param_cov, n_valid, self.n_fit_params)
+            if n_valid == 1:
+                source_models = [fit_model]
+            else:
+                source_models = self.psf_fitter.split_flat_model(fit_model,
+                                                                 n_valid)
+
+            for valid_idx, i in enumerate(np.flatnonzero(valid_mask)):
+                model = source_models[valid_idx]
+                for name in model.param_names:
+                    param = getattr(model, name)
+                    param_values[name][i] = param.value
+                    param_fixed[name][i] = param.fixed
+                    param_bounds[name][i] = param.bounds
+                fit_param_errs[i] = source_errs[valid_idx]
+                source_fit_info = dict(group_fit_info)
+                if source_covs[valid_idx] is not None:
+                    source_fit_info['param_cov'] = source_covs[valid_idx]
+                fit_info[i] = source_fit_info
+
+        sum_abs_residuals, cen_residuals, reduced_chi2 = (
+            self._residual_metrics(residuals, valid_mask, n_pixels_fit,
+                                   cen_index, xi_all, yi_all))
+
+        return _GroupFitResult(
+            row_indices=row_indices, group_size=group_size,
+            n_pixels_fit=n_pixels_fit, invalid_reasons=invalid_reasons,
+            valid_mask=valid_mask, param_values=param_values,
+            param_fixed=param_fixed, param_bounds=param_bounds,
+            fit_param_errs=fit_param_errs, fit_info=fit_info,
+            sum_abs_residuals=sum_abs_residuals, cen_residuals=cen_residuals,
+            reduced_chi2=reduced_chi2)
 
 
 class PSFPhotometry:
@@ -233,28 +561,55 @@ class PSFPhotometry:
         flux parameters. The model must be two-dimensional such that it
         accepts 2 inputs (e.g., x and y) and provides 1 output.
 
+        The model is evaluated at the center of each pixel, and the
+        result is compared with the pixel value. The value of the model
+        at a position must therefore be the flux in a pixel centered at
+        that position, as for the analytic models whose names end in
+        ``PRF`` and for an image-based model made from an ePSF (see
+        :ref:`psf-terminology`). A model that is not integrated over
+        the pixels gives biased fluxes and positions for undersampled
+        data.
+
+        The analytic models whose names end in ``PSF``
+        (e.g., `~photutils.psf.CircularGaussianPSF` and
+        `~photutils.psf.MoffatPSF`) are not integrated over the pixels
+        and should not be used here. Each has a counterpart whose name
+        ends in ``PRF`` (e.g., `~photutils.psf.CircularGaussianPRF` and
+        `~photutils.psf.MoffatPRF`). With a ``PSF`` model whose shape
+        parameters are fixed, the fitted flux is biased by a few percent
+        even for a FWHM of 2 to 3 pixels.
+
+        The fitted source positions are the fitted values of the model
+        position parameters. For an image-based model, they give the
+        position of the center of the model image, or of the
+        ``origin`` of an `ImagePSF`. The PSF must therefore be centered
+        on that point of the model image. Otherwise, the fitted
+        positions are all offset by the distance of the PSF center
+        from that point.
+
     fit_shape : int or length-2 array_like
         The rectangular shape around the initial source position that
         will be used to define the PSF-fitting data. If ``fit_shape``
         is a scalar then a square shape of size ``fit_shape`` will be
         used. If ``fit_shape`` has two elements, they must be in ``(ny,
-        nx)`` order. Each element of ``fit_shape`` must be an odd number
-        greater than or equal to 3. In general, ``fit_shape`` should be
+        nx)`` order. Each element of ``fit_shape`` must be a positive
+        odd number. In general, ``fit_shape`` should be
         set to a small size (e.g., ``(5, 5)``) that covers the region
         with the highest flux signal-to-noise.
 
     finder : callable or `~photutils.detection.StarFinderBase` or `None`, \
             optional
         A callable used to identify sources in an image. The
-        ``finder`` must accept a 2D image as input and return a
-        `~astropy.table.Table` containing the x and y centroid
-        positions. These positions are used as the starting points for
-        the PSF fitting. The allowed ``x`` column names are (same suffix
-        for ``y``): ``'x_init'``, ``'xinit'``, ``'x'``, ``'x_0'``,
-        ``'x0'``, ``'xcentroid'``, ``'x_centroid'``, ``'x_peak'``,
-        ``'xcen'``, ``'x_cen'``, ``'xpos'``, ``'x_pos'``, ``'x_fit'``,
-        and ``'xfit'``. If `None`, then the initial (x, y) model
-        positions must be input using the ``init_params`` keyword
+        ``finder`` must accept a 2D image as its first argument
+        and a ``mask`` keyword, and return a `~astropy.table.Table`
+        containing the x and y centroid positions (or `None` if no
+        sources are found). These positions are used as the starting
+        points for the PSF fitting. The allowed ``x`` column names are
+        (same suffix for ``y``): ``'x_init'``, ``'xinit'``, ``'x'``,
+        ``'x_0'``, ``'x0'``, ``'xcentroid'``, ``'x_centroid'``,
+        ``'x_peak'``, ``'xcen'``, ``'x_cen'``, ``'xpos'``, ``'x_pos'``,
+        ``'x_fit'``, and ``'xfit'``. If `None`, then the initial (x, y)
+        model positions must be input using the ``init_params`` keyword
         when calling the class. The (x, y) values in ``init_params``
         override this keyword. If this class is run on an image that has
         units (i.e., a `~astropy.units.Quantity` array), then certain
@@ -269,12 +624,12 @@ class PSFPhotometry:
         the x and y coordinates of the sources and return an integer
         array of the group ID numbers (starting from 1) indicating
         the group in which a given source belongs. If `None`, then no
-        grouping is performed, i.e. each source is fit independently.
+        grouping is performed, i.e., each source is fit independently.
         The ``group_id`` values in ``init_params`` override this
         keyword. A warning is raised if any group size is larger than
         ``group_warning_threshold`` sources.
 
-    fitter : `~astropy.modeling.fitting.Fitter`, optional
+    fitter : `~astropy.modeling.fitting.Fitter` or `None`, optional
         The fitter object used to perform the fit of the
         model to the data. If `None`, then the default
         `astropy.modeling.fitting.TRFLSQFitter` is used.
@@ -284,7 +639,8 @@ class PSFPhotometry:
         called for each source. The value can be increased if the fit
         is not converging for sources. This parameter is passed to the
         ``fitter`` if it supports the ``maxiter`` parameter and ignored
-        otherwise.
+        otherwise. In the latter case, a warning is issued when the
+        class is created.
 
     xy_bounds : `None`, float, or 2-tuple of float, optional
         The maximum distance in pixels that a fitted source can be from
@@ -318,10 +674,49 @@ class PSFPhotometry:
         groups may take a long time and be error-prone. The default is
         25 sources.
 
+    n_threads : int, optional
+        The number of threads used to fit the sources. The default is
+        1 (no multithreading). When ``n_threads`` > 1, the source
+        groups are divided into chunks that are fitted concurrently.
+        Each group is fitted independently, so the results are
+        identical to the single-threaded computation. Every thread
+        fits with its own copy of the PSF model and the ``fitter``,
+        so the input ``fitter`` is not called and its ``fit_info`` is
+        not updated. The fitting runs mostly in Python code that
+        holds the global interpreter lock (GIL), so multithreading
+        speeds up the fitting only on a free-threaded Python build.
+        When the GIL is enabled, a warning is issued and the sources
+        are fitted in a single thread.
+
     progress_bar : bool, optional
         Whether to display a progress bar when fitting the sources
         (or groups). The progress bar requires that the `tqdm
         <https://tqdm.github.io/>`_ optional dependency be installed.
+
+    Attributes
+    ----------
+    results : `~astropy.table.QTable` or `None`
+        The table of fit results from the most recent call, or `None`
+        if the instance has not yet been run. The rows are sorted by
+        the source ``id`` column.
+
+    fit_info : list of dict
+        A list of dictionaries, one per source in the same row order
+        as ``results``, containing information about each source fit
+        with keys such as ``param_cov``, ``ierr``, ``message``, and
+        ``status`` (the exact keys depend on the ``fitter``).
+
+    finder_results : `~astropy.table.Table` or `None`
+        The table of sources returned by the ``finder`` during the
+        most recent call, or `None` if the finder was not used.
+
+    init_params : `~astropy.table.Table` or `None`
+        The table of initial parameters used in the most recent call,
+        or `None` if the instance has not yet been run.
+
+    data_unit : `~astropy.units.Unit` or `None`
+        The unit of the input data from the most recent call, or
+        `None` if the data did not have units.
 
     Notes
     -----
@@ -350,7 +745,7 @@ class PSFPhotometry:
 
     If the fitted model parameter errors are NaN, then either the fit
     did not converge, the model parameter was fixed, or the input
-    ``fitter`` did not return parameter errors. For the later case, one
+    ``fitter`` did not return parameter errors. For the latter case, one
     can try a different Astropy fitter that returns parameter errors.
 
     The local background value around each source is optionally
@@ -367,16 +762,24 @@ class PSFPhotometry:
 
     Care should be taken in defining the source groups. Simultaneously
     fitting very large source groups is computationally expensive and
-    error-prone. Internally, source grouping requires the creation of
-    a compound Astropy model. Due to the way compound Astropy models
-    are currently constructed, large groups also require excessively
-    large amounts of memory; this will hopefully be fixed in a future
-    Astropy version. A warning will be raised if the number of sources
-    in a group exceeds the ``group_warning_threshold`` value.
+    error-prone, because the number of fitted parameters grows with the
+    group size. A warning will be raised if the number of sources in a
+    group exceeds the ``group_warning_threshold`` value.
+
+    This class stores per-call state on the instance (e.g., ``results``
+    and ``fit_info``), so a single instance must not be called
+    concurrently from multiple threads. Create one instance per thread
+    for concurrent use. Sharing a single Astropy fitter instance across
+    concurrently-used objects is also unsafe because Astropy fitters
+    store ``fit_info`` on themselves.
     """
 
     # Default value for parameter initialization (invalid sources)
     _DEFAULT_PARAM_VALUE = np.nan
+
+    # Results columns ending in '_fit' that are not fitted model
+    # parameters
+    _NON_PARAM_FIT_COLS = ('n_pixels_fit',)
 
     @deprecated_renamed_argument('localbkg_estimator',
                                  'local_bkg_estimator', '3.0',
@@ -384,7 +787,8 @@ class PSFPhotometry:
     def __init__(self, psf_model, fit_shape, *, finder=None, grouper=None,
                  fitter=None, fitter_maxiters=100, xy_bounds=None,
                  aperture_radius=None, local_bkg_estimator=None,
-                 group_warning_threshold=25, progress_bar=False):
+                 group_warning_threshold=25, n_threads=1,
+                 progress_bar=False):
 
         self.psf_model = _validate_psf_model(psf_model)
         self._param_mapper = _PSFParameterMapper(self.psf_model)
@@ -401,7 +805,14 @@ class PSFPhotometry:
         self.aperture_radius = self._validate_radius(aperture_radius)
         self.local_bkg_estimator = self._validate_localbkg(
             local_bkg_estimator, 'local_bkg_estimator')
-        self.group_warning_threshold = group_warning_threshold
+        self.group_warning_threshold = self._validate_group_threshold(
+            group_warning_threshold)
+        if (isinstance(n_threads, bool)
+                or not isinstance(n_threads, (int, np.integer))
+                or n_threads < 1):
+            msg = 'n_threads must be a positive integer'
+            raise ValueError(msg)
+        self.n_threads = int(n_threads)
         self.progress_bar = progress_bar
 
         self._data_processor = PSFDataProcessor(
@@ -413,18 +824,20 @@ class PSFPhotometry:
         self._psf_fitter = PSFFitter(
             self.psf_model, self._param_mapper, fitter=self.fitter,
             fitter_maxiters=self.fitter_maxiters, xy_bounds=self.xy_bounds,
-            group_warning_threshold=self.group_warning_threshold,
         )
 
-        self._results_assembler = PSFResultsAssembler(
-            self._param_mapper, self.fit_shape, xy_bounds=self.xy_bounds,
-        )
+        self._results_assembler = PSFResultsAssembler(self._param_mapper,
+                                                      self.fit_shape)
 
-        # used by the __repr__ method and the output table metadata
+        # Callers that report nonconvergence themselves set this to
+        # False
+        self._warn_no_convergence = True
+
+        # Used by the __repr__ method and the output table metadata
         self._attrs = ('psf_model', 'fit_shape', 'finder', 'grouper', 'fitter',
                        'fitter_maxiters', 'xy_bounds', 'aperture_radius',
                        'local_bkg_estimator', 'group_warning_threshold',
-                       'progress_bar')
+                       'n_threads', 'progress_bar')
 
         self._reset_results()
 
@@ -438,11 +851,11 @@ class PSFPhotometry:
         self.results = None
         self.fit_info = []
 
-        # sync data_unit with components
-        if hasattr(self, '_data_processor'):
-            self._data_processor.data_unit = None
+        # Sync state with components
+        self._data_processor.data_unit = None
+        self._data_processor.finder_results = None
 
-        # internal state container
+        # Internal state container
         self._state = {
             'valid_mask_by_id': None,
             'fit_param_errs': None,
@@ -466,9 +879,9 @@ class PSFPhotometry:
         n_sources : int
             The number of sources to initialize the arrays for.
         """
-        nfitparam = len(self._param_mapper.fitted_param_names)
+        n_fit_params = len(self._param_mapper.fitted_param_names)
         self._state.update({
-            'fit_param_errs': np.full((n_sources, nfitparam), np.nan),
+            'fit_param_errs': np.full((n_sources, n_fit_params), np.nan),
             'n_pixels_fit': np.zeros(n_sources, dtype=int),
             'invalid_reasons': [''] * n_sources,
             'sum_abs_residuals': np.full(n_sources, np.nan, dtype=float),
@@ -491,62 +904,23 @@ class PSFPhotometry:
         only the parameter values, fixed flags, and bounds that are
         needed for the results table.
         """
-        # get all parameter names from the PSF model
+        # Get all parameter names from the PSF model
         model_params = list(self.psf_model.param_names)
 
-        # initialize parameter value storage
+        # Initialize parameter value storage
         param_data = {}
         for model_param in model_params:
-            # initialize all parameters with np.nan (for invalid sources)
+            # Initialize all parameters with np.nan (for invalid sources)
             param_data[model_param] = np.full(n_sources,
                                               self._DEFAULT_PARAM_VALUE)
             param_data[f'{model_param}_fixed'] = [None] * n_sources
             param_data[f'{model_param}_bounds'] = [None] * n_sources
 
-        # add placehold IDs column -- this will be updated later to
-        # match IDs in init_params
+        # Add placehold IDs column. This will be updated later to
+        # match IDs in init_params.
         param_data['id'] = np.arange(1, n_sources + 1)
 
         self._state['model_param_data'] = param_data
-
-    def _cache_fitted_parameters(self, row_index, model):
-        """
-        Extract and store model parameters directly instead of storing
-        the full model object.
-
-        This method updates the internal state container with model
-        parameter values, fixed flags, and bounds for a specific source.
-
-        Parameters
-        ----------
-        row_index : int
-            The index of the source in the results arrays.
-
-        model : astropy.modeling.Model or None
-            The fitted model for this source, or None for invalid
-            sources.
-        """
-        param_data = self._state['model_param_data']
-
-        if model is None:
-            # For invalid sources, use default template from psf_model
-            template_model = self.psf_model
-            for param_name in template_model.param_names:
-                # Set all parameters to np.nan for invalid sources
-                param_data[param_name][row_index] = self._DEFAULT_PARAM_VALUE
-
-                template_param = getattr(template_model, param_name)
-                param_data[f'{param_name}_fixed'][row_index] = (
-                    template_param.fixed)
-                param_data[f'{param_name}_bounds'][row_index] = (
-                    template_param.bounds)
-        else:
-            # For valid sources, extract actual fitted values
-            for param_name in model.param_names:
-                param = getattr(model, param_name)
-                param_data[param_name][row_index] = param.value
-                param_data[f'{param_name}_fixed'][row_index] = param.fixed
-                param_data[f'{param_name}_bounds'][row_index] = param.bounds
 
     def _build_fitted_models_table(self):
         """
@@ -568,7 +942,7 @@ class PSFPhotometry:
         table = QTable(param_data)
 
         # Set id column to match init_params for clean merging
-        if hasattr(self, 'init_params') and self.init_params is not None:
+        if self.init_params is not None:
             ids = self.init_params['id']
             table['id'] = ids
 
@@ -590,8 +964,8 @@ class PSFPhotometry:
         name : str
             Name of the parameter for error messages.
 
-        expected_type : type or tuple of types
-            Expected type(s) for the object.
+        expected_type : type
+            Expected type for the object.
 
         Returns
         -------
@@ -600,11 +974,13 @@ class PSFPhotometry:
 
         Raises
         ------
-        error_type
+        TypeError
             If obj is not None and not an instance of expected_type.
         """
         if obj is not None and not isinstance(obj, expected_type):
-            type_name = expected_type.__name__
+            if not isinstance(expected_type, tuple):
+                expected_type = (expected_type,)
+            type_name = ' or '.join(t.__name__ for t in expected_type)
             msg = f'{name} must be a {type_name} instance'
             raise TypeError(msg)
         return obj
@@ -657,7 +1033,7 @@ class PSFPhotometry:
         ------
         ValueError
             If xy_bounds has incorrect shape, dimension, or contains
-            invalid values (non-positive or non-finite).
+            invalid values (nonpositive or nonfinite).
         """
         if xy_bounds is None:
             return xy_bounds
@@ -670,6 +1046,12 @@ class PSFPhotometry:
             raise ValueError(msg)
         if xy_bounds.ndim != 1:
             msg = 'xy_bounds must be a 1D array'
+            raise ValueError(msg)
+        # None elements are allowed to indicate no bound along an axis
+        if not all(bound is None or isinstance(bound, (int, float,
+                                                       np.number))
+                   for bound in xy_bounds):
+            msg = 'xy_bounds must be numeric'
             raise ValueError(msg)
         for bound in xy_bounds:
             if bound is not None:
@@ -702,11 +1084,40 @@ class PSFPhotometry:
             If radius is not None and is not a strictly positive finite
             scalar.
         """
-        if radius is not None and (not np.isscalar(radius)
-                                   or radius <= 0 or not np.isfinite(radius)):
-            msg = 'aperture_radius must be a strictly-positive scalar'
-            raise ValueError(msg)
+        if radius is not None:
+            if (isinstance(radius, bool) or np.ndim(radius) != 0
+                    or radius <= 0 or not np.isfinite(radius)):
+                msg = 'aperture_radius must be a strictly-positive scalar'
+                raise ValueError(msg)
+            radius = float(radius)
         return radius
+
+    @staticmethod
+    def _validate_group_threshold(value):
+        """
+        Validate the input ``group_warning_threshold`` value.
+
+        Parameters
+        ----------
+        value : int
+            The group size threshold to validate.
+
+        Returns
+        -------
+        value : int
+            The validated threshold value.
+
+        Raises
+        ------
+        ValueError
+            If value is not a positive integer.
+        """
+        if (isinstance(value, bool)
+                or not isinstance(value, (int, np.integer))
+                or value <= 0):
+            msg = 'group_warning_threshold must be a positive integer'
+            raise ValueError(msg)
+        return int(value)
 
     def _validate_localbkg(self, value, name):
         """
@@ -736,11 +1147,11 @@ class PSFPhotometry:
 
     def _validate_maxiters(self, maxiters):
         """
-        Validate the input ``maxiters`` value.
+        Validate the input ``fitter_maxiters`` value.
 
         Parameters
         ----------
-        maxiters : int or None
+        maxiters : int
             Maximum number of fitter iterations to validate.
 
         Returns
@@ -748,11 +1159,24 @@ class PSFPhotometry:
         maxiters : int or None
             The validated maxiters value, or None if the fitter doesn't
             support this parameter.
+
+        Raises
+        ------
+        ValueError
+            If maxiters is not a strictly-positive integer.
         """
+        if (isinstance(maxiters, bool)
+                or not isinstance(maxiters, (int, np.integer))
+                or maxiters <= 0):
+            msg = 'fitter_maxiters must be a strictly-positive integer'
+            raise ValueError(msg)
+        maxiters = int(maxiters)
+
         spec = inspect.signature(self.fitter.__call__)
         if 'maxiter' not in spec.parameters:
-            msg = ("'maxiters' will be ignored because it is not accepted "
-                   'by the input fitter __call__ method.')
+            msg = ("'fitter_maxiters' will be ignored because the "
+                   "fitter's __call__ method does not accept a "
+                   "'maxiter' keyword.")
             warnings.warn(msg, AstropyUserWarning)
             maxiters = None
         return maxiters
@@ -765,10 +1189,9 @@ class PSFPhotometry:
         between the PSFPhotometry instance and its internal component
         objects (e.g., _data_processor).
 
-        This method modifies the internal state in-place.
+        This method modifies the internal state in place.
         """
-        if hasattr(self, '_data_processor'):
-            self._data_processor.data_unit = self.data_unit
+        self._data_processor.data_unit = self.data_unit
 
     def _find_sources_if_needed(self, data, mask, init_params):
         """
@@ -798,28 +1221,31 @@ class PSFPhotometry:
         init_params : `~astropy.table.Table`
             The table of initial parameters with a 'group_id' column.
         """
-        if 'group_id' in init_params.colnames:
-            # user-provided group_id takes precedence
-            self.grouper = None
+        # A user-provided group_id column takes precedence for this
+        # call
+        derived_from_id = False
+        if 'group_id' not in init_params.colnames:
+            if self.grouper is not None:
+                x_col = self._param_mapper.init_colnames['x']
+                y_col = self._param_mapper.init_colnames['y']
+                init_params['group_id'] = self.grouper(
+                    init_params[x_col], init_params[y_col])
+            else:
+                # No grouper provided, so each source is its own group
+                init_params['group_id'] = init_params['id'].copy()
+                derived_from_id = True
 
-        elif self.grouper is not None:
-            # use the grouper to group sources
-            x_col = self._param_mapper.init_colnames['x']
-            y_col = self._param_mapper.init_colnames['y']
-            init_params['group_id'] = self.grouper(init_params[x_col],
-                                                   init_params[y_col])
-
-        else:
-            # no grouper provided, so each source is its own group
-            init_params['group_id'] = init_params['id'].copy()
-
-        # ensure group_id contains only positive (> 0) integers
+        # Ensure group_id contains only positive (> 0) integers
         group_id = init_params['group_id']
         if np.any(~np.isfinite(group_id)):
             msg = 'group_id must be finite'
             raise ValueError(msg)
         if not np.issubdtype(group_id.dtype, np.integer):
-            msg = 'group_id must be an integer array'
+            if derived_from_id:
+                msg = ('group_id (or the id column it was derived from) '
+                       'must be an integer array')
+            else:
+                msg = 'group_id must be an integer array'
             raise TypeError(msg)
         if np.any(group_id <= 0):
             msg = 'group_id must contain only positive (> 0) integers'
@@ -855,7 +1281,7 @@ class PSFPhotometry:
         if init_params is None:
             return None
 
-        # strip any units from the x/y position columns
+        # Strip any units from the x/y position columns
         for axis in ('x', 'y'):
             colname = self._param_mapper.init_colnames[axis]
             if isinstance(init_params[colname], u.Quantity):
@@ -865,17 +1291,16 @@ class PSFPhotometry:
         init_params = add_flux_bkg(data, mask, init_params)
         init_params = self._group_sources(init_params)
 
-        # check for large group sizes after grouping is complete
+        # Check for large group sizes after grouping is complete
         warn_size = self.group_warning_threshold
-        if 'group_id' in init_params.colnames:
-            _, counts = np.unique(init_params['group_id'], return_counts=True)
-            if len(counts) > 0 and max(counts) > warn_size:
-                msg = (f'Some groups have more than {warn_size} '
-                       'sources. Fitting such groups may take a long time '
-                       'and be error-prone. You may want to consider using '
-                       'different `SourceGrouper` parameters or changing '
-                       'the "group_id" column in "init_params".')
-                warnings.warn(msg, AstropyUserWarning)
+        _, counts = np.unique(init_params['group_id'], return_counts=True)
+        if len(counts) > 0 and max(counts) > warn_size:
+            msg = (f'Some groups have more than {warn_size} '
+                   'sources. Fitting such groups may take a long time '
+                   'and be error-prone. You may want to consider using '
+                   'different `SourceGrouper` parameters or changing '
+                   'the "group_id" column in "init_params".')
+            warnings.warn(msg, AstropyUserWarning)
 
         # Add columns for any additional model parameters that are
         # fit using the model's default value, if not already present.
@@ -933,8 +1358,8 @@ class PSFPhotometry:
             The validated input image data.
 
         mask : 2D `numpy.ndarray` or `None`
-            The validated boolean mask where `True` values are masked.
-            If no mask was input, then `None` is returned.
+            The boolean mask combining the input mask and any
+            nonfinite data values, or `None` if no pixels are masked.
 
         error : 2D `numpy.ndarray` or `None`
             The validated 1-sigma uncertainties of the input data.
@@ -942,12 +1367,13 @@ class PSFPhotometry:
 
         init_params : `~astropy.table.Table` or `None`
             The table of initial parameters ready for fitting, or `None`
-            if no sources were found.
+            if no sources were found. In that case, the other three
+            return values are also `None`.
         """
         (data, error), unit = process_quantities((data, error),
                                                  ('data', 'error'))
         self.data_unit = unit
-        self._sync_data_unit()  # Sync with components
+        self._sync_data_unit()  # sync with components
 
         data = self._data_processor.validate_array(data, 'data')
         error = self._data_processor.validate_array(error, 'error',
@@ -957,251 +1383,36 @@ class PSFPhotometry:
         mask = _make_mask(data, mask)
 
         init_params = self._data_processor.validate_init_params(init_params)
+        if init_params is not None and len(init_params) == 0:
+            msg = 'init_params must contain at least one row'
+            raise ValueError(msg)
         init_params = self._build_initial_parameters(data, mask, init_params)
 
         if init_params is None:
-            # no sources found
+            # No sources found
             return None, None, None, None
+
+        ids = np.asarray(init_params['id'])
+        if len(np.unique(ids)) != len(ids):
+            msg = 'init_params id column must contain unique values'
+            raise ValueError(msg)
 
         return data, mask, error, init_params
 
-    def _ungroup_fit_results(self, row_indices, valid_mask, group_model,
-                             group_fit_info):
+    def _fit_source_groups(self, init_params, data, mask, error):
         """
-        Ungroup fitted results and store per-source data.
+        Fit the source groups and store the per-source results.
 
-        This method extracts individual source parameters, errors, and
-        covariance information directly from the group fit results and
-        stores them in the state container. This avoids storing large
-        group (flat) model objects and covariance matrices.
-
-        The results for each valid source in the group are stored
-        directly in the state container, including the fitted model
-        parameters, parameter errors, and fit_info dictionary.
-        ``row_indices`` is used to ensure that the order of the sources
-        in the state container matches the source ID order in the input
-        ``init_params`` table.
+        The groups are fitted by a `_FitEngine`, or by one engine per
+        thread when ``n_threads`` > 1 and the GIL is disabled, and
+        each group's results are scattered into the state container by
+        `_store_group_result`.
 
         Parameters
         ----------
-        row_indices : list
-            The row indices for sources in this group.
-
-        valid_mask : ndarray
-            Boolean mask indicating which sources in the group are valid.
-
-        group_model : `astropy.modeling.Model`
-            The fitted model for a single group. This can be a compound
-            model.
-
-        group_fit_info : dict
-            The fit_info dictionary corresponding to the group fit.
-        """
-        nfitparam = len(self._param_mapper.fitted_param_names)
-        num_valid = int(np.count_nonzero(valid_mask))
-
-        # Extract parameter errors from the group covariance matrix
-        param_cov = group_fit_info.get('param_cov')
-        if param_cov is None:
-            source_param_errs = np.full((num_valid, nfitparam), np.nan)
-            source_covs = [None] * num_valid
-        else:
-            param_err_1d = np.sqrt(np.diag(param_cov))
-
-            # For grouped (flat) models, parameters are arranged as,
-            # e.g., [flux_0, x_0_0, y_0_0, fwhm_0, flux_1, x_0_1, ...]
-            source_param_errs = param_err_1d.reshape(num_valid, nfitparam)
-
-            # Extract individual covariance matrices for each source
-            source_covs = self._psf_fitter.extract_source_covariances(
-                param_cov, num_valid, nfitparam)
-
-        # Split models and extract parameters
-        if num_valid == 1:
-            source_models = [group_model]
-        else:
-            # For grouped (flat) models, create individual models from
-            # params
-            source_models = self._psf_fitter.split_flat_model(group_model,
-                                                              num_valid)
-
-        # Store results for each valid source
-        valid_idx = 0
-        for i, row_index in enumerate(row_indices):
-            if not valid_mask[i]:
-                continue
-
-            model = source_models[valid_idx]
-            param_errs = source_param_errs[valid_idx]
-            source_cov = source_covs[valid_idx]
-
-            # Extract and store model parameters
-            self._cache_fitted_parameters(row_index, model)
-            self._state['fit_param_errs'][row_index] = param_errs
-
-            # Create individual fit_info with source-specific covariance
-            source_fit_info = dict(group_fit_info)
-            if source_cov is not None:
-                source_fit_info['param_cov'] = source_cov
-
-            self.fit_info[row_index] = source_fit_info
-            self._state['valid_mask_by_id'][row_index] = True
-
-            valid_idx += 1
-
-    def _calculate_residual_metrics(self, row_indices, valid_mask,
-                                    npixfit_full, cen_index_full, *,
-                                    error=None, xi_all=None, yi_all=None):
-        """
-        Calculate residual-based fit metrics for valid sources.
-
-        Parameters
-        ----------
-        row_indices : array-like
-            Source row indices.
-
-        valid_mask : array-like
-            Boolean mask for valid sources.
-
-        npixfit_full : array-like
-            Number of pixels used in fit for each source.
-
-        cen_index_full : array-like
-            Center pixel indices for each source.
-
-        error : 2D array or None, optional
-            The 1-sigma uncertainties of the input data. Used for
-            calculating reduced chi-squared.
-
-        xi_all : list or None, optional
-            List of x-coordinates for each valid source's cutout pixels.
-
-        yi_all : list or None, optional
-            List of y-coordinates for each valid source's cutout pixels.
-
-        Returns
-        -------
-        sum_abs_residuals : ndarray
-            Sum of absolute residuals for each source, or np.nan for
-            invalid sources.
-
-        cen_residuals : ndarray
-            Center residuals for each source, or np.nan for invalid
-            sources.
-
-        reduced_chi2 : ndarray
-            Reduced chi-squared values for each source, or np.nan for
-            invalid sources.
-        """
-        # Extract residuals from fit_info
-        residual_key = None
-        with contextlib.suppress(AttributeError):
-            fit_info = self.fitter.fit_info
-            if isinstance(fit_info, dict):
-                if 'fun' in fit_info:
-                    residual_key = 'fun'
-                if 'fvec' in fit_info:  # LevMarLSQFitter
-                    residual_key = 'fvec'
-
-        if residual_key is not None:
-            residuals = self.fitter.fit_info[residual_key]
-        else:
-            residuals = None
-
-        n_sources = len(row_indices)
-        sum_abs_residuals = np.full(n_sources, np.nan, dtype=float)
-        cen_residuals = np.full(n_sources, np.nan, dtype=float)
-        reduced_chi2 = np.full(n_sources, np.nan, dtype=float)
-
-        if residuals is not None:
-            # convert to numpy arrays for vectorized operations
-            valid_mask_arr = np.array(valid_mask, dtype=bool)
-            npixfit_arr = np.array(npixfit_full)
-            cen_index_arr = np.array(cen_index_full)
-
-            # get valid source indices
-            valid_indices = np.where(valid_mask_arr)[0]
-            if len(valid_indices) > 0:
-                npix_valid = npixfit_arr[valid_indices]
-
-                # calculate cumulative pixel positions
-                cumsum_npix = np.concatenate(([0], np.cumsum(npix_valid)))
-
-                # get the number of fitted parameters
-                nfitparam = len(self._param_mapper.fitted_param_names)
-
-                # process all valid sources
-                for idx, valid_idx in enumerate(valid_indices):
-                    start_pos = cumsum_npix[idx]
-                    end_pos = cumsum_npix[idx + 1]
-                    source_residuals = residuals[start_pos:end_pos]
-
-                    # For qfit and cfit calculations, we need raw residuals
-                    # (data - model), not weighted residuals
-                    # (data - model)/error. If errors were provided, convert
-                    # weighted residuals back to raw residuals.
-                    raw_residuals = source_residuals
-                    if (error is not None and xi_all is not None
-                            and yi_all is not None):
-                        # Extract error values for this source's pixels
-                        xi_source = xi_all[idx]
-                        yi_source = yi_all[idx]
-                        error_vals = error[yi_source, xi_source]
-
-                        # Convert weighted residuals to raw residuals:
-                        # multiply by error
-                        if (np.all(error_vals > 0)
-                                and np.all(np.isfinite(error_vals))):
-                            raw_residuals = source_residuals * error_vals
-
-                    # sum of absolute residuals
-                    sum_abs_residuals[valid_idx] = float(
-                        np.abs(raw_residuals).sum())
-
-                    # center residual
-                    cen_idx = cen_index_arr[valid_idx]
-                    if np.isfinite(cen_idx):
-                        cen_residuals[valid_idx] = float(
-                            -raw_residuals[int(cen_idx)])
-                    else:
-                        cen_residuals[valid_idx] = np.nan
-
-                    # Calculate chi-squared. The residuals have already
-                    # been weighted by (1 / error). If errors are not
-                    # input, then reduced_chi2 will be NaN.
-                    dof = float(npix_valid[idx] - nfitparam)
-                    if (error is not None and xi_all is not None
-                            and yi_all is not None):
-                        # Extract error values for this source's pixels
-                        xi_source = xi_all[idx]
-                        yi_source = yi_all[idx]
-                        error_vals = error[yi_source, xi_source]
-
-                        if (np.all(error_vals > 0)
-                                and np.all(np.isfinite(error_vals))):
-                            chi2 = np.sum(source_residuals**2)
-                            reduced_chi2[valid_idx] = chi2 / dof
-
-        row_indices_arr = np.array(row_indices)
-        self._state['sum_abs_residuals'][row_indices_arr] = sum_abs_residuals
-        self._state['cen_residuals'][row_indices_arr] = cen_residuals
-        self._state['reduced_chi2'][row_indices_arr] = reduced_chi2
-
-        return sum_abs_residuals, cen_residuals, reduced_chi2
-
-    def _fit_source_groups(self, source_groups, data, mask, error):
-        """
-        Fit PSF models to groups of sources in the input data.
-
-        This method processes each group of sources, fits PSF models,
-        and stores the results. Individual source results are extracted
-        and stored as soon as each group is fitted.
-
-        Parameters
-        ----------
-        source_groups : iterable
-            Groups of sources to fit, where each group contains sources
-            that should be fit simultaneously.
+        init_params : `~astropy.table.Table`
+            The initial parameters of the sources, including the
+            ``group_id`` and ``_row_index`` columns.
 
         data : 2D ndarray
             The input image data.
@@ -1212,103 +1423,129 @@ class PSFPhotometry:
         error : 2D ndarray or None
             The 1-sigma uncertainties of the input data.
         """
-        if self.progress_bar:  # pragma: no cover
-            source_groups = add_progress_bar(source_groups,
-                                             desc='Fit source/group')
+        engine = _FitEngine(psf_model=self.psf_model,
+                            param_mapper=self._param_mapper,
+                            data_processor=self._data_processor,
+                            psf_fitter=self._psf_fitter, data=data,
+                            mask=mask, error=error)
+        grouped = init_params.group_by('group_id')
+        n_threads = min(self.n_threads, len(grouped.groups))
 
-        y_offsets, x_offsets = self._data_processor.get_fit_offsets()
-        nfitparam_per_source = len(self._param_mapper.fitted_param_names)
+        # Threads holding the GIL would be slower than a single thread
+        if n_threads > 1 and _gil_enabled():
+            msg = ('n_threads > 1 speeds up the PSF fitting only on a '
+                   'free-threaded Python build. The GIL is enabled, so '
+                   'the sources are fitted in a single thread.')
+            warnings.warn(msg, AstropyUserWarning)
+            n_threads = 1
 
-        # sources are fit by groups in group ID order
-        for source_group in source_groups:
-            group_size = len(source_group)
-            xi_all = []
-            yi_all = []
-            cutout_all = []
-            npixfit_full = []
-            cen_index_full = []
-            valid_mask_list = []
-            invalid_reasons = []
-            row_indices = []
+        if n_threads == 1:
+            groups = grouped.groups
+            if self.progress_bar:
+                groups = add_progress_bar(groups, desc='Fit source/group')
+            for group in groups:
+                self._store_group_result(engine.fit_group(group))
+            return
 
-            # Process all sources with pre-filtering optimization
-            for row in source_group:
-                # Always use pre-filtering for all group sizes
-                should_skip_source = self._data_processor.should_skip_source
-                should_skip, reason = should_skip_source(row, data.shape)
-                if should_skip:
-                    res = {
-                        'valid': False,
-                        'reason': reason,
-                        'xx': None,
-                        'yy': None,
-                        'cutout': None,
-                        'npix': 0,
-                        'cen_index': np.nan,
-                    }
-                else:
-                    res = self._data_processor.get_source_cutout_data(
-                        row, data, mask, y_offsets, x_offsets)
+        # Every chunk borrows one of n_threads engines, so no engine
+        # is ever used by two threads at once.
+        engines = SimpleQueue()
+        for _ in range(n_threads):
+            engines.put(engine.thread_copy())
 
-                # Common processing for all sources
-                npixfit_full.append(res['npix'])
-                cen_index_full.append(res['cen_index'])
-                invalid_reasons.append(res['reason'])
-                row_indices.append(row['_row_index'])
+        def fit_chunk(chunk):
+            thread_engine = engines.get()
+            try:
+                return thread_engine.fit_groups(chunk)
+            finally:
+                engines.put(thread_engine)
 
-                if res['valid'] and res['npix'] >= nfitparam_per_source:
-                    valid_mask_list.append(True)
-                    xi_all.append(res['xx'])
-                    yi_all.append(res['yy'])
-                    cutout_all.append(res['cutout'])
-                else:
-                    if res['valid'] and res['npix'] < nfitparam_per_source:
-                        invalid_reasons[-1] = 'too_few_pixels'
-                    valid_mask_list.append(False)
+        # Several chunks per thread balance the uneven group costs.
+        # The warning filter set by the fitting code in each thread is
+        # process-wide on some Python builds, where concurrent threads
+        # can restore the filters in the wrong order. Setting the same
+        # filter here keeps it in place while the threads run and
+        # restores the caller's filters afterward.
+        chunks = self._chunk_groups(grouped, 4 * n_threads)
+        with (warnings.catch_warnings(),
+              ThreadPoolExecutor(max_workers=n_threads) as executor):
+            warnings.simplefilter('ignore', AstropyUserWarning)
+            futures = [executor.submit(fit_chunk, chunk) for chunk in chunks]
+            completed = as_completed(futures)
+            if self.progress_bar:
+                completed = add_progress_bar(completed,
+                                             desc='Fit source chunk',
+                                             total=len(futures))
+            try:
+                for future in completed:
+                    for result in future.result():
+                        self._store_group_result(result)
+            except BaseException:
+                # Do not fit the remaining chunks after a failure
+                executor.shutdown(cancel_futures=True)
+                raise
 
-            valid_mask = np.array(valid_mask_list, dtype=bool)
-            num_valid = int(np.count_nonzero(valid_mask))
+    @staticmethod
+    def _chunk_groups(grouped, n_chunks):
+        """
+        Split a grouped table into chunks of whole groups with roughly
+        equal numbers of sources.
 
-            # Store basic info for all sources in group.
-            # row_indices is used to store results in the original
-            # source ID order given by init_params.
-            row_indices_arr = np.array(row_indices)
-            self._state['group_size'][row_indices_arr] = group_size
-            self._state['n_pixels_fit'][row_indices_arr] = np.array(
-                npixfit_full, dtype=int)
+        Parameters
+        ----------
+        grouped : `~astropy.table.Table`
+            The sources grouped by ``group_id``.
 
-            for i, row_index in enumerate(row_indices):
-                reason = invalid_reasons[i]
-                self._state['invalid_reasons'][row_index] = (
-                    '' if reason is None else reason
-                )
+        n_chunks : int
+            The requested number of chunks. Fewer are returned when
+            there are fewer groups.
 
-            if num_valid == 0:
-                # Handle all-invalid group
-                for row_index in row_indices:
-                    self._state['valid_mask_by_id'][row_index] = False
-                    self._cache_fitted_parameters(row_index, None)
-                continue
+        Returns
+        -------
+        chunks : list of `~astropy.table.Table`
+            The chunks, each holding one or more complete groups.
+        """
+        indices = grouped.groups.indices
+        n_sources = len(grouped)
+        n_chunks = min(n_chunks, len(indices) - 1)
+        bounds = [0]
+        for k in range(1, n_chunks):
+            # The first group boundary at or after the ideal cut
+            cut = int(indices[np.searchsorted(indices, k * n_sources
+                                              / n_chunks)])
+            if bounds[-1] < cut < n_sources:
+                bounds.append(cut)
+        bounds.append(n_sources)
+        return [grouped[start:end] for start, end in pairwise(bounds)]
 
-            # Fit the group
-            xi_concat = np.concatenate(xi_all)
-            yi_concat = np.concatenate(yi_all)
-            cutout_concat = np.concatenate(cutout_all)
-            valid_sources = source_group[valid_mask]
-            psf_model = self._psf_fitter.make_psf_model(valid_sources)
-            fit_model, fit_info = self._psf_fitter.run_fitter(
-                psf_model, xi_concat, yi_concat, cutout_concat, error)
+    def _store_group_result(self, result):
+        """
+        Scatter the results of one group into the state container.
 
-            # Ungroup and store per-source results. row_indices is used
-            # to ensure that results are stored in the original source
-            # ID order given by init_params.
-            self._ungroup_fit_results(row_indices, valid_mask, fit_model,
-                                      fit_info)
-
-            # Calculate residual metrics for valid sources
-            self._calculate_residual_metrics(
-                row_indices, valid_mask, npixfit_full, cen_index_full,
-                error=error, xi_all=xi_all, yi_all=yi_all)
+        Parameters
+        ----------
+        result : `_GroupFitResult`
+            The group results from `_FitEngine.fit_group`.
+        """
+        rows = result.row_indices
+        state = self._state
+        state['group_size'][rows] = result.group_size
+        state['n_pixels_fit'][rows] = result.n_pixels_fit
+        state['valid_mask_by_id'][rows] = result.valid_mask
+        state['fit_param_errs'][rows] = result.fit_param_errs
+        state['sum_abs_residuals'][rows] = result.sum_abs_residuals
+        state['cen_residuals'][rows] = result.cen_residuals
+        state['reduced_chi2'][rows] = result.reduced_chi2
+        param_data = state['model_param_data']
+        for name in self.psf_model.param_names:
+            param_data[name][rows] = result.param_values[name]
+        for i, row in enumerate(rows):
+            state['invalid_reasons'][row] = result.invalid_reasons[i]
+            self.fit_info[row] = result.fit_info[i]
+            for name in self.psf_model.param_names:
+                param_data[f'{name}_fixed'][row] = result.param_fixed[name][i]
+                param_data[f'{name}_bounds'][row] = (
+                    result.param_bounds[name][i])
 
     def _get_fit_error_indices(self):
         """
@@ -1347,10 +1584,9 @@ class PSFPhotometry:
         fitted_models_table = self._build_fitted_models_table()
         fit_params = self._create_fit_results(fitted_models_table)
 
-        # store results in state for other methods that need them
+        # Store results in state for other methods that need them
         self._state['fit_error_indices'] = fit_error_indices
         self._state['fitted_models_table'] = fitted_models_table
-        self._state['fit_params'] = fit_params
 
         return fit_params
 
@@ -1375,20 +1611,20 @@ class PSFPhotometry:
         Returns
         -------
         fit_params : `~astropy.table.Table`
-            The table of fitted parameters and fit quality metrics for
-            each source.
+            The table of fitted parameters and their errors for each
+            source.
         """
-        # add row index for stable mapping
+        # Add row index for stable mapping
         if '_row_index' not in init_params.colnames:
             init_params['_row_index'] = np.arange(len(init_params))
         self._initialize_source_state_storage(len(init_params))
 
-        source_groups = init_params.group_by('group_id').groups
-        self._fit_source_groups(source_groups, data, mask, error)
-
-        # clean up temporary row index column
-        if '_row_index' in init_params.colnames:
-            init_params.remove_column('_row_index')
+        try:
+            self._fit_source_groups(init_params, data, mask, error)
+        finally:
+            # Clean up temporary row index column
+            if '_row_index' in init_params.colnames:
+                init_params.remove_column('_row_index')
 
         return self._assemble_fit_results()
 
@@ -1426,7 +1662,7 @@ class PSFPhotometry:
 
         This method delegates to the results assembler component.
         """
-        # prepare metadata attributes
+        # Prepare metadata attributes
         class_attrs = {'psf_model', 'finder', 'grouper', 'fitter',
                        'local_bkg_estimator'}
         metadata_attrs = {}
@@ -1440,7 +1676,8 @@ class PSFPhotometry:
         return self._results_assembler.assemble_results_table(
             init_params, fit_params, data_shape, self._state,
             self._calc_fit_metrics, self._define_flags,
-            self.__class__.__name__, metadata_attrs)
+            self.__class__.__name__, metadata_attrs,
+            warn_no_convergence=self._warn_no_convergence)
 
     @staticmethod
     def _coerce_nddata(data):
@@ -1485,38 +1722,75 @@ class PSFPhotometry:
 
         return data_array, mask, error
 
+    @staticmethod
+    def _check_nddata_kwargs(*, mask, error):
+        """
+        Reject explicit mask/error keywords for NDData inputs.
+
+        Parameters
+        ----------
+        mask : 2D `~numpy.ndarray` or `None`
+            The mask keyword value passed to ``__call__``.
+
+        error : 2D `~numpy.ndarray` or `None`
+            The error keyword value passed to ``__call__``.
+
+        Raises
+        ------
+        ValueError
+            If mask or error is not None.
+        """
+        if mask is not None or error is not None:
+            msg = ('The mask and error keywords must be None when '
+                   'data is an NDData instance. Define the mask and '
+                   'uncertainty in the NDData object instead.')
+            raise ValueError(msg)
+
     @_create_call_docstring(iterative=False)
     def __call__(self, data, *, mask=None, error=None, init_params=None):
-        # reset state from previous runs
+        # Reset state from previous runs
         self._reset_results()
 
+        if not self._param_mapper.fitted_param_names:
+            msg = ('psf_model has no free parameters to fit. At least one '
+                   'model parameter must not be fixed.')
+            raise ValueError(msg)
+
         try:
-            # handle NDData input
+            # Handle NDData input
             if isinstance(data, NDData):
+                self._check_nddata_kwargs(mask=mask, error=error)
                 data, mask, error = self._coerce_nddata(data)
 
-            # prepare all inputs for sources to be fit
+            # Prepare all inputs for sources to be fit
             data, mask, error, init_params = self._prepare_fit_inputs(
                 data, mask=mask, error=error, init_params=init_params,
             )
 
-            # handle the case where no sources were found
+            # Handle the case where no sources were found
             if init_params is None:
                 return None
 
             self.init_params = init_params
 
-            # fit sources defined in init_params
+            # Fit sources defined in init_params
             fit_params = self._fit_sources(data, init_params, error=error,
                                            mask=mask)
 
-            # assemble the final results table
+            # Assemble the final results table
             # Note: _assemble_results_table handles _state cleanup
             self.results = self._assemble_results_table(
                 init_params, fit_params, data.shape)
 
+            # Reorder fit_info to match the results table rows, which
+            # are sorted by the id column during table assembly
+            row_map = {src_id: idx
+                       for idx, src_id in enumerate(init_params['id'])}
+            self.fit_info = [self.fit_info[row_map[src_id]]
+                             for src_id in self.results['id']]
+
         except Exception:
-            # ensure state cleanup even if an exception occurs
+            # Ensure state cleanup even if an exception occurs
             self._reset_state()
             raise
 
@@ -1534,7 +1808,8 @@ class PSFPhotometry:
             self._state.clear()
 
     @property
-    @deprecated('2.3.0', alternative='results')
+    @deprecated('2.3.0', alternative='results',
+                warning_type=PhotutilsDeprecationWarning)
     def fit_params(self):
         """
         The table of fit parameters and their errors.
@@ -1548,10 +1823,34 @@ class PSFPhotometry:
 
         tbl = QTable()
         for col_name in self.results.colnames:
-            if col_name == 'id' or '_fit' in col_name or '_err' in col_name:
+            if (col_name == 'id'
+                    or (col_name.endswith('_fit')
+                        and col_name not in self._NON_PARAM_FIT_COLS)
+                    or col_name.endswith('_err')):
                 tbl[col_name] = self.results[col_name]
 
         return tbl
+
+    @staticmethod
+    def _iter_fit_param_cols(results_tbl):
+        """
+        Yield the 'id' column name plus the fitted model-parameter
+        column names.
+        """
+        for col_name in results_tbl.colnames:
+            if col_name == 'id' or (
+                    col_name.endswith('_fit')
+                    and col_name
+                    not in PSFPhotometry._NON_PARAM_FIT_COLS):
+                yield col_name
+
+    @staticmethod
+    def _finite_fit_mask(tbl):
+        """
+        Return a boolean mask of rows where every column is finite.
+        """
+        return np.all([np.isfinite(tbl[col])
+                       for col in tbl.colnames], axis=0)
 
     @staticmethod
     def _results_to_init_params(results_tbl, *, remove_invalid=True,
@@ -1575,7 +1874,7 @@ class PSFPhotometry:
             If None, returns None.
 
         remove_invalid : bool, optional
-            If `True`, rows containing non-finite fitted values are
+            If `True`, rows containing nonfinite fitted values are
             removed. Default is `True`.
 
         reset_ids : bool, optional
@@ -1603,15 +1902,13 @@ class PSFPhotometry:
             return None
 
         tbl = QTable()
-        for col_name in results_tbl.colnames:
-            if col_name == 'id' or '_fit' in col_name:
-                init_name = col_name.replace('_fit', '_init')
-                tbl[init_name] = results_tbl[col_name]
+        for col_name in PSFPhotometry._iter_fit_param_cols(results_tbl):
+            init_name = col_name.replace('_fit', '_init')
+            tbl[init_name] = results_tbl[col_name]
 
         if remove_invalid:
-            # Remove rows with any non-finite fitted values
-            keep = np.all([np.isfinite(tbl[col])
-                           for col in tbl.colnames], axis=0)
+            # Remove rows with any nonfinite fitted values
+            keep = PSFPhotometry._finite_fit_mask(tbl)
             tbl = tbl[keep]
 
             if reset_ids:
@@ -1646,7 +1943,7 @@ class PSFPhotometry:
             'x_0', 'flux').
 
         remove_invalid : bool, optional
-            If `True`, rows containing non-finite fitted values are
+            If `True`, rows containing nonfinite fitted values are
             removed. Default is `True`.
 
         reset_ids : bool, optional
@@ -1673,17 +1970,15 @@ class PSFPhotometry:
             return None
 
         tbl = QTable()
-        for col_name in results_tbl.colnames:
-            if col_name == 'id' or '_fit' in col_name:
-                alias = col_name.replace('_fit', '')
-                model_param_name = param_mapper.alias_to_model_param.get(
-                    alias, alias)
-                tbl[model_param_name] = results_tbl[col_name]
+        for col_name in PSFPhotometry._iter_fit_param_cols(results_tbl):
+            alias = col_name.replace('_fit', '')
+            model_param_name = param_mapper.alias_to_model_param.get(
+                alias, alias)
+            tbl[model_param_name] = results_tbl[col_name]
 
         if remove_invalid:
-            # Remove rows with any non-finite fitted values
-            keep = np.all([np.isfinite(tbl[col])
-                           for col in tbl.colnames], axis=0)
+            # Remove rows with any nonfinite fitted values
+            keep = PSFPhotometry._finite_fit_mask(tbl)
             tbl = tbl[keep]
 
             if reset_ids:
@@ -1693,7 +1988,7 @@ class PSFPhotometry:
 
     def results_to_init_params(self, *, remove_invalid=True, reset_ids=True):
         """
-        Create a table of the fitted model parameters from the results.
+        Create a table of initial parameters from the fitted results.
 
         The table columns are named according to those expected for the
         initial parameters table. It can be used as the ``init_params``
@@ -1702,7 +1997,7 @@ class PSFPhotometry:
         Parameters
         ----------
         remove_invalid : bool, optional
-            If `True`, rows that contain non-finite fitted values are
+            If `True`, rows that contain nonfinite fitted values are
             removed.
 
         reset_ids : bool, optional
@@ -1710,6 +2005,12 @@ class PSFPhotometry:
             numbering starting from 1. If `False`, the 'id' column will
             remain unchanged from the results table. This option is
             ignored if ``remove_invalid`` is `False`.
+
+        Returns
+        -------
+        init_params_tbl : `~astropy.table.QTable` or `None`
+            The table of initial parameters, or `None` if the
+            instance has not yet been run.
         """
         return self._results_to_init_params(self.results,
                                             remove_invalid=remove_invalid,
@@ -1726,7 +2027,7 @@ class PSFPhotometry:
         Parameters
         ----------
         remove_invalid : bool, optional
-            If `True`, rows that contain non-finite fitted values are
+            If `True`, rows that contain nonfinite fitted values are
             removed.
 
         reset_ids : bool, optional
@@ -1734,6 +2035,12 @@ class PSFPhotometry:
             numbering starting from 1. If `False`, the 'id' column will
             remain unchanged from the results table. This option is
             ignored if ``remove_invalid`` is `False`.
+
+        Returns
+        -------
+        model_params_tbl : `~astropy.table.QTable` or `None`
+            The table of model parameters, or `None` if the instance
+            has not yet been run.
         """
         return self._results_to_model_params(self.results,
                                              self._param_mapper,
@@ -1753,15 +2060,19 @@ class PSFPhotometry:
         ----------
         return_bit_values : bool, optional
             If `True`, return the decoded bit flags (integers) instead
-            of the flag descriptions (strings). Default is `False`.
+            of the flag names (strings). Default is `False`.
 
         Returns
         -------
-        decoded : list of list of str or list of list of int
-            List of lists where each inner list contains the active flag
-            names (or bit values) for the corresponding source in the
-            results table. If no flags are set for a source, an empty
-            list is returned for that source.
+        decoded : dict
+            A dictionary mapping each source id from the results table
+            to the list of its active flag names (or bit values). If no
+            flags are set for a source, its value is an empty list. The
+            entries follow the results-table order.
+
+            .. versionchanged:: 3.1
+                The result is now a dictionary keyed by source id.
+                Previously, a positional list of lists was returned.
 
         Raises
         ------
@@ -1790,19 +2101,21 @@ class PSFPhotometry:
         ...                      'flux': [100, 100]})
         >>> photometry = PSFPhotometry(psf_model, (3, 3))
         >>> results = photometry(data, init_params=init_params)
-        >>> decoded_flags = photometry.decode_flags()
-        >>> for i, flags in enumerate(decoded_flags):
-        ...     print(f'Source {i+1}: {flags}')  # doctest: +SKIP
+        >>> for source_id, flags in photometry.decode_flags().items():
+        ...     print(f'Source {source_id}: {flags}')  # doctest: +SKIP
         Source 1: []
-        Source 2: ['negative_flux']
+        Source 2: ['non_positive_flux']
         """
         if self.results is None:
             msg = ('No results available. Please run the PSFPhotometry '
                    'instance first.')
             raise ValueError(msg)
 
-        return decode_psf_flags(self.results['flags'],
-                                return_bit_values=return_bit_values)
+        decoded = decode_psf_flags(self.results['flags'],
+                                   return_bit_values=return_bit_values)
+        return {int(id_): flags
+                for id_, flags in zip(self.results['id'], decoded,
+                                      strict=True)}
 
     def _get_model_image_params(self):
         # Convert fitted parameters to model parameter names without

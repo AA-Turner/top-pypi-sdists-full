@@ -1,8 +1,10 @@
+import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
 
@@ -17,12 +19,14 @@ class ProjectMetadataAnswer:
         question (Union[Unset, str]): Question description.
         question_type (Union[Unset, str]):
         answer (Union[Unset, Any]): Human-readable answer value; select-type option UUIDs are resolved to their labels.
+        modified (Union[Unset, datetime.datetime]): When this answer was last saved.
     """
 
     question_uuid: Union[Unset, str] = UNSET
     question: Union[Unset, str] = UNSET
     question_type: Union[Unset, str] = UNSET
     answer: Union[Unset, Any] = UNSET
+    modified: Union[Unset, datetime.datetime] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,6 +37,10 @@ class ProjectMetadataAnswer:
         question_type = self.question_type
 
         answer = self.answer
+
+        modified: Union[Unset, str] = UNSET
+        if not isinstance(self.modified, Unset):
+            modified = self.modified.isoformat()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -45,6 +53,8 @@ class ProjectMetadataAnswer:
             field_dict["question_type"] = question_type
         if answer is not UNSET:
             field_dict["answer"] = answer
+        if modified is not UNSET:
+            field_dict["modified"] = modified
 
         return field_dict
 
@@ -59,11 +69,19 @@ class ProjectMetadataAnswer:
 
         answer = d.pop("answer", UNSET)
 
+        _modified = d.pop("modified", UNSET)
+        modified: Union[Unset, datetime.datetime]
+        if isinstance(_modified, Unset):
+            modified = UNSET
+        else:
+            modified = isoparse(_modified)
+
         project_metadata_answer = cls(
             question_uuid=question_uuid,
             question=question,
             question_type=question_type,
             answer=answer,
+            modified=modified,
         )
 
         project_metadata_answer.additional_properties = d

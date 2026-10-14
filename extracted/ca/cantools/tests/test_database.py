@@ -2105,6 +2105,33 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(by_name['HasSignals'], ['Speed'])
         self.assertEqual(by_name['NoSignals'], [])
 
+    def test_as_sym_string_multiline_comments(self):
+        # A SYM comment runs to the end of its line. Line breaks in a
+        # message or signal comment must not end it early; the text after
+        # the break would be read as SYM syntax and the file not load.
+        signal = Signal(name='Speed', start=0, length=8,
+                        comment='line one\nline two\r\nline three\rend')
+        message = Message(frame_id=0x100, name='Msg', length=8,
+                          signals=[signal], comment='first\nsecond')
+        db = cantools.database.Database(messages=[message])
+
+        reloaded = cantools.database.load_string(db.as_sym_string(), 'sym')
+        reloaded_message = reloaded.get_message_by_name('Msg')
+        self.assertEqual(reloaded_message.comment, 'first second')
+        self.assertEqual(reloaded_message.get_signal_by_name('Speed').comment,
+                         'line one line two line three end')
+
+    def test_as_sym_string_dbc_multiline_comment(self):
+        db = cantools.database.load_file('tests/files/dbc/abs.dbc')
+
+        reloaded = cantools.database.load_string(db.as_sym_string(), 'sym')
+        diag_fl = reloaded.get_message_by_name(
+            'BREMSE_53').get_signal_by_name('Diag_FL')
+        self.assertEqual(
+            diag_fl.comment,
+            'Value to show faults related to the wheel speed sensor.  '
+            '0 - Signal ok, 1 - Wiring related fault, 2 - Signal related fault')
+
     def test_signal_types_6_0_sym(self):
         db = cantools.database.load_file('tests/files/sym/signal-types-6.0.sym')
 
@@ -4079,6 +4106,35 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         with open(filename) as fin:
             self.assertEqual(db.as_kcd_string(), fin.read())
+
+    def test_as_kcd_string_undeclared_nodes(self):
+        """Senders and receivers that are not in the node list are
+        declared as nodes in the KCD dump.
+
+        """
+
+        db = cantools.database.load_string(
+            'VERSION ""\n'
+            'BU_: Declared\n'
+            'BO_ 1 M: 8 Undeclared\n'
+            ' SG_ S : 0|8@1+ (1,0) [0|0] "" Declared,OtherRx\n',
+            database_format='dbc')
+
+        db = cantools.database.load_string(db.as_kcd_string(),
+                                           database_format='kcd')
+        self.assertEqual([node.name for node in db.nodes],
+                         ['Declared', 'Undeclared', 'OtherRx'])
+        message = db.get_message_by_name('M')
+        self.assertEqual(message.senders, ['Undeclared'])
+        self.assertEqual(message.get_signal_by_name('S').receivers,
+                         ['Declared', 'OtherRx'])
+
+        # SYM files have no node list.
+        sym = cantools.database.load_file('tests/files/sym/big-endian.sym')
+        kcd = cantools.database.load_string(sym.as_kcd_string(),
+                                            database_format='kcd')
+        self.assertEqual(kcd.get_message_by_name('Msg1').senders,
+                         ['ECU', 'Peripherals'])
 
     def test_issue_62(self):
         """Test issue 62.

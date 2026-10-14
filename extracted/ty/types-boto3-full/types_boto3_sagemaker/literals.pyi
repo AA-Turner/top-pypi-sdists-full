@@ -85,6 +85,7 @@ __all__ = (
     "ClarifyFeatureTypeType",
     "ClarifyTextGranularityType",
     "ClarifyTextLanguageType",
+    "CleanupFailureErrorCodeType",
     "ClusterAutoScalerTypeType",
     "ClusterAutoScalingModeType",
     "ClusterAutoScalingStatusType",
@@ -155,6 +156,7 @@ __all__ = (
     "FillingTypeType",
     "FlatInvocationsType",
     "FlowDefinitionStatusType",
+    "ForEachStatusType",
     "FrameworkType",
     "HomeEfsFileSystemCreationType",
     "HubContentSortByType",
@@ -964,6 +966,7 @@ ClarifyTextLanguageType = Literal[
     "yo",
     "zh",
 ]
+CleanupFailureErrorCodeType = Literal["ClientError", "InternalFailure"]
 ClusterAutoScalerTypeType = Literal["Karpenter"]
 ClusterAutoScalingModeType = Literal["Disable", "Enable"]
 ClusterAutoScalingStatusType = Literal["Creating", "Deleting", "Failed", "InService"]
@@ -1287,6 +1290,7 @@ FillingTypeType = Literal[
 ]
 FlatInvocationsType = Literal["Continue", "Stop"]
 FlowDefinitionStatusType = Literal["Active", "Deleting", "Failed", "Initializing"]
+ForEachStatusType = Literal["Failed", "Stopped", "Succeeded"]
 FrameworkType = Literal[
     "DARKNET", "KERAS", "MXNET", "ONNX", "PYTORCH", "SKLEARN", "TENSORFLOW", "TFLITE", "XGBOOST"
 ]
@@ -1906,7 +1910,9 @@ PartnerAppStatusType = Literal[
 ]
 PartnerAppTypeType = Literal["comet", "deepchecks-llm-evaluation", "fiddler", "lakera-guard"]
 PeftType = Literal["LORA"]
-PipelineExecutionStatusType = Literal["Executing", "Failed", "Stopped", "Stopping", "Succeeded"]
+PipelineExecutionStatusType = Literal[
+    "CompletedWithFailures", "Executing", "Failed", "Stopped", "Stopping", "Succeeded"
+]
 PipelineStatusType = Literal["Active", "Deleting"]
 PreemptTeamTasksType = Literal["LowerPriority", "Never"]
 ProblemTypeType = Literal["BinaryClassification", "MulticlassClassification", "Regression"]

@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -531,6 +534,7 @@ STC_LEX_DART: int
 STC_LEX_ZIG: int
 STC_LEX_NIX: int
 STC_LEX_SINEX: int
+STC_LEX_ESCSEQ: int
 STC_LEX_AUTOMATIC: int
 STC_P_DEFAULT: int
 STC_P_COMMENTLINE: int
@@ -1135,6 +1139,7 @@ STC_ASM_CHARACTER: int
 STC_ASM_STRINGEOL: int
 STC_ASM_EXTINSTRUCTION: int
 STC_ASM_COMMENTDIRECTIVE: int
+STC_ASM_STRINGBACKQUOTE: int
 STC_F_DEFAULT: int
 STC_F_COMMENT: int
 STC_F_NUMBER: int
@@ -1763,6 +1768,8 @@ STC_ABL_END: int
 STC_ABL_COMMENT: int
 STC_ABL_TASKMARKER: int
 STC_ABL_LINECOMMENT: int
+STC_ABL_ANNOTATION: int
+STC_ABL_TYPEDANNOTATION: int
 STC_ABAQUS_DEFAULT: int
 STC_ABAQUS_COMMENT: int
 STC_ABAQUS_COMMENTBLOCK: int
@@ -1892,6 +1899,7 @@ STC_PAS_STRINGEOL: int
 STC_PAS_CHARACTER: int
 STC_PAS_OPERATOR: int
 STC_PAS_ASM: int
+STC_PAS_MULTILINESTRING: int
 STC_SORCUS_DEFAULT: int
 STC_SORCUS_COMMAND: int
 STC_SORCUS_PARAMETER: int
@@ -2572,6 +2580,170 @@ STC_SINEX_BLOCK_START: int
 STC_SINEX_BLOCK_END: int
 STC_SINEX_DATE: int
 STC_SINEX_NUMBER: int
+STC_ESCSEQ_DEFAULT: int
+STC_ESCSEQ_BLACK_DEFAULT: int
+STC_ESCSEQ_RED_DEFAULT: int
+STC_ESCSEQ_GREEN_DEFAULT: int
+STC_ESCSEQ_YELLOW_DEFAULT: int
+STC_ESCSEQ_BLUE_DEFAULT: int
+STC_ESCSEQ_MAGENTA_DEFAULT: int
+STC_ESCSEQ_CYAN_DEFAULT: int
+STC_ESCSEQ_WHITE_DEFAULT: int
+STC_ESCSEQ_DEFAULT_BLACK: int
+STC_ESCSEQ_BLACK_BLACK: int
+STC_ESCSEQ_RED_BLACK: int
+STC_ESCSEQ_GREEN_BLACK: int
+STC_ESCSEQ_YELLOW_BLACK: int
+STC_ESCSEQ_BLUE_BLACK: int
+STC_ESCSEQ_MAGENTA_BLACK: int
+STC_ESCSEQ_CYAN_BLACK: int
+STC_ESCSEQ_WHITE_BLACK: int
+STC_ESCSEQ_DEFAULT_RED: int
+STC_ESCSEQ_BLACK_RED: int
+STC_ESCSEQ_RED_RED: int
+STC_ESCSEQ_GREEN_RED: int
+STC_ESCSEQ_YELLOW_RED: int
+STC_ESCSEQ_BLUE_RED: int
+STC_ESCSEQ_MAGENTA_RED: int
+STC_ESCSEQ_CYAN_RED: int
+STC_ESCSEQ_WHITE_RED: int
+STC_ESCSEQ_DEFAULT_GREEN: int
+STC_ESCSEQ_BLACK_GREEN: int
+STC_ESCSEQ_RED_GREEN: int
+STC_ESCSEQ_GREEN_GREEN: int
+STC_ESCSEQ_YELLOW_GREEN: int
+STC_ESCSEQ_BLUE_GREEN: int
+STC_ESCSEQ_MAGENTA_GREEN: int
+STC_ESCSEQ_CYAN_GREEN: int
+STC_ESCSEQ_WHITE_GREEN: int
+STC_ESCSEQ_DEFAULT_YELLOW: int
+STC_ESCSEQ_BLACK_YELLOW: int
+STC_ESCSEQ_RED_YELLOW: int
+STC_ESCSEQ_GREEN_YELLOW: int
+STC_ESCSEQ_YELLOW_YELLOW: int
+STC_ESCSEQ_BLUE_YELLOW: int
+STC_ESCSEQ_MAGENTA_YELLOW: int
+STC_ESCSEQ_CYAN_YELLOW: int
+STC_ESCSEQ_WHITE_YELLOW: int
+STC_ESCSEQ_DEFAULT_BLUE: int
+STC_ESCSEQ_BLACK_BLUE: int
+STC_ESCSEQ_RED_BLUE: int
+STC_ESCSEQ_GREEN_BLUE: int
+STC_ESCSEQ_YELLOW_BLUE: int
+STC_ESCSEQ_BLUE_BLUE: int
+STC_ESCSEQ_MAGENTA_BLUE: int
+STC_ESCSEQ_CYAN_BLUE: int
+STC_ESCSEQ_WHITE_BLUE: int
+STC_ESCSEQ_DEFAULT_MAGENTA: int
+STC_ESCSEQ_BLACK_MAGENTA: int
+STC_ESCSEQ_RED_MAGENTA: int
+STC_ESCSEQ_GREEN_MAGENTA: int
+STC_ESCSEQ_YELLOW_MAGENTA: int
+STC_ESCSEQ_BLUE_MAGENTA: int
+STC_ESCSEQ_MAGENTA_MAGENTA: int
+STC_ESCSEQ_CYAN_MAGENTA: int
+STC_ESCSEQ_WHITE_MAGENTA: int
+STC_ESCSEQ_DEFAULT_CYAN: int
+STC_ESCSEQ_BLACK_CYAN: int
+STC_ESCSEQ_RED_CYAN: int
+STC_ESCSEQ_GREEN_CYAN: int
+STC_ESCSEQ_YELLOW_CYAN: int
+STC_ESCSEQ_BLUE_CYAN: int
+STC_ESCSEQ_MAGENTA_CYAN: int
+STC_ESCSEQ_CYAN_CYAN: int
+STC_ESCSEQ_WHITE_CYAN: int
+STC_ESCSEQ_DEFAULT_WHITE: int
+STC_ESCSEQ_BLACK_WHITE: int
+STC_ESCSEQ_RED_WHITE: int
+STC_ESCSEQ_GREEN_WHITE: int
+STC_ESCSEQ_YELLOW_WHITE: int
+STC_ESCSEQ_BLUE_WHITE: int
+STC_ESCSEQ_MAGENTA_WHITE: int
+STC_ESCSEQ_CYAN_WHITE: int
+STC_ESCSEQ_WHITE_WHITE: int
+STC_ESCSEQ_BOLD_DEFAULT: int
+STC_ESCSEQ_BOLD_BLACK_DEFAULT: int
+STC_ESCSEQ_BOLD_RED_DEFAULT: int
+STC_ESCSEQ_BOLD_GREEN_DEFAULT: int
+STC_ESCSEQ_BOLD_YELLOW_DEFAULT: int
+STC_ESCSEQ_BOLD_BLUE_DEFAULT: int
+STC_ESCSEQ_BOLD_MAGENTA_DEFAULT: int
+STC_ESCSEQ_BOLD_CYAN_DEFAULT: int
+STC_ESCSEQ_BOLD_WHITE_DEFAULT: int
+STC_ESCSEQ_BOLD_DEFAULT_BLACK: int
+STC_ESCSEQ_BOLD_BLACK_BLACK: int
+STC_ESCSEQ_BOLD_RED_BLACK: int
+STC_ESCSEQ_BOLD_GREEN_BLACK: int
+STC_ESCSEQ_BOLD_YELLOW_BLACK: int
+STC_ESCSEQ_BOLD_BLUE_BLACK: int
+STC_ESCSEQ_BOLD_MAGENTA_BLACK: int
+STC_ESCSEQ_BOLD_CYAN_BLACK: int
+STC_ESCSEQ_BOLD_WHITE_BLACK: int
+STC_ESCSEQ_BOLD_DEFAULT_RED: int
+STC_ESCSEQ_BOLD_BLACK_RED: int
+STC_ESCSEQ_BOLD_RED_RED: int
+STC_ESCSEQ_BOLD_GREEN_RED: int
+STC_ESCSEQ_BOLD_YELLOW_RED: int
+STC_ESCSEQ_BOLD_BLUE_RED: int
+STC_ESCSEQ_BOLD_MAGENTA_RED: int
+STC_ESCSEQ_BOLD_CYAN_RED: int
+STC_ESCSEQ_BOLD_WHITE_RED: int
+STC_ESCSEQ_BOLD_DEFAULT_GREEN: int
+STC_ESCSEQ_BOLD_BLACK_GREEN: int
+STC_ESCSEQ_BOLD_RED_GREEN: int
+STC_ESCSEQ_BOLD_GREEN_GREEN: int
+STC_ESCSEQ_BOLD_YELLOW_GREEN: int
+STC_ESCSEQ_BOLD_BLUE_GREEN: int
+STC_ESCSEQ_BOLD_MAGENTA_GREEN: int
+STC_ESCSEQ_BOLD_CYAN_GREEN: int
+STC_ESCSEQ_BOLD_WHITE_GREEN: int
+STC_ESCSEQ_BOLD_DEFAULT_YELLOW: int
+STC_ESCSEQ_BOLD_BLACK_YELLOW: int
+STC_ESCSEQ_BOLD_RED_YELLOW: int
+STC_ESCSEQ_BOLD_GREEN_YELLOW: int
+STC_ESCSEQ_BOLD_YELLOW_YELLOW: int
+STC_ESCSEQ_BOLD_BLUE_YELLOW: int
+STC_ESCSEQ_BOLD_MAGENTA_YELLOW: int
+STC_ESCSEQ_BOLD_CYAN_YELLOW: int
+STC_ESCSEQ_BOLD_WHITE_YELLOW: int
+STC_ESCSEQ_BOLD_DEFAULT_BLUE: int
+STC_ESCSEQ_BOLD_BLACK_BLUE: int
+STC_ESCSEQ_BOLD_RED_BLUE: int
+STC_ESCSEQ_BOLD_GREEN_BLUE: int
+STC_ESCSEQ_BOLD_YELLOW_BLUE: int
+STC_ESCSEQ_BOLD_BLUE_BLUE: int
+STC_ESCSEQ_BOLD_MAGENTA_BLUE: int
+STC_ESCSEQ_BOLD_CYAN_BLUE: int
+STC_ESCSEQ_BOLD_WHITE_BLUE: int
+STC_ESCSEQ_BOLD_DEFAULT_MAGENTA: int
+STC_ESCSEQ_BOLD_BLACK_MAGENTA: int
+STC_ESCSEQ_BOLD_RED_MAGENTA: int
+STC_ESCSEQ_BOLD_GREEN_MAGENTA: int
+STC_ESCSEQ_BOLD_YELLOW_MAGENTA: int
+STC_ESCSEQ_BOLD_BLUE_MAGENTA: int
+STC_ESCSEQ_BOLD_MAGENTA_MAGENTA: int
+STC_ESCSEQ_BOLD_CYAN_MAGENTA: int
+STC_ESCSEQ_BOLD_WHITE_MAGENTA: int
+STC_ESCSEQ_BOLD_DEFAULT_CYAN: int
+STC_ESCSEQ_BOLD_BLACK_CYAN: int
+STC_ESCSEQ_BOLD_RED_CYAN: int
+STC_ESCSEQ_BOLD_GREEN_CYAN: int
+STC_ESCSEQ_BOLD_YELLOW_CYAN: int
+STC_ESCSEQ_BOLD_BLUE_CYAN: int
+STC_ESCSEQ_BOLD_MAGENTA_CYAN: int
+STC_ESCSEQ_BOLD_CYAN_CYAN: int
+STC_ESCSEQ_BOLD_WHITE_CYAN: int
+STC_ESCSEQ_BOLD_DEFAULT_WHITE: int
+STC_ESCSEQ_BOLD_BLACK_WHITE: int
+STC_ESCSEQ_BOLD_RED_WHITE: int
+STC_ESCSEQ_BOLD_GREEN_WHITE: int
+STC_ESCSEQ_BOLD_YELLOW_WHITE: int
+STC_ESCSEQ_BOLD_BLUE_WHITE: int
+STC_ESCSEQ_BOLD_MAGENTA_WHITE: int
+STC_ESCSEQ_BOLD_CYAN_WHITE: int
+STC_ESCSEQ_BOLD_WHITE_WHITE: int
+STC_ESCSEQ_IDENTIFIER: int
+STC_ESCSEQ_UNKNOWN: int
 STC_CMD_REDO: int
 STC_CMD_SELECTALL: int
 STC_CMD_UNDO: int
@@ -2705,11 +2877,11 @@ wxEVT_STC_CLIPBOARD_PASTE: int
 wxEVT_STC_AUTOCOMP_COMPLETED: int
 wxEVT_STC_MARGIN_RIGHT_CLICK: int
 wxEVT_STC_AUTOCOMP_SELECTION_CHANGE: int
-STCNameStr: str
+STCNameStr: bytes
 
-class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
+class StyledTextCtrl(wx.Control, wx.TextEntry):
     """
-    StyledTextCtrl(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=STCNameStr) -> None
+    StyledTextCtrl(parent, id=ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=STCNameStr) -> None
     StyledTextCtrl() -> None
     
     A wxWidgets implementation of the Scintilla source code editing
@@ -2721,18 +2893,18 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         ...
 
     @overload
-    def __init__(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=STCNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> None:
         """
-        StyledTextCtrl(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=STCNameStr) -> None
+        StyledTextCtrl(parent, id=ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=STCNameStr) -> None
         StyledTextCtrl() -> None
         
         A wxWidgets implementation of the Scintilla source code editing
         component.
         """
 
-    def Create(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=STCNameStr) -> bool:
+    def Create(self, parent: wx.Window, id: int=ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> bool:
         """
-        Create(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=STCNameStr) -> bool
+        Create(parent, id=ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=STCNameStr) -> bool
         
         Create the UI elements for a STC that was created with the default ctor.
         """
@@ -2744,7 +2916,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Add text to the document at current position.
         """
 
-    def AddStyledText(self, data: MemoryBuffer) -> None:
+    def AddStyledText(self, data: Buffer) -> None:
         """
         AddStyledText(data) -> None
         
@@ -2809,9 +2981,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         which the document was saved.
         """
 
-    def GetStyledText(self, startPos: int, endPos: int) -> MemoryBuffer:
+    def GetStyledText(self, startPos: int, endPos: int) -> memoryview:
         """
-        GetStyledText(startPos, endPos) -> MemoryBuffer
+        GetStyledText(startPos, endPos) -> memoryview
         
         Retrieve a buffer of cells.
         """
@@ -2972,7 +3144,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         ReplaceTargetRE(text) -> int
         
-        Replace the target text with the argument text after \d processing.
+        Replace the target text with the argument text after \\d processing.
         """
 
     def SearchInTarget(self, text: str) -> int:
@@ -3223,7 +3395,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Select all the text in the document.
         """
 
-    def PositionFromPoint(self, pt: Point) -> int:
+    def PositionFromPoint(self, pt: Union[wx.Point, _TwoInts]) -> int:
         """
         PositionFromPoint(pt) -> int
         
@@ -3359,9 +3531,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         style.
         """
 
-    def PointFromPosition(self, pos: int) -> Point:
+    def PointFromPosition(self, pos: int) -> wx.Point:
         """
-        PointFromPosition(pos) -> Point
+        PointFromPosition(pos) -> wx.Point
         
         Retrieve the point in the window where a position is displayed.
         """
@@ -3835,14 +4007,14 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Get the modifier key used for rectangular selection.
         """
 
-    def SetAdditionalSelForeground(self, fore: Colour) -> None:
+    def SetAdditionalSelForeground(self, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetAdditionalSelForeground(fore) -> None
         
         Set the foreground colour of additional selections.
         """
 
-    def SetAdditionalSelBackground(self, back: Colour) -> None:
+    def SetAdditionalSelBackground(self, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetAdditionalSelBackground(back) -> None
         
@@ -3863,16 +4035,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Get the alpha of the selection.
         """
 
-    def SetAdditionalCaretForeground(self, fore: Colour) -> None:
+    def SetAdditionalCaretForeground(self, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetAdditionalCaretForeground(fore) -> None
         
         Set the foreground colour of additional carets.
         """
 
-    def GetAdditionalCaretForeground(self) -> Colour:
+    def GetAdditionalCaretForeground(self) -> wx.Colour:
         """
-        GetAdditionalCaretForeground() -> Colour
+        GetAdditionalCaretForeground() -> wx.Colour
         
         Get the foreground colour of additional carets.
         """
@@ -4082,7 +4254,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Set how tabs are drawn when visible.
         """
 
-    def SetWhitespaceForeground(self, useSetting: bool, fore: Colour) -> None:
+    def SetWhitespaceForeground(self, useSetting: bool, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetWhitespaceForeground(useSetting, fore) -> None
         
@@ -4090,7 +4262,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         setting.
         """
 
-    def SetWhitespaceBackground(self, useSetting: bool, back: Colour) -> None:
+    def SetWhitespaceBackground(self, useSetting: bool, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetWhitespaceBackground(useSetting, back) -> None
         
@@ -4395,14 +4567,14 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Clear all the styles and make equivalent to the global default style.
         """
 
-    def StyleSetForeground(self, style: int, fore: Colour) -> None:
+    def StyleSetForeground(self, style: int, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         StyleSetForeground(style, fore) -> None
         
         Set the foreground colour of a style.
         """
 
-    def StyleSetBackground(self, style: int, back: Colour) -> None:
+    def StyleSetBackground(self, style: int, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         StyleSetBackground(style, back) -> None
         
@@ -4458,16 +4630,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Set a style to be underlined or not.
         """
 
-    def StyleGetForeground(self, style: int) -> Colour:
+    def StyleGetForeground(self, style: int) -> wx.Colour:
         """
-        StyleGetForeground(style) -> Colour
+        StyleGetForeground(style) -> wx.Colour
         
         Get the foreground colour of a style.
         """
 
-    def StyleGetBackground(self, style: int) -> Colour:
+    def StyleGetBackground(self, style: int) -> wx.Colour:
         """
-        StyleGetBackground(style) -> Colour
+        StyleGetBackground(style) -> wx.Colour
         
         Get the background colour of a style.
         """
@@ -4612,7 +4784,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Set a style to be changeable or not (read only).
         """
 
-    def SetSelForeground(self, useSetting: bool, fore: Colour) -> None:
+    def SetSelForeground(self, useSetting: bool, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetSelForeground(useSetting, fore) -> None
         
@@ -4620,7 +4792,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         whether to use this setting.
         """
 
-    def SetSelBackground(self, useSetting: bool, back: Colour) -> None:
+    def SetSelBackground(self, useSetting: bool, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetSelBackground(useSetting, back) -> None
         
@@ -4656,7 +4828,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Set the selection to have its end of line filled or not.
         """
 
-    def SetCaretForeground(self, fore: Colour) -> None:
+    def SetCaretForeground(self, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetCaretForeground(fore) -> None
         
@@ -4693,23 +4865,23 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         colour.
         """
 
-    def GetCaretLineBackground(self) -> Colour:
+    def GetCaretLineBackground(self) -> wx.Colour:
         """
-        GetCaretLineBackground() -> Colour
+        GetCaretLineBackground() -> wx.Colour
         
         Get the colour of the background of the line containing the caret.
         """
 
-    def SetCaretLineBackground(self, back: Colour) -> None:
+    def SetCaretLineBackground(self, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetCaretLineBackground(back) -> None
         
         Set the colour of the background of the line containing the caret.
         """
 
-    def GetCaretForeground(self) -> Colour:
+    def GetCaretForeground(self) -> wx.Colour:
         """
-        GetCaretForeground() -> Colour
+        GetCaretForeground() -> wx.Colour
         
         Get the foreground colour of the caret.
         """
@@ -4728,30 +4900,30 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Returns the width of the insert mode caret.
         """
 
-    def SetHotspotActiveForeground(self, useSetting: bool, fore: Colour) -> None:
+    def SetHotspotActiveForeground(self, useSetting: bool, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHotspotActiveForeground(useSetting, fore) -> None
         
         Set a fore colour for active hotspots.
         """
 
-    def GetHotspotActiveForeground(self) -> Colour:
+    def GetHotspotActiveForeground(self) -> wx.Colour:
         """
-        GetHotspotActiveForeground() -> Colour
+        GetHotspotActiveForeground() -> wx.Colour
         
         Get the fore colour for active hotspots.
         """
 
-    def SetHotspotActiveBackground(self, useSetting: bool, back: Colour) -> None:
+    def SetHotspotActiveBackground(self, useSetting: bool, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetHotspotActiveBackground(useSetting, back) -> None
         
         Set a back colour for active hotspots.
         """
 
-    def GetHotspotActiveBackground(self) -> Colour:
+    def GetHotspotActiveBackground(self) -> wx.Colour:
         """
-        GetHotspotActiveBackground() -> Colour
+        GetHotspotActiveBackground() -> wx.Colour
         
         Get the back colour for active hotspots.
         """
@@ -4954,16 +5126,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Retrieve the cursor shown in a margin.
         """
 
-    def SetMarginBackground(self, margin: int, back: Colour) -> None:
+    def SetMarginBackground(self, margin: int, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetMarginBackground(margin, back) -> None
         
         Set the background colour of a margin.
         """
 
-    def GetMarginBackground(self, margin: int) -> Colour:
+    def GetMarginBackground(self, margin: int) -> wx.Colour:
         """
-        GetMarginBackground(margin) -> Colour
+        GetMarginBackground(margin) -> wx.Colour
         
         Retrieve the background colour of a margin.
         """
@@ -5010,7 +5182,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Returns the size in pixels of the right margin.
         """
 
-    def SetFoldMarginColour(self, useSetting: bool, back: Colour) -> None:
+    def SetFoldMarginColour(self, useSetting: bool, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetFoldMarginColour(useSetting, back) -> None
         
@@ -5018,7 +5190,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         margin.
         """
 
-    def SetFoldMarginHiColour(self, useSetting: bool, fore: Colour) -> None:
+    def SetFoldMarginHiColour(self, useSetting: bool, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetFoldMarginHiColour(useSetting, fore) -> None
         
@@ -5809,29 +5981,29 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Delete a marker.
         """
 
-    def MarkerDefine(self, markerNumber: int, markerSymbol: int, foreground: Colour=NullColour, background: Colour=NullColour) -> None:
+    def MarkerDefine(self, markerNumber: int, markerSymbol: int, foreground: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour, background: Union[wx.Colour, _ThreeInts, _FourInts, str, None]=wx.NullColour) -> None:
         """
-        MarkerDefine(markerNumber, markerSymbol, foreground=NullColour, background=NullColour) -> None
+        MarkerDefine(markerNumber, markerSymbol, foreground=wx.NullColour, background=wx.NullColour) -> None
         
         Set the symbol used for a particular marker number, and optionally the
         fore and background colours.
         """
 
-    def MarkerSetForeground(self, markerNumber: int, fore: Colour) -> None:
+    def MarkerSetForeground(self, markerNumber: int, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         MarkerSetForeground(markerNumber, fore) -> None
         
         Set the foreground colour used for a particular marker number.
         """
 
-    def MarkerSetBackground(self, markerNumber: int, back: Colour) -> None:
+    def MarkerSetBackground(self, markerNumber: int, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         MarkerSetBackground(markerNumber, back) -> None
         
         Set the background colour used for a particular marker number.
         """
 
-    def MarkerSetBackgroundSelected(self, markerNumber: int, back: Colour) -> None:
+    def MarkerSetBackgroundSelected(self, markerNumber: int, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         MarkerSetBackgroundSelected(markerNumber, back) -> None
         
@@ -5935,7 +6107,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Set the scale factor in percent for future RGBA image data.
         """
 
-    def MarkerDefineRGBAImage(self, markerNumber: int, pixels: PyBuffer) -> None:
+    def MarkerDefineRGBAImage(self, markerNumber: int, pixels: Buffer) -> None:
         """
         MarkerDefineRGBAImage(markerNumber, pixels) -> None
         
@@ -5959,16 +6131,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Retrieve the style of an indicator.
         """
 
-    def IndicatorSetForeground(self, indicator: int, fore: Colour) -> None:
+    def IndicatorSetForeground(self, indicator: int, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         IndicatorSetForeground(indicator, fore) -> None
         
         Set the foreground colour of an indicator.
         """
 
-    def IndicatorGetForeground(self, indicator: int) -> Colour:
+    def IndicatorGetForeground(self, indicator: int) -> wx.Colour:
         """
-        IndicatorGetForeground(indicator) -> Colour
+        IndicatorGetForeground(indicator) -> wx.Colour
         
         Retrieve the foreground colour of an indicator.
         """
@@ -6001,16 +6173,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Retrieve the hover style of an indicator.
         """
 
-    def IndicatorSetHoverForeground(self, indicator: int, fore: Colour) -> None:
+    def IndicatorSetHoverForeground(self, indicator: int, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         IndicatorSetHoverForeground(indicator, fore) -> None
         
         Set the foreground hover colour of an indicator.
         """
 
-    def IndicatorGetHoverForeground(self, indicator: int) -> Colour:
+    def IndicatorGetHoverForeground(self, indicator: int) -> wx.Colour:
         """
-        IndicatorGetHoverForeground(indicator) -> Colour
+        IndicatorGetHoverForeground(indicator) -> wx.Colour
         
         Retrieve the foreground hover colour of an indicator.
         """
@@ -6280,7 +6452,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         after the inserted text upon completion.
         """
 
-    def RegisterImage(self, type: int, bmp: Bitmap) -> None:
+    def RegisterImage(self, type: int, bmp: wx.Bitmap) -> None:
         """
         RegisterImage(type, bmp) -> None
         
@@ -6398,7 +6570,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Get the way autocompletion lists are ordered.
         """
 
-    def RegisterRGBAImage(self, type: int, pixels: PyBuffer) -> None:
+    def RegisterRGBAImage(self, type: int, pixels: Buffer) -> None:
         """
         RegisterRGBAImage(type, pixels) -> None
         
@@ -6459,21 +6631,21 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Highlight a segment of the definition.
         """
 
-    def CallTipSetBackground(self, back: Colour) -> None:
+    def CallTipSetBackground(self, back: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         CallTipSetBackground(back) -> None
         
         Set the background colour for the call tip.
         """
 
-    def CallTipSetForeground(self, fore: Colour) -> None:
+    def CallTipSetForeground(self, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         CallTipSetForeground(fore) -> None
         
         Set the foreground colour for the call tip.
         """
 
-    def CallTipSetForegroundHighlight(self, fore: Colour) -> None:
+    def CallTipSetForegroundHighlight(self, fore: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         CallTipSetForegroundHighlight(fore) -> None
         
@@ -7225,7 +7397,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Returns the print colour mode.
         """
 
-    def FormatRange(self, doDraw: bool, startPos: int, endPos: int, draw: DC, target: DC, renderRect: Rect, pageRect: Rect) -> int:
+    def FormatRange(self, doDraw: bool, startPos: int, endPos: int, draw: wx.DC, target: wx.DC, renderRect: Union[wx.Rect, _FourInts], pageRect: Union[wx.Rect, _FourInts]) -> int:
         """
         FormatRange(doDraw, startPos, endPos, draw, target, renderRect, pageRect) -> int
         
@@ -7685,21 +7857,21 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         (wxSTC_EDGE_NONE).
         """
 
-    def GetEdgeColour(self) -> Colour:
+    def GetEdgeColour(self) -> wx.Colour:
         """
-        GetEdgeColour() -> Colour
+        GetEdgeColour() -> wx.Colour
         
         Retrieve the colour used in edge indication.
         """
 
-    def SetEdgeColour(self, edgeColour: Colour) -> None:
+    def SetEdgeColour(self, edgeColour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetEdgeColour(edgeColour) -> None
         
         Change the colour used in edge indication.
         """
 
-    def MultiEdgeAddLine(self, column: int, edgeColour: Colour) -> None:
+    def MultiEdgeAddLine(self, column: int, edgeColour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         MultiEdgeAddLine(column, edgeColour) -> None
         
@@ -7811,7 +7983,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         PropertyNames() -> str
         
-        Retrieve a '\n' separated list of properties understood by the current
+        Retrieve a '\\n' separated list of properties understood by the current
         lexer.
         """
 
@@ -7833,7 +8005,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         DescribeKeyWordSets() -> str
         
-        Retrieve a '\n' separated list of descriptions of the keyword sets
+        Retrieve a '\\n' separated list of descriptions of the keyword sets
         understood by the current lexer.
         """
 
@@ -7992,14 +8164,14 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         more of the following comma separated elements:
         """
 
-    def StyleGetFont(self, style: int) -> Font:
+    def StyleGetFont(self, style: int) -> wx.Font:
         """
-        StyleGetFont(style) -> Font
+        StyleGetFont(style) -> wx.Font
         
         Get the font of a style.
         """
 
-    def StyleSetFont(self, styleNum: int, font: Font) -> None:
+    def StyleSetFont(self, styleNum: int, font: wx.Font) -> None:
         """
         StyleSetFont(styleNum, font) -> None
         
@@ -8007,14 +8179,14 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         wxFont's attributes.
         """
 
-    def StyleSetFontAttr(self, styleNum: int, size: int, faceName: str, bold: bool, italic: bool, underline: bool, encoding: FontEncoding=FONTENCODING_DEFAULT) -> None:
+    def StyleSetFontAttr(self, styleNum: int, size: int, faceName: str, bold: bool, italic: bool, underline: bool, encoding: Union[wx.FontEncoding, int]=wx.FONTENCODING_DEFAULT) -> None:
         """
-        StyleSetFontAttr(styleNum, size, faceName, bold, italic, underline, encoding=FONTENCODING_DEFAULT) -> None
+        StyleSetFontAttr(styleNum, size, faceName, bold, italic, underline, encoding=wx.FONTENCODING_DEFAULT) -> None
         
         Set all font style attributes at once.
         """
 
-    def StyleSetFontEncoding(self, style: int, encoding: FontEncoding) -> None:
+    def StyleSetFontEncoding(self, style: int, encoding: Union[wx.FontEncoding, int]) -> None:
         """
         StyleSetFontEncoding(style, encoding) -> None
         
@@ -8049,21 +8221,21 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Scroll enough to make the given column visible.
         """
 
-    def SendMsg(self, msg: int, wp: UIntPtr=0, lp: IntPtr=0) -> IntPtr:
+    def SendMsg(self, msg: int, wp: int=0, lp: int=0) -> int:
         """
-        SendMsg(msg, wp=0, lp=0) -> IntPtr
+        SendMsg(msg, wp=0, lp=0) -> int
         
         Scintilla API call.
         """
 
-    def SetVScrollBar(self, bar: ScrollBar) -> None:
+    def SetVScrollBar(self, bar: wx.ScrollBar) -> None:
         """
         SetVScrollBar(bar) -> None
         
         Set the vertical scrollbar to use instead of the one that's built-in.
         """
 
-    def SetHScrollBar(self, bar: ScrollBar) -> None:
+    def SetHScrollBar(self, bar: wx.ScrollBar) -> None:
         """
         SetHScrollBar(bar) -> None
         
@@ -8099,16 +8271,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Load the contents of filename into the editor.
         """
 
-    def DoDragEnter(self, x: int, y: int, defaultRes: DragResult) -> DragResult:
+    def DoDragEnter(self, x: int, y: int, defaultRes: Union[wx.DragResult, int]) -> wx.DragResult:
         """
-        DoDragEnter(x, y, defaultRes) -> DragResult
+        DoDragEnter(x, y, defaultRes) -> wx.DragResult
         
         Allow for simulating a DnD DragEnter.
         """
 
-    def DoDragOver(self, x: int, y: int, defaultRes: DragResult) -> DragResult:
+    def DoDragOver(self, x: int, y: int, defaultRes: Union[wx.DragResult, int]) -> wx.DragResult:
         """
-        DoDragOver(x, y, defaultRes) -> DragResult
+        DoDragOver(x, y, defaultRes) -> wx.DragResult
         
         Allow for simulating a DnD DragOver.
         """
@@ -8148,7 +8320,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Clear annotations from the given line.
         """
 
-    def MarkerDefineBitmap(self, markerNumber: int, bmp: Bitmap) -> None:
+    def MarkerDefineBitmap(self, markerNumber: int, bmp: wx.Bitmap) -> None:
         """
         MarkerDefineBitmap(markerNumber, bmp) -> None
         
@@ -8169,37 +8341,37 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Insert string at a position.
         """
 
-    def GetCurLineRaw(self) -> Tuple[CharBuffer, int]:
+    def GetCurLineRaw(self) -> Tuple[bytes, int]:
         """
-        GetCurLineRaw() -> Tuple[CharBuffer, int]
+        GetCurLineRaw() -> Tuple[bytes, int]
         
         Retrieve the text of the line containing the caret.
         """
 
-    def GetLineRaw(self, line: int) -> CharBuffer:
+    def GetLineRaw(self, line: int) -> bytes:
         """
-        GetLineRaw(line) -> CharBuffer
+        GetLineRaw(line) -> bytes
         
         Retrieve the contents of a line.
         """
 
-    def GetSelectedTextRaw(self) -> CharBuffer:
+    def GetSelectedTextRaw(self) -> bytes:
         """
-        GetSelectedTextRaw() -> CharBuffer
+        GetSelectedTextRaw() -> bytes
         
         Retrieve the selected text.
         """
 
-    def GetTargetTextRaw(self) -> CharBuffer:
+    def GetTargetTextRaw(self) -> bytes:
         """
-        GetTargetTextRaw() -> CharBuffer
+        GetTargetTextRaw() -> bytes
         
         Retrieve the target text.
         """
 
-    def GetTextRangeRaw(self, startPos: int, endPos: int) -> CharBuffer:
+    def GetTextRangeRaw(self, startPos: int, endPos: int) -> bytes:
         """
-        GetTextRangeRaw(startPos, endPos) -> CharBuffer
+        GetTextRangeRaw(startPos, endPos) -> bytes
         
         Retrieve a range of text.
         """
@@ -8211,9 +8383,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Replace the contents of the document with the argument text.
         """
 
-    def GetTextRaw(self) -> CharBuffer:
+    def GetTextRaw(self) -> bytes:
         """
-        GetTextRaw() -> CharBuffer
+        GetTextRaw() -> bytes
         
         Retrieve all the text in the document.
         """
@@ -8374,7 +8546,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         saved.
         """
 
-    def SetStyle(self, start: int, end: int, style: TextAttr) -> bool:
+    def SetStyle(self, start: int, end: int, style: wx.TextAttr) -> bool:
         """
         SetStyle(start, end, style) -> bool
         
@@ -8382,7 +8554,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         wxStyledTextCtrl.
         """
 
-    def GetStyle(self, position: int, style: TextAttr) -> bool:
+    def GetStyle(self, position: int, style: wx.TextAttr) -> bool:
         """
         GetStyle(position, style) -> bool
         
@@ -8390,7 +8562,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         wxStyledTextCtrl.
         """
 
-    def SetDefaultStyle(self, style: TextAttr) -> bool:
+    def SetDefaultStyle(self, style: wx.TextAttr) -> bool:
         """
         SetDefaultStyle(style) -> bool
         
@@ -8419,16 +8591,16 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Makes the line containing the given position visible.
         """
 
-    def HitTestPos(self, pt: Point) -> Tuple[TextCtrlHitTestResult, int]:
+    def HitTestPos(self, pt: Union[wx.Point, _TwoInts]) -> Tuple[wx.TextCtrlHitTestResult, int]:
         """
-        HitTestPos(pt) -> Tuple[TextCtrlHitTestResult, int]
+        HitTestPos(pt) -> Tuple[wx.TextCtrlHitTestResult, int]
         
         Finds the position of the character at the specified point.
         """
 
-    def HitTest(self, pt: Point) -> Tuple[TextCtrlHitTestResult, TextCoord, TextCoord]:
+    def HitTest(self, pt: Union[wx.Point, _TwoInts]) -> Tuple[wx.TextCtrlHitTestResult, int, int]:
         """
-        HitTest(pt) -> Tuple[TextCtrlHitTestResult, TextCoord, TextCoord]
+        HitTest(pt) -> Tuple[wx.TextCtrlHitTestResult, int, int]
         
         Finds the row and column of the character at the specified point.
         """
@@ -8448,21 +8620,21 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
 
     @staticmethod
-    def GetLibraryVersionInfo() -> VersionInfo:
+    def GetLibraryVersionInfo() -> wx.VersionInfo:
         """
-        GetLibraryVersionInfo() -> VersionInfo
+        GetLibraryVersionInfo() -> wx.VersionInfo
         
         Returns the version of the Scintilla library used by this control.
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
-        GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
+        GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
 
     @overload
-    def AutoComplete(self, completer: TextCompleter) -> bool:
+    def AutoComplete(self, completer: wx.TextCompleter) -> bool:
         ...
 
     @overload
@@ -8577,9 +8749,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Returns the current hint string.
         """
 
-    def GetMargins(self) -> Point:
+    def GetMargins(self) -> wx.Point:
         """
-        GetMargins() -> Point
+        GetMargins() -> wx.Point
         
         Returns the margins used by the control.
         """
@@ -8591,9 +8763,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Sets the new text control value.
         """
 
-    def GetDefaultStyle(self) -> TextAttr:
+    def GetDefaultStyle(self) -> wx.TextAttr:
         """
-        GetDefaultStyle() -> TextAttr
+        GetDefaultStyle() -> wx.TextAttr
         
         Returns the style currently used for the new text.
         """
@@ -8622,17 +8794,17 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Formatted) buffer.
         """
 
-    def SearchText(self, search: TextSearch) -> TextSearchResult:
+    def SearchText(self, search: wx.TextSearch) -> wx.TextSearchResult:
         """
-        SearchText(search) -> TextSearchResult
+        SearchText(search) -> wx.TextSearchResult
         
         Searches for a string in the control, using the provided search
         options.
         """
 
-    def PositionToCoords(self, pos: int) -> Point:
+    def PositionToCoords(self, pos: int) -> wx.Point:
         """
-        PositionToCoords(pos) -> Point
+        PositionToCoords(pos) -> wx.Point
         
         Converts given text position to client coordinates in pixels.
         """
@@ -8642,11 +8814,6 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         SetModified(modified) -> None
         
         Marks the control as being modified by the user or not.
-        """
-
-    def CreateAccessible(self) -> Accessible:
-        """
-        CreateAccessible() -> Accessible
         """
 
     def write(self, text: str) -> None:
@@ -8667,9 +8834,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @Accessibility.setter
     def Accessibility(self, value: int, /) -> None: ...
     @property
-    def AdditionalCaretForeground(self) -> Colour: ...
+    def AdditionalCaretForeground(self) -> wx.Colour: ...
     @AdditionalCaretForeground.setter
-    def AdditionalCaretForeground(self, value: Colour, /) -> None: ...
+    def AdditionalCaretForeground(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def AdditionalCaretsBlink(self) -> bool: ...
     @AdditionalCaretsBlink.setter
@@ -8705,17 +8872,17 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @BufferedDraw.setter
     def BufferedDraw(self, value: bool, /) -> None: ...
     @property
-    def CaretForeground(self) -> Colour: ...
+    def CaretForeground(self) -> wx.Colour: ...
     @CaretForeground.setter
-    def CaretForeground(self, value: Colour, /) -> None: ...
+    def CaretForeground(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def CaretLineBackAlpha(self) -> int: ...
     @CaretLineBackAlpha.setter
     def CaretLineBackAlpha(self, value: int, /) -> None: ...
     @property
-    def CaretLineBackground(self) -> Colour: ...
+    def CaretLineBackground(self) -> wx.Colour: ...
     @CaretLineBackground.setter
-    def CaretLineBackground(self, value: Colour, /) -> None: ...
+    def CaretLineBackground(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def CaretLineFrame(self) -> int: ...
     @CaretLineFrame.setter
@@ -8765,7 +8932,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @property
     def CurLine(self) -> Tuple[str, int]: ...
     @property
-    def CurLineRaw(self) -> Tuple[CharBuffer, int]: ...
+    def CurLineRaw(self) -> Tuple[bytes, int]: ...
     @property
     def CurrentLine(self) -> int: ...
     @property
@@ -8777,9 +8944,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @DefaultFoldDisplayText.setter
     def DefaultFoldDisplayText(self, value: str, /) -> None: ...
     @property
-    def DefaultStyle(self) -> TextAttr: ...
+    def DefaultStyle(self) -> wx.TextAttr: ...
     @DefaultStyle.setter
-    def DefaultStyle(self, value: TextAttr, /) -> None: ...
+    def DefaultStyle(self, value: wx.TextAttr, /) -> None: ...
     @property
     def DirectFunction(self) -> Any: ...
     @property
@@ -8797,9 +8964,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @EOLMode.setter
     def EOLMode(self, value: int, /) -> None: ...
     @property
-    def EdgeColour(self) -> Colour: ...
+    def EdgeColour(self) -> wx.Colour: ...
     @EdgeColour.setter
-    def EdgeColour(self, value: Colour, /) -> None: ...
+    def EdgeColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def EdgeColumn(self) -> int: ...
     @EdgeColumn.setter
@@ -8841,9 +9008,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @Hint.setter
     def Hint(self, value: str, /) -> None: ...
     @property
-    def HotspotActiveBackground(self) -> Colour: ...
+    def HotspotActiveBackground(self) -> wx.Colour: ...
     @property
-    def HotspotActiveForeground(self) -> Colour: ...
+    def HotspotActiveForeground(self) -> wx.Colour: ...
     @property
     def HotspotActiveUnderline(self) -> bool: ...
     @HotspotActiveUnderline.setter
@@ -8935,7 +9102,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @MarginRight.setter
     def MarginRight(self, value: int, /) -> None: ...
     @property
-    def Margins(self) -> Point: ...
+    def Margins(self) -> wx.Point: ...
     @property
     def MaxLineState(self) -> int: ...
     @property
@@ -9011,8 +9178,6 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @RTFValue.setter
     def RTFValue(self, value: str, /) -> None: ...
     @property
-    def RangePointer(self) -> Any: ...
-    @property
     def ReadOnly(self) -> bool: ...
     @ReadOnly.setter
     def ReadOnly(self, value: bool, /) -> None: ...
@@ -9067,7 +9232,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @property
     def SelectedText(self) -> str: ...
     @property
-    def SelectedTextRaw(self) -> CharBuffer: ...
+    def SelectedTextRaw(self) -> bytes: ...
     @property
     def SelectionEmpty(self) -> bool: ...
     @property
@@ -9133,7 +9298,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @property
     def TargetText(self) -> str: ...
     @property
-    def TargetTextRaw(self) -> CharBuffer: ...
+    def TargetTextRaw(self) -> bytes: ...
     @property
     def Technology(self) -> int: ...
     @Technology.setter
@@ -9145,7 +9310,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @property
     def TextLength(self) -> int: ...
     @property
-    def TextRaw(self) -> str: ...
+    def TextRaw(self) -> bytes: ...
     @TextRaw.setter
     def TextRaw(self, value: str, /) -> None: ...
     @property
@@ -9231,7 +9396,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
 # end of class StyledTextCtrl
 
 
-class StyledTextEvent(CommandEvent):
+class StyledTextEvent(wx.CommandEvent):
     """
     StyledTextEvent(commandType=0, id=0) -> None
     StyledTextEvent(event) -> None
@@ -9244,7 +9409,7 @@ class StyledTextEvent(CommandEvent):
         ...
 
     @overload
-    def __init__(self, commandType: EventType=0, id: int=0) -> None:
+    def __init__(self, commandType: int=0, id: int=0) -> None:
         """
         StyledTextEvent(commandType=0, id=0) -> None
         StyledTextEvent(event) -> None
@@ -9281,9 +9446,9 @@ class StyledTextEvent(CommandEvent):
         Returns flags for the drag operation associated with this event.
         """
 
-    def GetDragResult(self) -> DragResult:
+    def GetDragResult(self) -> wx.DragResult:
         """
-        GetDragResult() -> DragResult
+        GetDragResult() -> wx.DragResult
         
         Returns drag result for this event.
         """
@@ -9452,7 +9617,7 @@ class StyledTextEvent(CommandEvent):
         Sets the drag flags for this event.
         """
 
-    def SetDragResult(self, val: DragResult) -> None:
+    def SetDragResult(self, val: Union[wx.DragResult, int]) -> None:
         """
         SetDragResult(val) -> None
         
@@ -9616,9 +9781,9 @@ class StyledTextEvent(CommandEvent):
     @DragFlags.setter
     def DragFlags(self, value: int, /) -> None: ...
     @property
-    def DragResult(self) -> DragResult: ...
+    def DragResult(self) -> wx.DragResult: ...
     @DragResult.setter
-    def DragResult(self, value: DragResult, /) -> None: ...
+    def DragResult(self, value: Union[wx.DragResult, int], /) -> None: ...
     @property
     def DragText(self) -> str: ...
     @DragText.setter
@@ -9708,40 +9873,40 @@ class StyledTextEvent(CommandEvent):
 # end of class StyledTextEvent
 
 
-EVT_STC_CHANGE = wx.PyEventBinder( wxEVT_STC_CHANGE, 1 )
-EVT_STC_STYLENEEDED = wx.PyEventBinder( wxEVT_STC_STYLENEEDED, 1 )
-EVT_STC_CHARADDED = wx.PyEventBinder( wxEVT_STC_CHARADDED, 1 )
-EVT_STC_SAVEPOINTREACHED = wx.PyEventBinder( wxEVT_STC_SAVEPOINTREACHED, 1 )
-EVT_STC_SAVEPOINTLEFT = wx.PyEventBinder( wxEVT_STC_SAVEPOINTLEFT, 1 )
-EVT_STC_ROMODIFYATTEMPT = wx.PyEventBinder( wxEVT_STC_ROMODIFYATTEMPT, 1 )
-EVT_STC_DOUBLECLICK = wx.PyEventBinder( wxEVT_STC_DOUBLECLICK, 1 )
-EVT_STC_UPDATEUI = wx.PyEventBinder( wxEVT_STC_UPDATEUI, 1 )
-EVT_STC_MODIFIED = wx.PyEventBinder( wxEVT_STC_MODIFIED, 1 )
-EVT_STC_MACRORECORD = wx.PyEventBinder( wxEVT_STC_MACRORECORD, 1 )
-EVT_STC_MARGINCLICK = wx.PyEventBinder( wxEVT_STC_MARGINCLICK, 1 )
-EVT_STC_NEEDSHOWN = wx.PyEventBinder( wxEVT_STC_NEEDSHOWN, 1 )
-EVT_STC_PAINTED = wx.PyEventBinder( wxEVT_STC_PAINTED, 1 )
-EVT_STC_USERLISTSELECTION = wx.PyEventBinder( wxEVT_STC_USERLISTSELECTION, 1 )
-EVT_STC_DWELLSTART = wx.PyEventBinder( wxEVT_STC_DWELLSTART, 1 )
-EVT_STC_DWELLEND = wx.PyEventBinder( wxEVT_STC_DWELLEND, 1 )
-EVT_STC_START_DRAG = wx.PyEventBinder( wxEVT_STC_START_DRAG, 1 )
-EVT_STC_DRAG_OVER = wx.PyEventBinder( wxEVT_STC_DRAG_OVER, 1 )
-EVT_STC_DO_DROP = wx.PyEventBinder( wxEVT_STC_DO_DROP, 1 )
-EVT_STC_ZOOM = wx.PyEventBinder( wxEVT_STC_ZOOM, 1 )
-EVT_STC_HOTSPOT_CLICK = wx.PyEventBinder( wxEVT_STC_HOTSPOT_CLICK, 1 )
-EVT_STC_HOTSPOT_DCLICK = wx.PyEventBinder( wxEVT_STC_HOTSPOT_DCLICK, 1 )
-EVT_STC_HOTSPOT_RELEASE_CLICK = wx.PyEventBinder( wxEVT_STC_HOTSPOT_RELEASE_CLICK, 1 )
-EVT_STC_CALLTIP_CLICK = wx.PyEventBinder( wxEVT_STC_CALLTIP_CLICK, 1 )
-EVT_STC_AUTOCOMP_SELECTION = wx.PyEventBinder( wxEVT_STC_AUTOCOMP_SELECTION, 1 )
-EVT_STC_INDICATOR_CLICK = wx.PyEventBinder( wxEVT_STC_INDICATOR_CLICK, 1 )
-EVT_STC_INDICATOR_RELEASE = wx.PyEventBinder( wxEVT_STC_INDICATOR_RELEASE, 1 )
-EVT_STC_AUTOCOMP_CANCELLED = wx.PyEventBinder( wxEVT_STC_AUTOCOMP_CANCELLED, 1 )
-EVT_STC_AUTOCOMP_CHAR_DELETED = wx.PyEventBinder( wxEVT_STC_AUTOCOMP_CHAR_DELETED, 1 )
-EVT_STC_CLIPBOARD_COPY = wx.PyEventBinder( wxEVT_STC_CLIPBOARD_COPY, 1)
-EVT_STC_CLIPBOARD_PASTE = wx.PyEventBinder( wxEVT_STC_CLIPBOARD_PASTE, 1)
-EVT_STC_AUTOCOMP_COMPLETED = wx.PyEventBinder( wxEVT_STC_AUTOCOMP_COMPLETED, 1)
-EVT_STC_MARGIN_RIGHT_CLICK = wx.PyEventBinder( wxEVT_STC_MARGIN_RIGHT_CLICK, 1)
-EVT_STC_AUTOCOMP_SELECTION_CHANGE = wx.PyEventBinder( wxEVT_STC_AUTOCOMP_SELECTION_CHANGE, 1)
+EVT_STC_CHANGE: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_STYLENEEDED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_CHARADDED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_SAVEPOINTREACHED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_SAVEPOINTLEFT: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_ROMODIFYATTEMPT: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_DOUBLECLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_UPDATEUI: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_MODIFIED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_MACRORECORD: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_MARGINCLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_NEEDSHOWN: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_PAINTED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_USERLISTSELECTION: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_DWELLSTART: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_DWELLEND: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_START_DRAG: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_DRAG_OVER: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_DO_DROP: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_ZOOM: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_HOTSPOT_CLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_HOTSPOT_DCLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_HOTSPOT_RELEASE_CLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_CALLTIP_CLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_AUTOCOMP_SELECTION: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_INDICATOR_CLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_INDICATOR_RELEASE: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_AUTOCOMP_CANCELLED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_AUTOCOMP_CHAR_DELETED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_CLIPBOARD_COPY: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_CLIPBOARD_PASTE: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_AUTOCOMP_COMPLETED: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_MARGIN_RIGHT_CLICK: wx.PyEventBinder[StyledTextEvent]
+EVT_STC_AUTOCOMP_SELECTION_CHANGE: wx.PyEventBinder[StyledTextEvent]
 
 # compatibility aliases
 STC_SCMOD_NORM = STC_KEYMOD_NORM

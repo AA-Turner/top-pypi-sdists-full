@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cozy-runtime
-Version: 0.23.26
+Version: 0.23.34
 Summary: Cozy author surface and device executor
 License-File: native/LICENSE
 License-File: native/NOTICE
@@ -25,7 +25,7 @@ Requires-Dist: transformers>=4.40; extra == 'corpus'
 Provides-Extra: derive
 Requires-Dist: torch>=2.13; extra == 'derive'
 Provides-Extra: media
-Requires-Dist: av>=18.1; extra == 'media'
+Requires-Dist: av>=19.0.1; extra == 'media'
 Provides-Extra: minimax-h3
 Requires-Dist: diffusers>=0.40.0; extra == 'minimax-h3'
 Requires-Dist: numpy>=1.26; extra == 'minimax-h3'
@@ -37,11 +37,3 @@ Requires-Dist: torchvision>=0.28; extra == 'minimax-h3'
 Requires-Dist: transformers>=5.16.1; extra == 'minimax-h3'
 Provides-Extra: model-execution
 Requires-Dist: tensorfs<0.7,>=0.6.1; extra == 'model-execution'
-Provides-Extra: qwen-image21
-Requires-Dist: diffusers>=0.40.0; extra == 'qwen-image21'
-Requires-Dist: numpy>=1.26; extra == 'qwen-image21'
-Requires-Dist: safetensors>=0.8; extra == 'qwen-image21'
-Requires-Dist: tokenizers>=0.23.1; extra == 'qwen-image21'
-Requires-Dist: torch>=2.13; extra == 'qwen-image21'
-Requires-Dist: torchvision>=0.28; extra == 'qwen-image21'
-Requires-Dist: transformers>=5.17; extra == 'qwen-image21'

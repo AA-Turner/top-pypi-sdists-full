@@ -2,8 +2,10 @@
 
 momwire#1295.  The oracle is the licensed NEC-4.2's own printout of each of
 the seventeen captured decks and of nine probe decks written to show what
-the captures do not (junctions, an FR sweep, RLC loads, NE, two runs, ...)
-and five more for the spherical ``NE 1`` grid (momwire#1352):
+the captures do not (junctions, an FR sweep, RLC loads, NE, two runs, ...),
+five more for the spherical ``NE 1`` grid (momwire#1352) and seventeen for
+the range form of ``RP`` and for several ``RP``/``NE``/``NH`` cards in one
+run (momwire#1463):
 ``tests/fixtures/eznec_nec42/printouts/``, README there for provenance,
 used as black-box OUTPUT only.
 
@@ -33,10 +35,12 @@ from pathlib import Path
 
 import pytest
 
+from momwire.deck._cards import parse_card
 from momwire.eznec import _nec4, _printout, _shell
 from momwire.eznec._nec4_printout import (
     FarFieldGround,
     Nec4Printout,
+    Nec4Report,
     Nec4Run,
     Preamble,
     SegmentRow,
@@ -62,7 +66,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "eznec_nec42"
 PRINTOUTS = FIXTURES / "printouts"
 PROBES_DIR = FIXTURES / "probes"
 MULTI_DIR = FIXTURES / "multisource"
-# The seventeen decks EZNEC wrote, and fifteen probe decks written to show
+# The seventeen decks EZNEC wrote, and thirty-two probe decks written to show
 # NEC-4.2's layout of what EZNEC's captures did not (README beside them).
 CAPTURES = tuple(sorted(p.name[:4] for p in FIXTURES.glob("*.nec")))
 PROBES = tuple(sorted(p.name.split("_")[0] for p in PROBES_DIR.glob("*.nec")))
@@ -106,8 +110,41 @@ _CACHE_BLOCKS = (
 )
 
 
+# The same blocks under a GN card that NAMES its table file (SimNEC's
+# ``NOFILE``, p16-p31): the line saying the file was not read is the deck's
+# own request and this engine prints it, in the licensed engine's place
+# (momwire#1317 for GN 2, momwire#1463 for GN 3), so only the lines about the
+# table it then computes leave the reference.
+_NAMED_CACHE_BLOCKS = (
+    (
+        re.compile(
+            r"(\n\n GNDINO: [^\n]*\n) WILL COMPUTE SOMMERFELD-GROUND TABLES\n"
+            r"\n Time to generate Sommerfeld ground tables =[^\n]*\n"
+        ),
+        r"\1",
+    ),
+    (
+        re.compile(
+            r"(\n\n GNDINO3: [^\n]*)\n Will compute Sommerfeld-ground tables(?=\n)"
+        ),
+        r"\1",
+    ),
+)
+
+
+def names_a_table_file(deck: str) -> bool:
+    cards = (parse_card(line) for line in deck.splitlines())
+    return any(
+        c is not None and c.mnemonic == "GN" and c.trailer is not None for c in cards
+    )
+
+
 def reference(capture: str) -> str:
     text = licensed(capture)
+    if names_a_table_file(deck_text(capture)):
+        for block, kept in _NAMED_CACHE_BLOCKS:
+            text = block.sub(kept, text)
+        return text
     for block in _CACHE_BLOCKS:
         text = block.sub("", text)
     return text
@@ -125,7 +162,7 @@ def _unstamped(text: str) -> list[str]:
 def test_the_fixtures_pair_each_deck_with_its_printout():
     """One printout per deck, and each echoes its own deck's comment block —
     the stamp EZNEC checks a printout's age by."""
-    assert len(CAPTURES) == 17 and len(PROBES) == 15 and MULTI == ("m1", "m2")
+    assert len(CAPTURES) == 17 and len(PROBES) == 32 and MULTI == ("m1", "m2")
     assert sorted(p.name.split("_")[0] for p in PRINTOUTS.glob("*.out")) == sorted(
         CASES
     )
@@ -155,6 +192,20 @@ def test_the_cache_blocks_leave_only_their_own_lines():
                 "p15": 6,
             }[capture]
         )
+
+
+def test_a_named_table_file_keeps_its_line_in_the_reference():
+    """p16 (GN 3) and p30 (GN 2) name SimNEC's ``NOFILE``: the reference
+    keeps the one line saying so and loses the table lines after it."""
+    for capture, line, dropped in (
+        ("p16", " GNDINO3: Unable to open file " + "NOFILE".ljust(40), 1),
+        ("p30", " GNDINO: UNABLE TO OPEN FILE " + "NOFILE".ljust(40), 3),
+    ):
+        raw, clean = licensed(capture).split("\n"), reference(capture).split("\n")
+        assert raw.count(line) == 1 and clean.count(line) == 1, capture
+        assert len(raw) - len(clean) == dropped, capture
+        assert not any("ommerfeld-ground tables" in ln.lower() for ln in clean)
+        assert not any("SOMMERFELD-GROUND TABLES" in ln for ln in clean)
 
 
 # ==========================================================================
@@ -314,13 +365,36 @@ def _networks(lines: list[str]) -> tuple[NetworkRow | LineRow, ...]:
     return tuple(rows)
 
 
+def _fortran_float(cell: str) -> float:
+    """A ``1PE`` cell, with or without its ``E``: Fortran drops the letter
+    for a three-digit exponent (``2.23389-107``)."""
+    return float(re.sub(r"(?<=\d)([-+]\d{3})$", r"E\1", cell.strip()))
+
+
 def _pattern(lines: list[str]) -> tuple[PatternBlock, ...]:
     try:
         start = _section(lines, "- - - RADIATION PATTERNS - - -")
     except StopIteration:
         return ()
+    # The range form (momwire#1463): two heading lines more, a third over a
+    # Sommerfeld ground, and the rows three or four lines further down.
+    ranged = {}
+    first = start + 5
+    if "RANGE=" in lines[start + 1]:
+        ranged = {
+            "range_m": _number_after(lines[start + 1], "RANGE="),
+            "range_phase_deg": _number_after(lines[start + 2], "AT PHASE"),
+        }
+        first = start + 8
+        if "LOWER MEDIUM" in lines[start + 4]:
+            cell = lines[start + 4].split("EXP(-JKR)/R=")[1]
+            ranged["lower_range_mag"] = _fortran_float(cell[:12])
+            ranged["lower_range_phase_deg"] = float(
+                cell.split("AT PHASE")[1].split()[0]
+            )
+            first = start + 9
     rows = []
-    for line in _rows_after(lines, start + 5):
+    for line in _rows_after(lines, first):
         c = _cells(line, _PATTERN_EDGES)
         rows.append(
             PatternRow(
@@ -339,7 +413,7 @@ def _pattern(lines: list[str]) -> tuple[PatternBlock, ...]:
             )
         )
     trailer = {}
-    after = start + 5 + len(rows)
+    after = first + len(rows)
     if "AVERAGE POWER GAIN" in lines[after + 2]:
         nums = re.findall(r"[-+]?\d+\.\d+(?:E[-+]\d+)?", lines[after + 2])
         trailer = {
@@ -349,7 +423,7 @@ def _pattern(lines: list[str]) -> tuple[PatternBlock, ...]:
                 re.findall(r"\d\.\d+E[-+]\d+", lines[after + 4])[0]
             ),
         }
-    return (PatternBlock(rows=tuple(rows), **trailer),)
+    return (PatternBlock(rows=tuple(rows), **trailer, **ranged),)
 
 
 def _number_after(line: str, label: str) -> float:
@@ -385,6 +459,12 @@ def _parse_run(lines: list[str], echo_through: int | None) -> Nec4Run:
         frequency = next(ln for ln in lines if "FREQUENCY=" in ln)
         wavelength = next(ln for ln in lines if "WAVELENGTH=" in ln)
         env_at = _section(lines, "- - - ANTENNA ENVIRONMENT - - -")
+        # A named table file's line (GN 2: above the medium; GN 3: below it)
+        # is the only cache line a reference keeps.
+        named = [ln for ln in lines if ln.startswith(" GNDINO")]
+        ground_file = named[0][29:].strip() if named else None
+        if named and named[0].startswith(" GNDINO:"):
+            env_at += 3
         environment = lines[env_at + 2].strip()
         ground = None
         if environment.startswith("FINITE"):
@@ -403,6 +483,7 @@ def _parse_run(lines: list[str], echo_through: int | None) -> Nec4Run:
             loads=_load_rows(lines),
             fill_seconds=_number_after(fill, "FILL="),
             factor_seconds=_number_after(fill, "FACTOR="),
+            ground_file=ground_file,
         )
     excitation_heading = (
         "- - - STRUCTURE EXCITATION DATA AT NETWORK CONNECTION POINTS - - -"
@@ -419,17 +500,6 @@ def _parse_run(lines: list[str], echo_through: int | None) -> Nec4Run:
     for line in _rows_after(lines, power_at + 2):
         label, value = line.split("=")
         budget[label.strip()] = float(value.split()[0])
-    try:
-        ff_at = _section(lines, "- - - FAR FIELD GROUND PARAMETERS - - -")
-        far = FarFieldGround(
-            lines[ff_at + 3].strip(),
-            _number_after(lines[ff_at + 4], "DISTANCE="),
-            _number_after(lines[ff_at + 5], "HEIGHT="),
-            _number_after(lines[ff_at + 7], "CONST.="),
-            _number_after(lines[ff_at + 8], "CONDUCTIVITY="),
-        )
-    except StopIteration:
-        far = None
     return Nec4Run(
         echo_through=echo_through,
         preamble=preamble,
@@ -450,18 +520,48 @@ def _parse_run(lines: list[str], echo_through: int | None) -> Nec4Run:
             budget.get("NETWORK LOSS"),
         ),
         near_fields=_near_fields(lines),
-        far_field_ground=far,
+        far_field_ground=_far_ground(lines),
         patterns=_pattern(lines),
     )
+
+
+def _far_ground(lines: list[str]) -> FarFieldGround | None:
+    try:
+        ff_at = _section(lines, "- - - FAR FIELD GROUND PARAMETERS - - -")
+    except StopIteration:
+        return None
+    return FarFieldGround(
+        lines[ff_at + 3].strip(),
+        _number_after(lines[ff_at + 4], "DISTANCE="),
+        _number_after(lines[ff_at + 5], "HEIGHT="),
+        _number_after(lines[ff_at + 7], "CONST.="),
+        _number_after(lines[ff_at + 8], "CONDUCTIVITY="),
+    )
+
+
+_FREQUENCY_HEADING = "- - - - - - FREQUENCY - - - - - -"
+_INPUT_HEADING = "- - - ANTENNA INPUT PARAMETERS - - -"
+# The headings that make a region of the printout an answer: a run's, or a
+# further table's (momwire#1463).
+_ANSWER_HEADINGS = (
+    _FREQUENCY_HEADING,
+    _INPUT_HEADING,
+    "- - - NEAR ",
+    "- - - FAR FIELD GROUND PARAMETERS - - -",
+    "- - - RADIATION PATTERNS - - -",
+)
 
 
 def parse_printout(deck: str, text: str) -> Nec4Printout:
     """A licensed NEC-4.2 printout read back into the dataclass it would be
     rendered from: every number by its column, nothing recomputed.
 
-    A run's region starts at its card echo or its FREQUENCY heading,
-    whichever comes first after the previous run's input parameters, and
-    holds exactly one ANTENNA INPUT PARAMETERS table.
+    A region starts at the first card echo after a table, or at a FREQUENCY
+    heading after an input-parameters table (a sweep's next frequency).  One
+    holding an ANTENNA INPUT PARAMETERS table is a run; one holding only a
+    near-field or pattern table is a further table of the run before it
+    (momwire#1463); one holding neither is an idle ``XQ``'s echo, which the
+    renderer places from the deck.
     """
     lines = text.split("\n")
     wires_at = next(i for i, ln in enumerate(lines) if ln.startswith("  NO.        X1"))
@@ -513,27 +613,33 @@ def parse_printout(deck: str, text: str) -> Nec4Printout:
             return None
         return int(line[len(_ECHO) : len(_ECHO) + 3])
 
-    inputs = [
-        i
-        for i, ln in enumerate(lines)
-        if ln.strip() == "- - - ANTENNA INPUT PARAMETERS - - -"
-    ]
     starts = [seg_at]
-    for previous in inputs[:-1]:
-        starts.append(
-            next(
-                i
-                for i in range(previous + 1, len(lines))
-                if echo_number(lines[i]) is not None
-                or "- - - - - - FREQUENCY - - - - - -" in lines[i]
-            )
-        )
+    answered = has_input = False
+    for i in range(seg_at, len(lines)):
+        line = lines[i]
+        if (echo_number(line) is not None and answered) or (
+            _FREQUENCY_HEADING in line and has_input
+        ):
+            starts.append(i)
+            answered = has_input = False
+        answered = answered or any(h in line for h in _ANSWER_HEADINGS)
+        has_input = has_input or line.strip() == _INPUT_HEADING
     starts.append(len(lines))
-    runs = []
-    for k in range(len(inputs)):
+    runs: list[Nec4Run | Nec4Report] = []
+    for k in range(len(starts) - 1):
         region = lines[starts[k] : starts[k + 1]]
         echoed = [n for ln in region if (n := echo_number(ln)) is not None]
-        runs.append(_parse_run(region, echoed[-1] if echoed else None))
+        if any(ln.strip() == _INPUT_HEADING for ln in region):
+            runs.append(_parse_run(region, echoed[-1] if echoed else None))
+        elif any(h in ln for ln in region for h in _ANSWER_HEADINGS):
+            runs.append(
+                Nec4Report(
+                    echo_through=echoed[-1],
+                    near_fields=_near_fields(region),
+                    far_field_ground=_far_ground(region),
+                    patterns=_pattern(region),
+                )
+            )
     run_time = next(ln for ln in lines if "RUN TIME =" in ln)
     return Nec4Printout(
         wires=tuple(wires),
@@ -608,7 +714,7 @@ def skeleton(line: str) -> tuple[str, tuple[tuple[int, str], ...]]:
 
 
 # The slot's default basis and its point-matched twin, the launcher a
-# NEC-4.2 user compares against first (``momwire-nec4-sinusoidal.exe``).
+# NEC-4.2 user compares against first (``momwire-nec42-sinusoidal.exe``).
 SERVED_BASES = ("bspline", "sinusoidal")
 
 
@@ -635,6 +741,40 @@ def test_the_served_printout_has_the_licensed_columns_line_for_line(served, capt
     assert len(ours) == len(theirs)
     for number, (a, b) in enumerate(zip(ours, theirs, strict=True), start=1):
         assert skeleton(a) == skeleton(b), (number, a, b)
+
+
+# The probes whose pattern is the range form (momwire#1463).
+RANGE_CASES = tuple(c for c in CASES if "RANGE=" in reference(c))
+
+
+@pytest.mark.integration
+def test_the_range_heading_is_the_licensed_bytes(served):
+    """The range form's heading lines carry no solved number: the range, the
+    phase of exp(-jkR) at the printed wavelength, and over a Sommerfeld
+    ground the lower medium's exp(-jkR)/R.  This engine prints each one as
+    the licensed engine does, digit for digit, and a row below the horizon
+    carries the same two phases (p31 over GN 3, p32 over GN 1)."""
+    assert RANGE_CASES == (
+        *("p16", "p18", "p21", "p24", "p26", "p27", "p28", "p29"),
+        *("p30", "p31", "p32"),
+    )
+
+    def heading(text: str) -> list[str]:
+        return [ln for ln in text.split("\n") if "RANGE=" in ln or "EXP(-JKR)/R=" in ln]
+
+    def below(text: str) -> list[str]:
+        rows = [ln for ln in text.split("\n") if _PATTERN_ROW.match(ln)]
+        return [ln[72:] for ln in rows if float(ln[:8]) > 90.0]
+
+    for capture in RANGE_CASES:
+        ours, theirs = served[capture], reference(capture)
+        assert heading(ours) == heading(theirs) != [], capture
+    assert sum("LOWER MEDIUM" in ln for c in RANGE_CASES for ln in heading(served[c]))
+    # Two rows below the horizon in each of the two patterns, the range-free
+    # one first.
+    for capture in ("p31", "p32"):
+        assert len(below(reference(capture))) == 4, capture
+        assert below(served[capture]) == below(reference(capture)), capture
 
 
 # --------------------------------------------------------------------------
@@ -799,7 +939,11 @@ def test_the_near_fields_against_the_licensed_engine(served, capsys):
     every point carrying more than a thousandth of the peak; a point on the
     wire's own axis, where the field is exactly zero in both, carries none.
     """
-    assert NEAR_CASES == ("p11", "p12", "p13", "p14", "p15", "p4")
+    assert NEAR_CASES == (
+        *("p11", "p12", "p13", "p14", "p15"),
+        *("p20", "p21", "p22", "p23", "p24", "p25", "p26", "p27", "p28"),
+        "p4",
+    )
     lines = []
     for case in NEAR_CASES:
         ours, theirs = read_fields(served[case]), read_fields(reference(case))
@@ -874,7 +1018,7 @@ def test_a_phased_drive_against_the_licensed_engine(served, capsys):
 
 
 # ==========================================================================
-# a GN 2 naming a Sommerfeld-table file (momwire#1317)
+# a GN naming a Sommerfeld-table file (momwire#1317, momwire#1443)
 # ==========================================================================
 
 
@@ -887,12 +1031,15 @@ def _timeless(text: str) -> list[str]:
     ]
 
 
-def test_a_gn2_file_name_prints_that_the_file_was_not_read():
+@pytest.mark.parametrize("ground_type", [2, 3])
+def test_a_sommerfeld_gn_file_name_prints_that_the_file_was_not_read(ground_type):
     """The licensed engine's line, in its captured place (the cache block of
     p7, this deck's own printout, first line only), and the name echoed on
     the card's continuation line; every other line is the bare card's
-    printout."""
-    bare_card = "GN 2 0 0 0 13. .005 0 0 0 0"
+    printout.  GN 3 (momwire#1443) is the same half-space under its own
+    environment word, and its line is its own too, after the medium, as the
+    licensed engine prints it (momwire#1463)."""
+    bare_card = f"GN {ground_type} 0 0 0 13. .005 0 0 0 0"
     bare = render(
         _edited("p7", "GN 2,0,0,0,13.,.005", bare_card), basis=BASIS, dialect="nec4"
     )
@@ -904,21 +1051,49 @@ def test_a_gn2_file_name_prints_that_the_file_was_not_read():
             dialect="nec4",
         )
         assert "NEC ERROR" not in named, name
-        gndino = " GNDINO: UNABLE TO OPEN FILE " + name.ljust(40)
         echo = " " * 43 + "  0.00000E+00  " + name.ljust(40)
         lines = _timeless(named)
         env_at = _section(lines, "- - - ANTENNA ENVIRONMENT - - -")
-        assert lines[env_at + 1 : env_at + 6] == [
-            "",
-            "",
-            gndino,
-            "",
-            " " * 40 + "FINITE GROUND.  SOMMERFELD SOLUTION GN2",
-        ], name
+        medium = " " * 40 + f"FINITE GROUND.  SOMMERFELD SOLUTION GN{ground_type}"
+        if ground_type == 2:
+            gndino = " GNDINO: UNABLE TO OPEN FILE " + name.ljust(40)
+            assert lines[env_at + 1 : env_at + 6] == ["", "", gndino, "", medium], name
+            kept = [*lines[: env_at + 2], *lines[env_at + 5 :]]
+        else:
+            # GN 3's own line, after the medium (0232, p16; momwire#1463).
+            gndino = " GNDINO3: Unable to open file " + name.ljust(40)
+            assert lines[env_at + 1 : env_at + 3] == ["", medium], name
+            assert lines[env_at + 6 : env_at + 8] == ["", gndino], name
+            assert "COMPLEX DIELECTRIC CONSTANT=" in lines[env_at + 5], name
+            kept = [*lines[: env_at + 6], *lines[env_at + 8 :]]
         assert lines.count(gndino) == 1 and lines.count(echo) == 1, name
-        kept = [*lines[: env_at + 2], *lines[env_at + 5 :]]
         kept.remove(echo)
         assert kept == _timeless(bare), name
+
+
+@pytest.mark.parametrize("ground_type", [-1, 1])
+def test_a_file_name_on_a_table_free_gn_is_only_echoed(ground_type):
+    """Free space and perfect ground keep no Sommerfeld table, so a trailer
+    there (SimNEC appends NOFILE to every GN card, momwire#1443) is the card's
+    echo and nothing more: no "unable to open" line for a file no solve
+    would read, and every other line the bare card's printout."""
+    bare_card = f"GN {ground_type} 0 0 0 13. .005 0 0 0 0"
+    bare = render(
+        _edited("p7", "GN 2,0,0,0,13.,.005", bare_card), basis=BASIS, dialect="nec4"
+    )
+    assert "NEC ERROR" not in bare
+    for name in ("NOFILE", "SOMEX10.NEC"):
+        named = render(
+            _edited("p7", "GN 2,0,0,0,13.,.005", f"{bare_card} {name}"),
+            basis=BASIS,
+            dialect="nec4",
+        )
+        assert "NEC ERROR" not in named and "GNDINO" not in named, name
+        echo = " " * 43 + "  0.00000E+00  " + name.ljust(40)
+        lines = _timeless(named)
+        assert lines.count(echo) == 1, name
+        lines.remove(echo)
+        assert lines == _timeless(bare), name
 
 
 # ==========================================================================
@@ -1003,7 +1178,7 @@ _DAN_REFUSAL = (
 @pytest.mark.parametrize("basis", SERVED_BASES)
 def test_dans_ne1_dipole_over_gn3_serves_through_the_slot(basis, tmp_path):
     """Through the slot's process entry, the way EZNEC launches
-    ``momwire-nec4.exe``: two paths, a printout written.  Before momwire#1352
+    ``momwire-nec42.exe``: two paths, a printout written.  Before momwire#1352
     this printout was the one line Dan reported."""
     deck, out = tmp_path / "EZ.NEC", tmp_path / "NEC.OUT"
     deck.write_bytes(DAN_NE1_GN3.encode("latin-1"))

@@ -23,7 +23,8 @@ class ProjectRequest:
     Attributes:
         name (str):
         customer (str):
-        slug (Union[Unset, str]): URL-friendly identifier. Only editable by staff users.
+        slug (Union[Unset, str]): URL-friendly identifier. Editable by staff; on create also by holders of
+            PROJECT.SET_SLUG on the organization, otherwise ignored.
         description (Union[Unset, str]): Project description (HTML content will be sanitized)
         type_ (Union[None, Unset, str]):
         backend_id (Union[Unset, str]):

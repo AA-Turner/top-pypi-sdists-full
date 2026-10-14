@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvespa"
-version = "1.2.8"
+version = "1.2.9"
 description = "Python API for vespa.ai"
 readme = "README.md"
 keywords = ["vespa", "search engine", "data science"]
@@ -28,7 +28,7 @@ dependencies = [
     "httpx[http2]",
 ]
 
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.16"
 
 [[project.authors]]
 name = "Thiago G. Martins"

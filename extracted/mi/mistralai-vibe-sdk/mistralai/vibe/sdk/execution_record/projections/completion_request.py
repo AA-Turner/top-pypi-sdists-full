@@ -39,6 +39,9 @@ from mistralai.vibe.sdk.providers.completion.types import (
 )
 
 _PROVIDER_ID_PREFIX = "llm:"
+DEFAULT_MAX_TOOL_RESULT_CHARS = 40_000
+MIN_MAX_TOOL_RESULT_CHARS = 256
+_TOOL_RESULT_TRUNCATION_MARKER = "\n...[tool result truncated for model context]...\n"
 
 
 @dataclass(frozen=True)
@@ -69,8 +72,12 @@ def build_completion_request_from_state(
     *,
     metadata: dict[str, Any] | None = None,
     request_kind: CompletionRequestKind = COMPLETION_REQUEST_KIND_AGENT,
+    max_tool_result_chars: int = DEFAULT_MAX_TOOL_RESULT_CHARS,
 ) -> CompletionRequest:
     """Build a CompletionRequest from TaskState history."""
+    if max_tool_result_chars < MIN_MAX_TOOL_RESULT_CHARS:
+        raise ValueError(f"max_tool_result_chars must be at least {MIN_MAX_TOOL_RESULT_CHARS}")
+
     messages: list[Message] = []
 
     history = state.history
@@ -113,9 +120,19 @@ def build_completion_request_from_state(
             call_id = tool_call_provider_id(entry.payload.id)
             child_state = entry.payload.state
             if child_state and isinstance(child_state.output, CompletedOutput):
-                result_content = json.dumps(child_state.output.value)
+                result_content = _bounded_tool_result(
+                    child_state.output.value,
+                    max_chars=max_tool_result_chars,
+                )
             elif child_state and isinstance(child_state.output, FailedOutput):
-                result_content = f"Error: {child_state.output.error}"
+                error_content = f"Error: {child_state.output.error}"
+                if len(error_content) <= max_tool_result_chars:
+                    result_content = error_content
+                else:
+                    result_content = _bounded_tool_result(
+                        {"error": child_state.output.error},
+                        max_chars=max_tool_result_chars,
+                    )
             else:
                 result_content = "Pending..."
             messages.append(
@@ -137,6 +154,41 @@ def build_completion_request_from_state(
         metadata=metadata,
         request_kind=request_kind,
     )
+
+
+def _bounded_tool_result(value: Any, *, max_chars: int) -> str:
+    """Serialize bounded model-visible output without changing the durable result."""
+    content = json.dumps(value)
+    if len(content) <= max_chars:
+        return content
+
+    def truncation_envelope(retained_chars: int) -> str:
+        prefix_chars = (retained_chars + 1) // 2
+        suffix_chars = retained_chars // 2
+        return json.dumps(
+            {
+                "_truncated": True,
+                "original_chars": len(content),
+                "content": (
+                    content[:prefix_chars]
+                    + _TOOL_RESULT_TRUNCATION_MARKER
+                    + content[len(content) - suffix_chars :]
+                ),
+            }
+        )
+
+    lower = 0
+    upper = max_chars
+    best = truncation_envelope(0)
+    while lower <= upper:
+        retained_chars = (lower + upper) // 2
+        candidate = truncation_envelope(retained_chars)
+        if len(candidate) <= max_chars:
+            best = candidate
+            lower = retained_chars + 1
+        else:
+            upper = retained_chars - 1
+    return best
 
 
 def _message_content(entry: MessageEntry) -> str | list[MessageContentChunk] | None:
@@ -238,4 +290,9 @@ def _implementations_to_tools(
     return tools
 
 
-__all__ = ["build_completion_request_from_state", "tool_call_provider_id"]
+__all__ = [
+    "DEFAULT_MAX_TOOL_RESULT_CHARS",
+    "MIN_MAX_TOOL_RESULT_CHARS",
+    "build_completion_request_from_state",
+    "tool_call_provider_id",
+]

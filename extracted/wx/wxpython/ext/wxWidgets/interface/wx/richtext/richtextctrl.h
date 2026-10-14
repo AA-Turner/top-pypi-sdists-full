@@ -1254,12 +1254,12 @@ public:
     bool EndSymbolBullet();
 
     /**
-        Begins applying a symbol bullet.
+        Begins applying a standard bullet.
     */
     bool BeginStandardBullet(const wxString& bulletName, int leftIndent, int leftSubIndent, int bulletStyle = wxTEXT_ATTR_BULLET_STYLE_STANDARD);
 
     /**
-        Begins applying a standard bullet.
+        Ends applying a standard bullet.
     */
     bool EndStandardBullet();
 
@@ -2463,12 +2463,12 @@ public:
     /**
         Returns the character pressed, within a @c wxEVT_RICHTEXT_CHARACTER event.
     */
-    wxChar GetCharacter() const;
+    wxUniChar GetCharacter() const;
 
     /**
         Sets the character variable.
     */
-    void SetCharacter(wxChar ch);
+    void SetCharacter(wxUniChar ch);
 
     /**
         Returns the container for which the event is relevant.

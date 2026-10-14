@@ -20,6 +20,7 @@ Usage::
         ListBotsPaginator,
         ListChildHoursOfOperationsPaginator,
         ListContactEvaluationsPaginator,
+        ListContactFlowAliasesPaginator,
         ListContactFlowModuleAliasesPaginator,
         ListContactFlowModuleVersionsPaginator,
         ListContactFlowModulesPaginator,
@@ -112,6 +113,7 @@ Usage::
     list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
     list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = client.get_paginator("list_child_hours_of_operations")
     list_contact_evaluations_paginator: ListContactEvaluationsPaginator = client.get_paginator("list_contact_evaluations")
+    list_contact_flow_aliases_paginator: ListContactFlowAliasesPaginator = client.get_paginator("list_contact_flow_aliases")
     list_contact_flow_module_aliases_paginator: ListContactFlowModuleAliasesPaginator = client.get_paginator("list_contact_flow_module_aliases")
     list_contact_flow_module_versions_paginator: ListContactFlowModuleVersionsPaginator = client.get_paginator("list_contact_flow_module_versions")
     list_contact_flow_modules_paginator: ListContactFlowModulesPaginator = client.get_paginator("list_contact_flow_modules")
@@ -204,6 +206,7 @@ from .paginator import (
     ListBotsPaginator,
     ListChildHoursOfOperationsPaginator,
     ListContactEvaluationsPaginator,
+    ListContactFlowAliasesPaginator,
     ListContactFlowModuleAliasesPaginator,
     ListContactFlowModulesPaginator,
     ListContactFlowModuleVersionsPaginator,
@@ -299,6 +302,7 @@ __all__ = (
     "ListBotsPaginator",
     "ListChildHoursOfOperationsPaginator",
     "ListContactEvaluationsPaginator",
+    "ListContactFlowAliasesPaginator",
     "ListContactFlowModuleAliasesPaginator",
     "ListContactFlowModuleVersionsPaginator",
     "ListContactFlowModulesPaginator",

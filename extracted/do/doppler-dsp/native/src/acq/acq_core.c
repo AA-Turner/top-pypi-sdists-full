@@ -13,6 +13,7 @@
  */
 
 #include "doppler/acq/acq_core.h"
+#include "doppler/acq/acq_private.h"
 /* det_private.h needs det_noise_mode_t (from detector2d_core.h, included
  * above) and supplies the header-only det_ring_create / det_noise_estimate
  * statics.
@@ -616,59 +617,36 @@ dp_acq_cell_corr_grid (const dp_acq_state_t *st, const float _Complex *x,
   free (rm);
 }
 
-/* The tile-edge alias (doppler#1270). A tile de-rotates by its own
- * centre, so an emitter near the edge between two tiles leaves half a
- * span of residual inside the epoch in both, and the slow-time transform
- * folds modulo the epoch rate: the two neighbours read the emitter at the
- * same row index and, measured on the pool's grid at 45 dB-Hz, within
- * 0.03 dB of each other -- the pick is the noise's, one tile low or high,
- * half the time on the edge and one time in six 68 Hz inside it. The
- * block can tell when it is asked at the ROW's frequency: the raw epochs
- * mixed by the row's own frequency correlate with the replica at the
- * pick's code phase with under half a row of residual, and mixed by that
- * frequency one span off the residual is exactly one cycle per epoch, a
- * correlation of zero. Three hypotheses -- the row, one span down, one
- * span up -- summed over the block's epochs non-coherently (a data
- * transition inside an epoch costs every hypothesis the same), each
- * epoch's column walked by the hypothesis's own code rate as
- * acq_tile_epoch walks the tile's. Returns the native row that wins;
- * the pick's own row when the engine is not block-coherent and tiled. */
+/* The rate hypotheses an engine at coherent depth `D` really searches.
+ *
+ * The de-chirp is exp(-j pi a t^2) over the block's epochs, t = (i - (D-1)/2)
+ * T. At D = 1 that is t = 0, and at D = 2 it is t = +-T/2: equal t^2, so every
+ * hypothesis multiplies the block by ONE constant phase and the surfaces are
+ * identical. N looks that are one look must not be priced as N (the gate
+ * rose 3.868 -> 4.214 for nothing), run N times (N times the cost), or pick
+ * among (a strict > keeps hypothesis 0, which reports -R whatever the
+ * carrier does: 1240 of 1240 hits at a true rate of 0, doppler#2221
+ * review). A rate is invisible to a block of one or two epochs; the count
+ * there is 1 and the reported rate is 0. */
 static size_t
-acq_resolve_tile_alias (const dp_acq_state_t *st, size_t row, size_t col)
+acq_rate_count_at (size_t rate_hyps, size_t D)
 {
-  const size_t D = st->coherent_bins, nx = st->code_bins;
-  const size_t W = st->window_bins, rows = W * D;
-  if (!st->blk_raw || W <= 1 || D <= 1)
-    return row;
-  const double f0 = (double)dp_fftfreq_index (row, rows) * st->doppler_res_hz;
-  const double span = st->fs / (double)nx;
-  double       best = -1.0;
-  long         win  = 0;
-  for (long h = -1; h <= 1; h++)
-    {
-      const double f = f0 + (double)h * span;
-      /* The code-rate walk of this hypothesis, samples per epoch: a
-         positive Doppler runs the chip clock fast and the peak sits
-         EARLIER each epoch (acq_tile_epoch's convention). */
-      const double d  = st->carrier_freq_hz > 0.0
-                            ? f / st->carrier_freq_hz * (double)nx
-                            : 0.0;
-      double       pw = 0.0;
-      for (size_t e = 0; e < D; e++)
-        {
-          const long sh = lround (((double)e - 0.5 * (double)(D - 1)) * d);
-          const long c0 = (((long)col - sh) % (long)nx + (long)nx) % (long)nx;
-          const double _Complex acc = dp_acq_cell_corr (
-              st, st->blk_raw + e * nx, (size_t)c0, f, (double)(e * nx));
-          pw += creal (acc) * creal (acc) + cimag (acc) * cimag (acc);
-        }
-      if (pw > best)
-        {
-          best = pw;
-          win  = h;
-        }
-    }
-  return (size_t)(((long)row + win * (long)D + (long)rows) % (long)rows);
+  return D > 2 ? rate_hyps : 1;
+}
+
+static size_t
+acq_rate_count (const dp_acq_state_t *st)
+{
+  return acq_rate_count_at (st->rate_hyps, st->coherent_bins);
+}
+
+/* Rate hypothesis `h` of `n` over [-span, +span], Hz/s; one hypothesis is
+ * the rate 0. Exported as dp_acq_rate_hypothesis(): refine searches the
+ * engine's grid, not its own. */
+static double
+acq_rate_of (double span, size_t n, size_t h)
+{
+  return n > 1 ? -span + 2.0 * span * (double)h / (double)(n - 1) : 0.0;
 }
 
 /* The listed peaks of the dwell just decided, as results: each pick's
@@ -748,6 +726,10 @@ acq_report_peaks (dp_acq_state_t *st, const float *surf,
         .cn0_dbhz_est     = acq_cn0_dbhz_from_amp_snr (amp_snr, st->fs),
         .samples_consumed = st->samples_consumed,
         .chip_phase       = acq_handoff_chip_phase (st, r, c, st->sf, st->spc),
+        .doppler_rate_hz_s
+        = acq_rate_count (st) > 1
+              ? acq_rate_of (st->doppler_rate, st->rate_hyps, st->rate_best_h)
+              : 0.0,
       };
     }
   /* This dwell's picks, listed and held, are what the next dwell's
@@ -871,6 +853,27 @@ acq_drift_depth (double f_epoch, double doppler_rate, size_t d_max)
         d = dr < 1.0 ? 1 : (size_t)dr;
     }
   return d < 1 ? 1 : d;
+}
+
+/* The largest rate a block of `depth` epochs tolerates: acq_drift_depth()
+ * inverted, f_epoch^2 / (2 depth^2). dp_acq_rate_hypotheses_for() reads it. */
+static double
+acq_drift_rate_limit (double f_epoch, size_t depth)
+{
+  return f_epoch * f_epoch / (2.0 * (double)depth * (double)depth);
+}
+
+/* The Doppler rate the drift bound sees: the engine's `doppler_rate` when it
+ * searches no rate hypotheses, otherwise the farthest a true rate in
+ * [-doppler_rate, +doppler_rate] can sit from the nearest of its
+ * `rate_hyps` evenly spaced hypotheses, half a spacing =
+ * doppler_rate / (rate_hyps - 1). The ONE place the compensation reaches
+ * the sizer: acq_drift_depth() and the cell count both read it. */
+static double
+acq_residual_rate (const dp_acq_state_t *st)
+{
+  return st->rate_hyps > 1 ? st->doppler_rate / (double)(st->rate_hyps - 1)
+                           : st->doppler_rate;
 }
 
 /* The block-coherent depth a continuous engine runs inside every tile
@@ -1093,11 +1096,13 @@ acq_commit_thresholds (dp_acq_state_t *st, double pfa, double pd, double snr,
   st->searched_bins  = (st->window_bins > 1) ? st->window_bins * D
                                              : acq_searched_bins (D, du, span);
   st->doppler_res_hz = st->chip_rate / ((double)st->sf * (double)D);
-  st->pfa_cell       = dp_det_pfa_cell (pfa, (double)(st->searched_bins * cb));
-  double umax        = acq_intra_umax (D, st->searched_bins, du, span);
-  st->straddle_loss  = acq_straddle_loss (D, st->searched_bins, &st->shape, du,
-                                          span, st->interp);
-  st->eta            = (float)dp_det_threshold (st->pfa_cell);
+  /* Every rate hypothesis is another independent look at each cell. */
+  st->pfa_cell = dp_det_pfa_cell (
+      pfa, (double)(st->searched_bins * cb * acq_rate_count (st)));
+  double umax       = acq_intra_umax (D, st->searched_bins, du, span);
+  st->straddle_loss = acq_straddle_loss (D, st->searched_bins, &st->shape, du,
+                                         span, st->interp);
+  st->eta           = (float)dp_det_threshold (st->pfa_cell);
 
   double gate;
   if (nc > 1)
@@ -1267,7 +1272,7 @@ acq_auto_config_burst (const dp_acq_state_t *st, double pfa, double pd,
   *out_nc            = 1; /* see above: a burst has one frame of preamble */
   *out_window_bins   = (du > span) ? acq_cover_window_bins (du, span) : 1u;
   const size_t d_max = acq_drift_depth (st->chip_rate / (double)st->sf,
-                                        st->doppler_rate, st->reps);
+                                        acq_residual_rate (st), st->reps);
 
   /* No design C/N0: integrate the whole preamble. The smallest-depth search
      below trades sensitivity for latency against a stated signal; with no
@@ -1300,10 +1305,11 @@ acq_auto_config_burst (const dp_acq_state_t *st, double pfa, double pd,
   const size_t window_bins = *out_window_bins;
   for (size_t D = 1; D <= d_max; D++)
     {
-      const size_t sb    = window_bins > 1 ? window_bins * D
-                                           : acq_searched_bins (D, du, span);
-      double       umax  = acq_intra_umax (D, sb, du, span);
-      double       pc    = dp_det_pfa_cell (pfa, (double)(sb * cb));
+      const size_t sb   = window_bins > 1 ? window_bins * D
+                                          : acq_searched_bins (D, du, span);
+      double       umax = acq_intra_umax (D, sb, du, span);
+      double       pc   = dp_det_pfa_cell (
+          pfa, (double)(sb * cb * acq_rate_count_at (st->rate_hyps, D)));
       double       eta   = dp_det_threshold (pc);
       const double k_ref = st->noise_mode == DET_NOISE_MEAN
                                ? (double)(window_bins * D * cb)
@@ -1867,6 +1873,39 @@ acq_off_peak (const float _Complex *replica, size_t n, acq_shape_t *sh)
   free (buf);
 }
 
+/* rate_hypotheses = 0 (auto): the fewest hypotheses the span needs, chosen
+ * from the sizer itself rather than a rule of thumb. For each n the drift
+ * bound is either binding or not: D*(n) is the depth the sizer picks at n
+ * hypotheses with the bound OFF (priced with n looks per cell, which is what
+ * moves it), and D_cap(n) the depth the residual rate R/(n - 1) tolerates
+ * (n = 1 has no compensation: R itself). The first n with D_cap(n) >= D*(n)
+ * is the first at which the hypotheses stop costing depth -- more of them
+ * would only multiply the per-dwell work and the false-alarm count. None
+ * does within ACQ_RATE_HYPS_MAX: take the maximum, the best this can do.
+ * Leaves st->rate_hyps at the choice; doppler_rate is restored. */
+static void
+acq_auto_rate_hypotheses (dp_acq_state_t *st, double pfa, double pd,
+                          double snr, double du)
+{
+  const double f_epoch = st->chip_rate / (double)st->sf;
+  const double span    = st->doppler_rate;
+  size_t       n;
+  for (n = 1; n < ACQ_RATE_HYPS_MAX; n++)
+    {
+      size_t d_star, nc, wb;
+      st->rate_hyps    = n;
+      st->doppler_rate = 0.0;
+      acq_auto_config_burst (st, pfa, pd, snr, du, &d_star, &nc, &wb);
+      st->doppler_rate = span;
+      /* The residual from its one home: rate_hyps = n and doppler_rate = span
+         are both set, which is what acq_residual_rate() reads. */
+      if (acq_drift_depth (f_epoch, acq_residual_rate (st), st->reps)
+          >= d_star)
+        break;
+    }
+  st->rate_hyps = n;
+}
+
 /* Shared builder: allocates and configures the engine, dropping straight
  * into whichever auto-sizer `continuous` selects.  Not declared in the
  * header -- dp_acq_create_burst()/dp_acq_create_continuous() are the only
@@ -1883,7 +1922,7 @@ acq_acq_create_impl (const float _Complex *replica, size_t sf,
                      double chip_rate, double symbol_rate, double cn0_dbhz,
                      double doppler_uncertainty, double pfa, double pd,
                      int noise_mode, int continuous, size_t code_only_epochs,
-                     double doppler_rate)
+                     double doppler_rate, size_t rate_hypotheses)
 {
   /* Validate: bad arguments yield NULL (the binding maps this to a clear
    * MemoryError) rather than undefined behaviour downstream.  chip_rate > 0
@@ -1905,7 +1944,8 @@ acq_acq_create_impl (const float _Complex *replica, size_t sf,
       || !(pfa > 0.0 && pfa < 1.0) || !(pd > 0.0 && pd < 1.0)
       || !(doppler_uncertainty >= 0.0 && isfinite (doppler_uncertainty))
       || code_only_epochs < 1 || !(doppler_rate >= 0.0)
-      || !isfinite (doppler_rate))
+      || !isfinite (doppler_rate) || rate_hypotheses > ACQ_RATE_HYPS_MAX
+      || (rate_hypotheses != 1 && (continuous || !(doppler_rate > 0.0))))
     return NULL;
 
   dp_acq_state_t *st = (dp_acq_state_t *)calloc (1, sizeof (*st));
@@ -1933,6 +1973,7 @@ acq_acq_create_impl (const float _Complex *replica, size_t sf,
 
   st->code_only_epochs = code_only_epochs;
   st->doppler_rate     = doppler_rate;
+  st->rate_hyps        = rate_hypotheses;
   st->burst            = (uint8_t)!continuous;
   st->carrier_freq_hz  = 0.0;
 
@@ -1947,8 +1988,12 @@ acq_acq_create_impl (const float _Complex *replica, size_t sf,
                                   &best_window_bins);
     }
   else
-    acq_auto_config_burst (st, pfa, pd, snr, doppler_uncertainty, &best_d,
-                           &best_nc, &best_window_bins);
+    {
+      if (rate_hypotheses == 0)
+        acq_auto_rate_hypotheses (st, pfa, pd, snr, doppler_uncertainty);
+      acq_auto_config_burst (st, pfa, pd, snr, doppler_uncertainty, &best_d,
+                             &best_nc, &best_window_bins);
+    }
 
   if (acq_regrid (st, best_d, best_nc, best_window_bins, replica) != 0)
     goto fail;
@@ -1994,7 +2039,7 @@ acq_create_from_chips (const uint8_t *code, size_t code_len, size_t reps,
   dp_acq_state_t   *st    = acq_acq_create_impl (
       replica, code_len, &shape, reps, spc, chip_rate, symbol_rate, cn0_dbhz,
       doppler_uncertainty, pfa, pd, noise_mode, continuous, code_only_epochs,
-      doppler_rate);
+      doppler_rate, /* rate_hypotheses= */ 1);
   free (replica);
   return st;
 }
@@ -2016,7 +2061,7 @@ dp_acq_state_t *
 dp_acq_create_burst (const float _Complex *tmpl, size_t n, size_t reps,
                      double fs, double cn0_dbhz, double doppler_uncertainty,
                      double pfa, double pd, int noise_mode,
-                     double doppler_rate)
+                     double doppler_rate, size_t rate_hypotheses)
 {
   if (!tmpl || n < 1)
     return NULL;
@@ -2046,7 +2091,7 @@ dp_acq_create_burst (const float _Complex *tmpl, size_t n, size_t reps,
   dp_acq_state_t *st = acq_acq_create_impl (
       replica, n, &shape, reps, /* spc= */ 1, fs, /* symbol_rate= */ 0.0,
       cn0_dbhz, doppler_uncertainty, pfa, pd, noise_mode,
-      /* continuous= */ 0, 1, doppler_rate);
+      /* continuous= */ 0, 1, doppler_rate, rate_hypotheses);
   free (replica);
   return st;
 }
@@ -2057,6 +2102,13 @@ dp_acq_configure_search_raw (dp_acq_state_t *st, size_t doppler_bins,
 {
   if (doppler_bins < 1 || doppler_bins > st->reps || n_noncoh < 1
       || n_noncoh > ACQ_N_NONCOH_SAFETY_CEILING)
+    return -1;
+  /* Non-coherent looks and rate hypotheses do not compose: the search scores
+     each hypothesis with the COHERENT statistic, against a gate the
+     non-coherent path sets to zero, and sums per-look maxima into a surface
+     eta_nc was never derived for. A burst engine buys no looks on its own
+     (acq_auto_config_burst), so this refuses only a pinned grid. */
+  if (n_noncoh > 1 && st->rate_hyps > 1)
     return -1;
 
   /* This escape hatch always pins the NATIVE (doppler_bins, n_noncoh) grid
@@ -2069,6 +2121,32 @@ dp_acq_configure_search_raw (dp_acq_state_t *st, size_t doppler_bins,
   acq_commit_thresholds (st, st->pfa, st->pd, snr, st->doppler_uncertainty);
   dp_acq_reset (st);
   return 0;
+}
+
+double
+dp_acq_rate_hypothesis (double span, size_t n, size_t h)
+{
+  return acq_rate_of (span, n, h);
+}
+
+double _Complex dp_acq_rate_phasor (double rate, double t)
+{
+  return cexp (-I * M_PI * rate * t * t);
+}
+
+size_t
+dp_acq_rate_hypotheses_for (double f_epoch, double span, size_t depth)
+{
+  /* NaN or infinity would reach the size_t conversion below: UB. */
+  if (!(span > 0.0) || !isfinite (span) || !(f_epoch > 0.0)
+      || !isfinite (f_epoch) || depth < 1)
+    return 1;
+  /* The residual is span / (n - 1): the smallest n leaving it under what a
+     block of `depth` epochs tolerates (acq_drift_rate_limit). */
+  double need = 1.0 + ceil (span / acq_drift_rate_limit (f_epoch, depth));
+  if (need > (double)ACQ_RATE_HYPS_MAX)
+    need = (double)ACQ_RATE_HYPS_MAX;
+  return (size_t)need;
 }
 
 void
@@ -2092,6 +2170,8 @@ dp_acq_destroy (dp_acq_state_t *st)
   free (st->out_buf);
   free (st->colbuf);
   free (st->colout);
+  free (st->rate_chirp);
+  free (st->rate_best);
   free (st->mag_buf);
   free (st->noise_scratch);
   free (st->nc_surface);
@@ -2170,6 +2250,7 @@ dp_acq_reset (dp_acq_state_t *st)
   st->peak_conc                                = 0.0f;
   st->surface_at                               = 0;
   st->dwells                                   = 0;
+  st->rate_best_h                              = 0;
 }
 
 /* ── Stream push ────────────────────────────────────────────────────────── */
@@ -2182,6 +2263,7 @@ dp_acq_reset (dp_acq_state_t *st)
 typedef struct
 {
   dp_acq_state_t *st;
+  size_t          h; /* rate hypothesis the block-end transform applies */
 } acq_fan_t;
 
 static void
@@ -2245,9 +2327,13 @@ acq_tile_epoch (size_t r, void *ctx)
 static void
 acq_tile_block (size_t r, void *ctx)
 {
-  dp_acq_state_t       *st = ((acq_fan_t *)ctx)->st;
-  const size_t          nx = st->code_bins, D = st->coherent_bins;
-  const size_t          dI   = D * st->interp;
+  dp_acq_state_t *st = ((acq_fan_t *)ctx)->st;
+  const size_t    nx = st->code_bins, D = st->coherent_bins;
+  const size_t    dI = D * st->interp;
+  /* The rate hypothesis' de-chirp over the block's epochs; NULL = none. */
+  const float _Complex *chirp
+      = acq_rate_count (st) > 1 ? st->rate_chirp + ((acq_fan_t *)ctx)->h * D
+                                : NULL;
   const size_t         *rows = st->tile_rows[r];
   float _Complex       *in = st->tile_col[r]; /* ACQ_COL_CHUNK columns of dI */
   float _Complex       *out = in + ACQ_COL_CHUNK * dI;
@@ -2258,8 +2344,12 @@ acq_tile_block (size_t r, void *ctx)
       for (size_t i = 0; i < D; i++)
         {
           const float _Complex *src = blk + i * nx + j0;
-          for (size_t c = 0; c < nc; c++)
-            in[c * dI + i] = src[c];
+          if (chirp)
+            for (size_t c = 0; c < nc; c++)
+              in[c * dI + i] = src[c] * chirp[i];
+          else
+            for (size_t c = 0; c < nc; c++)
+              in[c * dI + i] = src[c];
         }
       for (size_t c = 0; c < nc; c++)
         dp_fft_execute_cf32 (st->tile_slow[r], in + c * dI, dI, out + c * dI,
@@ -2271,6 +2361,119 @@ acq_tile_block (size_t r, void *ctx)
             dst[c] = out[c * dI + i];
         }
     }
+}
+
+/* The slow-time de-chirp phasors, one row of `coherent_bins` per rate
+ * hypothesis: exp(-j pi a_h t_i^2), t_i the epoch's time from the block's
+ * MIDDLE (so the Doppler an engine reports is the carrier's there). Built
+ * lazily and rebuilt when the depth moves, because a regrid can change
+ * coherent_bins under a table built for the old one. An epoch is
+ * sf / chip_rate seconds on every engine (one chip = one sample on a burst
+ * engine, so sf = the preamble length and chip_rate = fs). */
+static void
+acq_rate_table (dp_acq_state_t *st)
+{
+  const size_t D = st->coherent_bins, R = st->rate_hyps;
+  if (acq_rate_count (st) < 2 || (st->rate_chirp && st->rate_chirp_d == D))
+    return;
+  free (st->rate_chirp);
+  st->rate_chirp   = dp_xmalloc (R * D * sizeof *st->rate_chirp);
+  st->rate_chirp_d = D;
+  const double T   = (double)st->sf / st->chip_rate;
+  for (size_t h = 0; h < R; h++)
+    {
+      const double a = acq_rate_of (st->doppler_rate, R, h);
+      for (size_t i = 0; i < D; i++)
+        {
+          const double t = ((double)i - 0.5 * (double)(D - 1)) * T;
+          st->rate_chirp[h * D + i]
+              = (float _Complex)dp_acq_rate_phasor (a, t);
+        }
+    }
+}
+
+/* One decided surface for rate hypothesis `h`, into out_buf; returns the
+ * cells it holds. `frame` is the narrowband engine's D-epoch frame (the
+ * framer's view, valid until its next call); a tiled engine ignores it and
+ * transforms its gathered block, which stays whole until the next epoch is
+ * written. The slow-time FFT and the correlator are the engine's own -- the
+ * hypothesis only multiplies the slow-time axis, so with none (rate_hyps ==
+ * 1) this is the engine exactly as it ran. */
+static size_t
+acq_make_surface (dp_acq_state_t *st, const float _Complex *frame,
+                  acq_fan_t *fan, size_t h)
+{
+  if (st->window_bins > 1)
+    {
+      fan->h = h;
+      dp_pool_run (st->pool, st->window_bins, acq_tile_block, fan);
+      return st->n;
+    }
+  /* Slow-time Doppler FFT: FFT along the ny segment axis, per column.
+   * Unnormalised (matches numpy fft); corr2d supplies the only 1/n. */
+  const size_t          ny = st->coherent_bins, nx = st->code_bins;
+  const size_t          ny_f = ny * st->interp;
+  const float _Complex *chirp
+      = acq_rate_count (st) > 1 ? st->rate_chirp + h * ny : NULL;
+  for (size_t j = 0; j < nx; j++)
+    {
+      if (chirp)
+        for (size_t i = 0; i < ny; i++)
+          st->colbuf[i] = frame[i * nx + j] * chirp[i];
+      else
+        for (size_t i = 0; i < ny; i++)
+          st->colbuf[i] = frame[i * nx + j];
+      /* colbuf's tail stays zero from create: the pad is what
+         interpolates the Doppler axis, and it must not carry the
+         previous column's samples. */
+      dp_fft_execute_cf32 (st->slow_fft, st->colbuf, ny_f, st->colout, ny_f);
+      for (size_t i = 0; i < ny_f; i++)
+        st->yframe[i * nx + j] = st->colout[i];
+    }
+  return dp_corr2d_execute (st->corr, st->yframe, st->n_surf, st->out_buf,
+                            st->n_surf);
+}
+
+/* A dwell's surface over the rate hypotheses: each is tested against its
+ * OWN surface (a CFAR reference taken over a max of hypotheses would be
+ * biased up, and the gate is derived for one), the strongest statistic
+ * wins, and its surface is left in out_buf for the caller's ordinary
+ * statistic and peak list. The per-cell Pfa was split over the hypotheses
+ * at sizing (acq_commit_thresholds), so the strongest of them is held to
+ * the one gate. The winner's surface is kept in a spare buffer (a copy, not
+ * another pass) unless it was the last one made. */
+static size_t
+acq_rate_search (dp_acq_state_t *st, const float _Complex *frame,
+                 acq_fan_t *fan)
+{
+  const size_t R     = acq_rate_count (st);
+  size_t       n_out = 0, best_h = 0;
+  float        best = -1.0f;
+  if (st->rate_best_cap != st->n_surf)
+    {
+      free (st->rate_best);
+      st->rate_best     = dp_xmalloc (st->n_surf * sizeof *st->rate_best);
+      st->rate_best_cap = st->n_surf;
+    }
+  for (size_t h = 0; h < R; h++)
+    {
+      n_out = acq_make_surface (st, frame, fan, h);
+      acq_compute_stat (st);
+      if (acq_rate_better (h, st->test_stat, best))
+        {
+          best   = st->test_stat;
+          best_h = h;
+          /* Kept for the end, unless a later hypothesis overwrites it with
+             a better one: the last one made is already in out_buf. */
+          if (h != R - 1)
+            memcpy (st->rate_best, st->out_buf,
+                    st->n_surf * sizeof *st->rate_best);
+        }
+    }
+  if (best_h != R - 1)
+    memcpy (st->out_buf, st->rate_best, st->n_surf * sizeof *st->rate_best);
+  st->rate_best_h = best_h;
+  return n_out;
 }
 
 /* Would the NEXT frame end a dwell -- report a list? The twin of
@@ -2296,9 +2499,9 @@ dp_acq_push (dp_acq_state_t *st, const float _Complex *x, size_t n_in,
   size_t       off      = 0;
   const size_t n        = st->n;
   const size_t frame_n  = st->frame_n;
-  const size_t ny       = st->coherent_bins;
   const size_t nx       = st->code_bins;
   const size_t wideband = st->window_bins > 1;
+  acq_rate_table (st); /* no-op without rate hypotheses */
 
   /* The room a frame that ENDS A DWELL needs: its whole list (max_peaks
      results). A caller's buffer smaller than a list can never offer that,
@@ -2366,7 +2569,7 @@ dp_acq_push (dp_acq_state_t *st, const float _Complex *x, size_t n_in,
            * length). */
           dp_fft_execute_cf32 (st->wide_fwd, frame, nx, st->wide_spec, nx);
           const size_t D   = st->coherent_bins;
-          acq_fan_t    fan = { st };
+          acq_fan_t    fan = { st, 0 };
           if (st->blk_raw)
             memcpy (st->blk_raw + st->blk_epoch * nx, frame,
                     nx * sizeof *frame);
@@ -2386,9 +2589,9 @@ dp_acq_push (dp_acq_state_t *st, const float _Complex *x, size_t n_in,
                      continuous at the tile's centre, so the residual
                      inside the tile is what the transform resolves. */
                   st->blk_epoch = 0;
-                  dp_pool_run (st->pool, st->window_bins, acq_tile_block,
-                               &fan);
-                  n_out = n;
+                  n_out         = acq_rate_count (st) > 1
+                                      ? acq_rate_search (st, NULL, &fan)
+                                      : acq_make_surface (st, NULL, &fan, 0);
                 }
             }
           else
@@ -2396,24 +2599,10 @@ dp_acq_push (dp_acq_state_t *st, const float _Complex *x, size_t n_in,
         }
       else
         {
-          /* Slow-time Doppler FFT: FFT along the ny segment axis, per
-           * column. Unnormalised (matches numpy fft); corr2d supplies
-           * the only 1/n. */
-          const size_t ny_f = ny * st->interp;
-          for (size_t j = 0; j < nx; j++)
-            {
-              for (size_t i = 0; i < ny; i++)
-                st->colbuf[i] = frame[i * nx + j];
-              /* colbuf's tail stays zero from create: the pad is what
-                 interpolates the Doppler axis, and it must not carry the
-                 previous column's samples. */
-              dp_fft_execute_cf32 (st->slow_fft, st->colbuf, ny_f, st->colout,
-                                   ny_f);
-              for (size_t i = 0; i < ny_f; i++)
-                st->yframe[i * nx + j] = st->colout[i];
-            }
-          n_out = dp_corr2d_execute (st->corr, st->yframe, st->n_surf,
-                                     st->out_buf, st->n_surf);
+          acq_fan_t fan = { st, 0 };
+          n_out         = acq_rate_count (st) > 1
+                              ? acq_rate_search (st, frame, &fan)
+                              : acq_make_surface (st, frame, &fan, 0);
         }
       st->samples_consumed += frame_n;
 
@@ -2730,6 +2919,7 @@ dp_acq_get_state (const dp_acq_state_t *st, void *blob)
   ex.max_peaks        = (uint32_t)st->max_peaks;
   ex.n_twins          = (uint32_t)st->n_twins;
   ex.blk_epoch        = (uint32_t)st->blk_epoch;
+  ex.rate_hyps        = (uint32_t)st->rate_hyps;
   dp_w_bytes (&w, &ex, sizeof ex);
 
   /* The carry: the framer's own snapshot, zero-padded to a fixed size. */
@@ -2791,7 +2981,8 @@ dp_acq_set_state (dp_acq_state_t *st, const void *blob)
   memcpy (&ex, (const char *)blob + sizeof (dp_state_hdr_t), sizeof ex);
   if (ex.n != (uint64_t)st->n || ex.n_noncoh != (uint32_t)st->n_noncoh
       || ex.max_peaks != (uint32_t)st->max_peaks || ex.n_twins > ex.max_peaks
-      || ex.blk_epoch >= (uint32_t)st->coherent_bins)
+      || ex.blk_epoch >= (uint32_t)st->coherent_bins
+      || ex.rate_hyps != (uint32_t)st->rate_hyps)
     return DP_ERR_INVALID;
 
   /* The carry and the engine's position must name ONE stream point: the

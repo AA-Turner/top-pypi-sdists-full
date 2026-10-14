@@ -4,7 +4,9 @@ from typing import Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.billing_type_enum import BillingTypeEnum
 from ..models.discount_aggregation_enum import DiscountAggregationEnum
+from ..models.limit_period_enum import LimitPeriodEnum
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="NestedPlanComponent")
@@ -16,7 +18,10 @@ class NestedPlanComponent:
     Attributes:
         type_ (Union[Unset, str]): Unique internal name of the measured unit, for example floating_ip.
         name (Union[Unset, str]): Display name for the measured unit, for example, Floating IP.
-        measured_unit (Union[Unset, str]): Unit of measurement, for example, GB.
+        measured_unit (Union[None, Unset, str]):
+        billing_type (Union[Unset, BillingTypeEnum]):
+        is_prepaid (Union[Unset, bool]):
+        limit_period (Union[Unset, LimitPeriodEnum]):
         amount (Union[Unset, int]):
         price (Union[Unset, str]):
         future_price (Union[None, Unset, str]):
@@ -29,7 +34,10 @@ class NestedPlanComponent:
 
     type_: Union[Unset, str] = UNSET
     name: Union[Unset, str] = UNSET
-    measured_unit: Union[Unset, str] = UNSET
+    measured_unit: Union[None, Unset, str] = UNSET
+    billing_type: Union[Unset, BillingTypeEnum] = UNSET
+    is_prepaid: Union[Unset, bool] = UNSET
+    limit_period: Union[Unset, LimitPeriodEnum] = UNSET
     amount: Union[Unset, int] = UNSET
     price: Union[Unset, str] = UNSET
     future_price: Union[None, Unset, str] = UNSET
@@ -43,7 +51,21 @@ class NestedPlanComponent:
 
         name = self.name
 
-        measured_unit = self.measured_unit
+        measured_unit: Union[None, Unset, str]
+        if isinstance(self.measured_unit, Unset):
+            measured_unit = UNSET
+        else:
+            measured_unit = self.measured_unit
+
+        billing_type: Union[Unset, str] = UNSET
+        if not isinstance(self.billing_type, Unset):
+            billing_type = self.billing_type.value
+
+        is_prepaid = self.is_prepaid
+
+        limit_period: Union[Unset, str] = UNSET
+        if not isinstance(self.limit_period, Unset):
+            limit_period = self.limit_period.value
 
         amount = self.amount
 
@@ -76,6 +98,12 @@ class NestedPlanComponent:
             field_dict["name"] = name
         if measured_unit is not UNSET:
             field_dict["measured_unit"] = measured_unit
+        if billing_type is not UNSET:
+            field_dict["billing_type"] = billing_type
+        if is_prepaid is not UNSET:
+            field_dict["is_prepaid"] = is_prepaid
+        if limit_period is not UNSET:
+            field_dict["limit_period"] = limit_period
         if amount is not UNSET:
             field_dict["amount"] = amount
         if price is not UNSET:
@@ -98,7 +126,30 @@ class NestedPlanComponent:
 
         name = d.pop("name", UNSET)
 
-        measured_unit = d.pop("measured_unit", UNSET)
+        def _parse_measured_unit(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        measured_unit = _parse_measured_unit(d.pop("measured_unit", UNSET))
+
+        _billing_type = d.pop("billing_type", UNSET)
+        billing_type: Union[Unset, BillingTypeEnum]
+        if isinstance(_billing_type, Unset):
+            billing_type = UNSET
+        else:
+            billing_type = BillingTypeEnum(_billing_type)
+
+        is_prepaid = d.pop("is_prepaid", UNSET)
+
+        _limit_period = d.pop("limit_period", UNSET)
+        limit_period: Union[Unset, LimitPeriodEnum]
+        if isinstance(_limit_period, Unset):
+            limit_period = UNSET
+        else:
+            limit_period = LimitPeriodEnum(_limit_period)
 
         amount = d.pop("amount", UNSET)
 
@@ -135,6 +186,9 @@ class NestedPlanComponent:
             type_=type_,
             name=name,
             measured_unit=measured_unit,
+            billing_type=billing_type,
+            is_prepaid=is_prepaid,
+            limit_period=limit_period,
             amount=amount,
             price=price,
             future_price=future_price,

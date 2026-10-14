@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.account_name_generation_policy_enum import AccountNameGenerationPolicyEnum
+from ..models.account_scope import AccountScope
 from ..models.action_on_usage_limit_enum import ActionOnUsageLimitEnum
 from ..models.billing_source_enum import BillingSourceEnum
 from ..models.blank_enum import BlankEnum
@@ -27,9 +28,21 @@ T = TypeVar("T", bound="MergedPluginOptions")
 class MergedPluginOptions:
     """
     Attributes:
+        account_scope (Union[AccountScope, BlankEnum, Unset]): Where accounts are held: 'offering' keeps one account per
+            offering (the historical behaviour); 'provider' shares one account per user across the provider's offerings.
+        username_generation_policy (Union[BlankEnum, Unset, UsernameGenerationPolicyEnum]): How the usernames of
+            offering users are generated.
+        username_anonymized_prefix (Union[Unset, str]): Prefix for anonymized usernames; the name is the prefix followed
+            by the account's POSIX UID.
+        homedir_prefix (Union[Unset, str]): Prefix of each account's home directory; the username follows.
+        login_shell (Union[Unset, str]): Login shell assigned to GLAuth/LDAP accounts.
         auto_approve_remote_orders (Union[Unset, bool]): If set to True, an order can be processed without approval
         resource_expiration_threshold (Union[Unset, int]): Resource expiration threshold in days. Default: 30.
         service_provider_can_create_offering_user (Union[Unset, bool]): Service provider can create offering user
+        uses_robot_accounts (Union[Unset, bool]): This offering's identity model is per-resource robot accounts rather
+            than automatic offering users. Unset means false. Cannot be combined with
+            service_provider_can_create_offering_user. Does not block creating robot accounts on offerings that use offering
+            users.
         offering_user_auto_deletion (Union[Unset, bool]): If set to True, offering users will be automatically marked
             for deletion by the cleanup task when users lose project access. If False (default), deletion must be triggered
             manually by the service provider. Default: False.
@@ -43,7 +56,9 @@ class MergedPluginOptions:
         auto_approve_in_service_provider_projects (Union[Unset, bool]): Skip approval of public offering belonging to
             the same organization under which the request is done
         disable_autoapprove (Union[Unset, bool]): If set to True, orders for this offering will always require manual
-            approval, overriding auto_approve_in_service_provider_projects
+            consumer approval, overriding every other consumer-side auto-approve mechanism
+            (auto_approve_in_service_provider_projects, auto_approve_for_roles, project auto-approval rules, and the
+            ORDER.APPROVE permission). Termination orders, staff users and provider approval are not affected
         supports_downscaling (Union[Unset, bool]): If set to True, it will be possible to downscale resources
         supports_pausing (Union[Unset, bool]): If set to True, it will be possible to pause resources
         disable_grace_period (Union[Unset, bool]): If set to True, this offering's resources ignore the project grace
@@ -78,10 +93,20 @@ class MergedPluginOptions:
             RESOURCE.SET_END_DATE can request an end date change, and holders of that permission approve or reject. Approval
             writes the date directly; no order is created. Requests are published as events so an external approval system
             can decide instead. Not applicable to prepaid offerings, which extend through renewal instead.
+        enable_resource_limit_change_requests (Union[Unset, bool]): If set to True, users who cannot change resource
+            limits directly (RESOURCE.SET_LIMITS together with ORDER.CREATE) can request a limit change, and holders of
+            RESOURCE.SET_LIMITS approve or reject. Approval submits an update order for the requested limits.
         enable_resource_projects (Union[Unset, bool]): Enable sub-project management within resources.
         enable_membership_sync_status (Union[Unset, bool]): Enable per-member sync status reporting by the site agent:
             team views show whether each role grant has propagated to the provider backend, and providers can trigger a
             resync.
+        enable_scim_entitlements (Union[Unset, bool]): Include this offering in outbound SCIM user entitlement sync.
+            Login hosts are read from scim_login_nodes. When unset or false, this offering is not pushed to the remote SCIM
+            service even if SCIM_MEMBERSHIP_SYNC_ENABLED is on.
+        scim_login_nodes (Union[Unset, list[str]]): Bare hostnames of login nodes included in outbound SCIM entitlements
+            when enable_scim_entitlements is set. Each entry is a DNS hostname only (for example login.example.org): stored
+            lowercased, with no ssh:// URL, user@host, or host:port. These are not access links and do not appear in the
+            resource access dropdown.
         enable_resource_access_subnets (Union[Unset, bool]): If set to True, an Access subnets tab is shown on resource
             detail pages, letting consumers curate the IPs allowed to reach the backend entity. The list is advisory data
             for external firewalls.
@@ -130,13 +155,15 @@ class MergedPluginOptions:
         usage_poll_interval_minutes (Union[Unset, int]): Interval in minutes between usage polling for this offering
             (default: 60)
         billing_source (Union[Unset, BillingSourceEnum]):
-        heappe_cluster_id (Union[Unset, str]): HEAppE cluster id
-        heappe_local_base_path (Union[Unset, str]): HEAppE local base path
-        heappe_url (Union[Unset, str]): HEAppE url
-        heappe_username (Union[Unset, str]): HEAppE username
-        homedir_prefix (Union[Unset, str]): GLAuth homedir prefix Default: '/home/'.
-        scratch_project_directory (Union[Unset, str]): HEAppE scratch project directory
-        project_permanent_directory (Union[Unset, str]): HEAppE project permanent directory
+        heappe_cluster_id (Union[None, Unset, str]): HEAppE cluster id
+        heappe_local_base_path (Union[None, Unset, str]): HEAppE local base path
+        heappe_url (Union[None, Unset, str]): HEAppE url
+        heappe_username (Union[None, Unset, str]): HEAppE username
+        heappe_identifier (Union[None, Unset, str]): Identifier of the HEAppE instance this offering targets, e.g.
+            'it4i-heappe-prod'. Lets providers with multiple HEAppE deployments disambiguate which one a given offering
+            uses.
+        scratch_project_directory (Union[None, Unset, str]): HEAppE scratch project directory
+        project_permanent_directory (Union[None, Unset, str]): HEAppE project permanent directory
         enable_posix_account (Union[Unset, bool]): Manage a POSIX/LDAP account (UID, GID, home directory, login shell
             and GLAuth exposure) for this offering's users. Disable for offerings that only need a username. Default: True.
         resource_role_map (Union[Unset, MergedPluginOptionsResourceRoleMap]): Mapping of Waldur role names (on Resource
@@ -150,10 +177,6 @@ class MergedPluginOptions:
         resource_project_role_group_template (Union[Unset, str]): string.Template for resource-project-scope role group
             names. Adds ${rp_uuid}, ${rp_uuid_short}, ${project_name} to the variables available for resource-scope
             templates. Default: '${resource_slug}_${rp_uuid_short}_${role_name}'.
-        username_anonymized_prefix (Union[Unset, str]): GLAuth prefix for anonymized usernames Default: 'waldur_'.
-        username_generation_policy (Union[Unset, UsernameGenerationPolicyEnum]):  Default:
-            UsernameGenerationPolicyEnum.SERVICE_PROVIDER.
-        login_shell (Union[Unset, str]): Default login shell assigned to GLAuth/LDAP accounts. Default: '/bin/bash'.
         uid_source (Union[Unset, PosixIdSourceEnum]):  Default: PosixIdSourceEnum.POOL.
         gid_source (Union[Unset, PosixIdSourceEnum]):  Default: PosixIdSourceEnum.POOL.
         emit_display_name (Union[Unset, bool]): Emit the user's full name as a GLAuth displayName custom attribute
@@ -201,6 +224,10 @@ class MergedPluginOptions:
             the chosen QoS on the SLURM association (QosLevel/DefaultQOS). When disabled (default), QoS is informational
             only — profiles are shown and the selection is recorded on the resource, but the agent does not touch SLURM QoS.
             The agent config may override this per deployment. Default: False.
+        enable_api_key_provisioning (Union[Unset, bool]): Declares that the site agent can govern resource API keys one
+            by one: request, assign, limit, pause, resume and delete them. Without it a resource's keys can only be revealed
+            and rotated. Nothing checks the claim: turn it on only if the agent's backend supports per-key commands (such as
+            the Envoy AI Gateway); on one that does not (such as Ceph S3) every such command errs.
         auto_approve_marketplace_script (Union[Unset, bool]): If set to False, all orders require manual provider
             approval, including for service provider owners and staff Default: True.
         highlight_backend_id_display (Union[Unset, bool]): Defines if backend_id should be shown more prominently by the
@@ -215,11 +242,18 @@ class MergedPluginOptions:
             offering.
         show_ssh_key_loss_warning (Union[Unset, bool]): Show a warning about unrecoverable loss of the SSH private key
             on the OpenStack instance order form. Default: False.
+        hide_api_keys_tab (Union[Unset, bool]): Hide the API keys tab on resources of this offering.
     """
 
+    account_scope: Union[AccountScope, BlankEnum, Unset] = UNSET
+    username_generation_policy: Union[BlankEnum, Unset, UsernameGenerationPolicyEnum] = UNSET
+    username_anonymized_prefix: Union[Unset, str] = UNSET
+    homedir_prefix: Union[Unset, str] = UNSET
+    login_shell: Union[Unset, str] = UNSET
     auto_approve_remote_orders: Union[Unset, bool] = UNSET
     resource_expiration_threshold: Union[Unset, int] = 30
     service_provider_can_create_offering_user: Union[Unset, bool] = UNSET
+    uses_robot_accounts: Union[Unset, bool] = UNSET
     offering_user_auto_deletion: Union[Unset, bool] = False
     max_resource_termination_offset_in_days: Union[Unset, int] = UNSET
     default_resource_termination_offset_in_days: Union[Unset, int] = UNSET
@@ -242,8 +276,11 @@ class MergedPluginOptions:
     conceal_billing_data: Union[Unset, bool] = UNSET
     create_orders_on_resource_option_change: Union[Unset, bool] = UNSET
     enable_resource_end_date_change_requests: Union[Unset, bool] = UNSET
+    enable_resource_limit_change_requests: Union[Unset, bool] = UNSET
     enable_resource_projects: Union[Unset, bool] = UNSET
     enable_membership_sync_status: Union[Unset, bool] = UNSET
+    enable_scim_entitlements: Union[Unset, bool] = UNSET
+    scim_login_nodes: Union[Unset, list[str]] = UNSET
     enable_resource_access_subnets: Union[Unset, bool] = UNSET
     conceal_subnet_restricted_resources: Union[Unset, bool] = UNSET
     resource_projects_limit_policy: Union[BlankEnum, None, ResourceProjectsLimitPolicyEnum, Unset] = UNSET
@@ -266,23 +303,18 @@ class MergedPluginOptions:
     lbaas_enabled: Union[Unset, bool] = UNSET
     usage_poll_interval_minutes: Union[Unset, int] = UNSET
     billing_source: Union[Unset, BillingSourceEnum] = UNSET
-    heappe_cluster_id: Union[Unset, str] = UNSET
-    heappe_local_base_path: Union[Unset, str] = UNSET
-    heappe_url: Union[Unset, str] = UNSET
-    heappe_username: Union[Unset, str] = UNSET
-    homedir_prefix: Union[Unset, str] = "/home/"
-    scratch_project_directory: Union[Unset, str] = UNSET
-    project_permanent_directory: Union[Unset, str] = UNSET
+    heappe_cluster_id: Union[None, Unset, str] = UNSET
+    heappe_local_base_path: Union[None, Unset, str] = UNSET
+    heappe_url: Union[None, Unset, str] = UNSET
+    heappe_username: Union[None, Unset, str] = UNSET
+    heappe_identifier: Union[None, Unset, str] = UNSET
+    scratch_project_directory: Union[None, Unset, str] = UNSET
+    project_permanent_directory: Union[None, Unset, str] = UNSET
     enable_posix_account: Union[Unset, bool] = True
     resource_role_map: Union[Unset, "MergedPluginOptionsResourceRoleMap"] = UNSET
     resource_project_role_map: Union[Unset, "MergedPluginOptionsResourceProjectRoleMap"] = UNSET
     resource_role_group_template: Union[Unset, str] = "${resource_slug}_${role_name}"
     resource_project_role_group_template: Union[Unset, str] = "${resource_slug}_${rp_uuid_short}_${role_name}"
-    username_anonymized_prefix: Union[Unset, str] = "waldur_"
-    username_generation_policy: Union[Unset, UsernameGenerationPolicyEnum] = (
-        UsernameGenerationPolicyEnum.SERVICE_PROVIDER
-    )
-    login_shell: Union[Unset, str] = "/bin/bash"
     uid_source: Union[Unset, PosixIdSourceEnum] = PosixIdSourceEnum.POOL
     gid_source: Union[Unset, PosixIdSourceEnum] = PosixIdSourceEnum.POOL
     emit_display_name: Union[Unset, bool] = False
@@ -310,6 +342,7 @@ class MergedPluginOptions:
     enable_display_of_order_actions_for_service_provider: Union[Unset, bool] = True
     slurm_periodic_policy_enabled: Union[Unset, bool] = False
     enforce_qos: Union[Unset, bool] = False
+    enable_api_key_provisioning: Union[Unset, bool] = UNSET
     auto_approve_marketplace_script: Union[Unset, bool] = True
     highlight_backend_id_display: Union[Unset, bool] = False
     backend_id_display_label: Union[Unset, str] = "Backend ID"
@@ -317,14 +350,39 @@ class MergedPluginOptions:
     expose_inference_playground: Union[Unset, bool] = False
     disabled_resource_actions: Union[Unset, list[str]] = UNSET
     show_ssh_key_loss_warning: Union[Unset, bool] = False
+    hide_api_keys_tab: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        account_scope: Union[Unset, str]
+        if isinstance(self.account_scope, Unset):
+            account_scope = UNSET
+        elif isinstance(self.account_scope, AccountScope):
+            account_scope = self.account_scope.value
+        else:
+            account_scope = self.account_scope.value
+
+        username_generation_policy: Union[Unset, str]
+        if isinstance(self.username_generation_policy, Unset):
+            username_generation_policy = UNSET
+        elif isinstance(self.username_generation_policy, UsernameGenerationPolicyEnum):
+            username_generation_policy = self.username_generation_policy.value
+        else:
+            username_generation_policy = self.username_generation_policy.value
+
+        username_anonymized_prefix = self.username_anonymized_prefix
+
+        homedir_prefix = self.homedir_prefix
+
+        login_shell = self.login_shell
+
         auto_approve_remote_orders = self.auto_approve_remote_orders
 
         resource_expiration_threshold = self.resource_expiration_threshold
 
         service_provider_can_create_offering_user = self.service_provider_can_create_offering_user
+
+        uses_robot_accounts = self.uses_robot_accounts
 
         offering_user_auto_deletion = self.offering_user_auto_deletion
 
@@ -386,9 +444,17 @@ class MergedPluginOptions:
 
         enable_resource_end_date_change_requests = self.enable_resource_end_date_change_requests
 
+        enable_resource_limit_change_requests = self.enable_resource_limit_change_requests
+
         enable_resource_projects = self.enable_resource_projects
 
         enable_membership_sync_status = self.enable_membership_sync_status
+
+        enable_scim_entitlements = self.enable_scim_entitlements
+
+        scim_login_nodes: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.scim_login_nodes, Unset):
+            scim_login_nodes = self.scim_login_nodes
 
         enable_resource_access_subnets = self.enable_resource_access_subnets
 
@@ -458,19 +524,47 @@ class MergedPluginOptions:
         if not isinstance(self.billing_source, Unset):
             billing_source = self.billing_source.value
 
-        heappe_cluster_id = self.heappe_cluster_id
+        heappe_cluster_id: Union[None, Unset, str]
+        if isinstance(self.heappe_cluster_id, Unset):
+            heappe_cluster_id = UNSET
+        else:
+            heappe_cluster_id = self.heappe_cluster_id
 
-        heappe_local_base_path = self.heappe_local_base_path
+        heappe_local_base_path: Union[None, Unset, str]
+        if isinstance(self.heappe_local_base_path, Unset):
+            heappe_local_base_path = UNSET
+        else:
+            heappe_local_base_path = self.heappe_local_base_path
 
-        heappe_url = self.heappe_url
+        heappe_url: Union[None, Unset, str]
+        if isinstance(self.heappe_url, Unset):
+            heappe_url = UNSET
+        else:
+            heappe_url = self.heappe_url
 
-        heappe_username = self.heappe_username
+        heappe_username: Union[None, Unset, str]
+        if isinstance(self.heappe_username, Unset):
+            heappe_username = UNSET
+        else:
+            heappe_username = self.heappe_username
 
-        homedir_prefix = self.homedir_prefix
+        heappe_identifier: Union[None, Unset, str]
+        if isinstance(self.heappe_identifier, Unset):
+            heappe_identifier = UNSET
+        else:
+            heappe_identifier = self.heappe_identifier
 
-        scratch_project_directory = self.scratch_project_directory
+        scratch_project_directory: Union[None, Unset, str]
+        if isinstance(self.scratch_project_directory, Unset):
+            scratch_project_directory = UNSET
+        else:
+            scratch_project_directory = self.scratch_project_directory
 
-        project_permanent_directory = self.project_permanent_directory
+        project_permanent_directory: Union[None, Unset, str]
+        if isinstance(self.project_permanent_directory, Unset):
+            project_permanent_directory = UNSET
+        else:
+            project_permanent_directory = self.project_permanent_directory
 
         enable_posix_account = self.enable_posix_account
 
@@ -485,14 +579,6 @@ class MergedPluginOptions:
         resource_role_group_template = self.resource_role_group_template
 
         resource_project_role_group_template = self.resource_project_role_group_template
-
-        username_anonymized_prefix = self.username_anonymized_prefix
-
-        username_generation_policy: Union[Unset, str] = UNSET
-        if not isinstance(self.username_generation_policy, Unset):
-            username_generation_policy = self.username_generation_policy.value
-
-        login_shell = self.login_shell
 
         uid_source: Union[Unset, str] = UNSET
         if not isinstance(self.uid_source, Unset):
@@ -564,6 +650,8 @@ class MergedPluginOptions:
 
         enforce_qos = self.enforce_qos
 
+        enable_api_key_provisioning = self.enable_api_key_provisioning
+
         auto_approve_marketplace_script = self.auto_approve_marketplace_script
 
         highlight_backend_id_display = self.highlight_backend_id_display
@@ -580,15 +668,29 @@ class MergedPluginOptions:
 
         show_ssh_key_loss_warning = self.show_ssh_key_loss_warning
 
+        hide_api_keys_tab = self.hide_api_keys_tab
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
+        if account_scope is not UNSET:
+            field_dict["account_scope"] = account_scope
+        if username_generation_policy is not UNSET:
+            field_dict["username_generation_policy"] = username_generation_policy
+        if username_anonymized_prefix is not UNSET:
+            field_dict["username_anonymized_prefix"] = username_anonymized_prefix
+        if homedir_prefix is not UNSET:
+            field_dict["homedir_prefix"] = homedir_prefix
+        if login_shell is not UNSET:
+            field_dict["login_shell"] = login_shell
         if auto_approve_remote_orders is not UNSET:
             field_dict["auto_approve_remote_orders"] = auto_approve_remote_orders
         if resource_expiration_threshold is not UNSET:
             field_dict["resource_expiration_threshold"] = resource_expiration_threshold
         if service_provider_can_create_offering_user is not UNSET:
             field_dict["service_provider_can_create_offering_user"] = service_provider_can_create_offering_user
+        if uses_robot_accounts is not UNSET:
+            field_dict["uses_robot_accounts"] = uses_robot_accounts
         if offering_user_auto_deletion is not UNSET:
             field_dict["offering_user_auto_deletion"] = offering_user_auto_deletion
         if max_resource_termination_offset_in_days is not UNSET:
@@ -633,10 +735,16 @@ class MergedPluginOptions:
             field_dict["create_orders_on_resource_option_change"] = create_orders_on_resource_option_change
         if enable_resource_end_date_change_requests is not UNSET:
             field_dict["enable_resource_end_date_change_requests"] = enable_resource_end_date_change_requests
+        if enable_resource_limit_change_requests is not UNSET:
+            field_dict["enable_resource_limit_change_requests"] = enable_resource_limit_change_requests
         if enable_resource_projects is not UNSET:
             field_dict["enable_resource_projects"] = enable_resource_projects
         if enable_membership_sync_status is not UNSET:
             field_dict["enable_membership_sync_status"] = enable_membership_sync_status
+        if enable_scim_entitlements is not UNSET:
+            field_dict["enable_scim_entitlements"] = enable_scim_entitlements
+        if scim_login_nodes is not UNSET:
+            field_dict["scim_login_nodes"] = scim_login_nodes
         if enable_resource_access_subnets is not UNSET:
             field_dict["enable_resource_access_subnets"] = enable_resource_access_subnets
         if conceal_subnet_restricted_resources is not UNSET:
@@ -689,8 +797,8 @@ class MergedPluginOptions:
             field_dict["heappe_url"] = heappe_url
         if heappe_username is not UNSET:
             field_dict["heappe_username"] = heappe_username
-        if homedir_prefix is not UNSET:
-            field_dict["homedir_prefix"] = homedir_prefix
+        if heappe_identifier is not UNSET:
+            field_dict["heappe_identifier"] = heappe_identifier
         if scratch_project_directory is not UNSET:
             field_dict["scratch_project_directory"] = scratch_project_directory
         if project_permanent_directory is not UNSET:
@@ -705,12 +813,6 @@ class MergedPluginOptions:
             field_dict["resource_role_group_template"] = resource_role_group_template
         if resource_project_role_group_template is not UNSET:
             field_dict["resource_project_role_group_template"] = resource_project_role_group_template
-        if username_anonymized_prefix is not UNSET:
-            field_dict["username_anonymized_prefix"] = username_anonymized_prefix
-        if username_generation_policy is not UNSET:
-            field_dict["username_generation_policy"] = username_generation_policy
-        if login_shell is not UNSET:
-            field_dict["login_shell"] = login_shell
         if uid_source is not UNSET:
             field_dict["uid_source"] = uid_source
         if gid_source is not UNSET:
@@ -779,6 +881,8 @@ class MergedPluginOptions:
             field_dict["slurm_periodic_policy_enabled"] = slurm_periodic_policy_enabled
         if enforce_qos is not UNSET:
             field_dict["enforce_qos"] = enforce_qos
+        if enable_api_key_provisioning is not UNSET:
+            field_dict["enable_api_key_provisioning"] = enable_api_key_provisioning
         if auto_approve_marketplace_script is not UNSET:
             field_dict["auto_approve_marketplace_script"] = auto_approve_marketplace_script
         if highlight_backend_id_display is not UNSET:
@@ -793,6 +897,8 @@ class MergedPluginOptions:
             field_dict["disabled_resource_actions"] = disabled_resource_actions
         if show_ssh_key_loss_warning is not UNSET:
             field_dict["show_ssh_key_loss_warning"] = show_ssh_key_loss_warning
+        if hide_api_keys_tab is not UNSET:
+            field_dict["hide_api_keys_tab"] = hide_api_keys_tab
 
         return field_dict
 
@@ -802,11 +908,58 @@ class MergedPluginOptions:
         from ..models.merged_plugin_options_resource_role_map import MergedPluginOptionsResourceRoleMap
 
         d = dict(src_dict)
+
+        def _parse_account_scope(data: object) -> Union[AccountScope, BlankEnum, Unset]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                account_scope_type_0 = AccountScope(data)
+
+                return account_scope_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, str):
+                raise TypeError()
+            account_scope_type_1 = BlankEnum(data)
+
+            return account_scope_type_1
+
+        account_scope = _parse_account_scope(d.pop("account_scope", UNSET))
+
+        def _parse_username_generation_policy(data: object) -> Union[BlankEnum, Unset, UsernameGenerationPolicyEnum]:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                username_generation_policy_type_0 = UsernameGenerationPolicyEnum(data)
+
+                return username_generation_policy_type_0
+            except:  # noqa: E722
+                pass
+            if not isinstance(data, str):
+                raise TypeError()
+            username_generation_policy_type_1 = BlankEnum(data)
+
+            return username_generation_policy_type_1
+
+        username_generation_policy = _parse_username_generation_policy(d.pop("username_generation_policy", UNSET))
+
+        username_anonymized_prefix = d.pop("username_anonymized_prefix", UNSET)
+
+        homedir_prefix = d.pop("homedir_prefix", UNSET)
+
+        login_shell = d.pop("login_shell", UNSET)
+
         auto_approve_remote_orders = d.pop("auto_approve_remote_orders", UNSET)
 
         resource_expiration_threshold = d.pop("resource_expiration_threshold", UNSET)
 
         service_provider_can_create_offering_user = d.pop("service_provider_can_create_offering_user", UNSET)
+
+        uses_robot_accounts = d.pop("uses_robot_accounts", UNSET)
 
         offering_user_auto_deletion = d.pop("offering_user_auto_deletion", UNSET)
 
@@ -884,9 +1037,15 @@ class MergedPluginOptions:
 
         enable_resource_end_date_change_requests = d.pop("enable_resource_end_date_change_requests", UNSET)
 
+        enable_resource_limit_change_requests = d.pop("enable_resource_limit_change_requests", UNSET)
+
         enable_resource_projects = d.pop("enable_resource_projects", UNSET)
 
         enable_membership_sync_status = d.pop("enable_membership_sync_status", UNSET)
+
+        enable_scim_entitlements = d.pop("enable_scim_entitlements", UNSET)
+
+        scim_login_nodes = cast(list[str], d.pop("scim_login_nodes", UNSET))
 
         enable_resource_access_subnets = d.pop("enable_resource_access_subnets", UNSET)
 
@@ -990,19 +1149,68 @@ class MergedPluginOptions:
         else:
             billing_source = BillingSourceEnum(_billing_source)
 
-        heappe_cluster_id = d.pop("heappe_cluster_id", UNSET)
+        def _parse_heappe_cluster_id(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
 
-        heappe_local_base_path = d.pop("heappe_local_base_path", UNSET)
+        heappe_cluster_id = _parse_heappe_cluster_id(d.pop("heappe_cluster_id", UNSET))
 
-        heappe_url = d.pop("heappe_url", UNSET)
+        def _parse_heappe_local_base_path(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
 
-        heappe_username = d.pop("heappe_username", UNSET)
+        heappe_local_base_path = _parse_heappe_local_base_path(d.pop("heappe_local_base_path", UNSET))
 
-        homedir_prefix = d.pop("homedir_prefix", UNSET)
+        def _parse_heappe_url(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
 
-        scratch_project_directory = d.pop("scratch_project_directory", UNSET)
+        heappe_url = _parse_heappe_url(d.pop("heappe_url", UNSET))
 
-        project_permanent_directory = d.pop("project_permanent_directory", UNSET)
+        def _parse_heappe_username(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        heappe_username = _parse_heappe_username(d.pop("heappe_username", UNSET))
+
+        def _parse_heappe_identifier(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        heappe_identifier = _parse_heappe_identifier(d.pop("heappe_identifier", UNSET))
+
+        def _parse_scratch_project_directory(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        scratch_project_directory = _parse_scratch_project_directory(d.pop("scratch_project_directory", UNSET))
+
+        def _parse_project_permanent_directory(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        project_permanent_directory = _parse_project_permanent_directory(d.pop("project_permanent_directory", UNSET))
 
         enable_posix_account = d.pop("enable_posix_account", UNSET)
 
@@ -1023,17 +1231,6 @@ class MergedPluginOptions:
         resource_role_group_template = d.pop("resource_role_group_template", UNSET)
 
         resource_project_role_group_template = d.pop("resource_project_role_group_template", UNSET)
-
-        username_anonymized_prefix = d.pop("username_anonymized_prefix", UNSET)
-
-        _username_generation_policy = d.pop("username_generation_policy", UNSET)
-        username_generation_policy: Union[Unset, UsernameGenerationPolicyEnum]
-        if isinstance(_username_generation_policy, Unset):
-            username_generation_policy = UNSET
-        else:
-            username_generation_policy = UsernameGenerationPolicyEnum(_username_generation_policy)
-
-        login_shell = d.pop("login_shell", UNSET)
 
         _uid_source = d.pop("uid_source", UNSET)
         uid_source: Union[Unset, PosixIdSourceEnum]
@@ -1131,6 +1328,8 @@ class MergedPluginOptions:
 
         enforce_qos = d.pop("enforce_qos", UNSET)
 
+        enable_api_key_provisioning = d.pop("enable_api_key_provisioning", UNSET)
+
         auto_approve_marketplace_script = d.pop("auto_approve_marketplace_script", UNSET)
 
         highlight_backend_id_display = d.pop("highlight_backend_id_display", UNSET)
@@ -1145,10 +1344,18 @@ class MergedPluginOptions:
 
         show_ssh_key_loss_warning = d.pop("show_ssh_key_loss_warning", UNSET)
 
+        hide_api_keys_tab = d.pop("hide_api_keys_tab", UNSET)
+
         merged_plugin_options = cls(
+            account_scope=account_scope,
+            username_generation_policy=username_generation_policy,
+            username_anonymized_prefix=username_anonymized_prefix,
+            homedir_prefix=homedir_prefix,
+            login_shell=login_shell,
             auto_approve_remote_orders=auto_approve_remote_orders,
             resource_expiration_threshold=resource_expiration_threshold,
             service_provider_can_create_offering_user=service_provider_can_create_offering_user,
+            uses_robot_accounts=uses_robot_accounts,
             offering_user_auto_deletion=offering_user_auto_deletion,
             max_resource_termination_offset_in_days=max_resource_termination_offset_in_days,
             default_resource_termination_offset_in_days=default_resource_termination_offset_in_days,
@@ -1171,8 +1378,11 @@ class MergedPluginOptions:
             conceal_billing_data=conceal_billing_data,
             create_orders_on_resource_option_change=create_orders_on_resource_option_change,
             enable_resource_end_date_change_requests=enable_resource_end_date_change_requests,
+            enable_resource_limit_change_requests=enable_resource_limit_change_requests,
             enable_resource_projects=enable_resource_projects,
             enable_membership_sync_status=enable_membership_sync_status,
+            enable_scim_entitlements=enable_scim_entitlements,
+            scim_login_nodes=scim_login_nodes,
             enable_resource_access_subnets=enable_resource_access_subnets,
             conceal_subnet_restricted_resources=conceal_subnet_restricted_resources,
             resource_projects_limit_policy=resource_projects_limit_policy,
@@ -1199,7 +1409,7 @@ class MergedPluginOptions:
             heappe_local_base_path=heappe_local_base_path,
             heappe_url=heappe_url,
             heappe_username=heappe_username,
-            homedir_prefix=homedir_prefix,
+            heappe_identifier=heappe_identifier,
             scratch_project_directory=scratch_project_directory,
             project_permanent_directory=project_permanent_directory,
             enable_posix_account=enable_posix_account,
@@ -1207,9 +1417,6 @@ class MergedPluginOptions:
             resource_project_role_map=resource_project_role_map,
             resource_role_group_template=resource_role_group_template,
             resource_project_role_group_template=resource_project_role_group_template,
-            username_anonymized_prefix=username_anonymized_prefix,
-            username_generation_policy=username_generation_policy,
-            login_shell=login_shell,
             uid_source=uid_source,
             gid_source=gid_source,
             emit_display_name=emit_display_name,
@@ -1237,6 +1444,7 @@ class MergedPluginOptions:
             enable_display_of_order_actions_for_service_provider=enable_display_of_order_actions_for_service_provider,
             slurm_periodic_policy_enabled=slurm_periodic_policy_enabled,
             enforce_qos=enforce_qos,
+            enable_api_key_provisioning=enable_api_key_provisioning,
             auto_approve_marketplace_script=auto_approve_marketplace_script,
             highlight_backend_id_display=highlight_backend_id_display,
             backend_id_display_label=backend_id_display_label,
@@ -1244,6 +1452,7 @@ class MergedPluginOptions:
             expose_inference_playground=expose_inference_playground,
             disabled_resource_actions=disabled_resource_actions,
             show_ssh_key_loss_warning=show_ssh_key_loss_warning,
+            hide_api_keys_tab=hide_api_keys_tab,
         )
 
         merged_plugin_options.additional_properties = d

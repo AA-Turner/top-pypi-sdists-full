@@ -3,15 +3,17 @@
 import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
+from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
-from ..types.batch_add_item import BatchAddItem
-from ..types.batch_item_detail import BatchItemDetail
-from ..types.batch_item_list_response import BatchItemListResponse
-from ..types.batch_list_response import BatchListResponse
-from ..types.batch_summary import BatchSummary
-from ..types.role_type import RoleType
-from ..types.success_response import SuccessResponse
+from ..types.batch import Batch
+from ..types.batch_item import BatchItem
+from ..types.batch_item_input import BatchItemInput
+from ..types.batch_item_page import BatchItemPage
+from ..types.batch_items_response import BatchItemsResponse
+from ..types.batch_page import BatchPage
+from ..types.process_batch_result import ProcessBatchResult
 from .raw_client import AsyncRawBatchClient, RawBatchClient
+from .types.batch_list_request_status import BatchListRequestStatus
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -35,32 +37,30 @@ class BatchClient:
     def list(
         self,
         *,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[int] = None,
-        status: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        status: typing.Optional[BatchListRequestStatus] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BatchListResponse:
+    ) -> SyncPager[Batch, BatchPage]:
         """
-        List batches for the current project, optionally filtered by batch status.
-
         Parameters
         ----------
-        limit : typing.Optional[int]
-            Maximum number of batches to return.
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        cursor : typing.Optional[int]
-            Pagination cursor from a previous response.
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
-        status : typing.Optional[str]
-            Batch status filter.
+        status : typing.Optional[BatchListRequestStatus]
+            Batch status filter
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchListResponse
-            Batch list
+        SyncPager[Batch, BatchPage]
+            OK
 
         Examples
         --------
@@ -69,46 +69,47 @@ class BatchClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.batch.list(
-            limit=1,
-            cursor=1,
-            status="status",
-        )
+        response = client.batch.list()
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list(limit=limit, cursor=cursor, status=status, request_options=request_options)
-        return _response.data
+        return self._raw_client.list(page_size=page_size, cursor=cursor, status=status, request_options=request_options)
 
     def create(
         self,
         *,
-        ignore_roles: typing.Optional[typing.Sequence[RoleType]] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        ignore_roles: typing.Optional[typing.Sequence[str]] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         strict_ontology: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BatchSummary:
+    ) -> Batch:
         """
-        Create a draft batch that can be filled with graph episodes and thread messages.
-
         Parameters
         ----------
-        ignore_roles : typing.Optional[typing.Sequence[RoleType]]
-            Optional list of message role types to skip during graph ingestion for
-            thread_message items in this batch. The messages are still stored and
-            retained as context, but no graph extraction is performed for them.
-            Has no effect on graph_episode items.
+        ignore_roles : typing.Optional[typing.Sequence[str]]
+            Message roles to skip during graph extraction for thread message items in
+            this batch.
 
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to store on the batch.
 
         strict_ontology : typing.Optional[bool]
-            When true, prevents extraction of generic Entity nodes that do not match the configured ontology.
+            When true, prevents extraction of generic entity nodes that do not match
+            the configured ontology for episodes in this batch.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchSummary
-            Created batch
+        Batch
+            Created
 
         Examples
         --------
@@ -123,26 +124,25 @@ class BatchClient:
             ignore_roles=ignore_roles,
             metadata=metadata,
             strict_ontology=strict_ontology,
+            idempotency_key=idempotency_key,
             request_options=request_options,
         )
         return _response.data
 
-    def get(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> BatchSummary:
+    def get(self, batch_uuid: str, *, request_options: typing.Optional[RequestOptions] = None) -> Batch:
         """
-        Get a batch summary, including runtime progress when the batch has been processed.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchSummary
-            Batch summary
+        Batch
+            OK
 
         Examples
         --------
@@ -152,28 +152,33 @@ class BatchClient:
             api_key="YOUR_API_KEY",
         )
         client.batch.get(
-            batch_id="batchId",
+            batch_uuid="batch_uuid",
         )
         """
-        _response = self._raw_client.get(batch_id, request_options=request_options)
+        _response = self._raw_client.get(batch_uuid, request_options=request_options)
         return _response.data
 
-    def delete(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> SuccessResponse:
+    def delete(
+        self,
+        batch_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
         """
-        Delete a draft or invalid unprocessed batch. Processed batches cannot be deleted.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SuccessResponse
-            Deleted batch
+        None
 
         Examples
         --------
@@ -183,45 +188,41 @@ class BatchClient:
             api_key="YOUR_API_KEY",
         )
         client.batch.delete(
-            batch_id="batchId",
+            batch_uuid="batch_uuid",
         )
         """
-        _response = self._raw_client.delete(batch_id, request_options=request_options)
+        _response = self._raw_client.delete(
+            batch_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     def list_items(
         self,
-        batch_id: str,
+        batch_uuid: str,
         *,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[int] = None,
-        status: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BatchItemListResponse:
+    ) -> SyncPager[BatchItem, BatchItemPage]:
         """
-        List items in a batch, including derived runtime status when the batch has been processed.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
 
-        limit : typing.Optional[int]
-            Maximum number of batch items to return.
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        cursor : typing.Optional[int]
-            Pagination cursor from a previous response.
-
-        status : typing.Optional[str]
-            Batch item status filter.
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchItemListResponse
-            Batch item list
+        SyncPager[BatchItem, BatchItemPage]
+            OK
 
         Examples
         --------
@@ -230,78 +231,89 @@ class BatchClient:
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.batch.list_items(
-            batch_id="batchId",
-            limit=1,
-            cursor=1,
-            status="status",
+        response = client.batch.list_items(
+            batch_uuid="batch_uuid",
         )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
         """
-        _response = self._raw_client.list_items(
-            batch_id, limit=limit, cursor=cursor, status=status, request_options=request_options
+        return self._raw_client.list_items(
+            batch_uuid, page_size=page_size, cursor=cursor, request_options=request_options
         )
-        return _response.data
 
-    def add(
+    def add_items(
         self,
-        batch_id: str,
+        batch_uuid: str,
         *,
-        items: typing.Sequence[BatchAddItem],
+        items: typing.Sequence[BatchItemInput],
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[BatchItemDetail]:
+    ) -> BatchItemsResponse:
         """
-        Add graph episodes and thread messages to a draft batch. Items are appended in request order.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
 
-        items : typing.Sequence[BatchAddItem]
+        items : typing.Sequence[BatchItemInput]
+            The batch items to append, each identified by its type field.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[BatchItemDetail]
-            Added batch items
+        BatchItemsResponse
+            OK
 
         Examples
         --------
-        from zep_cloud import BatchAddItem, Zep
+        from zep_cloud import BatchItemInput, Zep
 
         client = Zep(
             api_key="YOUR_API_KEY",
         )
-        client.batch.add(
-            batch_id="batchId",
+        client.batch.add_items(
+            batch_uuid="batch_uuid",
             items=[
-                BatchAddItem(
+                BatchItemInput(
                     type="graph_episode",
                 )
             ],
         )
         """
-        _response = self._raw_client.add(batch_id, items=items, request_options=request_options)
+        _response = self._raw_client.add_items(
+            batch_uuid, items=items, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
-    def process(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> BatchSummary:
+    def process(
+        self,
+        batch_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ProcessBatchResult:
         """
-        Start processing a filled batch. Repeated calls return a conflict.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchSummary
-            Batch processing state
+        ProcessBatchResult
+            Accepted
 
         Examples
         --------
@@ -311,10 +323,12 @@ class BatchClient:
             api_key="YOUR_API_KEY",
         )
         client.batch.process(
-            batch_id="batchId",
+            batch_uuid="batch_uuid",
         )
         """
-        _response = self._raw_client.process(batch_id, request_options=request_options)
+        _response = self._raw_client.process(
+            batch_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
 
@@ -336,32 +350,30 @@ class AsyncBatchClient:
     async def list(
         self,
         *,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[int] = None,
-        status: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        status: typing.Optional[BatchListRequestStatus] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BatchListResponse:
+    ) -> AsyncPager[Batch, BatchPage]:
         """
-        List batches for the current project, optionally filtered by batch status.
-
         Parameters
         ----------
-        limit : typing.Optional[int]
-            Maximum number of batches to return.
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        cursor : typing.Optional[int]
-            Pagination cursor from a previous response.
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
-        status : typing.Optional[str]
-            Batch status filter.
+        status : typing.Optional[BatchListRequestStatus]
+            Batch status filter
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchListResponse
-            Batch list
+        AsyncPager[Batch, BatchPage]
+            OK
 
         Examples
         --------
@@ -375,51 +387,53 @@ class AsyncBatchClient:
 
 
         async def main() -> None:
-            await client.batch.list(
-                limit=1,
-                cursor=1,
-                status="status",
-            )
+            response = await client.batch.list()
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(
-            limit=limit, cursor=cursor, status=status, request_options=request_options
+        return await self._raw_client.list(
+            page_size=page_size, cursor=cursor, status=status, request_options=request_options
         )
-        return _response.data
 
     async def create(
         self,
         *,
-        ignore_roles: typing.Optional[typing.Sequence[RoleType]] = OMIT,
-        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        ignore_roles: typing.Optional[typing.Sequence[str]] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         strict_ontology: typing.Optional[bool] = OMIT,
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BatchSummary:
+    ) -> Batch:
         """
-        Create a draft batch that can be filled with graph episodes and thread messages.
-
         Parameters
         ----------
-        ignore_roles : typing.Optional[typing.Sequence[RoleType]]
-            Optional list of message role types to skip during graph ingestion for
-            thread_message items in this batch. The messages are still stored and
-            retained as context, but no graph extraction is performed for them.
-            Has no effect on graph_episode items.
+        ignore_roles : typing.Optional[typing.Sequence[str]]
+            Message roles to skip during graph extraction for thread message items in
+            this batch.
 
-        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+        metadata : typing.Optional[typing.Dict[str, typing.Any]]
+            Metadata to store on the batch.
 
         strict_ontology : typing.Optional[bool]
-            When true, prevents extraction of generic Entity nodes that do not match the configured ontology.
+            When true, prevents extraction of generic entity nodes that do not match
+            the configured ontology for episodes in this batch.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchSummary
-            Created batch
+        Batch
+            Created
 
         Examples
         --------
@@ -442,26 +456,25 @@ class AsyncBatchClient:
             ignore_roles=ignore_roles,
             metadata=metadata,
             strict_ontology=strict_ontology,
+            idempotency_key=idempotency_key,
             request_options=request_options,
         )
         return _response.data
 
-    async def get(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> BatchSummary:
+    async def get(self, batch_uuid: str, *, request_options: typing.Optional[RequestOptions] = None) -> Batch:
         """
-        Get a batch summary, including runtime progress when the batch has been processed.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchSummary
-            Batch summary
+        Batch
+            OK
 
         Examples
         --------
@@ -476,33 +489,36 @@ class AsyncBatchClient:
 
         async def main() -> None:
             await client.batch.get(
-                batch_id="batchId",
+                batch_uuid="batch_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.get(batch_id, request_options=request_options)
+        _response = await self._raw_client.get(batch_uuid, request_options=request_options)
         return _response.data
 
     async def delete(
-        self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> SuccessResponse:
+        self,
+        batch_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
         """
-        Delete a draft or invalid unprocessed batch. Processed batches cannot be deleted.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        SuccessResponse
-            Deleted batch
+        None
 
         Examples
         --------
@@ -517,48 +533,44 @@ class AsyncBatchClient:
 
         async def main() -> None:
             await client.batch.delete(
-                batch_id="batchId",
+                batch_uuid="batch_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.delete(batch_id, request_options=request_options)
+        _response = await self._raw_client.delete(
+            batch_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
     async def list_items(
         self,
-        batch_id: str,
+        batch_uuid: str,
         *,
-        limit: typing.Optional[int] = None,
-        cursor: typing.Optional[int] = None,
-        status: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BatchItemListResponse:
+    ) -> AsyncPager[BatchItem, BatchItemPage]:
         """
-        List items in a batch, including derived runtime status when the batch has been processed.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
 
-        limit : typing.Optional[int]
-            Maximum number of batch items to return.
+        page_size : typing.Optional[int]
+            The maximum number of items in one page. The SDK method returns a pager. In Python, `.items` holds only the first page. In TypeScript, `.data` holds only the first page. To read every page, iterate the pager: use `for` or `list(...)` in Python, or `for await` in TypeScript. In Go, the method returns one page, and `Iterator()` reads all pages.
 
-        cursor : typing.Optional[int]
-            Pagination cursor from a previous response.
-
-        status : typing.Optional[str]
-            Batch item status filter.
+        cursor : typing.Optional[str]
+            Opaque page cursor
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchItemListResponse
-            Batch item list
+        AsyncPager[BatchItem, BatchItemPage]
+            OK
 
         Examples
         --------
@@ -572,51 +584,55 @@ class AsyncBatchClient:
 
 
         async def main() -> None:
-            await client.batch.list_items(
-                batch_id="batchId",
-                limit=1,
-                cursor=1,
-                status="status",
+            response = await client.batch.list_items(
+                batch_uuid="batch_uuid",
             )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_items(
-            batch_id, limit=limit, cursor=cursor, status=status, request_options=request_options
+        return await self._raw_client.list_items(
+            batch_uuid, page_size=page_size, cursor=cursor, request_options=request_options
         )
-        return _response.data
 
-    async def add(
+    async def add_items(
         self,
-        batch_id: str,
+        batch_uuid: str,
         *,
-        items: typing.Sequence[BatchAddItem],
+        items: typing.Sequence[BatchItemInput],
+        idempotency_key: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[BatchItemDetail]:
+    ) -> BatchItemsResponse:
         """
-        Add graph episodes and thread messages to a draft batch. Items are appended in request order.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
 
-        items : typing.Sequence[BatchAddItem]
+        items : typing.Sequence[BatchItemInput]
+            The batch items to append, each identified by its type field.
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[BatchItemDetail]
-            Added batch items
+        BatchItemsResponse
+            OK
 
         Examples
         --------
         import asyncio
 
-        from zep_cloud import AsyncZep, BatchAddItem
+        from zep_cloud import AsyncZep, BatchItemInput
 
         client = AsyncZep(
             api_key="YOUR_API_KEY",
@@ -624,10 +640,10 @@ class AsyncBatchClient:
 
 
         async def main() -> None:
-            await client.batch.add(
-                batch_id="batchId",
+            await client.batch.add_items(
+                batch_uuid="batch_uuid",
                 items=[
-                    BatchAddItem(
+                    BatchItemInput(
                         type="graph_episode",
                     )
                 ],
@@ -636,25 +652,33 @@ class AsyncBatchClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.add(batch_id, items=items, request_options=request_options)
+        _response = await self._raw_client.add_items(
+            batch_uuid, items=items, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data
 
-    async def process(self, batch_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> BatchSummary:
+    async def process(
+        self,
+        batch_uuid: str,
+        *,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ProcessBatchResult:
         """
-        Start processing a filled batch. Repeated calls return a conflict.
-
         Parameters
         ----------
-        batch_id : str
-            The batch ID.
+        batch_uuid : str
+            Batch UUID
+
+        idempotency_key : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        BatchSummary
-            Batch processing state
+        ProcessBatchResult
+            Accepted
 
         Examples
         --------
@@ -669,11 +693,13 @@ class AsyncBatchClient:
 
         async def main() -> None:
             await client.batch.process(
-                batch_id="batchId",
+                batch_uuid="batch_uuid",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.process(batch_id, request_options=request_options)
+        _response = await self._raw_client.process(
+            batch_uuid, idempotency_key=idempotency_key, request_options=request_options
+        )
         return _response.data

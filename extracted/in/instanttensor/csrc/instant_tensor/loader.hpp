@@ -95,7 +95,8 @@ public:
     void abort_io();
     void poll_worker_completions(std::vector<IOCompletion> &completed);
     IOCompletion complete_native_read(chunk_id_t id, ssize_t result);
-    void compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets);
+    void compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets,
+                        const vector<bool>& tensor_keep = {});
     void open(OpenArgs args);
     void close(CloseArgs args);
     void post_read_chunk();

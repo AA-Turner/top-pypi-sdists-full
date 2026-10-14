@@ -79,6 +79,7 @@ from .literals import (
     ClarifyFeatureTypeType,
     ClarifyTextGranularityType,
     ClarifyTextLanguageType,
+    CleanupFailureErrorCodeType,
     ClusterAutoScalingModeType,
     ClusterAutoScalingStatusType,
     ClusterCapacityTypeType,
@@ -141,6 +142,7 @@ from .literals import (
     FillingTypeType,
     FlatInvocationsType,
     FlowDefinitionStatusType,
+    ForEachStatusType,
     FrameworkType,
     HomeEfsFileSystemCreationType,
     HubContentSortByType,
@@ -481,6 +483,7 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AthenaStepMetadataTypeDef",
     "AttachClusterNodeNetworkInterfaceRequestTypeDef",
     "AttachClusterNodeNetworkInterfaceResponseTypeDef",
     "AttachClusterNodeVolumeRequestTypeDef",
@@ -595,6 +598,8 @@ __all__ = (
     "ClarifyShapBaselineConfigTypeDef",
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
+    "CleanupFailureTypeDef",
+    "CleanupStepMetadataTypeDef",
     "ClusterAccountingDatabaseTypeDef",
     "ClusterAutoPatchConfigDetailsTypeDef",
     "ClusterAutoPatchConfigTypeDef",
@@ -1146,6 +1151,7 @@ __all__ = (
     "DynamicScalingConfigurationTypeDef",
     "EFSFileSystemConfigTypeDef",
     "EFSFileSystemTypeDef",
+    "EMRServerlessStepMetadataTypeDef",
     "EMRStepMetadataTypeDef",
     "EbsStorageSettingsTypeDef",
     "Ec2CapacityReservationTypeDef",
@@ -1212,6 +1218,8 @@ __all__ = (
     "FinalHyperParameterTuningJobObjectiveMetricTypeDef",
     "FlowDefinitionOutputConfigTypeDef",
     "FlowDefinitionSummaryTypeDef",
+    "ForEachSelectorResultTypeDef",
+    "ForEachStepMetadataTypeDef",
     "GenerativeAiSettingsTypeDef",
     "GetDeviceFleetReportRequestTypeDef",
     "GetDeviceFleetReportResponseTypeDef",
@@ -1338,6 +1346,7 @@ __all__ = (
     "InstanceRequirementsEniConfigurationTypeDef",
     "IntegerParameterRangeSpecificationTypeDef",
     "IntegerParameterRangeTypeDef",
+    "IterationContextTypeDef",
     "JobConfigSchemaVersionSummaryTypeDef",
     "JobSecondaryStatusTransitionTypeDef",
     "JobStepMetadataTypeDef",
@@ -2504,6 +2513,10 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
 
+class AthenaStepMetadataTypeDef(TypedDict):
+    QueryExecutionId: NotRequired[str]
+    S3OutputLocation: NotRequired[str]
+
 class AttachClusterNodeNetworkInterfaceRequestTypeDef(TypedDict):
     ClusterName: str
     NodeId: str
@@ -2886,6 +2899,11 @@ class ClarifyShapBaselineConfigTypeDef(TypedDict):
 class ClarifyTextConfigTypeDef(TypedDict):
     Language: ClarifyTextLanguageType
     Granularity: ClarifyTextGranularityType
+
+class CleanupFailureTypeDef(TypedDict):
+    StepName: NotRequired[str]
+    ErrorCode: NotRequired[CleanupFailureErrorCodeType]
+    ErrorMessage: NotRequired[str]
 
 class ClusterAccountingDatabaseTypeDef(TypedDict):
     Endpoint: str
@@ -4400,6 +4418,12 @@ class FileSourceTypeDef(TypedDict):
     ContentType: NotRequired[str]
     ContentDigest: NotRequired[str]
 
+class EMRServerlessStepMetadataTypeDef(TypedDict):
+    ApplicationId: NotRequired[str]
+    JobRunId: NotRequired[str]
+    JobRunName: NotRequired[str]
+    LogFilePath: NotRequired[str]
+
 class EMRStepMetadataTypeDef(TypedDict):
     ClusterId: NotRequired[str]
     StepId: NotRequired[str]
@@ -4528,6 +4552,10 @@ class FlowDefinitionSummaryTypeDef(TypedDict):
     FlowDefinitionStatus: FlowDefinitionStatusType
     CreationTime: datetime
     FailureReason: NotRequired[str]
+
+class ForEachSelectorResultTypeDef(TypedDict):
+    StepName: NotRequired[str]
+    Index: NotRequired[int]
 
 class GetDeviceFleetReportRequestTypeDef(TypedDict):
     DeviceFleetName: str
@@ -4773,6 +4801,11 @@ class IntegerParameterRangeTypeDef(TypedDict):
     MinValue: str
     MaxValue: str
     ScalingType: NotRequired[HyperParameterScalingTypeType]
+
+class IterationContextTypeDef(TypedDict):
+    ParentStepName: NotRequired[str]
+    Index: NotRequired[int]
+    Item: NotRequired[str]
 
 class JobConfigSchemaVersionSummaryTypeDef(TypedDict):
     JobConfigSchemaVersion: str
@@ -7094,6 +7127,11 @@ class ClarifyShapConfigTypeDef(TypedDict):
     UseLogit: NotRequired[bool]
     Seed: NotRequired[int]
     TextConfig: NotRequired[ClarifyTextConfigTypeDef]
+
+class CleanupStepMetadataTypeDef(TypedDict):
+    CleanedSteps: NotRequired[list[str]]
+    FailedSteps: NotRequired[list[CleanupFailureTypeDef]]
+    SkippedSteps: NotRequired[list[str]]
 
 class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
     SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
@@ -9661,6 +9699,15 @@ class ListFlowDefinitionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ForEachStepMetadataTypeDef(TypedDict):
+    Status: NotRequired[ForEachStatusType]
+    InputItemCount: NotRequired[int]
+    TotalStepCount: NotRequired[int]
+    SucceededStepCount: NotRequired[int]
+    FailedStepCount: NotRequired[int]
+    StoppedStepCount: NotRequired[int]
+    Selector: NotRequired[ForEachSelectorResultTypeDef]
+
 class GetScalingConfigurationRecommendationRequestTypeDef(TypedDict):
     InferenceRecommendationsJobName: str
     RecommendationId: NotRequired[str]
@@ -10627,31 +10674,6 @@ class ModelMetricsTypeDef(TypedDict):
     Bias: NotRequired[BiasTypeDef]
     Explainability: NotRequired[ExplainabilityTypeDef]
 
-class PipelineExecutionStepMetadataTypeDef(TypedDict):
-    TrainingJob: NotRequired[TrainingJobStepMetadataTypeDef]
-    ProcessingJob: NotRequired[ProcessingJobStepMetadataTypeDef]
-    TransformJob: NotRequired[TransformJobStepMetadataTypeDef]
-    TuningJob: NotRequired[TuningJobStepMetaDataTypeDef]
-    Model: NotRequired[ModelStepMetadataTypeDef]
-    RegisterModel: NotRequired[RegisterModelStepMetadataTypeDef]
-    Condition: NotRequired[ConditionStepMetadataTypeDef]
-    Callback: NotRequired[CallbackStepMetadataTypeDef]
-    Lambda: NotRequired[LambdaStepMetadataTypeDef]
-    EMR: NotRequired[EMRStepMetadataTypeDef]
-    QualityCheck: NotRequired[QualityCheckStepMetadataTypeDef]
-    ClarifyCheck: NotRequired[ClarifyCheckStepMetadataTypeDef]
-    Fail: NotRequired[FailStepMetadataTypeDef]
-    AutoMLJob: NotRequired[AutoMLJobStepMetadataTypeDef]
-    Endpoint: NotRequired[EndpointStepMetadataTypeDef]
-    EndpointConfig: NotRequired[EndpointConfigStepMetadataTypeDef]
-    BedrockCustomModel: NotRequired[BedrockCustomModelMetadataTypeDef]
-    BedrockCustomModelDeployment: NotRequired[BedrockCustomModelDeploymentMetadataTypeDef]
-    BedrockProvisionedModelThroughput: NotRequired[BedrockProvisionedModelThroughputMetadataTypeDef]
-    BedrockModelImport: NotRequired[BedrockModelImportMetadataTypeDef]
-    InferenceComponent: NotRequired[InferenceComponentMetadataTypeDef]
-    Lineage: NotRequired[LineageMetadataTypeDef]
-    Job: NotRequired[JobStepMetadataTypeDef]
-
 class AutoMLCandidateTypeDef(TypedDict):
     CandidateName: str
     ObjectiveStatus: ObjectiveStatusType
@@ -10944,6 +10966,35 @@ class ListTrainingJobsForHyperParameterTuningJobResponseTypeDef(TypedDict):
     TrainingJobSummaries: list[HyperParameterTrainingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class PipelineExecutionStepMetadataTypeDef(TypedDict):
+    TrainingJob: NotRequired[TrainingJobStepMetadataTypeDef]
+    ProcessingJob: NotRequired[ProcessingJobStepMetadataTypeDef]
+    TransformJob: NotRequired[TransformJobStepMetadataTypeDef]
+    TuningJob: NotRequired[TuningJobStepMetaDataTypeDef]
+    Model: NotRequired[ModelStepMetadataTypeDef]
+    RegisterModel: NotRequired[RegisterModelStepMetadataTypeDef]
+    Condition: NotRequired[ConditionStepMetadataTypeDef]
+    Callback: NotRequired[CallbackStepMetadataTypeDef]
+    Lambda: NotRequired[LambdaStepMetadataTypeDef]
+    EMR: NotRequired[EMRStepMetadataTypeDef]
+    EMRServerless: NotRequired[EMRServerlessStepMetadataTypeDef]
+    QualityCheck: NotRequired[QualityCheckStepMetadataTypeDef]
+    ClarifyCheck: NotRequired[ClarifyCheckStepMetadataTypeDef]
+    Fail: NotRequired[FailStepMetadataTypeDef]
+    AutoMLJob: NotRequired[AutoMLJobStepMetadataTypeDef]
+    Endpoint: NotRequired[EndpointStepMetadataTypeDef]
+    EndpointConfig: NotRequired[EndpointConfigStepMetadataTypeDef]
+    BedrockCustomModel: NotRequired[BedrockCustomModelMetadataTypeDef]
+    BedrockCustomModelDeployment: NotRequired[BedrockCustomModelDeploymentMetadataTypeDef]
+    BedrockProvisionedModelThroughput: NotRequired[BedrockProvisionedModelThroughputMetadataTypeDef]
+    BedrockModelImport: NotRequired[BedrockModelImportMetadataTypeDef]
+    InferenceComponent: NotRequired[InferenceComponentMetadataTypeDef]
+    Lineage: NotRequired[LineageMetadataTypeDef]
+    Job: NotRequired[JobStepMetadataTypeDef]
+    Athena: NotRequired[AthenaStepMetadataTypeDef]
+    Cleanup: NotRequired[CleanupStepMetadataTypeDef]
+    ForEach: NotRequired[ForEachStepMetadataTypeDef]
 
 HyperParameterTuningResourceConfigUnionTypeDef = Union[
     HyperParameterTuningResourceConfigTypeDef, HyperParameterTuningResourceConfigOutputTypeDef
@@ -12013,19 +12064,6 @@ class AutoMLProblemTypeConfigTypeDef(TypedDict):
     TabularJobConfig: NotRequired[TabularJobConfigTypeDef]
     TextGenerationJobConfig: NotRequired[TextGenerationJobConfigTypeDef]
 
-class PipelineExecutionStepTypeDef(TypedDict):
-    StepName: NotRequired[str]
-    StepDisplayName: NotRequired[str]
-    StepDescription: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-    StepStatus: NotRequired[StepStatusType]
-    CacheHitResult: NotRequired[CacheHitResultTypeDef]
-    FailureReason: NotRequired[str]
-    Metadata: NotRequired[PipelineExecutionStepMetadataTypeDef]
-    AttemptCount: NotRequired[int]
-    SelectiveExecutionResult: NotRequired[SelectiveExecutionResultTypeDef]
-
 class DescribeAutoMLJobResponseTypeDef(TypedDict):
     AutoMLJobName: str
     AutoMLJobArn: str
@@ -12291,6 +12329,20 @@ class SearchRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     CrossAccountFilterOption: NotRequired[CrossAccountFilterOptionType]
     VisibilityConditions: NotRequired[Sequence[VisibilityConditionsTypeDef]]
+
+class PipelineExecutionStepTypeDef(TypedDict):
+    StepName: NotRequired[str]
+    StepDisplayName: NotRequired[str]
+    StepDescription: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    StepStatus: NotRequired[StepStatusType]
+    CacheHitResult: NotRequired[CacheHitResultTypeDef]
+    FailureReason: NotRequired[str]
+    Metadata: NotRequired[PipelineExecutionStepMetadataTypeDef]
+    AttemptCount: NotRequired[int]
+    SelectiveExecutionResult: NotRequired[SelectiveExecutionResultTypeDef]
+    IterationContext: NotRequired[IterationContextTypeDef]
 
 class ListAssociationsResponseTypeDef(TypedDict):
     AssociationSummaries: list[AssociationSummaryTypeDef]
@@ -13051,11 +13103,6 @@ AutoMLProblemTypeConfigUnionTypeDef = Union[
     AutoMLProblemTypeConfigTypeDef, AutoMLProblemTypeConfigOutputTypeDef
 ]
 
-class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
-    PipelineExecutionSteps: list[PipelineExecutionStepTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     CurrentCount: NotRequired[int]
     TargetCount: NotRequired[int]
@@ -13203,6 +13250,11 @@ class ListSpacesResponseTypeDef(TypedDict):
 
 class ListInferenceRecommendationsJobStepsResponseTypeDef(TypedDict):
     Steps: list[InferenceRecommendationsJobStepTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
+    PipelineExecutionSteps: list[PipelineExecutionStepTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

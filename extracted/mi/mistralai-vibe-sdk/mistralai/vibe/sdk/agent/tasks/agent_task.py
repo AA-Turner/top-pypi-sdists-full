@@ -26,6 +26,7 @@ from mistralai.vibe.sdk.agent.execution.compaction import (
     run_compaction,
 )
 from mistralai.vibe.sdk.agent.execution.completion_request_telemetry import (
+    completion_correlation_id,
     emit_completion_request_sent,
 )
 from mistralai.vibe.sdk.agent.execution.loop import (
@@ -105,6 +106,8 @@ from mistralai.vibe.sdk.providers.completion.tokens import (
     latest_compaction_sentinel_index,
 )
 from mistralai.vibe.sdk.providers.completion.types import (
+    COMPLETION_REQUEST_KIND_AGENT,
+    COMPLETION_REQUEST_KIND_COMPACTION,
     COMPLETION_USAGE_ANNOTATION,
 )
 from mistralai.vibe.sdk.providers.completion.usage import TokenUsage
@@ -347,6 +350,28 @@ AgentEffect = (
     | FailSubTask
     | Continue[AgentAction]
 )
+
+
+def _completion_correlation_id(effect: CallLLM | CallCompactionLLM) -> str:
+    history_length = len(effect.state.history)
+    if isinstance(effect, CallCompactionLLM):
+        return completion_correlation_id(
+            effect.state.id, COMPLETION_REQUEST_KIND_COMPACTION, history_length
+        )
+    return completion_correlation_id(effect.state.id, COMPLETION_REQUEST_KIND_AGENT, history_length)
+
+
+def _completion_request_metadata(
+    effect: CallLLM | CallCompactionLLM,
+) -> dict[str, Any] | None:
+    # Without a task ID every task would derive the same IDs, so keep the
+    # ambient correlation instead.
+    if not effect.state.id:
+        return effect.telemetry.metadata
+    return {
+        **(effect.telemetry.metadata or {}),
+        "correlation_id": _completion_correlation_id(effect),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1078,7 +1103,7 @@ async def _handle_call_compaction_llm(
             compaction_prompt=effect.compaction_prompt,
             provider=effect.completion.type,
             model=effect.completion.model,
-            request_metadata=effect.telemetry.metadata,
+            request_metadata=_completion_request_metadata(effect),
         )
 
         history = effect.state.history
@@ -1128,7 +1153,7 @@ async def _handle_call_llm(
     request = build_completion_request_from_state(
         effect.state,
         effect.tools,
-        metadata=effect.telemetry.metadata,
+        metadata=_completion_request_metadata(effect),
     )
     await emit_completion_request_sent(model=effect.completion.model, request=request)
     latest_usage: TokenUsage | None = None

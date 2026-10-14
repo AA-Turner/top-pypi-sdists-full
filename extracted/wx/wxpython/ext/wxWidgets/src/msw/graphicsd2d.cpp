@@ -11,6 +11,8 @@
 
 #if wxUSE_GRAPHICS_DIRECT2D
 
+wxGCC_WARNING_SUPPRESS(double-promotion)
+
 // Minimum supported client: Windows 8 and Platform Update for Windows 7
 #define wxD2D_DEVICE_CONTEXT_SUPPORTED 0
 
@@ -31,10 +33,7 @@
 // in the standard d2d1helper.h header resulting in C4458 with VC14,
 // so disable this warning for this file as there is no other way to
 // avoid it.
-#ifdef __VISUALC__
-    #pragma warning(push)
-    #pragma warning(disable:4458) // declaration of 'xxx' hides class member
-#endif
+wxMSVC_WARNING_SUPPRESS(4458) // declaration of 'xxx' hides class member
 
 #include "wx/msw/private/graphicsd2d.h"
 
@@ -50,9 +49,7 @@
 #include <dxgi1_2.h>
 #endif
 
-#ifdef __VISUALC__
-    #pragma warning(pop)
-#endif
+wxMSVC_WARNING_RESTORE(4458)
 
 #include <float.h> // for FLT_MAX, FLT_MIN
 

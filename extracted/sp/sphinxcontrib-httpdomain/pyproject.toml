@@ -1,6 +1,6 @@
 [project]
 name = "sphinxcontrib-httpdomain"
-version = "2.1.0"
+version = "2.2.0"
 description = "Sphinx extension that provides domains for documenting HTTP and WebSocket APIs."
 keywords = [
     "Sphinx",
@@ -29,6 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Documentation",
     "Topic :: Utilities",
 ]
@@ -71,7 +72,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build >= 0.12.22, < 0.13.0"]
+requires = ["uv_build >= 0.12.22, < 0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv]

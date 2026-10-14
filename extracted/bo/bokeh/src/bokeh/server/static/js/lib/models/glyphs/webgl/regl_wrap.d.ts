@@ -23,6 +23,9 @@ export declare class ReglWrapper {
     private _rect_triangles;
     private _scissor;
     private _viewport;
+    private _scale_x;
+    private _scale_y;
+    private _clear_viewport?;
     private _framebuffer?;
     private _framebuffer_texture?;
     constructor(gl: WebGLRenderingContext);
@@ -34,6 +37,10 @@ export declare class ReglWrapper {
     get has_webgl(): boolean;
     get scissor(): BoundingBox;
     set_scissor(x: number, y: number, width: number, height: number): void;
+    /** Return a device-pixel scissor tightly enclosing screen-space points,
+     * intersected with the plot frame. Screen y coordinates increase downward,
+     * whereas WebGL scissor coordinates increase upward. */
+    scissor_for_points(points: ArrayLike<number>, padding: number, pixel_ratio: number): BoundingBox;
     texture(options: Texture2DOptions): Texture2D;
     get viewport(): BoundingBox;
     accumulate(): ReglRenderFunction;

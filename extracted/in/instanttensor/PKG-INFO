@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instanttensor
-Version: 0.2.1
+Version: 0.2.2
 Summary: An ultra-fast, distributed Safetensors loader
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -270,30 +270,25 @@ See [Usage](#usage) for multi-file and distributed usage.
 ### Used by
 
 - **[vLLM](https://github.com/vllm-project/vllm)**: [Loading Model Weights with InstantTensor](https://docs.vllm.ai/en/latest/models/extensions/instanttensor/)
-<!-- - **[SGLang](https://github.com/sgl-project/sglang)**:  -->
+- **[SGLang](https://github.com/sgl-project/sglang)**: [Model Loading](https://lmsysorg.mintlify.app/docs/advanced_features/model_loading)
 
 ## Why InstantTensor?
 
-- **Fast weight loading**
-  - Direct I/O: Avoid the slow page cache allocation on cold start. Friendly for large models and tight memory budgets.
-  - Tuned I/O size and concurrency: Maximize hardware throughput.
-  - Pipelining and prefetching: Parallelize and overlap the various stages of transmission.
-- **Distributed loading**
-  - Use `torch.distributed` (NCCL) to speed up loading under any parallelism policy (TP/PP/EP/CP/DP).
-- **Multiple I/O backends**
-  - Supports multiple backends: GPUDirect Storage, Legacy Storage, and Memory-based Storage.
+- **Fast:** Pipeline I/O, GPU transfers, and prefetching.
+- **Distributed:** Coordinate reads across GPUs with NCCL.
+- **Selective:** Load only the tensors you need.
+- **Flexible:** Support Direct I/O, Buffered I/O, MMAP, and GPUDirect Storage.
+- **Memory-aware:** Reuse configurable staging buffers, with optional zero-copy views.
 
 ## When to Use InstantTensor
 
-InstantTensor is recommended if **any** of the following conditions are met:
-- High storage bandwidth (>= 5 GB/s).
-- Unable to keep the model cached in host memory, for example:
-  - Limited free memory for model caching (for example, when most memory is used for KV cache offloading in LLM serving).
-  - Infrequent model loading, where Linux page cache is less effective.
-  - Model switching, where multiple models cannot be cached in memory simultaneously.
-- The model is heavily sharded (for example, TP=8), resulting in small, non-contiguous I/O per GPU.
-- Loading from `tmpfs`.
+- Loading large checkpoints from fast storage.
+- Cold starts or model switching with limited host-memory cache.
+- Multi-GPU loading from shared checkpoints.
+- Loading only part of a checkpoint, such as MTP weights.
+- Repeated loading from the page cache or tmpfs.
 
+Performance depends on your hardware and workload; benchmark before choosing.
 
 ## Installation
 
@@ -320,23 +315,11 @@ InstantTensor is recommended if **any** of the following conditions are met:
 
 ## Usage
 
-### Multi-file loading
-
-Passing a list of files allows the backend to plan reads and provides higher throughput than making multiple calls to load single files:
-
-```python
-from instanttensor import safe_open
-
-files = ["model-00001-of-00002.safetensors", "model-00002-of-00002.safetensors"]
-tensors = {}
-with safe_open(files, framework="pt", device=0) as f:
-    for name, tensor in f.tensors():
-        tensors[name] = tensor
-```
-
 ### Distributed loading
 
 InstantTensor can use a `torch.distributed` NCCL process group to coordinate loading and achieve higher throughput compared to running `safe_open` independently on each GPU.
+
+Passing all files in a single `safe_open` call lets the backend plan reads across files and typically provides higher throughput than loading each file separately. This applies to both single-GPU and distributed loading.
 
 ```python
 import torch
@@ -354,6 +337,36 @@ with safe_open(files, framework="pt", device=torch.cuda.current_device(), proces
 ```
 
 > **NOTE:** You can also load weights using a subgroup created via `dist.new_group`, which allows multiple subgroups to load weights independently. For example, if you have TP=8 and PP=2 (i.e., two TP groups), you can create two subgroups and load weights independently on each TP group. In cross-node (multi-machine) scenarios, loading using per-node subgroups can sometimes be faster than loading on the world group. However, for most cases, the world group is a good default choice.
+
+### Selective loading
+
+Use `tensor_filter` to skip tensor payloads before I/O. Buffer sizing,
+`keys()`, and `total_tensor_size` include only selected tensors. Reads may
+include neighboring bytes required for page alignment.
+
+```python
+with safe_open(files, framework="pt", device=0,
+               tensor_filter=["model.embed_tokens.weight", "model.layers.0.*"]) as f:
+    for name, tensor in f.tensors():
+        tensors[name] = tensor
+```
+
+Filtering requires `process_group=None`: each GPU loads its own selection
+independently. Unfiltered distributed loading is unchanged.
+Use `tensor_name_match_mode` to choose how all entries in the list are interpreted:
+
+| Mode | Example | Matching |
+|---|---|---|
+| `"glob"` (default) | `"model.layers.*.weight"` | Shell-style wildcards (`*`, `?`, `[abc]`); dots are literal. |
+| `"exact"` | `"model.layers.0.weight"` | Literal full names, including any wildcard or regex characters. |
+| `"regex"` | `r"model\.layers\.\d+\.weight"` | Full-match regular expressions (`re.fullmatch`). |
+
+Matching is case-sensitive by default and selects a tensor if any pattern matches its
+whole name; the mode is never inferred from checkpoint contents. In glob mode,
+`*` can span dots, and names containing wildcard characters need escaping or
+`tensor_name_match_mode="exact"`. `None` selects all tensors and `[]` selects none.
+With `copy=False`, consume each tensor inline
+because alignment padding can cause buffer reuse even when tensor bytes fit.
 
 ### Buffered I/O
 
@@ -388,21 +401,6 @@ A `UserWarning` fires when `copy=False` and `buffer_size < total_tensor_size`.
 Both attributes are public on the `safe_open` object.
 
 See `tests/test.py` for a full benchmark harness (TP/PP grouping, checksums, etc.).
-
-<!-- ## Performance tuning
-
-Users can specify four key parameters in `safe_open` for performance tuning:
-
-- **`buffer_size`**: The size of the GPU buffer used for tensors in bytes.
-
-- **`chunk_size`**: The size of each file I/O operation in bytes.
-
-- **`concurrency`**: The number of `MMAP`/`CUFILE` worker threads. Other
-  backends ignore it.
-
-- **`io_depth`**: The maximum number of rank-local I/O operations in flight.
-
-When set to None (the default), InstantTensor will automatically select a value based on the storage type for high performance. Otherwise, the user-supplied value is used.  -->
 
 ### Backend selection
 
@@ -506,9 +504,11 @@ See [Build API reference](./docs/build_doc.md)
 <!-- ## Benchmark -->
 
 <!-- ## Roadmap
-
-- **Supporting loading to CPU**: E.g., CPU inference.
-- **Improving scalability**: E.g., Collective loading on 32+ GPUs. -->
+- **Host-device buffer decoupling**: Support larger host buffers and smaller device buffers.
+- **Asymmetric loading**: Each GPU loads different tensors.
+- **CPU loading**: E.g., for CPU inference.
+- **Improved scalability**: E.g., collective loading across 32+ GPUs.
+-->
 
 ## Thanks
 

@@ -681,16 +681,14 @@ def plan_targets(config: NabProjectConfig) -> tuple[ResolveTarget, ...]:
     targets = _plan_targets(config.matrix, config.environment)
 
     if config.environment is not None:
-        _check_free_threaded_environment(
-            config.environment, (targets[0].python_version,)
-        )
+        _check_environment_build(config.environment, (targets[0].python_version,))
 
     for target in targets:
         _check_requires_python_admits_target(
             config.requires_python,
             target,
             source=config.requires_python_source,
-            matrix=config.matrix is not None,
+            matrix=config.matrix,
         )
     return targets
 
@@ -731,7 +729,7 @@ def _declared_target(environment: EnvironmentConfig) -> ResolveTarget:
     axis = python_axis_environment(python)
     implementation = environment.implementation or "cpython"
 
-    _check_free_threaded_environment(
+    _check_environment_build(
         environment, (axis["python_version"],) if environment.python else ()
     )
 
@@ -745,10 +743,10 @@ def _declared_target(environment: EnvironmentConfig) -> ResolveTarget:
     )
 
 
-def _check_free_threaded_environment(
+def _check_environment_build(
     environment: EnvironmentConfig, python_versions: Sequence[str]
 ) -> None:
-    """Hold ``[tool.nab.environment]`` to the free-threaded interpreter floor.
+    """Reject interpreter build knobs the environment cannot satisfy.
 
     ``python_versions`` is empty for a table that names no python, so the
     parse checks only the implementation and :func:`plan_targets` checks
@@ -757,6 +755,9 @@ def _check_free_threaded_environment(
     if environment.platform is None:
         return
     try:
+        environment.platform.check_implementation(
+            environment.implementation or "cpython"
+        )
         check_free_threaded(
             platforms=(environment.platform,),
             implementations=(environment.implementation or "cpython",),
@@ -772,7 +773,7 @@ def _check_requires_python_admits_target(
     target: ResolveTarget,
     *,
     source: str,
-    matrix: bool,
+    matrix: MatrixConfig | None,
 ) -> None:
     """Reject a ``requires-python`` declaration that excludes the resolve target.
 
@@ -785,10 +786,8 @@ def _check_requires_python_admits_target(
     :meth:`~nab_provider.target.ResolveTarget.admits_requires_python`, the
     comparison every candidate's ``Requires-Python`` takes, so it is read at
     the language minor and a micro floor like ``>= "3.11.4"`` admits a 3.11
-    target.  Which knob the error names depends on the target.  A matrix
-    declares the python axis of every target it expands, and both
-    ``--python`` and ``[tool.nab.environment]`` are themselves errors
-    alongside one, so a matrix target is moved by ``matrix.python`` instead.
+    target. The error names the shared Python setting or the implementation
+    override that selected the target.
     """
     if requires_python is None:
         return
@@ -798,11 +797,16 @@ def _check_requires_python_admits_target(
         f"{source} = {requires_python!r} excludes the resolve target"
         f" Python {target.python_version} ({target.label})."
     )
-    if matrix:
+    if matrix is not None:
+        override = (matrix.implementation_overrides or {}).get(target.implementation)
+        key = (
+            f"matrix.overrides.implementations.{target.implementation}.python"
+            if override is not None and override.python is not None
+            else "matrix.python"
+        )
         msg = (
-            f"{excludes}  [tool.nab.matrix] declares the python axis of every"
-            " target it expands: narrow matrix.python to drop the version, or"
-            " widen requires-python."
+            f"{excludes}  {key} selects this target: change {key}"
+            " to drop the version, or widen requires-python."
         )
     else:
         msg = (

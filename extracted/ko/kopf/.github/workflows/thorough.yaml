@@ -16,24 +16,26 @@ on:
 jobs:
   linters:
     name: Linting and static analysis
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 7  # usually 5 mins with coverage
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.14"
+          github-token: ${{ github.token }}
+          enable-cache: true
+          python-version: "3.15"
+          activate-environment: true
       - run: uv sync --no-dev --group lint
-      - run: uv run --no-sync pre-commit run --all-files
-      - run: uv run --no-sync mypy
+      - run: pre-commit run --all-files
+      - run: mypy
       - run: |
           # Separately, because the shared module name "example.py" causes naming conflicts.
           exit_codes=0
           for d in $(find examples -maxdepth 1 -mindepth 1 -type d)
           do
             echo "Checking ${d}"
-            uv run --no-sync mypy $d
+            mypy $d
             exit_codes=$[${exit_codes} + $?]
           done
           exit ${exit_codes}
@@ -43,24 +45,28 @@ jobs:
       fail-fast: false
       matrix:
         install-extras: [ "", "full-auth" ]
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15" ]
         include:
+          # Assumption: if these special setups work in one version, they work in all versions.
           - install-extras: "uvloop"
-            python-version: "3.14"
+            python-version: "3.15"
+          - python-version: "3.15t"
     name: Python ${{ matrix.python-version }}${{ matrix.install-extras && ' ' || '' }}${{ matrix.install-extras }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 7  # usually 5 mins with coverage
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
+          github-token: ${{ github.token }}
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
+          activate-environment: true
 
       - run: uv sync --no-dev --group test
       - run: uv sync --no-dev --group test --extra ${{ matrix.install-extras }}
         if: ${{ matrix.install-extras }}
-      - run: uv run --no-sync coverage run --branch --source=kopf -m pytest --color=yes --timeout=2
+      - run: coverage run --branch --source=kopf -m pytest --color=yes --timeout=2
 
       - name: Publish coverage to Coveralls.io
         uses: coverallsapp/github-action@v2
@@ -70,7 +76,7 @@ jobs:
         if: success()
         continue-on-error: true  # tends to fail with no code changes (e.g. only CI/docs)
       - name: Publish coverage to CodeCov.io
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         env:
           PYTHON: ${{ matrix.python-version }}
         with:
@@ -87,39 +93,45 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # NB: pypy v7.3.23 fails on catching AttributeError in resolve_obj(); 7.3.22 works.
+        # Check the latest versions at https://downloads.python.org/pypy/ and upgrade later.
         install-extras: [ "", "full-auth" ]
-        python-version: [ "pypy-3.10", "pypy-3.11" ]
+        python-version: [ "pypy-3.11", "pypy-3.12" ]
     name: Python ${{ matrix.python-version }}${{ matrix.install-extras && ' ' || '' }}${{ matrix.install-extras }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
+          github-token: ${{ github.token }}
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
+          activate-environment: true
 
       - run: sudo apt-get update && sudo apt-get install libxml2-dev libxslt-dev
 
       - run: uv sync --no-dev --group test
       - run: uv sync --no-dev --group test --extra ${{ matrix.install-extras }}
         if: ${{ matrix.install-extras }}
-      - run: uv run --no-sync pytest --color=yes --timeout=2 --no-cov
+      - run: pytest --color=yes --timeout=2 --no-cov
 
   functional:
     strategy:
       fail-fast: false
       matrix:
-        k3s: [latest, v1.33, v1.32, v1.31]
+        k3s: [latest, v1.37, v1.36, v1.35]
     name: K3s ${{matrix.k3s}}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10  # usually 4-5 mins
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.14"
+          github-token: ${{ github.token }}
+          enable-cache: true
+          python-version: "3.15"
+          activate-environment: true
       - uses: nolar/setup-k3d-k3s@v1
         with:
           version: ${{ matrix.k3s }}
@@ -128,34 +140,36 @@ jobs:
 
       - run: uv sync --no-dev --group test
       - run: uv pip install -r examples/requirements.txt
-      - run: uv run --no-sync pytest --color=yes --timeout=30 --only-e2e
+      - run: pytest --color=yes --timeout=30 --only-e2e
 
   full-scale:
     strategy:
       fail-fast: false
       matrix:
-        k8s: [latest, v1.33.5, v1.32.9, v1.31.13]
+        k8s: [latest, v1.37.1, v1.36.5, v1.35.9]
     name: K8s ${{matrix.k8s}}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10  # usually 4-5 mins
     env:
       K8S: ${{ matrix.k8s }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.14"
+          github-token: ${{ github.token }}
+          enable-cache: true
+          python-version: "3.15"
+          activate-environment: true
       - run: tools/install-minikube.sh
 
       - run: uv sync --no-dev --group test
       - run: uv pip install -r examples/requirements.txt
-      - run: uv run --no-sync pytest --color=yes --timeout=30 --only-e2e
+      - run: pytest --color=yes --timeout=30 --only-e2e
 
   coveralls-finish:
     name: Finalize coveralls.io
     needs: [unit-tests, pypy-tests, functional]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Finish coverage at Coveralls.io
         uses: coverallsapp/github-action@v2

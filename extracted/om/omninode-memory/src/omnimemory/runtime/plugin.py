@@ -63,18 +63,26 @@ Related:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+import yaml
+
 if TYPE_CHECKING:
+    from asyncpg import Pool
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
     from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
     from omnibase_infra.runtime.registry import RegistryMessageType
 
     from omnimemory.handlers.adapters.adapter_graph_memory import AdapterGraphMemory
+    from omnimemory.nodes.node_memory_lifecycle_orchestrator.handlers.handler_memory_expire import (
+        HandlerMemoryExpire,
+    )
     from omnimemory.runtime.introspection import MemoryNodeIntrospectionProxy
 
 from omnibase_core.enums.enum_consumer_group_purpose import EnumConsumerGroupPurpose
@@ -83,6 +91,7 @@ from omnibase_core.models.event_bus.model_consumer_group_scope import (
     ModelConsumerGroupScope,
 )
 from omnibase_infra.runtime.models.model_handshake_result import ModelHandshakeResult
+from omnibase_infra.runtime.overlay.contract_env_ref import expand_contract_env_refs
 from omnibase_infra.runtime.protocol_domain_plugin import (
     ModelDomainPluginConfig,
     ModelDomainPluginResult,
@@ -153,6 +162,50 @@ async def _probe_tcp_reachable(host: str, port: int, timeout: float = 5.0) -> bo
         return False
 
 
+_EXPIRE_DB_URL_ENV = "OMNIMEMORY_DB_URL"
+_EXPIRE_DB_POOL_MAX_SIZE = 5
+
+_OVERLAY_ROOTS_ENV = "ONEX_SKILL_OVERLAY_ROOTS"
+_NAVIGATION_OVERLAY_NODE = "node_navigation_history_reducer"
+
+
+def _navigation_embedding_url() -> str:
+    """The navigation history reducer's embedding endpoint, or ``""`` when none is configured.
+
+    In order: ``LLM_EMBEDDING_URL``, then ``embedding_url`` in the first
+    ``node_navigation_history_reducer/overlay.yaml`` found under a root named in
+    ``ONEX_SKILL_OVERLAY_ROOTS``. No endpoint is shipped (OMN-20936). An overlay
+    that is there and unreadable or malformed raises ``ValueError`` rather than
+    being skipped, because a half-read overlay would embed against the wrong host.
+    """
+    from_env = expand_contract_env_refs("${env.LLM_EMBEDDING_URL:}")
+    if from_env:
+        return from_env
+    roots = expand_contract_env_refs(f"${{env.{_OVERLAY_ROOTS_ENV}:}}")
+    for root in roots.split(os.pathsep):
+        if not root:
+            continue
+        candidate = Path(root) / _NAVIGATION_OVERLAY_NODE / "overlay.yaml"
+        if not candidate.is_file():
+            continue
+        try:
+            raw = yaml.safe_load(candidate.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, yaml.YAMLError) as exc:
+            raise ValueError(
+                f"{candidate} is not a readable overlay ({type(exc).__name__})"
+            ) from None
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != {"embedding_url"}
+            or not isinstance(raw["embedding_url"], str)
+        ):
+            raise ValueError(
+                f"{candidate} must be a mapping holding exactly embedding_url, a string"
+            )
+        return str(raw["embedding_url"])
+    return ""
+
+
 class PluginMemory:
     """Memory domain plugin for ONEX kernel initialization.
 
@@ -189,6 +242,7 @@ class PluginMemory:
         self._introspection_nodes: list[str] = []
         self._introspection_proxies: list[MemoryNodeIntrospectionProxy] = []
         self._graph_memory_adapter: AdapterGraphMemory | None = None
+        self._expire_db_pool: Pool | None = None
 
     @property
     def message_type_registry(self) -> RegistryMessageType | None:
@@ -409,6 +463,68 @@ class PluginMemory:
                 duration_seconds=duration,
             )
 
+    async def _build_expire_handler(
+        self,
+        config: ModelDomainPluginConfig,
+    ) -> HandlerMemoryExpire | None:
+        """Build the expire-memory handler on a pool from ``OMNIMEMORY_DB_URL``.
+
+        Returns None, with a warning, when the URL is unset or the database is
+        unreachable. The dispatch handler then answers each expire-memory
+        command with a lifecycle-transition-failed event instead of dropping it.
+
+        Args:
+            config: Plugin configuration with container and correlation_id.
+
+        Returns:
+            An initialized HandlerMemoryExpire, or None.
+        """
+        import asyncpg
+        from pydantic import ValidationError
+
+        from omnimemory.nodes.node_memory_lifecycle_orchestrator.handlers.handler_memory_expire import (
+            HandlerMemoryExpire,
+        )
+        from omnimemory.settings import PostgresSettings
+
+        correlation_id = config.correlation_id
+        try:
+            dsn = str(PostgresSettings.model_validate({}).omnimemory_db_url)
+        except ValidationError:
+            logger.warning(
+                "%s is not set or invalid; expire-memory commands will be "
+                "answered with lifecycle-transition-failed (correlation_id=%s)",
+                _EXPIRE_DB_URL_ENV,
+                correlation_id,
+            )
+            return None
+
+        try:
+            pool = await asyncpg.create_pool(
+                dsn=dsn, min_size=1, max_size=_EXPIRE_DB_POOL_MAX_SIZE
+            )
+        except (OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError):
+            logger.warning(
+                "Memory database unreachable; expire-memory commands will be "
+                "answered with lifecycle-transition-failed (correlation_id=%s)",
+                correlation_id,
+                exc_info=True,
+            )
+            return None
+        if pool is None:
+            return None
+
+        handler = HandlerMemoryExpire(config.container)
+        await handler.initialize(db_pool=pool)
+        self._expire_db_pool = pool
+        return handler
+
+    async def _close_expire_pool(self) -> None:
+        """Close the expire handler's pool if one was opened."""
+        pool, self._expire_db_pool = self._expire_db_pool, None
+        if pool is not None:
+            await pool.close()
+
     async def wire_dispatchers(  # stub-ok: dispatcher-wiring-todo-deferred
         self,
         config: ModelDomainPluginConfig,
@@ -423,7 +539,8 @@ class PluginMemory:
             1. intent-classified handler (1 route: intent-classified.v1 events)
             2. intent-query handler (1 route: intent-query-requested.v1 commands)
             3. memory-retrieval handler (1 route: memory-retrieval-requested.v1 -- fail-fast)
-            4. lifecycle handler (3 routes: runtime-tick, archive, expire -- fail-fast)
+            4. lifecycle handler (2 routes: runtime-tick, archive -- fail-fast)
+            5. expire-memory handler (1 route: expire-memory commands)
 
         The dispatch engine requires intent_consumer and intent_query_handler
         protocol implementations. These are created as stub instances for
@@ -545,15 +662,27 @@ class PluginMemory:
                     HandlerNavigationHistoryReducer,
                 )
 
+                # No embedding endpoint is shipped (OMN-20936): the deployment
+                # supplies LLM_EMBEDDING_URL or a node_navigation_history_reducer
+                # overlay. Neither, and the handler gets its own empty default
+                # and its Qdrant writes fail and are logged.
+                nav_embedding_url = _navigation_embedding_url()
+                if not nav_embedding_url:
+                    logger.warning(
+                        "No embedding endpoint is configured; navigation history "
+                        "cannot embed successful paths. Set LLM_EMBEDDING_URL or "
+                        "supply a node_navigation_history_reducer overlay with "
+                        "embedding_url under a root listed in "
+                        "ONEX_SKILL_OVERLAY_ROOTS (correlation_id=%s)",
+                        correlation_id,
+                    )
+
                 navigation_history_handler = HandlerNavigationHistoryReducer(
                     writer=None,
                     pg_dsn=nav_pg_dsn,
                     qdrant_host=os.environ["QDRANT_HOST"],
                     qdrant_port=int(os.environ.get("QDRANT_PORT", "6333")),
-                    embedding_url=os.environ.get(
-                        "LLM_EMBEDDING_URL",
-                        "http://192.168.86.200:8100",  # onex-allow-internal-ip
-                    ),
+                    embedding_url=nav_embedding_url,
                     embedding_model=os.environ.get(
                         "OMNIMEMORY_EMBEDDING_MODEL", "default"
                     ),
@@ -579,6 +708,8 @@ class PluginMemory:
                     correlation_id,
                 )
 
+            expire_handler = await self._build_expire_handler(config)
+
             dispatch_engine = create_memory_dispatch_engine(
                 intent_consumer=intent_consumer,
                 intent_query_handler=intent_query_handler,
@@ -588,6 +719,7 @@ class PluginMemory:
                 intent_graph_adapter=intent_graph_adapter,
                 navigation_history_handler=navigation_history_handler,
                 semantic_compute_handler=semantic_compute_handler,
+                expire_handler=expire_handler,
             )
             self._dispatch_engine = dispatch_engine
 
@@ -666,6 +798,8 @@ class PluginMemory:
             self._introspection_nodes = []
             self._introspection_proxies = []
             self._dispatch_engine = None
+            with contextlib.suppress(Exception):
+                await self._close_expire_pool()
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
                 error_message=str(e),
@@ -938,6 +1072,18 @@ class PluginMemory:
                     extra={"error_type": type(unsub_error).__name__},
                 )
         self._unsubscribe_callbacks = []
+
+        try:
+            await self._close_expire_pool()
+        except Exception as pool_error:
+            errors.append(f"expire_pool_close: {pool_error}")
+            logger.warning(
+                "Failed to close expire-memory database pool: %s (correlation_id=%s)",
+                pool_error,
+                correlation_id,
+                exc_info=True,
+                extra={"error_type": type(pool_error).__name__},
+            )
 
         self._services_registered = []
         self._dispatch_engine = None

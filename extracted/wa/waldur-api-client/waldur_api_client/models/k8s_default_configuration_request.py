@@ -4,6 +4,8 @@ from typing import Any, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.load_balancer_mode_enum import LoadBalancerModeEnum
+from ..models.topology_mode_enum import TopologyModeEnum
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="K8SDefaultConfigurationRequest")
@@ -21,6 +23,8 @@ class K8SDefaultConfigurationRequest:
         default_lb_ram_gb (Union[Unset, int]):
         default_lb_system_disk_gb (Union[Unset, int]):
         default_lb_logs_disk_gb (Union[Unset, int]):
+        load_balancer_mode (Union[Unset, LoadBalancerModeEnum]):
+        topology_mode (Union[Unset, TopologyModeEnum]):
         minimal_worker_vcpus (Union[Unset, int]):
         minimal_worker_ram_gb (Union[Unset, int]):
         default_worker_data_disk_gb (Union[Unset, int]):
@@ -38,6 +42,8 @@ class K8SDefaultConfigurationRequest:
     default_lb_ram_gb: Union[Unset, int] = UNSET
     default_lb_system_disk_gb: Union[Unset, int] = UNSET
     default_lb_logs_disk_gb: Union[Unset, int] = UNSET
+    load_balancer_mode: Union[Unset, LoadBalancerModeEnum] = UNSET
+    topology_mode: Union[Unset, TopologyModeEnum] = UNSET
     minimal_worker_vcpus: Union[Unset, int] = UNSET
     minimal_worker_ram_gb: Union[Unset, int] = UNSET
     default_worker_data_disk_gb: Union[Unset, int] = UNSET
@@ -62,6 +68,14 @@ class K8SDefaultConfigurationRequest:
         default_lb_system_disk_gb = self.default_lb_system_disk_gb
 
         default_lb_logs_disk_gb = self.default_lb_logs_disk_gb
+
+        load_balancer_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.load_balancer_mode, Unset):
+            load_balancer_mode = self.load_balancer_mode.value
+
+        topology_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.topology_mode, Unset):
+            topology_mode = self.topology_mode.value
 
         minimal_worker_vcpus = self.minimal_worker_vcpus
 
@@ -94,6 +108,10 @@ class K8SDefaultConfigurationRequest:
             field_dict["default_lb_system_disk_gb"] = default_lb_system_disk_gb
         if default_lb_logs_disk_gb is not UNSET:
             field_dict["default_lb_logs_disk_gb"] = default_lb_logs_disk_gb
+        if load_balancer_mode is not UNSET:
+            field_dict["load_balancer_mode"] = load_balancer_mode
+        if topology_mode is not UNSET:
+            field_dict["topology_mode"] = topology_mode
         if minimal_worker_vcpus is not UNSET:
             field_dict["minimal_worker_vcpus"] = minimal_worker_vcpus
         if minimal_worker_ram_gb is not UNSET:
@@ -128,6 +146,20 @@ class K8SDefaultConfigurationRequest:
 
         default_lb_logs_disk_gb = d.pop("default_lb_logs_disk_gb", UNSET)
 
+        _load_balancer_mode = d.pop("load_balancer_mode", UNSET)
+        load_balancer_mode: Union[Unset, LoadBalancerModeEnum]
+        if isinstance(_load_balancer_mode, Unset):
+            load_balancer_mode = UNSET
+        else:
+            load_balancer_mode = LoadBalancerModeEnum(_load_balancer_mode)
+
+        _topology_mode = d.pop("topology_mode", UNSET)
+        topology_mode: Union[Unset, TopologyModeEnum]
+        if isinstance(_topology_mode, Unset):
+            topology_mode = UNSET
+        else:
+            topology_mode = TopologyModeEnum(_topology_mode)
+
         minimal_worker_vcpus = d.pop("minimal_worker_vcpus", UNSET)
 
         minimal_worker_ram_gb = d.pop("minimal_worker_ram_gb", UNSET)
@@ -149,6 +181,8 @@ class K8SDefaultConfigurationRequest:
             default_lb_ram_gb=default_lb_ram_gb,
             default_lb_system_disk_gb=default_lb_system_disk_gb,
             default_lb_logs_disk_gb=default_lb_logs_disk_gb,
+            load_balancer_mode=load_balancer_mode,
+            topology_mode=topology_mode,
             minimal_worker_vcpus=minimal_worker_vcpus,
             minimal_worker_ram_gb=minimal_worker_ram_gb,
             default_worker_data_disk_gb=default_worker_data_disk_gb,

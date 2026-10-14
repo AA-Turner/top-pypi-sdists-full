@@ -73,7 +73,9 @@
 #include "wx/display.h"
 #include "wx/platinfo.h"
 #include "wx/recguard.h"
+#include "wx/module.h"
 #include "wx/private/rescale.h"
+#include "wx/private/textinput.h"
 #include "wx/private/window.h"
 
 #if defined(__WXOSX__)
@@ -82,6 +84,10 @@
 #endif
 
 #include <math.h>
+
+#ifdef wxHAS_TEXT_INPUT_CLIENT
+    #include <unordered_map>
+#endif
 
 // Windows List
 WXDLLIMPEXP_DATA_CORE(wxWindowList) wxTopLevelWindows;
@@ -92,6 +98,51 @@ wxMenu *wxCurrentPopupMenu = nullptr;
 #endif // wxUSE_MENUS
 
 extern WXDLLEXPORT_DATA(const char) wxPanelNameStr[] = "panel";
+
+#ifdef wxHAS_TEXT_INPUT_CLIENT
+
+namespace
+{
+using wxTextInputClients =
+    std::unordered_map<const wxWindowBase*, wxTextInputClient*>;
+
+wxTextInputClients& wxGetTextInputClients()
+{
+    static wxTextInputClients clients;
+    return clients;
+}
+} // anonymous namespace
+
+void wxAssociateTextInputClient(wxWindowBase* window,
+                                wxTextInputClient* client)
+{
+    if ( client )
+        wxGetTextInputClients()[window] = client;
+    else
+        wxGetTextInputClients().erase(window);
+}
+
+wxTextInputClient* wxFindTextInputClient(const wxWindowBase* window)
+{
+    const auto it = wxGetTextInputClients().find(window);
+    return it == wxGetTextInputClients().end() ? nullptr : it->second;
+}
+
+// Module clearing the client map on library shutdown: entries normally
+// unregister themselves, but a leaked window mustn't leave a dangling
+// pointer behind if the library is initialized again.
+class wxTextInputClientsModule : public wxModule
+{
+public:
+    virtual bool OnInit() override { return true; }
+    virtual void OnExit() override { wxGetTextInputClients().clear(); }
+
+    wxDECLARE_DYNAMIC_CLASS(wxTextInputClientsModule);
+};
+
+wxIMPLEMENT_DYNAMIC_CLASS(wxTextInputClientsModule, wxModule);
+
+#endif // wxHAS_TEXT_INPUT_CLIENT
 
 namespace wxMouseCapture
 {
@@ -113,7 +164,6 @@ wxIMPLEMENT_ABSTRACT_CLASS(wxWindowBase, wxEvtHandler);
 // ----------------------------------------------------------------------------
 
 wxBEGIN_EVENT_TABLE(wxWindowBase, wxEvtHandler)
-    EVT_SYS_COLOUR_CHANGED(wxWindowBase::OnSysColourChanged)
     EVT_INIT_DIALOG(wxWindowBase::OnInitDialog)
     EVT_MIDDLE_DOWN(wxWindowBase::OnMiddleClick)
 
@@ -316,6 +366,9 @@ wxWindowBase::wxWindowBase()
     m_autoLayout = false;
 
     m_disableFocusFromKbd = false;
+    m_enableFocusFromKbd = false;
+
+    m_enableIME = true;
 
 #if wxUSE_DRAG_AND_DROP
     m_dropTarget = nullptr;
@@ -460,6 +513,9 @@ wxWindowBase::~wxWindowBase()
     // Just in case the window has been Closed, but we're then deleting
     // immediately: don't leave dangling pointers.
     wxPendingDelete.DeleteObject(this);
+
+    if ( ms_imeCursorWindow == this )
+        ms_imeCursorWindow = nullptr;
 
     // Just in case we've loaded a top-level window via LoadNativeDialog but
     // we weren't a dialog class
@@ -934,7 +990,7 @@ void wxWindowBase::SetMaxSize(const wxSize& maxSize)
     InvalidateBestSize();
 }
 
-void wxWindowBase::SetInitialSize(const wxSize& size)
+bool wxWindowBase::SetInitialSize(const wxSize& size)
 {
     // Set the min size to the size passed in.  This will usually either be
     // wxDefaultSize or the size passed to this window's ctor/Create function.
@@ -944,8 +1000,12 @@ void wxWindowBase::SetInitialSize(const wxSize& size)
     wxSize best = GetEffectiveMinSize();
 
     // If the current size doesn't match then change it
-    if (GetSize() != best)
-        SetSize(best);
+    if ( GetSize() == best )
+        return false;
+
+    SetSize(best);
+
+    return true;
 }
 
 
@@ -1132,6 +1192,13 @@ bool wxWindowBase::HasScrollbar(int orient) const
                                   : sizeVirt.y > sizeClient.y;
 }
 
+int wxWindowBase::GetScrollbarSize(int orient) const
+{
+    return wxSystemSettings::GetMetric(orient == wxHORIZONTAL ? wxSYS_HSCROLL_Y
+                                                              : wxSYS_VSCROLL_X,
+                                       AsWindow());
+}
+
 // ----------------------------------------------------------------------------
 // show/hide/enable/disable the window
 // ----------------------------------------------------------------------------
@@ -1243,10 +1310,8 @@ void wxWindowBase::Freeze()
         DoFreeze();
 
         // and recursively freeze all children:
-        for ( wxWindowList::iterator i = GetChildren().begin();
-              i != GetChildren().end(); ++i )
+        for ( auto* child : GetChildren() )
         {
-            wxWindow *child = *i;
             if ( child->IsTopLevel() )
                 continue;
 
@@ -1262,10 +1327,8 @@ void wxWindowBase::Thaw()
     if ( !--m_freezeCount )
     {
         // recursively thaw all children:
-        for ( wxWindowList::iterator i = GetChildren().begin();
-              i != GetChildren().end(); ++i )
+        for ( auto* child : GetChildren() )
         {
-            wxWindow *child = *i;
             if ( child->IsTopLevel() )
                 continue;
 
@@ -1781,6 +1844,46 @@ void wxWindowBase::SetCaret(wxCaret *caret)
 }
 #endif // wxUSE_CARET
 
+// ----------------------------------------------------------------------------
+// input method support
+// ----------------------------------------------------------------------------
+
+void wxWindowBase::EnableInputMethod(bool enable)
+{
+    if ( enable == m_enableIME )
+        return;
+
+    m_enableIME = enable;
+
+    DoEnableInputMethod(enable);
+}
+
+// Store just a single IME rectangle for all windows instead of adding wxRect
+// member to each window because only one window can have the IME focus at a
+// time and it would be wasteful to increase the size of all windows when we
+// can avoid it.
+const wxWindowBase* wxWindowBase::ms_imeCursorWindow = nullptr;
+wxRect wxWindowBase::ms_imeCursorRect;
+
+wxRect wxWindowBase::GetInputMethodCursorRect() const
+{
+    return ms_imeCursorWindow == this ? ms_imeCursorRect : wxRect();
+}
+
+void wxWindowBase::UpdateInputMethodCursorRect(const wxRect& rect)
+{
+    if ( ms_imeCursorWindow == this && rect == ms_imeCursorRect )
+        return;
+
+    ms_imeCursorWindow = this;
+    ms_imeCursorRect = rect;
+
+    // Don't bother updating the position if the input method is not used, it
+    // will be updated when it is enabled.
+    if ( m_enableIME )
+        DoUpdateInputMethodCursorRect();
+}
+
 #if wxUSE_VALIDATORS
 // ----------------------------------------------------------------------------
 // validators
@@ -2028,11 +2131,9 @@ public:
         }
 
         wxWindowList& children = m_win->GetChildren();
-        for ( wxWindowList::iterator i = children.begin();
-              i != children.end();
-              ++i )
+        for ( auto* item : children )
         {
-            wxWindow* const child = (*i)->AsWindow();
+            wxWindow* const child = item->AsWindow();
 
             // Notice that validation should never recurse into top level
             // children, e.g. some other dialog which might happen to be
@@ -2409,8 +2510,16 @@ void wxWindowBase::SetSizer(wxSizer *sizer, bool deleteOld)
     {
         m_windowSizer->SetContainingWindow(nullptr);
 
+        // Stop pointing at the old sizer before destroying it, not after.
+        // Destroying a sizer tree detaches windows, which can reach the event
+        // loop, and anything that calls Layout() from there would otherwise
+        // find m_windowSizer still pointing into a tree that is halfway
+        // through being freed.
+        wxSizer* const oldSizer = m_windowSizer;
+        m_windowSizer = nullptr;
+
         if ( deleteOld )
-            delete m_windowSizer;
+            delete oldSizer;
     }
 
     m_windowSizer = sizer;
@@ -3019,8 +3128,12 @@ wxPoint wxWindowBase::ConvertDialogToPixels(const wxPoint& pt) const
 // ----------------------------------------------------------------------------
 
 // propagate the colour change event to the subwindows
-void wxWindowBase::OnSysColourChanged(wxSysColourChangedEvent& WXUNUSED(event))
+void wxWindowBase::SendSysColourChangedEvents()
 {
+    wxSysColourChangedEvent event;
+    event.SetEventObject(this);
+    HandleWindowEvent(event);
+
     wxWindowList::compatibility_iterator node = GetChildren().GetFirst();
     while ( node )
     {
@@ -3028,9 +3141,7 @@ void wxWindowBase::OnSysColourChanged(wxSysColourChangedEvent& WXUNUSED(event))
         wxWindow *win = node->GetData();
         if ( !win->IsTopLevel() )
         {
-            wxSysColourChangedEvent event2;
-            event2.SetEventObject(win);
-            win->GetEventHandler()->ProcessEvent(event2);
+            win->SendSysColourChangedEvents();
         }
 
         node = node->GetNext();
@@ -3248,6 +3359,30 @@ void wxWindowBase::OnMiddleClick( wxMouseEvent& event )
 // accessibility
 // ----------------------------------------------------------------------------
 
+void wxWindowBase::SetAccessibleName(const wxString& name)
+{
+#if wxUSE_ACCESSIBILITY
+    wxWindow* const self = static_cast<wxWindow*>(this);
+
+    // Native controls don't have any accessible object by default, but we
+    // need one for our name to be used instead of the one provided by the
+    // system. Plain wxAccessible leaves everything else to the system.
+    wxAccessible* accessible = GetOrCreateAccessible();
+    if ( !accessible )
+    {
+        accessible = new wxAccessible(self);
+        SetAccessible(accessible);
+    }
+
+    accessible->SetNameOverride(name);
+
+    wxAccessible::NotifyEvent(wxACC_EVENT_OBJECT_NAMECHANGE, self,
+                              wxOBJID_CLIENT, wxACC_SELF);
+#else // !wxUSE_ACCESSIBILITY
+    wxUnusedVar(name);
+#endif // wxUSE_ACCESSIBILITY/!wxUSE_ACCESSIBILITY
+}
+
 #if wxUSE_ACCESSIBILITY
 void wxWindowBase::SetAccessible(wxAccessible* accessible)
 {
@@ -3347,11 +3482,9 @@ wxRecursionGuardFlag changing;
 
 bool IsInCaptureStack(wxWindowBase* win)
 {
-    for ( wxVector<wxWindow*>::const_iterator it = stack.begin();
-          it != stack.end();
-          ++it )
+    for ( const auto* item : stack )
     {
-        if ( *it == win )
+        if ( item == win )
             return true;
     }
 
@@ -3627,6 +3760,71 @@ void wxWindowBase::DoMoveInTabOrder(wxWindow *win, WindowOrder move)
         siblings.Append(self);
     }
 }
+
+#if wxUSE_ACCEL
+
+bool
+wxWindowBase::FindAcceleratorForKeyInMenuBar(const wxKeyEvent&,
+                                             wxAcceleratorEntry&) const
+{
+    return false;
+}
+
+bool
+wxWindowBase::FindAcceleratorForKey(const wxKeyEvent& event,
+                                    wxAcceleratorEntry& entry,
+                                    wxWindow** owner) const
+{
+    auto* const self = const_cast<wxWindowBase*>(this);
+    for ( auto* win = self; win; win = win->GetParent() )
+    {
+        const wxAcceleratorTable* const table = win->GetAcceleratorTable();
+        if ( table && table->IsOk() )
+        {
+            const wxAcceleratorEntry* const found = table->GetEntry(event);
+            if ( found )
+            {
+                entry = *found;
+                if ( owner )
+                    *owner = static_cast<wxWindow*>(win);
+
+                return true;
+            }
+        }
+
+        if ( win->FindAcceleratorForKeyInMenuBar(event, entry) )
+        {
+            if ( owner )
+                *owner = static_cast<wxWindow*>(win);
+
+            return true;
+        }
+
+        if ( win->IsTopNavigationDomain(Navigation_Accel) )
+            break;
+    }
+
+    return false;
+}
+
+bool
+wxWindowBase::ShouldUseAcceleratorForKey(const wxKeyEvent& event,
+                                         int command,
+                                         wxMenuItem* menuItem) const
+{
+    wxAcceleratorKeyEvent eventAccel(event, command, menuItem);
+    eventAccel.SetId(GetId());
+    eventAccel.SetEventObject(const_cast<wxWindowBase*>(this));
+
+    // If the event is handled, its handler determines what to do.
+    if ( HandleWindowEvent(eventAccel) )
+        return eventAccel.ShouldUseAccelerator();
+
+    // Otherwise allow using it as accelerator if the window doesn't claim it.
+    return !ClaimsKeyBeforeAccelerator(event, command);
+}
+
+#endif // wxUSE_ACCEL
 
 // ----------------------------------------------------------------------------
 // focus handling

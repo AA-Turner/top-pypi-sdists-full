@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------
 # Name:        setup.py
-# Purpose:     Distutils build script for wxPython (phoenix)
+# Purpose:     Build script for wxPython (phoenix)
 #
 # Author:      Robin Dunn
 #
@@ -9,15 +9,16 @@
 # License:     wxWindows License
 #----------------------------------------------------------------------
 
-import inspect
 import sys, os
 import glob
 import stat
+import shutil
 
-from setuptools                     import setup, find_packages
-from distutils.command.build        import build as orig_build
+from setuptools                     import setup
+from setuptools.command.build       import build as orig_build
+from setuptools.command.build_py    import build_py as orig_build_py
 from setuptools.command.install     import install as orig_install
-from setuptools.command.bdist_egg   import bdist_egg as orig_bdist_egg
+from setuptools.command.install_lib import install_lib as orig_install_lib
 from setuptools.command.sdist       import sdist as orig_sdist
 from setuptools.command.bdist_wheel import bdist_wheel as orig_bdist_wheel
 
@@ -25,16 +26,12 @@ from setuptools.command.bdist_wheel import bdist_wheel as orig_bdist_wheel
 sys.path.insert(0, os.path.dirname(__file__))
 
 from buildtools.config import Config, msg, opj, runcmd, canGetSOName, getSOName
-import buildtools.version as version
 
 # Create a buildtools.config.Configuration object
 cfg = Config(noWxConfig=True)
 DOCS_BASE='http://docs.wxPython.org'
 
 #----------------------------------------------------------------------
-
-LICENSE          = "wxWindows Library License (https://opensource.org/licenses/wxwindows.php)"
-PLATFORMS        = "WIN32,WIN64,OSX,POSIX"
 
 LONG_DESCRIPTION = """\
 Welcome to wxPython's Project Phoenix! Phoenix is the improved next-generation
@@ -61,17 +58,10 @@ the respective items. (Documents are launched in the default browser and demo is
 with python).
 """.format(version=cfg.VERSION, docs_base=DOCS_BASE)
 
-
-with open('requirements/install.txt') as fid:
-    INSTALL_REQUIRES = [line.strip()
-                        for line in fid.readlines()
-                        if not line.startswith('#')]
-
-isWindows = sys.platform.startswith('win')
 isDarwin = sys.platform == "darwin"
 
 #----------------------------------------------------------------------
-# Classes used in place of some distutils/setuptools classes.
+# Classes used in place of some setuptools command classes.
 
 class wx_build(orig_build):
     """
@@ -106,21 +96,17 @@ class wx_build(orig_build):
             cmd = ' '.join(cmd)
             runcmd(cmd)
 
-        # Let distutils handle building up the package folder under the
+        # Let setuptools handle building up the package folder under the
         # build/lib folder like normal.
         orig_build.run(self)
 
 
 def _cleanup_symlinks(cmd):
     # Clean out any libwx* symlinks in the build_lib folder, as they will
-    # turn into copies in the egg since zip files can't handle symlinks.
+    # turn into copies in the wheel since zip files can't handle symlinks.
     # The links are not really needed since the extensions link to the
-    # specific soname, and they could bloat the egg too much if they were
+    # specific soname, and they could bloat the wheel too much if they were
     # left in.
-    #
-    # TODO: can eggs have post-install scripts that would allow us to
-    # restore the links? No.
-    #
     build_lib = cmd.get_finalized_command('build').build_lib
     build_lib = opj(build_lib, 'wx')
     for libname in sorted(glob.glob(opj(build_lib, 'libwx*'))):
@@ -150,32 +136,6 @@ def _cleanup_symlinks(cmd):
                 pass
 
 
-class wx_bdist_egg(orig_bdist_egg):
-    def finalize_options(self):
-        orig_bdist_egg.finalize_options(self)
-
-        # Redo the calculation of the egg's filename since we always have
-        # extension modules, but they are not built by setuptools so it
-        # doesn't know about them.
-        from pkg_resources import Distribution
-        from sysconfig import get_python_version
-        basename = Distribution(
-            None, None, self.ei_cmd.egg_name, self.ei_cmd.egg_version,
-            get_python_version(),
-            self.plat_name
-        ).egg_name()
-        self.egg_output = os.path.join(self.dist_dir, basename+'.egg')
-
-
-    def run(self):
-        # Ensure that there is a basic library build for bdist_egg to pull from.
-        self.run_command("build")
-
-        _cleanup_symlinks(self)
-
-        # Run the default bdist_egg command
-        orig_bdist_egg.run(self)
-
 class wx_bdist_wheel(orig_bdist_wheel):
     def finalize_options(self):
         # Do a bit of monkey-patching to let bdist_wheel know that there
@@ -191,7 +151,7 @@ class wx_bdist_wheel(orig_bdist_wheel):
 
 
     def run(self):
-        # Ensure that there is a basic library build for bdist_egg/wheel to pull from.
+        # Ensure that there is a basic library build for bdist_wheel to pull from.
         self.run_command("build")
 
         _cleanup_symlinks(self)
@@ -211,6 +171,47 @@ class wx_install(orig_install):
 
 
 
+# The wx shared libs are staged into the package as a versioned symlink chain
+# (libwx_foo.so -> libwx_foo.so.3 -> libwx_foo.so.3.0.0). These two commands
+# keep the symlinks intact rather than letting the copy dereference them into
+# a full (large) copy per link name.
+
+class wx_build_py(orig_build_py):
+    def copy_file(self, infile, outfile, preserve_mode=True, preserve_times=True,
+                  link=None, level=1):
+        if os.path.islink(infile):
+            if os.path.isdir(outfile):
+                outfile = os.path.join(outfile, os.path.basename(infile))
+            if not self.dry_run and not os.path.exists(outfile):
+                os.symlink(os.readlink(infile), outfile)
+            return (outfile, True)
+        return super().copy_file(infile, outfile, preserve_mode,
+                                 preserve_times, link, level)
+
+
+class wx_install_lib(orig_install_lib):
+    def install(self):
+        # setuptools' install_lib.copy_tree asserts preserve_symlinks is off,
+        # so do the tree copy here with shutil instead. get_outputs() is
+        # recomputed from build_lib and doesn't rely on this return value.
+        if not os.path.isdir(self.build_dir):
+            self.warn("'%s' does not exist -- no Python modules to install"
+                      % self.build_dir)
+            return None
+        if self.get_exclusions():
+            # namespace-package exclusions aren't something wxPython uses; let
+            # the default implementation handle that case if it ever arises.
+            return super().install()
+        self.mkpath(self.install_dir)
+        if not self.dry_run:
+            shutil.copytree(self.build_dir, self.install_dir,
+                            symlinks=True, dirs_exist_ok=True)
+        return [os.path.join(root, f)
+                for root, _dirs, files in os.walk(self.install_dir)
+                for f in files]
+
+
+
 class wx_sdist(orig_sdist):
     def run(self):
         # Use build.py to perform the sdist
@@ -227,87 +228,23 @@ class wx_sdist(orig_sdist):
 
 
 
-# Map these new classes to the appropriate distutils command names.
+# Map these new classes to the appropriate setuptools command names.
 CMDCLASS = {
     'build'       : wx_build,
-    'bdist_egg'   : wx_bdist_egg,
+    'build_py'    : wx_build_py,
     'install'     : wx_install,
+    'install_lib' : wx_install_lib,
     'sdist'       : wx_sdist,
     'bdist_wheel' : wx_bdist_wheel,
     }
 
 
 #----------------------------------------------------------------------
-# Monkey-patch copy_file and copy_tree such that they preserve symlinks. We
-# need this since we're copying the wx shared libs into the package folder
-# and the default implementations would have copied the file content multiple
-# times instead of just copying the symlinks.
 
-
-def wx_copy_file(src, dst, preserve_mode=1, preserve_times=1, update=0,
-                 link=None, verbose=1, dry_run=0):
-    if not os.path.islink(src):
-        return orig_copy_file(
-            src, dst, preserve_mode, preserve_times, update, link, verbose, dry_run)
-    else:
-        # make a new, matching symlink in dst
-        if os.path.isdir(dst):
-            dst = os.path.join(dst, os.path.basename(src))
-        linkdst = os.readlink(src)
-        if verbose >= 1:
-            from distutils import log
-            log.info("%s %s -> %s", 'copying symlink', src, dst)
-        if not dry_run and not os.path.exists(dst):
-            os.symlink(linkdst, dst)
-        return (dst, 1)
-
-def wx_copy_file_new(src, dst, preserve_mode=True, preserve_times=True,
-                     update=False, link=None, verbose=True):
-    if not os.path.islink(src):
-        return orig_copy_file(
-            src, dst, preserve_mode, preserve_times, update, link, verbose)
-    else:
-        # make a new, matching symlink in dst
-        if os.path.isdir(dst):
-            dst = os.path.join(dst, os.path.basename(src))
-        linkdst = os.readlink(src)
-        if verbose:
-            from distutils import log
-            log.info("%s %s -> %s", 'copying symlink', src, dst)
-        if not os.path.exists(dst):
-            os.symlink(linkdst, dst)
-        return (dst, True)
-
-import distutils.file_util
-orig_copy_file = distutils.file_util.copy_file
-if 'dry_run' not in inspect.signature(orig_copy_file).parameters.keys():
-    distutils.file_util.copy_file = wx_copy_file_new
-else:
-    distutils.file_util.copy_file = wx_copy_file
-
-
-
-def wx_copy_tree(src, dst, preserve_mode=1, preserve_times=1,
-                 preserve_symlinks=0, update=0, verbose=1, dry_run=0):
-    return orig_copy_tree(
-        src, dst, preserve_mode, preserve_times, 1, update, verbose, dry_run)
-
-def wx_copy_tree_new(src, dst, preserve_mode=True, preserve_times=True,
-                     preserve_symlinks=False, update=False, verbose=True):
-    return orig_copy_tree(
-        src, dst, preserve_mode, preserve_times, True, update, verbose)
-
-import distutils.dir_util
-orig_copy_tree = distutils.dir_util.copy_tree
-if 'dry_run' not in inspect.signature(orig_copy_tree).parameters.keys():
-    distutils.dir_util.copy_tree = wx_copy_tree_new
-else:
-    distutils.dir_util.copy_tree = wx_copy_tree
-
-
-# Monkey-patch make_writeable too. Sometimes the link is copied before the
-# target, and the original make_writable will fail on a link to a missing
-# target.
+# setuptools' build_py.build_package_data calls the module-level make_writable
+# on each file right after copying it. When that file is a symlink whose target
+# hasn't been copied yet, os.stat() follows the dangling link and raises, so
+# patch in a version that leaves symlinks alone.
 def wx_make_writable(target):
     if not os.path.islink(target):
         os.chmod(target, os.stat(target).st_mode | stat.S_IWRITE)
@@ -318,32 +255,10 @@ setuptools.command.build_py.make_writable = wx_make_writable
 
 #----------------------------------------------------------------------
 
-WX_PKGLIST = [cfg.PKGDIR] + [cfg.PKGDIR + '.' + pkg for pkg in find_packages('wx')]
-
-HEADERS = None
-BUILD_OPTIONS = { } #'build_base' : cfg.BUILD_BASE }
-#if cfg.WXPORT == 'msw':
-#    BUILD_OPTIONS[ 'compiler' ] = cfg.COMPILER
-
-
-#----------------------------------------------------------------------
-
 
 if __name__ == '__main__':
     setup(version          = cfg.VERSION,
           long_description = LONG_DESCRIPTION,
           long_description_content_type = 'text/x-rst',
-          license          = LICENSE,
-          platforms        = PLATFORMS,
-          install_requires = INSTALL_REQUIRES,
-          zip_safe         = False,
-          include_package_data = True,
-
-          packages         = WX_PKGLIST,
-          ext_package      = cfg.PKGDIR,
-
-          options          = { 'build'     : BUILD_OPTIONS },
-
-          headers          = HEADERS,
           cmdclass         = CMDCLASS,
         )

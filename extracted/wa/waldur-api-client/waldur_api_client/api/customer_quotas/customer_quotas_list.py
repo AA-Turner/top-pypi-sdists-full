@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Any, Union
+from uuid import UUID
 
 import httpx
 
@@ -13,11 +14,17 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_customer_uuid: Union[Unset, str] = UNSET
+    if not isinstance(customer_uuid, Unset):
+        json_customer_uuid = str(customer_uuid)
+    params["customer_uuid"] = json_customer_uuid
 
     params["page"] = page
 
@@ -69,6 +76,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -76,6 +84,7 @@ def sync_detailed(
     """List customer quotas.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -89,6 +98,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        customer_uuid=customer_uuid,
         page=page,
         page_size=page_size,
         quota_name=quota_name,
@@ -104,6 +114,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -111,6 +122,7 @@ def sync(
     """List customer quotas.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -125,6 +137,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        customer_uuid=customer_uuid,
         page=page,
         page_size=page_size,
         quota_name=quota_name,
@@ -134,6 +147,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -141,6 +155,7 @@ async def asyncio_detailed(
     """List customer quotas.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -154,6 +169,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        customer_uuid=customer_uuid,
         page=page,
         page_size=page_size,
         quota_name=quota_name,
@@ -167,6 +183,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -174,6 +191,7 @@ async def asyncio(
     """List customer quotas.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -189,6 +207,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            customer_uuid=customer_uuid,
             page=page,
             page_size=page_size,
             quota_name=quota_name,
@@ -199,6 +218,7 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
 ) -> list["CustomerQuotas"]:
     """Get All Pages
@@ -209,6 +229,7 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
 
     Raises:
@@ -224,6 +245,7 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        customer_uuid=customer_uuid,
         quota_name=quota_name,
     )
 
@@ -272,6 +294,7 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
 ) -> list["CustomerQuotas"]:
     """Get All Pages (Async)
@@ -282,6 +305,7 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
 
     Raises:
@@ -297,6 +321,7 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        customer_uuid=customer_uuid,
         quota_name=quota_name,
     )
 

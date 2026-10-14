@@ -74,6 +74,10 @@ def sync_detailed(
     offering for which no pool resolves. The action is all-or-nothing - a conflict on the second
     identifier rolls back the change made for the first.
 
+    A UID or primary GID belongs to the user within the pool, not to this single account, so the pin
+    applies across every offering of the provider that resolves to the same pool. An offering with its
+    own pool is unaffected.
+
     The response 'warnings' list carries only non-fatal advisories about values that were accepted: the
     reserved POSIX ids 65534 and 65535, and values of 2^31 or above, which may break software using
     signed 32-bit ids.
@@ -122,6 +126,10 @@ def sync(
     offering for which no pool resolves. The action is all-or-nothing - a conflict on the second
     identifier rolls back the change made for the first.
 
+    A UID or primary GID belongs to the user within the pool, not to this single account, so the pin
+    applies across every offering of the provider that resolves to the same pool. An offering with its
+    own pool is unaffected.
+
     The response 'warnings' list carries only non-fatal advisories about values that were accepted: the
     reserved POSIX ids 65534 and 65535, and values of 2^31 or above, which may break software using
     signed 32-bit ids.
@@ -164,6 +172,10 @@ async def asyncio_detailed(
     by another active identity (another account, a robot account or a group) and any override on an
     offering for which no pool resolves. The action is all-or-nothing - a conflict on the second
     identifier rolls back the change made for the first.
+
+    A UID or primary GID belongs to the user within the pool, not to this single account, so the pin
+    applies across every offering of the provider that resolves to the same pool. An offering with its
+    own pool is unaffected.
 
     The response 'warnings' list carries only non-fatal advisories about values that were accepted: the
     reserved POSIX ids 65534 and 65535, and values of 2^31 or above, which may break software using
@@ -210,6 +222,10 @@ async def asyncio(
     by another active identity (another account, a robot account or a group) and any override on an
     offering for which no pool resolves. The action is all-or-nothing - a conflict on the second
     identifier rolls back the change made for the first.
+
+    A UID or primary GID belongs to the user within the pool, not to this single account, so the pin
+    applies across every offering of the provider that resolves to the same pool. An offering with its
+    own pool is unaffected.
 
     The response 'warnings' list carries only non-fatal advisories about values that were accepted: the
     reserved POSIX ids 65534 and 65535, and values of 2^31 or above, which may break software using

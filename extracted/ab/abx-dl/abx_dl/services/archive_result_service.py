@@ -105,6 +105,8 @@ class ArchiveResultService(BaseService):
         # Keep sanitization and metadata validation, but not on the event loop:
         # a remote tree walk must not prevent unrelated hooks from reporting
         # readiness/exiting, or delay the cleanup that lets the snapshot seal.
+        # Recaptures can reuse unchanged files (for example an unchanged Git
+        # checkout). Result inventories describe retained output, not writes.
         output_files = await asyncio.to_thread(
             scan_output_files,
             output_dir,
@@ -120,8 +122,7 @@ class ArchiveResultService(BaseService):
             return
 
         index_path = Path(event.output_dir).parent / "index.jsonl"
-        write_jsonl(index_path, ar, also_print=self.emit_jsonl)
-
+        await asyncio.to_thread(write_jsonl, index_path, ar, also_print=self.emit_jsonl)
         await event.emit(
             ArchiveResultEvent(
                 snapshot_id=ar.snapshot_id,
@@ -228,8 +229,7 @@ class ArchiveResultService(BaseService):
             ar.output_json = existing.output_json
 
         index_path = Path(event.output_dir).parent / "index.jsonl"
-        write_jsonl(index_path, ar, also_print=self.emit_jsonl)
-
+        await asyncio.to_thread(write_jsonl, index_path, ar, also_print=self.emit_jsonl)
         await event.emit(
             ArchiveResultEvent(
                 snapshot_id=ar.snapshot_id,

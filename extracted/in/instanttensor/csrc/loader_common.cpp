@@ -274,7 +274,8 @@ void Loader::destroy_threads() {
 /*
  * Compute: 1) addresses of the tensors in the buffer, 2) each chunk's range, 3) prefetch chunk for each tensor
  */
-void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets) {// list[(file_index, tensor_offset)]
+void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets,
+                            const vector<bool>& tensor_keep) {// list[(file_index, tensor_offset)]
     // NOTE: One chunk is a group of contiguous tensors, may have left and right non-tensor paddings.
     //       It may correspond to at most three types of storage: file, host buffer, device buffer.
     //       The size and offset of the file storage and the host buffer of a chunk is aligned to rank_alignment (== PAGE_SIZE)
@@ -302,7 +303,12 @@ void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets) 
 
     size_t num_files = tensor_offsets[tensor_offsets.size() - 1].first + 1;
     size_t num_tensors = tensor_offsets.size() - num_files; // for each file, num_offsets = num_tensors + 1
-    this->tensors.resize(num_tensors);
+    if (!tensor_keep.empty() && tensor_keep.size() != num_tensors) {
+        throw std::invalid_argument("tensor_keep must have one entry per tensor");
+    }
+    this->tensors.resize(tensor_keep.empty() ? num_tensors :
+                         std::count(tensor_keep.begin(), tensor_keep.end(), true));
+    size_t source_tensor_id = 0;
 
     auto tensor_device_buffer_offset = [&](size_t tensor_file_offset) -> size_t {
         return tensor_file_offset - chunk_file_offset + chunk_device_buffer_offset;
@@ -371,6 +377,11 @@ void Loader::compute_layout(const vector<pair<size_t, size_t>>& tensor_offsets) 
         if (file_index != next_file_index) {
             finish_chunk();
             reset_chunk_file(next_file_index, next_tensor_offset);
+            continue;
+        }
+        if (!tensor_keep.empty() && !tensor_keep[source_tensor_id++]) {
+            finish_chunk();
+            reset_chunk_file(file_index, next_tensor_offset);
             continue;
         }
         if(current_chunk_size != tensor_file_offset - chunk_file_offset) {
@@ -488,7 +499,7 @@ void Loader::open(OpenArgs args) {
     auto t4 = std::chrono::high_resolution_clock::now();
     this->init_threads();
     auto t5 = std::chrono::high_resolution_clock::now();
-    this->compute_layout(args.tensor_offsets);
+    this->compute_layout(args.tensor_offsets, args.tensor_keep);
     auto t6 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> d1 = t1 - t0;
     std::chrono::duration<double> d2 = t2 - t1;

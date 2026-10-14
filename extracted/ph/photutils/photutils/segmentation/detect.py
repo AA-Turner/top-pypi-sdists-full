@@ -7,6 +7,7 @@ import warnings
 
 import numpy as np
 from astropy.stats import SigmaClip
+from astropy.utils.exceptions import AstropyUserWarning
 from scipy.ndimage import find_objects
 from scipy.ndimage import label as ndi_label
 
@@ -53,7 +54,9 @@ def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
         shape as the input ``data``. If the input ``data`` has been
         background-subtracted, then set ``background`` to ``0.0`` (this
         should be typical). If `None`, then a scalar background value
-        will be estimated as the sigma-clipped image mean.
+        will be estimated as the sigma-clipped image mean. If ``data``
+        is a `~astropy.units.Quantity` array, then ``background`` must
+        have the same units as ``data``.
 
     error : float or 2D `~numpy.ndarray`, optional
         The Gaussian 1-sigma standard deviation of the background
@@ -62,7 +65,9 @@ def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
         sources. If ``error`` is a 2D image, then it should represent
         the 1-sigma background error in each pixel of ``data``. If
         `None`, then a scalar background rms value will be estimated
-        as the sigma-clipped image standard deviation.
+        as the sigma-clipped image standard deviation. If ``data`` is a
+        `~astropy.units.Quantity` array, then ``error`` must have the
+        same units as ``data``.
 
     mask : 2D bool `~numpy.ndarray`, optional
         A boolean mask with the same shape as ``data``, where a `True`
@@ -72,7 +77,9 @@ def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
 
     sigma_clip : `astropy.stats.SigmaClip` or `None`, optional
         A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters. If `None` then no sigma clipping will be
+        clipping parameters. The default is a
+        `~astropy.stats.SigmaClip` with ``sigma=3.0`` and
+        ``maxiters=10``. If `None` then no sigma clipping will be
         performed.
 
     Returns
@@ -93,6 +100,12 @@ def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
     is necessary to estimate ``background`` or ``error`` using
     sigma-clipped background statistics. If ``background`` and ``error``
     are both input, then ``mask`` and ``sigma_clip`` are ignored.
+
+    If ``background`` or ``error`` is estimated and the unmasked
+    ``data`` contain nonfinite values (NaN or inf), then an
+    `~astropy.utils.exceptions.AstropyUserWarning` is emitted and the
+    nonfinite values are excluded from the statistics, with or without
+    sigma clipping.
     """
     inputs = (data, background, error)
     names = ('data', 'background', 'error')
@@ -102,28 +115,41 @@ def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
     if sigma_clip is SIGMA_CLIP:
         sigma_clip = create_default_sigmaclip(sigma=SIGMA_CLIP.sigma,
                                               maxiters=SIGMA_CLIP.maxiters)
-    if not isinstance(sigma_clip, SigmaClip):
-        msg = 'sigma_clip must be a SigmaClip object'
+    if sigma_clip is not None and not isinstance(sigma_clip, SigmaClip):
+        msg = 'sigma_clip must be a SigmaClip object or None'
         raise TypeError(msg)
 
     if background is None or error is None:
         if mask is not None:
             data = np.ma.MaskedArray(data, mask)
 
-        clipped_data = sigma_clip(data, masked=False, return_bounds=False,
-                                  copy=True)
+        if sigma_clip is None:
+            # Masked and nonfinite values are excluded from the
+            # statistics
+            clipped_data = np.ma.getdata(data).astype(float)
+            masked = np.ma.getmaskarray(data)
+            nonfinite = ~np.isfinite(clipped_data)
+            if np.any(nonfinite & ~masked):
+                msg = ('Input data contains nonfinite values (NaN or '
+                       'inf), which were excluded from the background '
+                       'statistics.')
+                warnings.warn(msg, AstropyUserWarning)
+            clipped_data[nonfinite | masked] = np.nan
+        else:
+            clipped_data = sigma_clip(data, masked=False,
+                                      return_bounds=False, copy=True)
 
     if background is None:
         background = nanmean(clipped_data)
 
-    if not np.isscalar(background) and background.shape != data.shape:
+    if np.ndim(background) != 0 and background.shape != data.shape:
         msg = ('If input background is 2D, then it must have the same '
                'shape as the input data.')
         raise ValueError(msg)
 
     if error is None:
         error = nanstd(clipped_data)
-    if not np.isscalar(error) and error.shape != data.shape:
+    if np.ndim(error) != 0 and error.shape != data.shape:
         msg = ('If input error is 2D, then it must have the same shape '
                'as the input data.')
         raise ValueError(msg)
@@ -137,21 +163,20 @@ def detect_threshold(data, n_sigma, *, background=None, error=None, mask=None,
     return threshold
 
 
-def _detect_sources(data, threshold, n_pixels, footprint, inverse_mask, *,
-                    relabel=True, return_segmimg=True):
+def _detect_sources(data, threshold, n_pixels, footprint, inverse_mask):
     """
     Detect sources above a specified threshold value in an image.
 
-    Detected sources must have ``n_pixels`` connected pixels that are
-    each greater than the ``threshold`` value in the input ``data``.
+    Detected sources must have at least ``n_pixels`` connected pixels
+    that are each greater than the ``threshold`` value in the input
+    ``data``.
 
     This function is the core algorithm for detecting sources in
     an image used by `detect_sources`. This function differs from
     `detect_sources` in that it does not perform any boilerplate checks,
     it accepts a ``footprint`` argument instead of a ``connectivity``
     argument, and it accepts an ``inverse_mask`` argument instead of a
-    ``mask`` argument. It is also used by the source deblending function
-    for multithresholding.
+    ``mask`` argument.
 
     Parameters
     ----------
@@ -173,38 +198,25 @@ def _detect_sources(data, threshold, n_pixels, footprint, inverse_mask, *,
     footprint : array_like
         A footprint that defines feature connections. As an example,
         for connectivity along pixel edges only, the footprint is
-        ``np.array([[0, 1, 0]], [1, 1, 1], [0, 1, 0]])``.
+        ``np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])``.
 
-    inverse_mask : 2D bool `~numpy.ndarray`
+    inverse_mask : 2D bool `~numpy.ndarray` or `None`
         A boolean mask, with the same shape as the input ``data``, where
         `False` values indicate masked pixels (the inverse of usual
         pixel masks). Masked pixels will not be included in any source.
-
-    relabel : bool, optional
-        If `True`, relabel the segmentation image with consecutive
-        numbers.
-
-    return_segmimg : bool, optional
-        If `True`, return a `~photutils.segmentation.SegmentationImage`
-        object. If `False`, return a 2D `~numpy.ndarray` segmentation
-        image. The latter is used by the source deblending function.
-        In that case, if only one source is found, then `None` is
-        returned.
+        If `None`, then no pixels are masked.
 
     Returns
     -------
-    segment_image : `~photutils.segmentation.SegmentationImage`, \
-            2D `~numpy.ndarray`, or `None`
+    segment_image : `~photutils.segmentation.SegmentationImage` or `None`
         A 2D segmentation image, with the same shape as ``data``, where
         sources are marked by different positive integer values. A value
-        of zero is reserved for the background. If ``return_segmimg``
-        is `False`, then a 2D `~numpy.ndarray` segmentation image is
-        returned. If no sources are found then `None` is returned.
+        of zero is reserved for the background. If no sources are found
+        then `None` is returned.
     """
-    # Ignore RuntimeWarning caused by > comparison when data contains NaNs
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', category=RuntimeWarning)
-        segment_img = data > threshold
+    # NaN values compare as False, so NaN pixels are never included
+    # in any source
+    segment_img = data > threshold
 
     if inverse_mask is not None:
         segment_img &= inverse_mask
@@ -215,8 +227,8 @@ def _detect_sources(data, threshold, n_pixels, footprint, inverse_mask, *,
 
     # NOTE: recasting segment_img to int and using output=segment_img
     # gives similar performance
-    segment_img, nlabels = ndi_label(segment_img, structure=footprint)
-    labels = np.arange(nlabels, dtype=segment_img.dtype) + 1
+    segment_img, n_labels = ndi_label(segment_img, structure=footprint)
+    labels = np.arange(n_labels, dtype=segment_img.dtype) + 1
 
     # Remove objects with less than n_pixels
     # NOTE: making cutout images and setting their pixels to 0 is
@@ -225,45 +237,76 @@ def _detect_sources(data, threshold, n_pixels, footprint, inverse_mask, *,
     slices = find_objects(segment_img)
     segm_labels = []
     segm_slices = []
+    segm_areas = []
     for label, slc in zip(labels, slices, strict=True):
         cutout = segment_img[slc]
         segment_mask = (cutout == label)
-        if np.count_nonzero(segment_mask) < n_pixels:
+        # The pixel count is the segment area, so it is kept to seed
+        # the SegmentationImage areas instead of being recomputed
+        area = np.count_nonzero(segment_mask)
+        if area < n_pixels:
             cutout[segment_mask] = 0
             continue
         segm_labels.append(label)
         segm_slices.append(slc)
+        segm_areas.append(area)
 
-    if np.count_nonzero(segment_img) == 0:
+    if not segm_labels:
         return None
 
-    if relabel:
-        # Relabel the segmentation image with consecutive numbers;
-        # ndimage.label returns segment_img with dtype = np.int32
-        # unless the input array has more than 2**31 - 1 pixels
-        nlabels = len(segm_labels)
-        if len(labels) != nlabels:
-            label_map = np.zeros(np.max(labels) + 1,
-                                 dtype=segment_img.dtype)
-            labels = np.arange(nlabels, dtype=segment_img.dtype) + 1
-            label_map[segm_labels] = labels
-            segment_img = label_map[segment_img]
-    else:
-        labels = segm_labels
+    # Relabel the segmentation image with consecutive numbers.
+    # ndimage.label returns segment_img with dtype = np.int32
+    # unless the input array has more than 2**31 - 1 pixels
+    n_labels = len(segm_labels)
+    if len(labels) != n_labels:
+        label_map = np.zeros(np.max(labels) + 1,
+                             dtype=segment_img.dtype)
+        labels = np.arange(n_labels, dtype=segment_img.dtype) + 1
+        label_map[segm_labels] = labels
+        segment_img = label_map[segment_img]
 
-    if return_segmimg:
-        segm = object.__new__(SegmentationImage)
-        segm._data = segment_img
-        segm.__dict__['labels'] = labels
-        segm.__dict__['slices'] = segm_slices
-        segm.__dict__['_deblend_label_map'] = {}
-        return segm
+    return SegmentationImage._from_data(segment_img, labels=labels,
+                                        areas=np.array(segm_areas),
+                                        slices=segm_slices)
 
-    # This is used by deblend_sources
-    if len(labels) == 1:
-        return None
 
-    return segment_img
+def _warn_negative_threshold(threshold):
+    """
+    Warn if the detection threshold is negative.
+
+    Sources are defined by pixels that are strictly greater than the
+    threshold, so a negative threshold can include pixels with zero
+    or negative values in the detected sources. Such pixels contribute
+    to the source areas, but `~photutils.segmentation.SourceCatalog`
+    sets negative data values to zero when computing the source
+    moments, so they do not contribute to the centroids and shapes.
+    A source whose minimum data value is not positive also switches
+    `~photutils.segmentation.deblend_sources` from its exponential
+    mode to its sinh fallback mode.
+
+    Parameters
+    ----------
+    threshold : float, 2D `~numpy.ndarray`, or `~astropy.units.Quantity`
+        The detection threshold. NaN values are ignored.
+    """
+    (values,), _ = process_quantities((threshold,), ('threshold',))
+    values = np.asanyarray(values)
+    if values.ndim == 0:
+        if values < 0:
+            msg = (f'threshold is negative ({values}). Pixels with zero '
+                   'or negative values can be included in the detected '
+                   'sources. SourceCatalog sets negative data values to '
+                   'zero when computing the source moments.')
+            warnings.warn(msg, AstropyUserWarning)
+        return
+
+    n_bad = np.count_nonzero(values < 0)
+    if n_bad > 0:
+        msg = (f'threshold has {n_bad} negative value(s). Pixels with '
+               'zero or negative values can be included in the detected '
+               'sources. SourceCatalog sets negative data values to zero '
+               'when computing the source moments.')
+        warnings.warn(msg, AstropyUserWarning)
 
 
 @deprecated_renamed_argument('npixels', 'n_pixels', '3.0', until='4.0')
@@ -271,10 +314,10 @@ def detect_sources(data, threshold, n_pixels, *, connectivity=8, mask=None):
     """
     Detect sources above a specified threshold value in an image.
 
-    Detected sources must have ``n_pixels`` connected pixels that are
-    each greater than the ``threshold`` value in the input ``data``. The
-    input ``mask`` can be used to mask pixels in the input data. Masked
-    pixels will not be included in any source.
+    Detected sources must have at least ``n_pixels`` connected pixels
+    that are each greater than the ``threshold`` value in the input
+    ``data``. The input ``mask`` can be used to mask pixels in the input
+    data. Masked pixels will not be included in any source.
 
     This function does not deblend overlapping sources.
     First use this function to detect sources followed by
@@ -286,13 +329,17 @@ def detect_sources(data, threshold, n_pixels, *, connectivity=8, mask=None):
     ----------
     data : 2D `~numpy.ndarray`
         The 2D array of the image. If filtering is desired, please input
-        a convolved image.
+        a convolved image. Pixels with NaN values are never included in
+        a source.
 
     threshold : float or 2D `~numpy.ndarray`
         The data value or pixel-wise data values to be used for the
         detection threshold. If ``data`` is a `~astropy.units.Quantity`
         array, then ``threshold`` must have the same units as ``data``.
         A 2D ``threshold`` array must have the same shape as ``data``.
+        A warning is emitted if the threshold is negative (or, for an
+        array, has any negative values), because pixels with zero or
+        negative values can then be included in the detected sources.
 
     n_pixels : int
         The minimum number of connected pixels, each greater than
@@ -320,8 +367,20 @@ def detect_sources(data, threshold, n_pixels, *, connectivity=8, mask=None):
 
     Raises
     ------
+    ValueError
+        If ``n_pixels`` is not a positive integer, if ``connectivity``
+        is not 4 or 8, if ``data`` and ``threshold`` do not have the
+        same units, if ``mask`` does not have the same shape as
+        ``data``, or if ``mask`` is `True` for every pixel.
+
+    Warns
+    -----
     NoDetectionsWarning
         If no sources are found.
+
+    AstropyUserWarning
+        If ``threshold`` is negative or, for an array, has any negative
+        values.
 
     See Also
     --------
@@ -359,13 +418,14 @@ def detect_sources(data, threshold, n_pixels, *, connectivity=8, mask=None):
         segment_map = detect_sources(convolved_data, threshold, n_pixels=10)
 
         # Plot the image and the segmentation image
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 10))
+        fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(8, 10))
         norm = simple_norm(data, 'sqrt', percent=99.5)
         ax1.imshow(data, norm=norm, origin='lower')
         segment_map.imshow(ax=ax2)
         fig.tight_layout()
     """
     check_units((data, threshold), ('data', 'threshold'))
+    _warn_negative_threshold(threshold)
 
     if (n_pixels <= 0) or (int(n_pixels) != n_pixels):
         msg = f'n_pixels must be a positive integer, got {n_pixels!r}'
@@ -386,11 +446,11 @@ def detect_sources(data, threshold, n_pixels, *, connectivity=8, mask=None):
     footprint = _make_binary_structure(data.ndim, connectivity)
 
     segm = _detect_sources(data, threshold, n_pixels, footprint,
-                           inverse_mask, relabel=True, return_segmimg=True)
+                           inverse_mask)
 
     if segm is None:
         msg = ('No sources were found. Try lowering the threshold or '
-               'pixels parameters.')
+               'n_pixels parameters.')
         warnings.warn(msg, NoDetectionsWarning)
 
     return segm

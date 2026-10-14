@@ -26,6 +26,7 @@ import sys
 import tempfile
 from unittest import mock
 
+from google.api_core import exceptions as api_exceptions
 import google.auth.credentials
 from google.cloud import aiplatform
 import agentplatform
@@ -100,6 +101,16 @@ class TestDropEmptyColumns:
         )
         result_df = _evals_common._drop_empty_columns(df)
         assert list(result_df.columns) == ["col1", "col2"]
+
+    def test_drop_empty_columns_with_array_cells(self):
+        df = pd.DataFrame(
+            {
+                "col1": [None, None],
+                "col2": [pd.Series([1, 2]).to_numpy(), pd.Series([3, 4]).to_numpy()],
+            }
+        )
+        result_df = _evals_common._drop_empty_columns(df)
+        assert list(result_df.columns) == ["col2"]
 
 
 def _create_content_dump(text: str) -> dict[str, list[genai_types.Content]]:
@@ -231,6 +242,41 @@ class TestGetApiClientWithLocation:
             mock_api_client_fixture, new_location
         )
         mock_agentplatform_client.assert_not_called()
+
+
+class TestGetRuntimeInstance:
+    _RUNTIME_NAME = "projects/test-project/locations/us-central1/reasoningEngines/123"
+
+    def setup_method(self):
+        if hasattr(_evals_common._thread_local_data, "runtime_instances"):
+            del _evals_common._thread_local_data.runtime_instances
+
+    def teardown_method(self):
+        if hasattr(_evals_common._thread_local_data, "runtime_instances"):
+            del _evals_common._thread_local_data.runtime_instances
+
+    @mock.patch.object(_evals_common.agentplatform, "Client")
+    def test_get_runtime_instance_uses_client_credentials_and_http_options(
+        self, mock_agentplatform_client, mock_api_client_fixture
+    ):
+        mock_api_client_fixture._http_options = genai_types.HttpOptions(
+            base_url="https://custom-endpoint.example.com/"
+        )
+        runtime = _evals_common._get_runtime_instance(
+            self._RUNTIME_NAME, mock_api_client_fixture
+        )
+        mock_agentplatform_client.assert_called_once_with(
+            project=mock_api_client_fixture.project,
+            location=mock_api_client_fixture.location,
+            credentials=mock_api_client_fixture._credentials,
+            http_options=mock_api_client_fixture._http_options,
+        )
+        mock_agentplatform_client.return_value.runtimes.get.assert_called_once_with(
+            name=self._RUNTIME_NAME
+        )
+        assert runtime is (
+            mock_agentplatform_client.return_value.runtimes.get.return_value
+        )
 
 
 class TestNormalizeInferenceModelName:
@@ -821,6 +867,16 @@ class TestLossAnalysis:
         payload_b64 = base64.b64encode(payload_json.encode("utf-8")).decode("ascii")
         assert payload_b64 in html
         assert "DOMPurify" in html
+
+    def test_get_comparison_html_shows_na_for_missing_summary_scores(self):
+        from vertexai._genai import (
+            _evals_visualization as vertexai_evals_visualization,
+        )
+
+        for viz in (_evals_visualization, vertexai_evals_visualization):
+            html = viz.get_comparison_html("{}")
+            assert "m.mean_score != null ? m.mean_score.toFixed(4) : 'N/A'" in html
+            assert "m.stdev_score != null ? m.stdev_score.toFixed(4) : 'N/A'" in html
 
     def test_get_inference_html(self):
         """Tests that get_inference_html generates valid HTML with data."""
@@ -2336,12 +2392,19 @@ class TestEvalsVisualization:
                 }
             },
         ]
+        agent_data = {"turns": [{"turn_index": 3, "turn_id": "t3", "events": []}]}
         dataset_df = pd.DataFrame(
             [
                 {
                     "prompt": "Test prompt",
                     "response": "Test response",
                     "intermediate_events": intermediate_events_list,
+                },
+                {
+                    "prompt": "Test prompt 2",
+                    "response": "Test response 2",
+                    "intermediate_events": intermediate_events_list,
+                    "agent_data": agent_data,
                 },
             ]
         )
@@ -2369,9 +2432,12 @@ class TestEvalsVisualization:
         html_content = mock_display_module.HTML.call_args[0][0]
         match = re.search(r'atob\("([^"]+)"\)', html_content)
         assert match
-        decoded_json = base64.b64decode(match.group(1)).decode("utf-8")
-        assert "my_function" in decoded_json
-        assert "this is model response" in decoded_json
+        payload = json.loads(base64.b64decode(match.group(1)).decode("utf-8"))
+        rows = payload["metadata"]["dataset"]
+        assert json.loads(rows[0]["agent_data"]) == {
+            "turns": [{"turn_index": 0, "events": intermediate_events_list}]
+        }
+        assert json.loads(rows[1]["agent_data"]) == agent_data
 
         del sys.modules["IPython"]
         del sys.modules["IPython.display"]
@@ -3380,9 +3446,7 @@ class TestEvalsRunInference:
         ]
 
         mock_runtime.stream_query.return_value = iter(stream_query_return_value)
-        mock_agentplatform_client.return_value.runtimes.get.return_value = (
-            mock_runtime
-        )
+        mock_agentplatform_client.return_value.runtimes.get.return_value = mock_runtime
 
         inference_result = self.client.evals.run_inference(
             agent="projects/test-project/locations/us-central1/reasoningEngines/123",
@@ -3489,9 +3553,7 @@ class TestEvalsRunInference:
         ]
 
         mock_runtime.stream_query.return_value = iter(stream_query_return_value)
-        mock_agentplatform_client.return_value.runtimes.get.return_value = (
-            mock_runtime
-        )
+        mock_agentplatform_client.return_value.runtimes.get.return_value = mock_runtime
 
         inference_result = self.client.evals.run_inference(
             agent="projects/test-project/locations/us-central1/reasoningEngines/123",
@@ -3581,9 +3643,7 @@ class TestEvalsRunInference:
         )
 
         mock_runtime = mock.Mock()
-        mock_agentplatform_client.return_value.runtimes.get.return_value = (
-            mock_runtime
-        )
+        mock_agentplatform_client.return_value.runtimes.get.return_value = mock_runtime
 
         with pytest.raises(ValueError) as excinfo:
             self.client.evals.run_inference(
@@ -3595,12 +3655,14 @@ class TestEvalsRunInference:
             "'intermediate_events' or 'response' columns"
         ) in str(excinfo.value)
 
+    @mock.patch("agentplatform._genai.sessions.Sessions")
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
     @mock.patch.object(_evals_common.agentplatform, "Client")
     def test_run_inference_with_runtime_falls_back_to_managed_sessions_api(
         self,
         mock_agentplatform_client,
         mock_eval_dataset_loader,
+        mock_sessions,
     ):
         """Tests that run_inference falls back to the managed Sessions API
         when the agent engine does not have create_session registered."""
@@ -3634,9 +3696,7 @@ class TestEvalsRunInference:
             "projects/test-project/locations/us-central1"
             "/reasoningEngines/123/sessions/managed-session-1"
         )
-        mock_runtime.api_client.sessions.create.return_value = (
-            mock_session_operation
-        )
+        mock_sessions.return_value.create.return_value = mock_session_operation
 
         stream_query_return_value = [
             {
@@ -3653,9 +3713,7 @@ class TestEvalsRunInference:
             },
         ]
         mock_runtime.stream_query.return_value = iter(stream_query_return_value)
-        mock_agentplatform_client.return_value.runtimes.get.return_value = (
-            mock_runtime
-        )
+        mock_agentplatform_client.return_value.runtimes.get.return_value = mock_runtime
 
         inference_result = self.client.evals.run_inference(
             agent="projects/test-project/locations/us-central1/reasoningEngines/123",
@@ -3663,7 +3721,8 @@ class TestEvalsRunInference:
         )
 
         # Verify the managed Sessions API was called as fallback.
-        mock_runtime.api_client.sessions.create.assert_called_once_with(
+        mock_sessions.assert_called_once_with(mock_runtime.api_client._api_client)
+        mock_sessions.return_value.create.assert_called_once_with(
             name="projects/test-project/locations/us-central1/reasoningEngines/123",
             user_id="123",
             config=agentplatform_genai_types.CreateRuntimeSessionConfig(
@@ -3776,7 +3835,9 @@ class TestEvalsRunInference:
             sys.modules,
             {
                 "google.adk": mock.MagicMock(),
-                "google.adk.sessions": mock_adk_sessions_module,
+                "google.adk.sessions.in_memory_session_service": (
+                    mock_adk_sessions_module
+                ),
                 "google.adk.runners": mock_adk_runners_module,
                 "google.adk.agents": mock.MagicMock(),
             },
@@ -4308,6 +4369,54 @@ class TestEvalsRunInference:
         assert result_df["agent_data"].tolist()[0] == {}
         assert mock_interactions.create.call_count == 2
 
+    @mock.patch.object(_evals_common, "_fetch_agent_config_dict")
+    @mock.patch.object(_evals_common, "_get_interactions_client")
+    @mock.patch.object(_evals_utils, "EvalDatasetLoader")
+    def test_run_inference_gemini_agent_saves_to_dest(
+        self,
+        mock_eval_dataset_loader,
+        mock_get_interactions_client,
+        mock_fetch_agent_config,
+    ):
+        mock_fetch_agent_config.return_value = (
+            agentplatform_genai_types.evals.AgentConfig(agent_id="test-agent")
+        )
+        mock_df = pd.DataFrame({"prompt": ["p1"]})
+        mock_eval_dataset_loader.return_value.load.return_value = mock_df.to_dict(
+            orient="records"
+        )
+        mock_interactions = mock.Mock()
+        mock_interactions.create.return_value = {
+            "id": "interaction-1",
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "response 1"}],
+                }
+            ],
+        }
+        mock_get_interactions_client.return_value = mock_interactions
+
+        with tempfile.TemporaryDirectory() as local_dest_dir:
+            inference_result = self.client.evals.run_inference(
+                src=mock_df,
+                agent=_TEST_GEMINI_AGENT,
+                config=agentplatform_genai_types.EvalRunInferenceConfig(
+                    dest=local_dest_dir
+                ),
+            )
+
+            saved_file_path = os.path.join(local_dest_dir, "agent_run_results.jsonl")
+            with open(saved_file_path, "r") as f:
+                saved_records = [json.loads(line) for line in f]
+
+        assert saved_records == inference_result.eval_dataset_df.to_dict(
+            orient="records"
+        )
+        assert saved_records[0]["interaction_id"] == "interaction-1"
+        assert inference_result.candidate_name == "test-agent"
+
     @mock.patch.object(_evals_common, "_get_interactions_client")
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
     @mock.patch.object(_evals_common.agentplatform, "Client")
@@ -4334,9 +4443,7 @@ class TestEvalsRunInference:
                 }
             ]
         )
-        mock_agentplatform_client.return_value.runtimes.get.return_value = (
-            mock_runtime
-        )
+        mock_agentplatform_client.return_value.runtimes.get.return_value = mock_runtime
 
         self.client.evals.run_inference(
             src=mock_df,
@@ -4722,6 +4829,61 @@ class TestEvalsMetricHandlers:
             )
         ]
         assert _evals_metric_handlers._has_tool_call(events)
+
+
+class TestExecuteInferenceConcurrently:
+    """Unit tests for row handling in the concurrent inference helpers."""
+
+    def test_missing_agent_data_falls_back_to_prompt(self):
+        completed_trace = {
+            "turns": [
+                {
+                    "events": [
+                        {"author": "user", "content": {"parts": [{"text": "hi"}]}},
+                        {"author": "agent", "content": {"parts": [{"text": "hey"}]}},
+                    ]
+                }
+            ]
+        }
+        prompt_dataset = pd.DataFrame(
+            [{"prompt": "p0", "agent_data": completed_trace}, {"prompt": "p1"}]
+        )
+        inference_fn = mock.Mock(return_value={"response": "r1"})
+
+        responses = _evals_common._execute_inference_concurrently(
+            api_client=mock.Mock(),
+            prompt_dataset=prompt_dataset,
+            progress_desc="Agent Run",
+            inference_fn=inference_fn,
+            runtime=mock.Mock(),
+        )
+
+        assert [event["author"] for event in responses[0]] == ["user", "agent"]
+        assert responses[1] == {"response": "r1"}
+        assert inference_fn.call_args.kwargs["contents"] == "p1"
+
+    def test_responses_follow_row_positions(self):
+        prompt_dataset = pd.DataFrame({"prompt": ["p0", "p1"]}, index=[1, 0])
+
+        responses = _evals_common._execute_inference_concurrently(
+            api_client=None,
+            prompt_dataset=prompt_dataset,
+            progress_desc="Custom Inference",
+            model_or_fn=lambda contents: f"response to {contents}",
+        )
+
+        assert responses == ["response to p0", "response to p1"]
+
+    @mock.patch.object(_evals_common, "_call_litellm_completion")
+    def test_litellm_responses_follow_row_positions(self, mock_call_litellm_completion):
+        mock_call_litellm_completion.side_effect = lambda model, messages: {
+            "content": messages[0]["content"]
+        }
+        prompt_dataset = pd.DataFrame({"prompt": ["p0", "p1"]}, index=[1, 0])
+
+        responses = _evals_common._run_litellm_inference("gpt-4o", prompt_dataset)
+
+        assert responses == [{"content": "p0"}, {"content": "p1"}]
 
 
 @pytest.mark.usefixtures("google_auth_mock")
@@ -6891,6 +7053,28 @@ class TestBuildEvaluationInstance:
             other_data["system_instruction"].contents.contents[0].parts[0].text
             == "System instructions here."
         )
+
+    @pytest.mark.parametrize(
+        "context",
+        [["Passage one.", "Passage two."], {"source": "doc-1", "text": "Passage."}],
+    )
+    def test_build_evaluation_instance_list_and_dict_context(self, context):
+        eval_case = agentplatform_genai_types.EvalCase(
+            prompt=genai_types.Content(parts=[genai_types.Part(text="Hello")]),
+            responses=[
+                agentplatform_genai_types.ResponseCandidate(
+                    response=genai_types.Content(parts=[genai_types.Part(text="Hi")])
+                )
+            ],
+            context=context,
+        )
+
+        instance = _evals_metric_handlers._build_evaluation_instance(
+            eval_case, eval_case.responses[0].response
+        )
+
+        context_data = instance.other_data.map_instance["context"]
+        assert context_data.contents.contents[0].parts[0].text == json.dumps(context)
 
 
 class TestMetric:
@@ -10196,6 +10380,33 @@ class TestCreateEvaluationSetFromDataFrame:
 
     @mock.patch.object(_evals_common, "evals")
     @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_create_evaluation_set_treats_nan_cells_as_missing(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        eval_df = pd.DataFrame(
+            [{"prompt": "p0", "response": "r0"}, {"reference": "ref1"}]
+        )
+
+        _evals_common._create_evaluation_set_from_dataframe(
+            api_client=self.mock_api_client,
+            gcs_dest_prefix="gs://bucket/prefix",
+            eval_df=eval_df,
+            candidate_name="test-candidate",
+        )
+
+        upload = mock_gcs_utils.GcsUtils.return_value.upload_json_to_prefix
+        first, second = (call.kwargs["data"] for call in upload.call_args_list)
+        assert first == {
+            "prompt": {"text": "p0"},
+            "candidateResponses": [{"candidate": "test-candidate", "text": "r0"}],
+        }
+        assert second == {
+            "goldenResponse": {"text": "ref1"},
+            "candidateResponses": [{"candidate": "test-candidate"}],
+        }
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
     def test_create_evaluation_set_with_user_scenario(
         self, mock_gcs_utils, mock_evals_module
     ):
@@ -11061,6 +11272,117 @@ class TestCallWithRetry:
         assert mock_sleep.call_count == 0
 
 
+class TestInferenceRetry:
+    @pytest.mark.parametrize(
+        "error, expected",
+        [
+            (genai_errors.ClientError(code=429, response_json={}), True),
+            (genai_errors.ServerError(code=503, response_json={}), True),
+            (genai_errors.ClientError(code=400, response_json={}), False),
+            (genai_errors.ClientError(code=403, response_json={}), False),
+            (genai_errors.ClientError(code=404, response_json={}), False),
+            (api_exceptions.ResourceExhausted("quota"), True),
+            (api_exceptions.ServiceUnavailable("unavailable"), True),
+            (api_exceptions.InvalidArgument("bad request"), False),
+            (ValueError("bad value"), False),
+        ],
+    )
+    def test_is_retryable_error(self, error, expected):
+        assert _evals_common._is_retryable_error(error) is expected
+
+    @mock.patch("time.sleep", return_value=None)
+    @mock.patch.object(_evals_common, "Models")
+    def test_generate_content_retries_429_with_backoff(self, mock_models, mock_sleep):
+        response = genai_types.GenerateContentResponse(
+            candidates=[
+                genai_types.Candidate(
+                    content=genai_types.Content(parts=[genai_types.Part(text="ok")]),
+                    finish_reason=genai_types.FinishReason.STOP,
+                )
+            ]
+        )
+        error = genai_errors.ClientError(code=429, response_json={})
+        mock_models.return_value.generate_content.side_effect = [error, error, response]
+
+        result = _evals_common._generate_content_with_retry(
+            api_client=mock.Mock(), model="gemini-pro", contents="prompt"
+        )
+
+        assert result is response
+        assert mock_models.return_value.generate_content.call_count == 3
+        backoffs = [call.args[0] for call in mock_sleep.call_args_list]
+        assert len(backoffs) == 2
+        assert 1 <= backoffs[0] <= 2
+        assert 2 <= backoffs[1] <= 3
+
+    @mock.patch("time.sleep", return_value=None)
+    @mock.patch.object(_evals_common, "Models")
+    def test_generate_content_does_not_retry_400(self, mock_models, mock_sleep):
+        mock_models.return_value.generate_content.side_effect = (
+            genai_errors.ClientError(code=400, response_json={})
+        )
+
+        result = _evals_common._generate_content_with_retry(
+            api_client=mock.Mock(), model="gemini-pro", contents="prompt"
+        )
+
+        assert result["error"].startswith("Failed on attempt 1/3: 400")
+        assert mock_models.return_value.generate_content.call_count == 1
+        mock_sleep.assert_not_called()
+
+    @mock.patch("time.sleep", return_value=None)
+    def test_agent_engine_run_retries_429_and_fails_fast_on_400(self, mock_sleep):
+        runtime = mock.Mock()
+        runtime.stream_query.side_effect = [
+            genai_errors.ClientError(code=429, response_json={}),
+            genai_errors.ClientError(code=400, response_json={}),
+        ]
+
+        with mock.patch.object(
+            _evals_common, "_create_runtime_session", return_value="session-id"
+        ):
+            result = _evals_common._execute_agent_run_with_retry(
+                row=pd.Series({"prompt": "prompt"}), contents="prompt", runtime=runtime
+            )
+
+        assert result["error"].startswith("Failed on attempt 2/3: 400")
+        assert runtime.stream_query.call_count == 2
+        mock_sleep.assert_called_once()
+        assert 1 <= mock_sleep.call_args.args[0] <= 2
+
+    @mock.patch("asyncio.sleep", new_callable=mock.AsyncMock)
+    def test_local_agent_run_retries_429_and_fails_fast_on_400(self, mock_sleep):
+        mock_runners = mock.MagicMock()
+        mock_runners.Runner.return_value.run_async.side_effect = [
+            genai_errors.ClientError(code=429, response_json={}),
+            genai_errors.ClientError(code=400, response_json={}),
+        ]
+        mock_sessions = mock.MagicMock()
+        mock_sessions.InMemorySessionService.return_value.create_session = (
+            mock.AsyncMock()
+        )
+
+        with mock.patch.dict(
+            sys.modules,
+            {
+                "google.adk.runners": mock_runners,
+                "google.adk.sessions": mock_sessions,
+                "google.adk.sessions.in_memory_session_service": mock_sessions,
+            },
+        ):
+            result = _evals_common._execute_local_agent_run_with_retry(
+                row=pd.Series({"prompt": "prompt"}),
+                contents="prompt",
+                agent=mock.Mock(),
+                api_client=mock.Mock(),
+            )
+
+        assert result["error"].startswith("Failed on attempt 2/3: 400")
+        assert mock_runners.Runner.return_value.run_async.call_count == 2
+        mock_sleep.assert_awaited_once()
+        assert 1 <= mock_sleep.await_args.args[0] <= 2
+
+
 class TestComputationMetricRetry:
     """Tests for retry behavior in ComputationMetricHandler."""
 
@@ -11576,6 +11898,14 @@ class TestEvaluateInteractionIdDataset:
         with pytest.raises(ValueError, match="agent.*required"):
             _evals_common._build_interaction_id_dataset(
                 [{"interaction_id": "abc123"}], None, "global"
+            )
+
+    def test_build_interaction_id_dataset_rejects_nan_interaction_id(self):
+        with pytest.raises(ValueError, match="Missing `interaction_id` value"):
+            _evals_common._build_interaction_id_dataset(
+                [{"interaction_id": "abc123"}, {"interaction_id": float("nan")}],
+                _TEST_GEMINI_AGENT,
+                "global",
             )
 
     def test_build_interaction_id_dataset_rejects_non_gemini_agent(self):

@@ -188,6 +188,17 @@ class TestFeatureListPerOffset(unittest.TestCase):
         self.assertIn("z_P_GF", features_for_offset(3))
         self.assertNotIn("z_P_GF", features_for_offset(4))
 
+    def test_post_planting_offsets(self):
+        """Offset 0 still sees planting+1..+3, so grain-fill rainfall is a
+        distinct predictor; at -1 and -2 only grain-fill months remain and
+        P_GF would duplicate PRCPTOT (a singular fit)."""
+        from geocif.experiments.s2s_africa import OFFSETS, features_for_offset
+
+        self.assertEqual(OFFSETS, [-2, -1, 0, 1, 2, 3, 4])
+        self.assertIn("z_P_GF", features_for_offset(0))
+        for off in (-1, -2):
+            self.assertEqual(features_for_offset(off), ["z_PRCPTOT"])
+
 
 class TestClassProbabilities(unittest.TestCase):
     def test_probabilities_sum_to_one_and_shift_with_anomaly(self):
@@ -210,19 +221,114 @@ class TestClassProbabilities(unittest.TestCase):
                                               np.zeros(50)))
 
 
-class TestExtendedTermOnly(unittest.TestCase):
-    def test_in_season_is_not_forecastable(self):
-        """Extended-term only: once planting has passed the combination
-        belongs to the in-season system."""
+class TestWindowStaysOpenAfterPlanting(unittest.TestCase):
+    """The cutoff at the 1st of the planting month is gone: the window stays
+    open until the end of the harvest month or the end of S2S coverage of
+    the season (its last month, planting+3), whichever is earlier."""
+
+    def test_planted_season_is_still_forecastable(self):
         from datetime import date
         from geocif.experiments.s2s_eligibility import window_state
 
         st = window_state(planting=9, wraps=False, today=date(2026, 9, 20),
                           latest_init="2026-08")
-        self.assertEqual(st["status"], "in_season")
-        st_open = window_state(planting=11, wraps=True, today=date(2026, 9, 20),
-                               latest_init="2026-08")
-        self.assertEqual(st_open["status"], "open")
+        self.assertEqual(st["status"], "open")
+        self.assertEqual(st["phase"], "in_season")
+        self.assertEqual(st["harvest_year"], 2026)
+        self.assertEqual(st["closes"], "2026-12-31")
+        st_pre = window_state(planting=11, wraps=True, today=date(2026, 9, 20),
+                              latest_init="2026-08")
+        self.assertEqual((st_pre["status"], st_pre["phase"]),
+                         ("open", "pre_season"))
+
+    def test_closes_with_s2s_coverage_then_rolls_over(self):
+        from datetime import date
+        from geocif.experiments.s2s_eligibility import window_state
+
+        last = window_state(planting=11, wraps=True, today=date(2027, 2, 28),
+                            harvest_month=5)
+        self.assertEqual((last["status"], last["harvest_year"]),
+                         ("open", 2027))
+        self.assertEqual(last["closes"], "2027-02-28")
+        nxt = window_state(planting=11, wraps=True, today=date(2027, 3, 1),
+                           harvest_month=5)
+        self.assertEqual((nxt["status"], nxt["harvest_year"]),
+                         ("too_early", 2028))
+        self.assertEqual(nxt["usable_from"], "2027-07")
+
+    def test_an_earlier_harvest_month_closes_first(self):
+        from datetime import date
+        from geocif.experiments.s2s_eligibility import close_offset, window_state
+
+        self.assertEqual(close_offset(10, harvest_month=12), 2)
+        self.assertEqual(close_offset(10, harvest_month=3), 3)
+        # harvest in the planting month reads as a full year: no bind
+        self.assertEqual(close_offset(10, harvest_month=10), 3)
+        st = window_state(planting=10, wraps=False, today=date(2027, 1, 5),
+                          harvest_month=12)
+        self.assertEqual(st["status"], "too_early")
+        self.assertEqual(st["planting"], "2027-10")
+
+
+class TestPostPlantingInits(unittest.TestCase):
+    def test_reference_years_follow_the_init_year(self):
+        """The z-score reference must be the harvest years whose init is a
+        real 1993-2016 hindcast, whichever calendar year the init falls in."""
+        from geocif.experiments.s2s_africa import reference_harvest_years
+
+        # planting Nov, wraps, Aug init (year before harvest)
+        self.assertEqual(reference_harvest_years(11, 3, True),
+                         list(range(1994, 2018)))
+        # planting Nov, wraps, init Jan of the harvest year (offset -2)
+        self.assertEqual(reference_harvest_years(11, -2, True),
+                         list(range(1993, 2017)))
+        # planting Mar, no wrap, Feb init of the harvest year
+        self.assertEqual(reference_harvest_years(3, 1, False),
+                         list(range(1993, 2017)))
+
+    def test_build_features_uses_only_the_leads_still_ahead(self):
+        """Offset -2 for a Nov planting is the January init; only its lead 1
+        (February, the season's last month) enters the features."""
+        from geocif.experiments.s2s_africa import build_features
+
+        rng = np.random.default_rng(1)
+        years = list(range(1993, 2017)) + [2027]
+        rows_p, rows_t = [], []
+        for y in years:
+            p = {f"s2s_tprate_lead{l}": rng.normal(5, 1) for l in range(1, 7)}
+            t = {f"s2s_t2m_lead{l}": rng.normal(25, 1) for l in range(1, 7)}
+            rows_p.append({"fnid": "ZW1", "year": y, "month": 1, **p})
+            rows_t.append({"fnid": "ZW1", "year": y, "month": 1, **t})
+        tp, t2 = pd.DataFrame(rows_p), pd.DataFrame(rows_t)
+        fx = build_features(tp, t2, planting=11, wraps=True, offset=-2,
+                            years=[2027], fnids=["ZW1"])
+        ref = tp[tp.year <= 2016]["s2s_tprate_lead1"]
+        want = ((tp.loc[tp.year == 2027, "s2s_tprate_lead1"].iloc[0]
+                 - ref.mean()) / ref.std(ddof=1))
+        self.assertEqual(len(fx), 1)
+        self.assertAlmostEqual(fx["z_PRCPTOT"].iloc[0], want, places=6)
+        self.assertAlmostEqual(fx["z_P_GF"].iloc[0], want, places=6)
+
+    def test_climatology_fill_is_recognised(self):
+        """geoprepare writes every init after 2016 and before the build year
+        as a copy of the hindcast mean; a January run after a rebuild would
+        otherwise issue December's 'forecast', which is climatology."""
+        from geocif.experiments.s2s_africa import is_climatology_fill
+
+        lead = {f"s2s_tprate_lead{l}": float(l) for l in range(1, 7)}
+        other = {f"s2s_tprate_lead{l}": float(l) + 0.5 for l in range(1, 7)}
+        tp = pd.DataFrame([
+            {"fnid": "A", "year": 2017, "month": 12, **lead},
+            {"fnid": "A", "year": 2026, "month": 12, **lead},
+            {"fnid": "A", "year": 2026, "month": 11, **other},
+            {"fnid": "A", "year": 2017, "month": 11, **lead},
+            {"fnid": "A", "year": 2010, "month": 12, **lead},
+        ])
+        self.assertTrue(is_climatology_fill(tp, 2026, 12, ["A"]))
+        self.assertTrue(is_climatology_fill(tp, 2017, 5, ["A"]))
+        self.assertFalse(is_climatology_fill(tp, 2026, 11, ["A"]))
+        self.assertFalse(is_climatology_fill(tp, 2010, 12, ["A"]))
+        self.assertFalse(is_climatology_fill(tp, 2027, 1, ["A"]))
 
 
 class TestDecomposedAuc(unittest.TestCase):
@@ -1197,12 +1303,24 @@ class TestForecastOffsetPinning(unittest.TestCase):
     """
 
     def test_rejects_offsets_outside_the_s2s_horizon(self):
-        from geocif.experiments.s2s_africa import MAX_OFFSET, run
+        from geocif.experiments.s2s_africa import MAX_OFFSET, MIN_OFFSET, run
 
-        for bad in (0, -1, MAX_OFFSET + 1):
+        for bad in (MIN_OFFSET - 1, MAX_OFFSET + 1):
             with self.assertRaises(ValueError) as cm:
                 run(forecast_offset=bad)
             self.assertIn("forecast_offset", str(cm.exception))
+
+    def test_offset_zero_is_a_pin_not_a_missing_value(self):
+        """0 (the planting-month init) is falsy: every forecast_offset test
+        in run() must be `is not None`, or a pin at 0 runs free."""
+        import inspect
+        import re
+
+        from geocif.experiments import s2s_africa as mod
+
+        src = inspect.getsource(mod.run)
+        self.assertEqual(re.findall(r"if forecast_offset\s*(?:\n|:|$|else)",
+                                    src), [])
 
     def test_pinned_offset_replaces_the_freshest_init_search(self):
         import ast

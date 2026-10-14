@@ -155,10 +155,31 @@ Plan_render (PlanObject *self, PyObject *args)
 static PyObject *
 Plan_at (PlanObject *self, PyObject *args)
 {
-  double             snr_raw  = 0;
-  unsigned long long seed_raw = 0;
-  if (!PyArg_ParseTuple (args, "dK", &snr_raw, &seed_raw))
+  double             snr      = 0.0;
+  PyObject          *seed_obj = NULL;
+  unsigned long long seed_raw = 0ULL;
+  if (!PyArg_ParseTuple (args, "dO", &snr, &seed_obj))
     return NULL;
+  if (seed_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (seed_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      seed_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((seed_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || seed_raw > (unsigned long long)UINT64_MAX)
+        {
+          PyErr_Format (PyExc_OverflowError,
+                        "seed: %S is out of range for uint64_t [0, %llu]", _ix,
+                        (unsigned long long)UINT64_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
+  uint64_t seed = (uint64_t)seed_raw;
   if (self->closed)
     {
       PyErr_SetString (PyExc_RuntimeError, "Plan is closed");
@@ -178,7 +199,7 @@ Plan_at (PlanObject *self, PyObject *args)
   float _Complex *_out = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr);
   size_t          _got;
   Py_BEGIN_ALLOW_THREADS
-    _got = dp_wfm_plan_at (self->h, snr_raw, (uint64_t)seed_raw, _out);
+    _got = dp_wfm_plan_at (self->h, snr, seed, _out);
   Py_END_ALLOW_THREADS
   if ((size_t)(_got) > (size_t)(_n))
     {

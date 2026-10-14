@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ..models.open_stack_instance_marketplace_offering_plugin_options_type_0 import (
         OpenStackInstanceMarketplaceOfferingPluginOptionsType0,
     )
+    from ..models.open_stack_instance_metadata import OpenStackInstanceMetadata
     from ..models.open_stack_nested_floating_ip import OpenStackNestedFloatingIP
     from ..models.open_stack_nested_port import OpenStackNestedPort
     from ..models.open_stack_nested_security_group import OpenStackNestedSecurityGroup
@@ -81,7 +82,7 @@ class OpenStackInstance:
         floating_ips (Union[Unset, list['OpenStackNestedFloatingIP']]):
         ports (Union[Unset, list['OpenStackNestedPort']]):
         availability_zone (Union[None, Unset, str]): Availability zone where this instance is located
-        availability_zone_name (Union[Unset, str]): Name of the availability zone where instance is located
+        availability_zone_name (Union[None, Unset, str]): Name of the availability zone where instance is located
         connect_directly_to_external_network (Union[Unset, bool]): If True, instance will be connected directly to
             external network
         config_drive (Union[None, Unset, bool]): Force config drive on or off for this instance. If null, the tenant-
@@ -93,6 +94,8 @@ class OpenStackInstance:
         hypervisor_hostname (Union[Unset, str]): Name of the hypervisor hosting this instance
         tenant (Union[Unset, str]): The OpenStack tenant to create the instance in
         external_address (Union[Unset, list[str]]):
+        metadata (Union[Unset, OpenStackInstanceMetadata]): Nova instance metadata as string-to-string pairs. At most
+            128 entries; keys and values up to 255 characters.
         rancher_cluster (Union['RancherClusterReference', None, Unset]):
         marketplace_offering_uuid (Union[None, Unset, str]):
         marketplace_offering_name (Union[None, Unset, str]):
@@ -155,7 +158,7 @@ class OpenStackInstance:
     floating_ips: Union[Unset, list["OpenStackNestedFloatingIP"]] = UNSET
     ports: Union[Unset, list["OpenStackNestedPort"]] = UNSET
     availability_zone: Union[None, Unset, str] = UNSET
-    availability_zone_name: Union[Unset, str] = UNSET
+    availability_zone_name: Union[None, Unset, str] = UNSET
     connect_directly_to_external_network: Union[Unset, bool] = UNSET
     config_drive: Union[None, Unset, bool] = UNSET
     runtime_state: Union[Unset, str] = UNSET
@@ -165,6 +168,7 @@ class OpenStackInstance:
     hypervisor_hostname: Union[Unset, str] = UNSET
     tenant: Union[Unset, str] = UNSET
     external_address: Union[Unset, list[str]] = UNSET
+    metadata: Union[Unset, "OpenStackInstanceMetadata"] = UNSET
     rancher_cluster: Union["RancherClusterReference", None, Unset] = UNSET
     marketplace_offering_uuid: Union[None, Unset, str] = UNSET
     marketplace_offering_name: Union[None, Unset, str] = UNSET
@@ -350,7 +354,11 @@ class OpenStackInstance:
         else:
             availability_zone = self.availability_zone
 
-        availability_zone_name = self.availability_zone_name
+        availability_zone_name: Union[None, Unset, str]
+        if isinstance(self.availability_zone_name, Unset):
+            availability_zone_name = UNSET
+        else:
+            availability_zone_name = self.availability_zone_name
 
         connect_directly_to_external_network = self.connect_directly_to_external_network
 
@@ -379,6 +387,10 @@ class OpenStackInstance:
         external_address: Union[Unset, list[str]] = UNSET
         if not isinstance(self.external_address, Unset):
             external_address = self.external_address
+
+        metadata: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.metadata, Unset):
+            metadata = self.metadata.to_dict()
 
         rancher_cluster: Union[None, Unset, dict[str, Any]]
         if isinstance(self.rancher_cluster, Unset):
@@ -575,6 +587,8 @@ class OpenStackInstance:
             field_dict["tenant"] = tenant
         if external_address is not UNSET:
             field_dict["external_address"] = external_address
+        if metadata is not UNSET:
+            field_dict["metadata"] = metadata
         if rancher_cluster is not UNSET:
             field_dict["rancher_cluster"] = rancher_cluster
         if marketplace_offering_uuid is not UNSET:
@@ -608,6 +622,7 @@ class OpenStackInstance:
         from ..models.open_stack_instance_marketplace_offering_plugin_options_type_0 import (
             OpenStackInstanceMarketplaceOfferingPluginOptionsType0,
         )
+        from ..models.open_stack_instance_metadata import OpenStackInstanceMetadata
         from ..models.open_stack_nested_floating_ip import OpenStackNestedFloatingIP
         from ..models.open_stack_nested_port import OpenStackNestedPort
         from ..models.open_stack_nested_security_group import OpenStackNestedSecurityGroup
@@ -828,7 +843,14 @@ class OpenStackInstance:
 
         availability_zone = _parse_availability_zone(d.pop("availability_zone", UNSET))
 
-        availability_zone_name = d.pop("availability_zone_name", UNSET)
+        def _parse_availability_zone_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        availability_zone_name = _parse_availability_zone_name(d.pop("availability_zone_name", UNSET))
 
         connect_directly_to_external_network = d.pop("connect_directly_to_external_network", UNSET)
 
@@ -864,6 +886,13 @@ class OpenStackInstance:
         tenant = d.pop("tenant", UNSET)
 
         external_address = cast(list[str], d.pop("external_address", UNSET))
+
+        _metadata = d.pop("metadata", UNSET)
+        metadata: Union[Unset, OpenStackInstanceMetadata]
+        if isinstance(_metadata, Unset):
+            metadata = UNSET
+        else:
+            metadata = OpenStackInstanceMetadata.from_dict(_metadata)
 
         def _parse_rancher_cluster(data: object) -> Union["RancherClusterReference", None, Unset]:
             if data is None:
@@ -1053,6 +1082,7 @@ class OpenStackInstance:
             hypervisor_hostname=hypervisor_hostname,
             tenant=tenant,
             external_address=external_address,
+            metadata=metadata,
             rancher_cluster=rancher_cluster,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,

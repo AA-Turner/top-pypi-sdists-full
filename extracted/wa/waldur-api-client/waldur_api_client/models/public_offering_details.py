@@ -25,11 +25,15 @@ if TYPE_CHECKING:
     from ..models.nested_screenshot import NestedScreenshot
     from ..models.nested_software_catalog import NestedSoftwareCatalog
     from ..models.nested_tag import NestedTag
+    from ..models.offering_account_settings import OfferingAccountSettings
+    from ..models.offering_compliance_checklist import OfferingComplianceChecklist
     from ..models.offering_component import OfferingComponent
     from ..models.offering_options import OfferingOptions
     from ..models.organization_group import OrganizationGroup
     from ..models.public_offering_details_attributes import PublicOfferingDetailsAttributes
     from ..models.public_offering_details_backend_metadata import PublicOfferingDetailsBackendMetadata
+    from ..models.public_offering_details_billing_mode_components import PublicOfferingDetailsBillingModeComponents
+    from ..models.public_offering_details_billing_period_applies import PublicOfferingDetailsBillingPeriodApplies
     from ..models.quota import Quota
 
 
@@ -43,6 +47,12 @@ class PublicOfferingDetails:
         url (Union[Unset, str]):
         uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        billing_period_applies (Union[Unset, PublicOfferingDetailsBillingPeriodApplies]): Per plan billing mode, whether
+            a plan's billing period changes what is invoiced. False means every component of this offering would price a
+            quantity of its own under that mode, so the period is inert on the invoice.
+        billing_mode_components (Union[Unset, PublicOfferingDetailsBillingModeComponents]): Per plan billing mode, every
+            component of this offering as a plan in that mode would bill it: billing type, measured unit, prepaid flag and
+            limit period.
         name (Union[Unset, str]):
         slug (Union[Unset, str]): URL-friendly identifier. Only editable by staff users.
         description (Union[Unset, str]):
@@ -70,6 +80,9 @@ class PublicOfferingDetails:
         resource_options (Union[Unset, OfferingOptions]):
         components (Union[Unset, list['OfferingComponent']]):
         plugin_options (Union[Unset, MergedPluginOptions]):
+        account_settings (Union[Unset, OfferingAccountSettings]):
+        can_update_integration (Union[Unset, bool]):
+        can_update_options (Union[Unset, bool]):
         state (Union[Unset, OfferingState]):
         vendor_details (Union[Unset, str]):
         getting_started (Union[Unset, str]):
@@ -86,6 +99,9 @@ class PublicOfferingDetails:
         scope_name (Union[None, Unset, str]):
         scope_state (Union[CoreStates, None, Unset]):
         scope_error_message (Union[None, Unset, str]):
+        scope_resource (Union[None, Unset, str]):
+        scope_resource_uuid (Union[None, Unset, str]):
+        scope_resource_name (Union[None, Unset, str]):
         files (Union[Unset, list['NestedOfferingFile']]):
         quotas (Union[Unset, list['Quota']]):
         paused_reason (Union[Unset, str]):
@@ -110,12 +126,14 @@ class PublicOfferingDetails:
             Returns 'limit_only', 'usage_only', or 'mixed'.
         effective_available_limits (Union[Unset, list[str]]):
         compliance_checklist (Union[None, Unset, str]):
+        compliance_checklist_details (Union['OfferingComplianceChecklist', None, Unset]):
         profile_uuid (Union[None, UUID, Unset]):
         profile_name (Union[None, Unset, str]):
         offering_group (Union[None, Unset, str]):
         offering_group_uuid (Union[None, UUID, Unset]):
         offering_group_title (Union[None, Unset, str]):
         user_has_consent (Union[Unset, bool]):
+        user_has_offering_user (Union[Unset, bool]):
         is_accessible (Union[Unset, bool]):
         open_for_proposals (Union[Unset, bool]):
         config_drive_default (Union[Unset, bool]):
@@ -127,6 +145,8 @@ class PublicOfferingDetails:
     url: Union[Unset, str] = UNSET
     uuid: Union[Unset, UUID] = UNSET
     created: Union[Unset, datetime.datetime] = UNSET
+    billing_period_applies: Union[Unset, "PublicOfferingDetailsBillingPeriodApplies"] = UNSET
+    billing_mode_components: Union[Unset, "PublicOfferingDetailsBillingModeComponents"] = UNSET
     name: Union[Unset, str] = UNSET
     slug: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
@@ -154,6 +174,9 @@ class PublicOfferingDetails:
     resource_options: Union[Unset, "OfferingOptions"] = UNSET
     components: Union[Unset, list["OfferingComponent"]] = UNSET
     plugin_options: Union[Unset, "MergedPluginOptions"] = UNSET
+    account_settings: Union[Unset, "OfferingAccountSettings"] = UNSET
+    can_update_integration: Union[Unset, bool] = UNSET
+    can_update_options: Union[Unset, bool] = UNSET
     state: Union[Unset, OfferingState] = UNSET
     vendor_details: Union[Unset, str] = UNSET
     getting_started: Union[Unset, str] = UNSET
@@ -170,6 +193,9 @@ class PublicOfferingDetails:
     scope_name: Union[None, Unset, str] = UNSET
     scope_state: Union[CoreStates, None, Unset] = UNSET
     scope_error_message: Union[None, Unset, str] = UNSET
+    scope_resource: Union[None, Unset, str] = UNSET
+    scope_resource_uuid: Union[None, Unset, str] = UNSET
+    scope_resource_name: Union[None, Unset, str] = UNSET
     files: Union[Unset, list["NestedOfferingFile"]] = UNSET
     quotas: Union[Unset, list["Quota"]] = UNSET
     paused_reason: Union[Unset, str] = UNSET
@@ -193,12 +219,14 @@ class PublicOfferingDetails:
     billing_type_classification: Union[Unset, str] = UNSET
     effective_available_limits: Union[Unset, list[str]] = UNSET
     compliance_checklist: Union[None, Unset, str] = UNSET
+    compliance_checklist_details: Union["OfferingComplianceChecklist", None, Unset] = UNSET
     profile_uuid: Union[None, UUID, Unset] = UNSET
     profile_name: Union[None, Unset, str] = UNSET
     offering_group: Union[None, Unset, str] = UNSET
     offering_group_uuid: Union[None, UUID, Unset] = UNSET
     offering_group_title: Union[None, Unset, str] = UNSET
     user_has_consent: Union[Unset, bool] = UNSET
+    user_has_offering_user: Union[Unset, bool] = UNSET
     is_accessible: Union[Unset, bool] = UNSET
     open_for_proposals: Union[Unset, bool] = UNSET
     config_drive_default: Union[Unset, bool] = UNSET
@@ -208,6 +236,8 @@ class PublicOfferingDetails:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.offering_compliance_checklist import OfferingComplianceChecklist
+
         url = self.url
 
         uuid: Union[Unset, str] = UNSET
@@ -217,6 +247,14 @@ class PublicOfferingDetails:
         created: Union[Unset, str] = UNSET
         if not isinstance(self.created, Unset):
             created = self.created.isoformat()
+
+        billing_period_applies: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.billing_period_applies, Unset):
+            billing_period_applies = self.billing_period_applies.to_dict()
+
+        billing_mode_components: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.billing_mode_components, Unset):
+            billing_mode_components = self.billing_mode_components.to_dict()
 
         name = self.name
 
@@ -340,6 +378,14 @@ class PublicOfferingDetails:
         if not isinstance(self.plugin_options, Unset):
             plugin_options = self.plugin_options.to_dict()
 
+        account_settings: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.account_settings, Unset):
+            account_settings = self.account_settings.to_dict()
+
+        can_update_integration = self.can_update_integration
+
+        can_update_options = self.can_update_options
+
         state: Union[Unset, str] = UNSET
         if not isinstance(self.state, Unset):
             state = self.state.value
@@ -407,6 +453,24 @@ class PublicOfferingDetails:
             scope_error_message = UNSET
         else:
             scope_error_message = self.scope_error_message
+
+        scope_resource: Union[None, Unset, str]
+        if isinstance(self.scope_resource, Unset):
+            scope_resource = UNSET
+        else:
+            scope_resource = self.scope_resource
+
+        scope_resource_uuid: Union[None, Unset, str]
+        if isinstance(self.scope_resource_uuid, Unset):
+            scope_resource_uuid = UNSET
+        else:
+            scope_resource_uuid = self.scope_resource_uuid
+
+        scope_resource_name: Union[None, Unset, str]
+        if isinstance(self.scope_resource_name, Unset):
+            scope_resource_name = UNSET
+        else:
+            scope_resource_name = self.scope_resource_name
 
         files: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.files, Unset):
@@ -526,6 +590,14 @@ class PublicOfferingDetails:
         else:
             compliance_checklist = self.compliance_checklist
 
+        compliance_checklist_details: Union[None, Unset, dict[str, Any]]
+        if isinstance(self.compliance_checklist_details, Unset):
+            compliance_checklist_details = UNSET
+        elif isinstance(self.compliance_checklist_details, OfferingComplianceChecklist):
+            compliance_checklist_details = self.compliance_checklist_details.to_dict()
+        else:
+            compliance_checklist_details = self.compliance_checklist_details
+
         profile_uuid: Union[None, Unset, str]
         if isinstance(self.profile_uuid, Unset):
             profile_uuid = UNSET
@@ -562,6 +634,8 @@ class PublicOfferingDetails:
 
         user_has_consent = self.user_has_consent
 
+        user_has_offering_user = self.user_has_offering_user
+
         is_accessible = self.is_accessible
 
         open_for_proposals = self.open_for_proposals
@@ -596,6 +670,10 @@ class PublicOfferingDetails:
             field_dict["uuid"] = uuid
         if created is not UNSET:
             field_dict["created"] = created
+        if billing_period_applies is not UNSET:
+            field_dict["billing_period_applies"] = billing_period_applies
+        if billing_mode_components is not UNSET:
+            field_dict["billing_mode_components"] = billing_mode_components
         if name is not UNSET:
             field_dict["name"] = name
         if slug is not UNSET:
@@ -650,6 +728,12 @@ class PublicOfferingDetails:
             field_dict["components"] = components
         if plugin_options is not UNSET:
             field_dict["plugin_options"] = plugin_options
+        if account_settings is not UNSET:
+            field_dict["account_settings"] = account_settings
+        if can_update_integration is not UNSET:
+            field_dict["can_update_integration"] = can_update_integration
+        if can_update_options is not UNSET:
+            field_dict["can_update_options"] = can_update_options
         if state is not UNSET:
             field_dict["state"] = state
         if vendor_details is not UNSET:
@@ -682,6 +766,12 @@ class PublicOfferingDetails:
             field_dict["scope_state"] = scope_state
         if scope_error_message is not UNSET:
             field_dict["scope_error_message"] = scope_error_message
+        if scope_resource is not UNSET:
+            field_dict["scope_resource"] = scope_resource
+        if scope_resource_uuid is not UNSET:
+            field_dict["scope_resource_uuid"] = scope_resource_uuid
+        if scope_resource_name is not UNSET:
+            field_dict["scope_resource_name"] = scope_resource_name
         if files is not UNSET:
             field_dict["files"] = files
         if quotas is not UNSET:
@@ -728,6 +818,8 @@ class PublicOfferingDetails:
             field_dict["effective_available_limits"] = effective_available_limits
         if compliance_checklist is not UNSET:
             field_dict["compliance_checklist"] = compliance_checklist
+        if compliance_checklist_details is not UNSET:
+            field_dict["compliance_checklist_details"] = compliance_checklist_details
         if profile_uuid is not UNSET:
             field_dict["profile_uuid"] = profile_uuid
         if profile_name is not UNSET:
@@ -740,6 +832,8 @@ class PublicOfferingDetails:
             field_dict["offering_group_title"] = offering_group_title
         if user_has_consent is not UNSET:
             field_dict["user_has_consent"] = user_has_consent
+        if user_has_offering_user is not UNSET:
+            field_dict["user_has_offering_user"] = user_has_offering_user
         if is_accessible is not UNSET:
             field_dict["is_accessible"] = is_accessible
         if open_for_proposals is not UNSET:
@@ -768,11 +862,15 @@ class PublicOfferingDetails:
         from ..models.nested_screenshot import NestedScreenshot
         from ..models.nested_software_catalog import NestedSoftwareCatalog
         from ..models.nested_tag import NestedTag
+        from ..models.offering_account_settings import OfferingAccountSettings
+        from ..models.offering_compliance_checklist import OfferingComplianceChecklist
         from ..models.offering_component import OfferingComponent
         from ..models.offering_options import OfferingOptions
         from ..models.organization_group import OrganizationGroup
         from ..models.public_offering_details_attributes import PublicOfferingDetailsAttributes
         from ..models.public_offering_details_backend_metadata import PublicOfferingDetailsBackendMetadata
+        from ..models.public_offering_details_billing_mode_components import PublicOfferingDetailsBillingModeComponents
+        from ..models.public_offering_details_billing_period_applies import PublicOfferingDetailsBillingPeriodApplies
         from ..models.quota import Quota
 
         d = dict(src_dict)
@@ -791,6 +889,20 @@ class PublicOfferingDetails:
             created = UNSET
         else:
             created = isoparse(_created)
+
+        _billing_period_applies = d.pop("billing_period_applies", UNSET)
+        billing_period_applies: Union[Unset, PublicOfferingDetailsBillingPeriodApplies]
+        if isinstance(_billing_period_applies, Unset):
+            billing_period_applies = UNSET
+        else:
+            billing_period_applies = PublicOfferingDetailsBillingPeriodApplies.from_dict(_billing_period_applies)
+
+        _billing_mode_components = d.pop("billing_mode_components", UNSET)
+        billing_mode_components: Union[Unset, PublicOfferingDetailsBillingModeComponents]
+        if isinstance(_billing_mode_components, Unset):
+            billing_mode_components = UNSET
+        else:
+            billing_mode_components = PublicOfferingDetailsBillingModeComponents.from_dict(_billing_mode_components)
 
         name = d.pop("name", UNSET)
 
@@ -959,6 +1071,17 @@ class PublicOfferingDetails:
         else:
             plugin_options = MergedPluginOptions.from_dict(_plugin_options)
 
+        _account_settings = d.pop("account_settings", UNSET)
+        account_settings: Union[Unset, OfferingAccountSettings]
+        if isinstance(_account_settings, Unset):
+            account_settings = UNSET
+        else:
+            account_settings = OfferingAccountSettings.from_dict(_account_settings)
+
+        can_update_integration = d.pop("can_update_integration", UNSET)
+
+        can_update_options = d.pop("can_update_options", UNSET)
+
         _state = d.pop("state", UNSET)
         state: Union[Unset, OfferingState]
         if isinstance(_state, Unset):
@@ -1056,6 +1179,33 @@ class PublicOfferingDetails:
             return cast(Union[None, Unset, str], data)
 
         scope_error_message = _parse_scope_error_message(d.pop("scope_error_message", UNSET))
+
+        def _parse_scope_resource(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        scope_resource = _parse_scope_resource(d.pop("scope_resource", UNSET))
+
+        def _parse_scope_resource_uuid(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        scope_resource_uuid = _parse_scope_resource_uuid(d.pop("scope_resource_uuid", UNSET))
+
+        def _parse_scope_resource_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        scope_resource_name = _parse_scope_resource_name(d.pop("scope_resource_name", UNSET))
 
         files = []
         _files = d.pop("files", UNSET)
@@ -1223,6 +1373,23 @@ class PublicOfferingDetails:
 
         compliance_checklist = _parse_compliance_checklist(d.pop("compliance_checklist", UNSET))
 
+        def _parse_compliance_checklist_details(data: object) -> Union["OfferingComplianceChecklist", None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                compliance_checklist_details_type_1 = OfferingComplianceChecklist.from_dict(data)
+
+                return compliance_checklist_details_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union["OfferingComplianceChecklist", None, Unset], data)
+
+        compliance_checklist_details = _parse_compliance_checklist_details(d.pop("compliance_checklist_details", UNSET))
+
         def _parse_profile_uuid(data: object) -> Union[None, UUID, Unset]:
             if data is None:
                 return data
@@ -1286,6 +1453,8 @@ class PublicOfferingDetails:
 
         user_has_consent = d.pop("user_has_consent", UNSET)
 
+        user_has_offering_user = d.pop("user_has_offering_user", UNSET)
+
         is_accessible = d.pop("is_accessible", UNSET)
 
         open_for_proposals = d.pop("open_for_proposals", UNSET)
@@ -1321,6 +1490,8 @@ class PublicOfferingDetails:
             url=url,
             uuid=uuid,
             created=created,
+            billing_period_applies=billing_period_applies,
+            billing_mode_components=billing_mode_components,
             name=name,
             slug=slug,
             description=description,
@@ -1348,6 +1519,9 @@ class PublicOfferingDetails:
             resource_options=resource_options,
             components=components,
             plugin_options=plugin_options,
+            account_settings=account_settings,
+            can_update_integration=can_update_integration,
+            can_update_options=can_update_options,
             state=state,
             vendor_details=vendor_details,
             getting_started=getting_started,
@@ -1364,6 +1538,9 @@ class PublicOfferingDetails:
             scope_name=scope_name,
             scope_state=scope_state,
             scope_error_message=scope_error_message,
+            scope_resource=scope_resource,
+            scope_resource_uuid=scope_resource_uuid,
+            scope_resource_name=scope_resource_name,
             files=files,
             quotas=quotas,
             paused_reason=paused_reason,
@@ -1387,12 +1564,14 @@ class PublicOfferingDetails:
             billing_type_classification=billing_type_classification,
             effective_available_limits=effective_available_limits,
             compliance_checklist=compliance_checklist,
+            compliance_checklist_details=compliance_checklist_details,
             profile_uuid=profile_uuid,
             profile_name=profile_name,
             offering_group=offering_group,
             offering_group_uuid=offering_group_uuid,
             offering_group_title=offering_group_title,
             user_has_consent=user_has_consent,
+            user_has_offering_user=user_has_offering_user,
             is_accessible=is_accessible,
             open_for_proposals=open_for_proposals,
             config_drive_default=config_drive_default,

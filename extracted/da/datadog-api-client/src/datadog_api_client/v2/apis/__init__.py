@@ -15,6 +15,7 @@ from datadog_api_client.v2.api.audit_api import AuditApi
 from datadog_api_client.v2.api.authn_mappings_api import AuthNMappingsApi
 from datadog_api_client.v2.api.bits_ai_api import BitsAIApi
 from datadog_api_client.v2.api.ci_visibility_git_hub_accounts_api import CIVisibilityGitHubAccountsApi
+from datadog_api_client.v2.api.ci_visibility_logs_api import CIVisibilityLogsApi
 from datadog_api_client.v2.api.ci_visibility_pipelines_api import CIVisibilityPipelinesApi
 from datadog_api_client.v2.api.ci_visibility_tests_api import CIVisibilityTestsApi
 from datadog_api_client.v2.api.csm_agents_api import CSMAgentsApi
@@ -56,6 +57,7 @@ from datadog_api_client.v2.api.entity_risk_scores_api import EntityRiskScoresApi
 from datadog_api_client.v2.api.error_tracking_api import ErrorTrackingApi
 from datadog_api_client.v2.api.events_api import EventsApi
 from datadog_api_client.v2.api.execution_policy_api import ExecutionPolicyApi
+from datadog_api_client.v2.api.experiments_api import ExperimentsApi
 from datadog_api_client.v2.api.fastly_integration_api import FastlyIntegrationApi
 from datadog_api_client.v2.api.feature_flags_api import FeatureFlagsApi
 from datadog_api_client.v2.api.fleet_automation_api import FleetAutomationApi
@@ -71,6 +73,7 @@ from datadog_api_client.v2.api.integrations_api import IntegrationsApi
 from datadog_api_client.v2.api.jira_integration_api import JiraIntegrationApi
 from datadog_api_client.v2.api.key_management_api import KeyManagementApi
 from datadog_api_client.v2.api.logs_api import LogsApi
+from datadog_api_client.v2.api.logs_archive_searches_api import LogsArchiveSearchesApi
 from datadog_api_client.v2.api.logs_archives_api import LogsArchivesApi
 from datadog_api_client.v2.api.logs_custom_destinations_api import LogsCustomDestinationsApi
 from datadog_api_client.v2.api.logs_metrics_api import LogsMetricsApi
@@ -169,6 +172,7 @@ __all__ = [
     "AuthNMappingsApi",
     "BitsAIApi",
     "CIVisibilityGitHubAccountsApi",
+    "CIVisibilityLogsApi",
     "CIVisibilityPipelinesApi",
     "CIVisibilityTestsApi",
     "CSMAgentsApi",
@@ -210,6 +214,7 @@ __all__ = [
     "ErrorTrackingApi",
     "EventsApi",
     "ExecutionPolicyApi",
+    "ExperimentsApi",
     "FastlyIntegrationApi",
     "FeatureFlagsApi",
     "FleetAutomationApi",
@@ -225,6 +230,7 @@ __all__ = [
     "JiraIntegrationApi",
     "KeyManagementApi",
     "LogsApi",
+    "LogsArchiveSearchesApi",
     "LogsArchivesApi",
     "LogsCustomDestinationsApi",
     "LogsMetricsApi",

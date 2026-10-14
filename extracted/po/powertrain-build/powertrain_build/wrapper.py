@@ -61,6 +61,7 @@ class PyBuildWrapper(pt_matlab.Matlab):
         self.rte_dummy = getattr(args, "rte_dummy", False)
         self.debug = getattr(args, "debug", True)
         self.no_abort = getattr(args, "no_abort", True)
+        self.include_model_a2l = getattr(args, "include_model_a2l", False)
         self.no_nvm_a2l = getattr(args, "no_nvm_a2l", False)
         self.complete_a2l = getattr(args, "complete_a2l", False)
         self.silver_a2l = getattr(args, "silver_a2l", False)
@@ -404,6 +405,7 @@ class PyBuildWrapper(pt_matlab.Matlab):
                 core_dummy=self.core_dummy,
                 rte_dummy=self.rte_dummy,
                 no_abort=self.no_abort,
+                include_model_a2l=self.include_model_a2l,
                 no_nvm_a2l=self.no_nvm_a2l,
                 debug=self.debug,
                 generate_system_info=self.generate_system_info,

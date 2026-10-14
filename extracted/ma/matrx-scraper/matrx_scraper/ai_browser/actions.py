@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import re
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
@@ -525,6 +526,9 @@ async def fill(
         # (date/colour pickers, zero-size inputs) keep Playwright's fill.
         typed = human and await _human_fill(session.page, selector, value, timeout_ms)
         if not typed:
+            kind = await _input_kind(session.page, selector)
+            if kind in _PICKER_INPUT_KINDS:
+                value = normalize_picker_value(kind, value)
             await session.page.fill(selector, value, timeout=timeout_ms)
         return FillResult(
             success=True, session_id=session_id, selector=selector, value=value[:ECHO_CAP]
@@ -536,6 +540,38 @@ async def fill(
             error_type=_failure_type(exc),
             error_message=f"Fill failed: {exc}",
         )
+
+
+#: Native pickers whose value is ISO by contract and whose keystroke entry is
+#: segmented, so typing an ISO string into them corrupts it.
+_PICKER_INPUT_KINDS = frozenset({"date", "time", "datetime-local", "month", "week"})
+
+
+async def _input_kind(page: Any, selector: str) -> str:
+    """The ``type`` of an input (``text`` when unknown); never raises."""
+    try:
+        return await page.locator(selector).first.evaluate(
+            "el => (el.tagName === 'INPUT' ? (el.type || 'text') : el.tagName.toLowerCase())"
+        )
+    except Exception:
+        return "text"
+
+
+_US_DATE = re.compile(r"^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\s*$")
+
+
+def normalize_picker_value(kind: str, value: str) -> str:
+    """Express ``value`` in the ISO form a native ``<input type=...>`` accepts.
+
+    ``date`` also takes the US ``M/D/YYYY`` a person or recipe writes; anything
+    else (already ISO, or an unrecognised shape) is returned unchanged.
+    """
+    if kind == "date":
+        m = _US_DATE.match(value)
+        if m:
+            month, day, year = (int(g) for g in m.groups())
+            return f"{year:04d}-{month:02d}-{day:02d}"
+    return value
 
 
 async def _human_fill(page: Any, selector: str, value: str, timeout_ms: int) -> bool:
@@ -647,7 +683,15 @@ async def type_text(
     try:
         hi = HumanInput(session.page) if human else None
         typed = False
-        if hi is not None:
+        # A native date/time picker is segmented (mm/dd/yyyy): keystrokes of an
+        # ISO string overflow the segments (a five-digit year, 2026-10-13 ->
+        # "20261-..."). Its value is ISO by contract, so set it as a value
+        # instead of typing it (feedback 07db1a1e).
+        input_kind = await _input_kind(session.page, selector)
+        if input_kind in _PICKER_INPUT_KINDS:
+            text = normalize_picker_value(input_kind, text)
+            clear_first = True
+        elif hi is not None:
             typed = await hi.type_text(
                 selector, text, clear_first=clear_first, timeout_ms=timeout_ms
             )

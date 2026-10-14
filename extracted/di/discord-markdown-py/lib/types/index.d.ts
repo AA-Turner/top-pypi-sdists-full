@@ -14,11 +14,19 @@ export type Paragraph = Node<"paragraph", Inline[]>;
 
 export type Code = Node<"code", string>;
 
-export type Spoiler = Node<"spoiler", Inline[]>;
-export type Strikethrough = Node<"strikethrough", Inline[]>;
-export type Underline = Node<"underline", Inline[]>;
-export type Italic = Node<"italic", Inline[]>;
-export type Bold = Node<"bold", Inline[]>;
+// Inline content where the modifier opened mid-line, and block content where it opened at the
+// start of a line, e.g. `*1. foo\n2. bar*` is an italic list.
+type ModifierContent = (Inline | Block | Paragraph | Text)[];
+
+// A spoiler split across blocks, as `||1. foo\n2. ba||r` splits into one in each list item, is one
+// spoiler in fragments that share an id, so that revealing one can reveal them all.
+export type Spoiler = Node<"spoiler", { id: number; content: ModifierContent }>;
+export type Strikethrough = Node<"strikethrough", ModifierContent>;
+export type Underline = Node<"underline", ModifierContent>;
+export type Italic = Node<"italic", ModifierContent>;
+export type Bold = Node<"bold", ModifierContent>;
+
+export type Modifier = Bold | Italic | Spoiler | Strikethrough | Underline;
 
 export type Link = Node<
 	"link",
@@ -71,17 +79,13 @@ export type CodeBlock = Node<
 >;
 
 export type Inline =
-	| Bold
 	| Code
 	| CodeBlock
 	| Emoji
-	| Italic
 	| Link
 	| Mention
-	| Spoiler
-	| Strikethrough
-	| Timestamp
-	| Underline;
+	| Modifier
+	| Timestamp;
 
 export type Heading = Node<
 	"heading",
@@ -104,14 +108,12 @@ export type Empty = EmptyNode<"empty">;
 export type Quote = Node<"quote", Block[]>;
 export type Small = Node<"small", { content: Inline[] }>;
 
-export type Block = Empty | Heading | List | Quote | Small;
+export type Block = Empty | Heading | List | Modifier | Quote | Small;
 
 export type NodeType = Inline["type"] | Block["type"];
 
 // Rules with no matching NodeType: they gate a variant of another rule. `dev_link` allows the
 // `dev` URL scheme, e.g. `dev://branch/main`.
-export type ModifierRule = "dev_link";
+export type GateRule = "dev_link";
 
-export type Rule =
-	| Exclude<NodeType, "paragraph" | "text" | "empty">
-	| ModifierRule;
+export type Rule = Exclude<NodeType, "paragraph" | "text" | "empty"> | GateRule;

@@ -925,7 +925,6 @@ class TinyB:
         assert_time_increase_percentage: Optional[float] = None,
         assert_bytes_read_increase_percentage: Optional[float] = None,
         assert_max_time: Optional[float] = None,
-        run_in_main: Optional[bool] = False,
     ):
         test: Dict[str, Any] = {
             test_type: {
@@ -955,20 +954,12 @@ class TinyB:
         ]
 
         data = json.dumps(regression_commands)
-        if run_in_main:
-            url = f"/v0/environments/{branch_id}/regression/main"
-        else:
-            url = f"/v0/environments/{branch_id}/regression"
+        url = f"/v0/environments/{branch_id}/regression"
         return self._req(url, method="POST", data=data, headers={"Content-Type": "application/json"})
 
-    def branch_regression_tests_file(
-        self, branch_id: str, regression_commands: List[Dict[str, Any]], run_in_main: Optional[bool] = False
-    ):
+    def branch_regression_tests_file(self, branch_id: str, regression_commands: List[Dict[str, Any]]):
         data = json.dumps(regression_commands)
-        if run_in_main:
-            url = f"/v0/environments/{branch_id}/regression/main"
-        else:
-            url = f"/v0/environments/{branch_id}/regression"
+        url = f"/v0/environments/{branch_id}/regression"
         return self._req(url, method="POST", data=data, headers={"Content-Type": "application/json"})
 
     def delete_workspace(self, id: str, hard_delete_confirmation: Optional[str], version: str = "v0"):

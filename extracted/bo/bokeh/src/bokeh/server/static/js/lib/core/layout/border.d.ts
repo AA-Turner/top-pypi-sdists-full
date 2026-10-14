@@ -16,6 +16,7 @@ export declare class BorderLayout extends Layoutable {
     aligns: LRTB<boolean>;
     min_border: Margin;
     padding: Margin;
+    align_border: Margin;
     center_border_width: number;
     protected _measure(viewport: Size): SizeHint;
     protected _set_geometry(outer: BBox, inner: BBox): void;

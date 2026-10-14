@@ -6,7 +6,7 @@ Utility functions for the psf_matching subpackage.
 
 import numpy as np
 from scipy.fft import fft2, fftshift, ifftshift
-from scipy.ndimage import zoom
+from scipy.ndimage import map_coordinates
 
 __all__ = ['resize_psf']
 
@@ -17,10 +17,10 @@ def _validate_kernel_inputs(source_psf, target_psf, window):
 
     Parameters
     ----------
-    source_psf : array-like
+    source_psf : array_like
         The source PSF array.
 
-    target_psf : array-like
+    target_psf : array_like
         The target PSF array.
 
     window : callable or None
@@ -38,10 +38,10 @@ def _validate_kernel_inputs(source_psf, target_psf, window):
     ------
     ValueError
         If the PSFs are not 2D arrays, have even dimensions, do not have
-        the same shape, or contain NaN or Inf values.
+        the same shape, contain NaN or Inf values, or have a zero sum.
 
     TypeError
-        If the input ``window`` is not callable.
+        If ``window`` is not `None` and is not callable.
     """
     # Copy as float so in-place normalization doesn't modify inputs
     source_psf = np.array(source_psf, dtype=float)
@@ -68,7 +68,8 @@ def _validate_kernel_inputs(source_psf, target_psf, window):
 
 def _validate_psf(psf, name):
     """
-    Validate that a PSF is 2D with odd dimensions.
+    Validate that a PSF is a finite 2D array with odd dimensions and a
+    nonzero sum.
 
     Parameters
     ----------
@@ -81,8 +82,8 @@ def _validate_psf(psf, name):
     Raises
     ------
     ValueError
-        If the PSF is not 2D, has even dimensions, or contains NaN or
-        Inf values.
+        If the PSF is not 2D, has even dimensions, contains NaN or Inf
+        values, or has a zero sum.
     """
     if psf.ndim != 2:
         msg = f'{name} must be a 2D array.'
@@ -98,7 +99,7 @@ def _validate_psf(psf, name):
         raise ValueError(msg)
 
     if np.sum(psf) == 0:
-        msg = f'{name} must have a non-zero sum; it cannot be normalized.'
+        msg = f'{name} must have a nonzero sum. It cannot be normalized.'
         raise ValueError(msg)
 
 
@@ -138,12 +139,53 @@ def _validate_window_array(window_array, expected_shape):
         raise ValueError(msg)
 
 
+def _normalize_kernel(kernel):
+    """
+    Normalize a matching kernel so that it sums to 1.
+
+    Parameters
+    ----------
+    kernel : 2D `~numpy.ndarray`
+        The matching kernel.
+
+    Returns
+    -------
+    kernel : 2D `~numpy.ndarray`
+        The normalized matching kernel.
+
+    Raises
+    ------
+    ValueError
+        If the kernel contains nonfinite values or its sum is zero or
+        nearly zero.
+    """
+    kernel_sum = np.sum(kernel)
+
+    if not np.isfinite(kernel_sum):
+        msg = ('The computed kernel contains nonfinite values. This '
+               'can occur when the Fourier-space denominator is zero '
+               'at frequencies where the numerator is also zero (e.g., '
+               'the source OTF and the penalty OTF are both zero at '
+               'the same frequency).')
+        raise ValueError(msg)
+
+    if np.isclose(kernel_sum, 0.0):
+        msg = ('The computed kernel sums to zero, which likely indicates '
+               'that the regularization is too aggressive or that the '
+               'window function suppressed all frequencies. Try reducing '
+               'the regularization parameter or using a different window '
+               'function.')
+        raise ValueError(msg)
+
+    return kernel / kernel_sum
+
+
 def _convert_psf_to_otf(psf, shape):
     """
     Convert a point-spread function to an optical transfer function.
 
     This computes the FFT of a PSF array after centering it in a
-    zero-padded array of the output shape and applying `ifftshift` to
+    zero-padded array of the output shape and applying ``ifftshift`` to
     move the PSF center to position [0, 0].
 
     The PSF is first placed at the center of the zero-padded array,
@@ -152,9 +194,9 @@ def _convert_psf_to_otf(psf, shape):
     than the target shape, so that the resulting OTF has the correct
     size for element-wise operations with other same-shaped OTFs.
 
-    The `ifftshift` operation then moves the PSF center from the array
-    center to position [0, 0], which is the standard convention for
-    computing OTFs via FFT. This ensures correct complex phase in
+    The ``ifftshift`` operation then moves the PSF center from the
+    array center to position [0, 0], which is the standard convention
+    for computing OTFs via FFT. This ensures correct complex phase in
     the resulting OTF for general use. Note that when only the power
     spectrum (|OTF|^2) is needed, the shift has no effect because it
     only changes the phase.
@@ -174,9 +216,6 @@ def _convert_psf_to_otf(psf, shape):
     otf : 2D `~numpy.ndarray`
         The optical transfer function (complex array).
     """
-    if np.all(psf == 0):
-        return np.zeros(shape, dtype=complex)
-
     if psf.ndim != 2:
         msg = 'psf must be a 2D array.'
         raise ValueError(msg)
@@ -184,6 +223,9 @@ def _convert_psf_to_otf(psf, shape):
     if psf.shape[0] % 2 == 0 or psf.shape[1] % 2 == 0:
         msg = f'psf must have odd dimensions, got shape {psf.shape}.'
         raise ValueError(msg)
+
+    if np.all(psf == 0):
+        return np.zeros(shape, dtype=complex)
 
     inshape = psf.shape
 
@@ -249,21 +291,27 @@ def resize_psf(psf, input_pixel_scale, output_pixel_scale, *, order=3):
     """
     Resize a PSF using spline interpolation of the requested order.
 
+    The PSF is interpolated at the points of a grid with the output
+    pixel scale that is centered on the central pixel of the input PSF.
     The total flux of the PSF is conserved during the resizing.
 
     Parameters
     ----------
-    psf : 2D `~numpy.ndarray`
+    psf : 2D array_like
         The 2D data array of the PSF. The PSF must have odd dimensions.
         It is assumed to be centered on the central pixel.
 
-    input_pixel_scale : float
-        The pixel scale of the input ``psf``. The units must match
-        ``output_pixel_scale``.
+    input_pixel_scale : float or `~astropy.units.Quantity`
+        The pixel scale of the input ``psf``. If a float,
+        the units must match ``output_pixel_scale``. If a
+        `~astropy.units.Quantity`, the units must be convertible to
+        those of ``output_pixel_scale``.
 
-    output_pixel_scale : float
-        The pixel scale of the output ``psf``. The units must match
-        ``input_pixel_scale``.
+    output_pixel_scale : float or `~astropy.units.Quantity`
+        The pixel scale of the output ``psf``. If a float,
+        the units must match ``input_pixel_scale``. If a
+        `~astropy.units.Quantity`, the units must be convertible to
+        those of ``input_pixel_scale``.
 
     order : int, optional
         The order of the spline interpolation (0-5). The default is 3.
@@ -271,44 +319,90 @@ def resize_psf(psf, input_pixel_scale, output_pixel_scale, *, order=3):
     Returns
     -------
     result : 2D `~numpy.ndarray`
-        The resampled/interpolated 2D data array. The output always
-        has odd dimensions. The natural resampled size is computed
-        by taking the ceiling of ``input_size * (input_pixel_scale
-        / output_pixel_scale)`` for each axis, then adding 1 to
-        any axis whose size is even. This guarantees the output is
-        centered and usable for PSF matching. When the output size is
-        adjusted, the effective pixel scale will be slightly smaller
-        than ``output_pixel_scale``; the exact value per axis is
-        ``input_pixel_scale * input_size / output_size``.
+        The resampled/interpolated 2D data array, with a pixel scale of
+        ``output_pixel_scale``. The output always has odd dimensions,
+        which guarantees that it is centered and usable for PSF
+        matching. The size along each axis is ``2 * floor((input_size
+        - 1) / 2 * (input_pixel_scale / output_pixel_scale)) + 1``.
+        This is the largest odd size for which the output grid lies
+        within the outermost pixel centers of the input PSF, so no
+        output value is extrapolated.
 
     Raises
     ------
     ValueError
-        If ``psf`` is not a 2D array, has even dimensions, is not
-        centered, or if the pixel scales are not positive.
+        If ``psf`` is not a 2D array, has even dimensions, contains NaN
+        or Inf values, or has a zero sum, if the pixel scales are not
+        positive, if ``order`` is not an integer from 0 to 5, or if the
+        resized PSF has a zero sum.
+
+    TypeError
+        If the pixel scales have units that are not convertible to each
+        other, or if only one of them is a `~astropy.units.Quantity`.
+
+    Notes
+    -----
+    This function changes only the pixel scale. The resized PSF
+    generally does not have the same shape as the PSF it will be matched
+    to, so the two PSFs may still need to be cropped or padded to a
+    common shape before computing a matching kernel.
+
+    The PSF is interpolated and is not integrated over the output
+    pixels. If the two PSFs come from images with different detector
+    pixel sizes, each PSF should already include the pixel integration
+    of its own image. An oversampled PSF that is sampled at points, such
+    as the output of an optical model, should first be integrated over
+    the detector pixels with :func:`~photutils.psf.make_epsf_from_psf`.
+
+    The input PSF should be well sampled at both the input and output
+    pixel scales. Resizing a PSF to a larger pixel scale samples it
+    without any smoothing. If the PSF is undersampled at the output
+    pixel scale, the result is aliased and a matching kernel computed
+    from it will be inaccurate. A spline is also a poor interpolant for
+    a PSF that is undersampled at the input pixel scale.
     """
     psf = np.asarray(psf, dtype=float)
 
     if input_pixel_scale <= 0 or output_pixel_scale <= 0:
-        msg = ('input_pixel_scale and output_pixel_scale must be '
-               'positive.')
+        msg = 'input_pixel_scale and output_pixel_scale must be positive.'
         raise ValueError(msg)
 
     _validate_psf(psf, 'psf')
 
-    ratio = input_pixel_scale / output_pixel_scale
+    if not isinstance(order, (int, np.integer)) or not 0 <= order <= 5:
+        msg = 'order must be an integer from 0 to 5'
+        raise ValueError(msg)
 
-    # Compute target shape using ceiling (never discard pixels), then
-    # add 1 to any even dimension to guarantee an odd output, which is
-    # required for PSF matching.
-    in_shape = np.array(psf.shape)
-    out_shape = np.maximum(1, np.ceil(in_shape * ratio).astype(int))
-    out_shape += out_shape % 2 == 0
+    # The conversion to a float handles pixel scales that are quantities
+    # with different units.
+    ratio = float(input_pixel_scale / output_pixel_scale)
 
-    # Per-axis zoom factors for the forced-odd target shape
-    zoom_factors = out_shape / in_shape
+    # The output grid is centered on the central input pixel and its
+    # spacing is exactly the output pixel scale. Its size is the
+    # largest odd size that keeps the grid within the outermost input
+    # pixel centers, so nothing is extrapolated. The rounding keeps
+    # roundoff in a half size that is a whole number from removing a
+    # pixel.
+    coords = []
+    for n_in in psf.shape:
+        center = (n_in - 1) / 2
+        half_size = int(np.floor(np.round(center * ratio, 9)))
+        offsets = np.arange(-half_size, half_size + 1) / ratio
+        if order == 0:
+            # Nearest-neighbor interpolation rounds a point midway
+            # between two input pixels in one direction. Moving the
+            # points slightly toward the center keeps the output
+            # symmetric.
+            offsets *= 1 - 1e-9
+        coords.append(center + offsets)
+
+    result = map_coordinates(psf, np.meshgrid(*coords, indexing='ij'),
+                             order=order, mode='nearest')
+
+    result_sum = result.sum()
+    if result_sum == 0:
+        msg = 'The resized PSF has a zero sum and cannot be normalized.'
+        raise ValueError(msg)
 
     # Normalize the PSF to conserve total flux after resizing.
-    psf_sum = psf.sum()
-    result = zoom(psf, zoom_factors, order=order)
-    return result * (psf_sum / result.sum())
+    return result * (psf.sum() / result_sum)

@@ -67,8 +67,9 @@ def sync_detailed(
 ) -> Response[Union[DetailResponse, MemberSyncStatusReportResult]]:
     """Report per-member sync statuses for a resource
 
-     Full-replace report from the site agent: replaces every previously stored member sync status of this
-    resource with the submitted set. Requires the offering to opt in via the
+     Complete report from the site agent: afterwards the resource's stored member sync statuses are
+    exactly the submitted set. Only the differences are written; unchanged statuses are left as they
+    are, and the report time is recorded once per resource. Requires the offering to opt in via the
     enable_membership_sync_status plugin option. Entries whose user cannot be resolved are skipped and
     echoed back in the response instead of failing the whole report.
 
@@ -104,8 +105,9 @@ def sync(
 ) -> Union[DetailResponse, MemberSyncStatusReportResult]:
     """Report per-member sync statuses for a resource
 
-     Full-replace report from the site agent: replaces every previously stored member sync status of this
-    resource with the submitted set. Requires the offering to opt in via the
+     Complete report from the site agent: afterwards the resource's stored member sync statuses are
+    exactly the submitted set. Only the differences are written; unchanged statuses are left as they
+    are, and the report time is recorded once per resource. Requires the offering to opt in via the
     enable_membership_sync_status plugin option. Entries whose user cannot be resolved are skipped and
     echoed back in the response instead of failing the whole report.
 
@@ -136,8 +138,9 @@ async def asyncio_detailed(
 ) -> Response[Union[DetailResponse, MemberSyncStatusReportResult]]:
     """Report per-member sync statuses for a resource
 
-     Full-replace report from the site agent: replaces every previously stored member sync status of this
-    resource with the submitted set. Requires the offering to opt in via the
+     Complete report from the site agent: afterwards the resource's stored member sync statuses are
+    exactly the submitted set. Only the differences are written; unchanged statuses are left as they
+    are, and the report time is recorded once per resource. Requires the offering to opt in via the
     enable_membership_sync_status plugin option. Entries whose user cannot be resolved are skipped and
     echoed back in the response instead of failing the whole report.
 
@@ -171,8 +174,9 @@ async def asyncio(
 ) -> Union[DetailResponse, MemberSyncStatusReportResult]:
     """Report per-member sync statuses for a resource
 
-     Full-replace report from the site agent: replaces every previously stored member sync status of this
-    resource with the submitted set. Requires the offering to opt in via the
+     Complete report from the site agent: afterwards the resource's stored member sync statuses are
+    exactly the submitted set. Only the differences are written; unchanged statuses are left as they
+    are, and the report time is recorded once per resource. Requires the offering to opt in via the
     enable_membership_sync_status plugin option. Entries whose user cannot be resolved are skipped and
     echoed back in the response instead of failing the whole report.
 

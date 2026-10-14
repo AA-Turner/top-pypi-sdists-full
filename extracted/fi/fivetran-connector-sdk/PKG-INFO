@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fivetran_connector_sdk
-Version: 2.12.1
+Version: 2.13.0
 Summary: Build custom connectors on Fivetran platform
 Author-email: Fivetran <developers@fivetran.com>
 Project-URL: Homepage, https://fivetran.com/docs/connectors/connector-sdk
@@ -55,7 +55,7 @@ Import required classes from fivetran_connector_sdk to begin writing your custom
   from fivetran_connector_sdk import Logging as log
   from fivetran_connector_sdk import Operations as op
 ```
-See our [Technical Reference](https://fivetran.com/docs/connectors/connector-sdk/technical-reference#update) and [Best Practices](https://fivetran.com/docs/connectors/connector-sdk/best-practices) documentation for more details.
+See our [Technical Reference](https://fivetran.com/docs/connectors/connector-sdk/technical-reference#update) and [Connector Development Concepts](https://fivetran.com/docs/connector-sdk/building-connectors/connector-sdk-concepts) documentation for more details.
 
 You can also refer to our [existing examples](https://github.com/fivetran/connector_sdk) to better understand Fivetran's Connector SDK and start creating custom data connectors.
 

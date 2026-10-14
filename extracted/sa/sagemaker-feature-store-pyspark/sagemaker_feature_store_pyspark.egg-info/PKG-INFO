@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker_feature_store_pyspark
-Version: 2.2.1
+Version: 2.2.2
 Summary: Amazon SageMaker FeatureStore PySpark Bindings
 Author: Amazon Web Services
 License: Apache-2.0

@@ -51,7 +51,7 @@ install_requires = [
 
 setup(
     name="launchpadlib",
-    version="2.2.0",
+    version="2.3.0",
     packages=find_packages("src"),
     package_dir={"": "src"},
     include_package_data=True,
@@ -89,6 +89,7 @@ setup(
     ],
     extras_require={
         "keyring": ["keyring"],
+        "fido2": ["fido2>=1.1.2,<3"],
         "docs": ["Sphinx"],
         # Dependencies useful when testing other packages with launchpadlib.
         "testing": [
@@ -99,6 +100,8 @@ setup(
         "test": [
             "coverage",
             "pytest",
+            # Match the supported hardware runtime versions.
+            "fido2>=1.1.2,<3",
         ],
     },
 )

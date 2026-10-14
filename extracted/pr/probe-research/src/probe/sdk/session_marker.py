@@ -1271,6 +1271,9 @@ DIRECTED_FLAG = "--directed"
 #: (`DENY_REASON_DAEMON`) and the daemon profile's, for a write
 #: (`DAEMON_PROFILE_DENY_WRITE`).
 DIRECTED_RETRY = "If the researcher asked for exactly this, run it again with `--directed`."
+#: ...and the daemon-profile agent's other way to a write (Richard's approved
+#: text, 2026-10-13): a request to the daemon's writer (`probe ask --writer`).
+WRITER_RETRY = 'Otherwise ask the daemon\'s writer: `probe ask --writer "<request>"`.'
 
 
 def carries_directed(args: "list[str]") -> bool:
@@ -1373,9 +1376,12 @@ def daemon_allows_agent(matched: str) -> bool:
 #: (`is_inline`) the guard refuses only `RESEARCHER_SWITCH`.
 #: `paper find` reads the research literature, an outside index, not the team's
 #: records, so the agent runs it itself (Richard 2026-10-12: "just the tools
-#: where it makes sense for the agent to call it directly").
+#: where it makes sense for the agent to call it directly"). `feedback send`
+#: holds feedback for the Probe team as a question for the researcher
+#: (`probe.feedback`); nothing leaves without their yes.
 DAEMON_PROFILE_ALLOWED = frozenset(
-    {"ask", "session status", "session parent", "ignore check", "run expect", "doctor", "paper find"}
+    {"ask", "session status", "session parent", "ignore check", "run expect", "doctor", "paper find",
+     "feedback send"}
 )
 
 #: The researcher's switch and defaults, typed into a shell. In the daemon
@@ -1408,8 +1414,9 @@ DAEMON_PROFILE_DENY = (
 )
 
 #: `DAEMON_PROFILE_DENY` for a WRITE: `--directed` admits one the researcher
-#: asked for. A read keeps the plain text: no flag admits it, `probe ask` reads.
-DAEMON_PROFILE_DENY_WRITE = DAEMON_PROFILE_DENY + "\n\n" + DIRECTED_RETRY
+#: asked for, and the daemon's writer takes any other (`probe ask --writer`). A
+#: read keeps the plain text: no flag admits it, `probe ask` reads.
+DAEMON_PROFILE_DENY_WRITE = DAEMON_PROFILE_DENY + "\n\n" + DIRECTED_RETRY + " " + WRITER_RETRY
 
 #: What the papers hook answers a paper-type web search it holds (`papers_hook.py`):
 #: at most once per `PAPER_FIND_WINDOW_S`, and never after `probe paper find` ran

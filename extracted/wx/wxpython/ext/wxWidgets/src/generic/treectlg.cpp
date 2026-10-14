@@ -569,7 +569,7 @@ void wxTreeTextCtrl::OnChar( wxKeyEvent &event )
         default:
             if ( !m_aboutToFinish )
             {
-                wxChar ch = event.GetUnicodeKey();
+                const wxUniChar ch = event.GetUnicodeChar();
                 if ( ch != WXK_NONE )
                 {
                     wxString value = GetValue();
@@ -1342,9 +1342,6 @@ bool wxGenericTreeCtrl::IsVisible(const wxTreeItemId& item) const
         parent = parent->GetParent();
     }
 
-    int startX, startY;
-    GetViewStart(& startX, & startY);
-
     wxSize clientSize = GetClientSize();
 
     wxRect rect;
@@ -1497,7 +1494,7 @@ wxGenericTreeCtrl::DoGetNext(const wxTreeItemId& item, int flags) const
     wxGenericTreeItem *i = GetItemPtr(item);
 
     // First see if there are any children.
-    if ( !(flags & Next_Visible) || i->IsExpanded() )
+    if ( !(flags & Next_Opened) || i->IsExpanded() )
     {
         wxGenericTreeItems& children = i->GetChildren();
         if (!children.empty())
@@ -1538,7 +1535,48 @@ wxTreeItemId wxGenericTreeCtrl::GetNextVisible(const wxTreeItemId& item) const
     wxCHECK_MSG( item.IsOk(), wxTreeItemId(), wxT("invalid tree item") );
     wxASSERT_MSG( IsVisible(item), wxT("this item itself should be visible") );
 
-    return DoGetNext(item, Next_Visible);
+    const wxSize clientSize = GetClientSize();
+    wxRect rect;
+
+    for ( ;; )
+    {
+        wxTreeItemId itemid = DoGetNext(item, Next_Opened);
+        if ( !itemid.IsOk() )
+        {
+            // There are no more items at all.
+            break;
+        }
+
+        // We could just use IsVisible() here and keep iterating until we find
+        // a visible item or run out of them, but this is inefficient because
+        // we would keep going (possibly long after) the visible area.
+        //
+        // Also, IsVisible() checks that the item is in an opened branch, but
+        // this is always the case for the items returned by DoGetNext() with
+        // Next_Opened flag, so here we just need to check the item rectangle.
+        GetBoundingRect(itemid, rect);
+
+        if ( rect.GetTop() > clientSize.y )
+        {
+            // This item is below the visible area, there won't be any other
+            // items beneath it.
+            break;
+        }
+
+        if ( rect.GetBottom() < 0 )
+        {
+            // This item is above the visible area, try the next one.
+            continue;
+        }
+
+        if ( rect.GetRight() > 0 && rect.GetLeft() < clientSize.x )
+        {
+            // This item is at least partially visible, return it.
+            return itemid;
+        }
+    }
+
+    return wxTreeItemId();
 }
 
 wxTreeItemId wxGenericTreeCtrl::GetPrevVisible(const wxTreeItemId& item) const
@@ -1606,13 +1644,13 @@ wxTreeItemId wxGenericTreeCtrl::FindItem(const wxTreeItemId& idParent,
     wxTreeItemId itemid = idParent;
     if ( prefix.length() == 1 )
     {
-        itemid = DoGetNext(itemid, Next_Visible);
+        itemid = DoGetNext(itemid, Next_Opened);
     }
 
     // look for the item starting with the given prefix after it
     while ( itemid.IsOk() && !GetItemText(itemid).Lower().StartsWith(prefix) )
     {
-        itemid = DoGetNext(itemid, Next_Visible);
+        itemid = DoGetNext(itemid, Next_Opened);
     }
 
     // if we haven't found anything...
@@ -1623,14 +1661,14 @@ wxTreeItemId wxGenericTreeCtrl::FindItem(const wxTreeItemId& idParent,
         if ( HasFlag(wxTR_HIDE_ROOT) )
         {
             // can't select virtual root
-            itemid = DoGetNext(itemid, Next_Visible);
+            itemid = DoGetNext(itemid, Next_Opened);
         }
 
         // and try all the items (stop when we get to the one we started from)
         while ( itemid.IsOk() && itemid != idParent &&
                     !GetItemText(itemid).Lower().StartsWith(prefix) )
         {
-            itemid = DoGetNext(itemid, Next_Visible);
+            itemid = DoGetNext(itemid, Next_Opened);
         }
         // If we haven't found the item but wrapped back to the one we started
         // from, id.IsOk() must be false
@@ -2481,18 +2519,27 @@ void wxGenericTreeCtrl::AssignButtonsImageList(wxImageList *imageList)
 // helpers
 // -----------------------------------------------------------------------------
 
+// Calculate the total area needed to display the given client area.
+static wxSize GetTotalAreaFromClientArea(wxSize size)
+{
+    size.x += PIXELS_PER_UNIT+2; // one more scrollbar unit + 2 pixels
+    size.y += PIXELS_PER_UNIT+2; // one more scrollbar unit + 2 pixels
+    return size;
+}
+
 void wxGenericTreeCtrl::AdjustMyScrollbars()
 {
     if (m_anchor)
     {
         int x = 0, y = 0;
         m_anchor->GetSize( x, y, this );
-        y += PIXELS_PER_UNIT+2; // one more scrollbar unit + 2 pixels
-        x += PIXELS_PER_UNIT+2; // one more scrollbar unit + 2 pixels
+        wxSize totalSize = GetTotalAreaFromClientArea( wxSize( x, y) );
         int x_pos = GetScrollPos( wxHORIZONTAL );
         int y_pos = GetScrollPos( wxVERTICAL );
-        SetScrollbars( PIXELS_PER_UNIT, PIXELS_PER_UNIT,
-                       x/PIXELS_PER_UNIT, y/PIXELS_PER_UNIT,
+        SetScrollbars( PIXELS_PER_UNIT,
+                       PIXELS_PER_UNIT,
+                       totalSize.x/PIXELS_PER_UNIT,
+                       totalSize.y/PIXELS_PER_UNIT,
                        x_pos, y_pos );
     }
     else
@@ -4176,7 +4223,7 @@ void wxGenericTreeCtrl::DoDirtyProcessing()
     AdjustMyScrollbars();
 }
 
-wxSize wxGenericTreeCtrl::DoGetBestSize() const
+wxSize wxGenericTreeCtrl::DoGetBestClientSize() const
 {
     // make sure all positions are calculated as normally this only done during
     // idle time but we need them for base class DoGetBestSize() to return the
@@ -4185,23 +4232,28 @@ wxSize wxGenericTreeCtrl::DoGetBestSize() const
 
     wxSize size = wxTreeCtrlBase::DoGetBestSize();
 
-    // there seems to be an implicit extra border around the items, although
-    // I'm not really sure where does it come from -- but without this, the
-    // scrollbars appear in a tree with default/best size
-    size.IncBy(4, 4);
+    // DoGetBestSize assumes we can stretch out completely and therefore
+    // will not have scrollbars
 
-    // and the border has to be rounded up to a multiple of PIXELS_PER_UNIT or
-    // scrollbars still appear
-    const wxSize& borderSize = GetWindowBorderSize();
-
-    int dx = (size.x - borderSize.x) % PIXELS_PER_UNIT;
-    if ( dx )
-        size.x += PIXELS_PER_UNIT - dx;
-    int dy = (size.y - borderSize.y) % PIXELS_PER_UNIT;
-    if ( dy )
-        size.y += PIXELS_PER_UNIT - dy;
+    // Use the calculation from AdjustMyScrollbars()
+    size = GetTotalAreaFromClientArea( size );
+    size.x = (size.x / PIXELS_PER_UNIT) * PIXELS_PER_UNIT;
+    size.y = (size.y / PIXELS_PER_UNIT) * PIXELS_PER_UNIT;
 
     return size;
+}
+
+int wxGenericTreeCtrl::DoGetBestClientWidth(int height) const
+{
+    wxSize size = DoGetBestClientSize();
+
+    // Add space for vertical scrollbar if we're going to need one.
+    if ( height < size.y )
+    {
+        size.x += GetScrollbarSize( wxVERTICAL );
+    }
+
+    return size.x;
 }
 
 #endif // wxUSE_TREECTRL

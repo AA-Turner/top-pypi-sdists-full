@@ -18,11 +18,17 @@ on:
     branches: [main, dev]
   merge_group:
 
+# OMN-19641: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 permissions:
   contents: read
   pull-requests: read
 
 jobs:
   call-reject-skip-token:
-    uses: OmniNode-ai/omniclaude/.github/workflows/reject-deploy-gate-skip.yml@f592ccdf053a06d8197b07657aa5e9b5dc0204ce
+    uses: OmniNode-ai/omniclaude/.github/workflows/reject-deploy-gate-skip.yml@cb11e382966e354126cba07441e8f2b05faedee4 # OMN-20925: omniclaude dev head; carries omniclaude#2540 (4358450cc), so the scan runs with no nested change-control preflight
     secrets: inherit

@@ -14,7 +14,9 @@ def apply_separation(xycoords, min_separation):
     """
     Apply a minimum separation to a set of (x, y) coordinates.
 
-    Coordinates that are closer than the minimum separation are removed.
+    For each group of coordinates separated by ``min_separation`` or
+    less, the coordinate that appears first in ``xycoords`` is kept and
+    its neighbors are removed.
 
     Parameters
     ----------
@@ -27,8 +29,9 @@ def apply_separation(xycoords, min_separation):
     Returns
     -------
     xycoords : `~numpy.ndarray`
-        The (x, y) coordinates with shape ``(N, 2)`` after excluding
-        points closer than the minimum separation.
+        The (x, y) coordinates with shape ``(M, 2)``, where ``M <= N``,
+        after removing the points within the minimum separation of a
+        kept point.
     """
     tree = KDTree(xycoords)
     pairs = tree.query_pairs(min_separation, output_type='ndarray')
@@ -41,7 +44,7 @@ def apply_separation(xycoords, min_separation):
 
     # Group pairs by first index for vectorized neighbor removal. Each
     # pair has i < j (guaranteed by KDTree). Process groups in ascending
-    # first-index order (greedy independent set algorithm): for each
+    # first-index order (greedy independent set algorithm). For each
     # kept point, discard all its higher-index neighbors.
     sorted_idx = pairs[:, 0].argsort(kind='stable')
     pairs_sorted = pairs[sorted_idx]
@@ -103,15 +106,15 @@ def make_random_xycoords(size, x_range, y_range, *, min_separation=0.0,
         msg = 'x_range and y_range must be (min, max) with min < max.'
         raise ValueError(msg)
 
-    ncoords = size
+    n_coords = size
     if min_separation > 0:
         # Scale the number of random coordinates to account for
         # some being discarded due to min_separation
-        ncoords *= oversample
+        n_coords *= oversample
 
     rng = np.random.default_rng(seed)
-    xc = rng.uniform(x_range[0], x_range[1], ncoords)
-    yc = rng.uniform(y_range[0], y_range[1], ncoords)
+    xc = rng.uniform(x_range[0], x_range[1], n_coords)
+    yc = rng.uniform(y_range[0], y_range[1], n_coords)
     xycoords = np.transpose(np.array((xc, yc)))
 
     xycoords = apply_separation(xycoords, min_separation)

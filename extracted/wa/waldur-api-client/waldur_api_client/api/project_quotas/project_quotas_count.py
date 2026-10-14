@@ -1,5 +1,6 @@
 from http import HTTPStatus
 from typing import Any, Union
+from uuid import UUID
 
 import httpx
 
@@ -11,11 +12,17 @@ from ...types import UNSET, Response, Unset
 
 def _get_kwargs(
     *,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_customer_uuid: Union[Unset, str] = UNSET
+    if not isinstance(customer_uuid, Unset):
+        json_customer_uuid = str(customer_uuid)
+    params["customer_uuid"] = json_customer_uuid
 
     params["page"] = page
 
@@ -67,6 +74,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -74,6 +82,7 @@ def sync_detailed(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -87,6 +96,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        customer_uuid=customer_uuid,
         page=page,
         page_size=page_size,
         quota_name=quota_name,
@@ -102,6 +112,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -109,6 +120,7 @@ def sync(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -123,6 +135,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        customer_uuid=customer_uuid,
         page=page,
         page_size=page_size,
         quota_name=quota_name,
@@ -132,6 +145,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -139,6 +153,7 @@ async def asyncio_detailed(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -152,6 +167,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        customer_uuid=customer_uuid,
         page=page,
         page_size=page_size,
         quota_name=quota_name,
@@ -165,6 +181,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    customer_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     quota_name: Union[Unset, CustomerQuotasQuotaNameEnum] = UNSET,
@@ -172,6 +189,7 @@ async def asyncio(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        customer_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         quota_name (Union[Unset, CustomerQuotasQuotaNameEnum]):
@@ -187,6 +205,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            customer_uuid=customer_uuid,
             page=page,
             page_size=page_size,
             quota_name=quota_name,

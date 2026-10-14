@@ -9,7 +9,7 @@ from testmu_appium._errors import TestmuConfigError
 # instead of silently dropping configuration.
 _ALLOWED_KWARGS = {
     # Session identity / app under test
-    "app_id", "platform", "udid", "target_kind",
+    "app_id", "platform", "udid", "target",
     "device_name", "platform_version", "no_reset", "app",
     "appium_version",
     # Run metadata
@@ -68,14 +68,14 @@ def configure(**kwargs: Any) -> None:
             )
         kwargs["platform"] = value
 
-    if "target_kind" in kwargs:
-        value = str(kwargs["target_kind"] or "").lower()
-        if value and value not in _config_mod.KNOWN_TARGET_KINDS:
+    if "target" in kwargs:
+        value = str(kwargs["target"] or "").lower()
+        if value and value not in _config_mod.KNOWN_TARGETS:
             raise TestmuConfigError(
-                f"unknown target_kind {kwargs['target_kind']!r}; "
-                f"allowed: {list(_config_mod.KNOWN_TARGET_KINDS)} (or omit it)"
+                f"unknown target {kwargs['target']!r}; "
+                f"allowed: {list(_config_mod.KNOWN_TARGETS)} (or omit it)"
             )
-        kwargs["target_kind"] = value
+        kwargs["target"] = value
 
     if "screenshot_source" in kwargs:
         value = str(kwargs["screenshot_source"] or "").lower()
@@ -97,6 +97,7 @@ def configure(**kwargs: Any) -> None:
             raise TestmuConfigError(f"mjpeg_port {port} is outside the port range")
         kwargs["mjpeg_port"] = port
 
+
     if "kane_version" in kwargs and str(kwargs["kane_version"]).lower() != "v4":
         raise TestmuConfigError(
             f"mobile export is v4-only; got kane_version={kwargs['kane_version']!r}"
@@ -104,17 +105,22 @@ def configure(**kwargs: Any) -> None:
 
     # These three populate the _vars namespaces rather than the _config dict:
     # test_params backs ${name}, variables backs {{name}}, and global_variables is
-    # the list the {{global.*}} resolver consults.
-    from testmu_appium._vars import _global_variables, _test_params, _variable_store
-    _test_params.update(kwargs.pop("test_params", {}) or {})
-    _variable_store.update(kwargs.pop("variables", {}) or {})
+    # the list the {{global.*}} resolver consults. They fill the ACTIVE mode's
+    # stores, so they're applied after kane_version (if passed) is set below.
+    test_params = kwargs.pop("test_params", {}) or {}
+    variables = kwargs.pop("variables", {}) or {}
     globals_value = kwargs.pop("global_variables", None)
-    if globals_value:
-        _global_variables.clear()
-        _global_variables.extend(globals_value)
 
     for key, value in kwargs.items():
         _config_mod.set_value(key, value)
+
+    from testmu_appium import _router
+    v = _router.active_vars()
+    v._test_params.update(test_params)
+    v._variable_store.update(variables)
+    if globals_value:
+        v._global_variables.clear()
+        v._global_variables.extend(globals_value)
 
     # `smart` also lives as a module attribute, because that is what every gate in
     # the package reads through _config.smart_enabled(). `heal` rides the same

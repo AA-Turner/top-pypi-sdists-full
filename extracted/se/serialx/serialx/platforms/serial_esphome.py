@@ -6,7 +6,7 @@ create a fully functional remote serial port, similar to RFC2217 but with many q
 of life, performance, and security improvements.
 
 This platform requires the `aioesphomeapi <https://github.com/esphome/aioesphomeapi>`_
-package to be installed, provided by the ``esphome`` dependency group:
+package to be installed, provided by the ``esphome`` extra:
 
 .. code-block:: bash
 
@@ -70,6 +70,7 @@ from serialx.common import (
     PortSettingsUpdate,
     SerialPortInfo,
     StopBits,
+    redact_uri,
     register_uri_handler,
 )
 from serialx.udev import udev_serial_by_id_stem
@@ -298,7 +299,9 @@ class ESPHomeSerial(BaseSerial):
 
                 .. deprecated:: 1.2.0
             mode: The mode the serial proxy should use, either `raw` (the default)
-                or `protocol` to engage the port's protocol-aware tap.
+                or `protocol` to engage the port's protocol-aware tap. Opening fails
+                if `protocol` is asked of a port with no tap, or of a device too old
+                to have modes.
             key: The Noise PSK to use when creating an `aioesphomeapi.APIClient`
                 instance.
             password: The API password to use when creating an `aioesphomeapi.APIClient`
@@ -548,7 +551,8 @@ class ESPHomeSerial(BaseSerial):
     def tap_mode(self) -> SerialProxyModeName | None:
         """The mode the device confirmed for this port, or `None` before subscribing.
 
-        `raw` means the port has no tap, so a client must do the protocol's work itself.
+        Once subscribed, this is the mode that was asked for: `protocol` is never quietly
+        downgraded to `raw`, opening fails instead.
         """
         return self._active_mode
 
@@ -607,7 +611,9 @@ class ESPHomeSerial(BaseSerial):
                 self._noise_psk = params["key"][0]
 
             if parsed.hostname is None:
-                raise InvalidSettingsError(f"URI {self._path!r} is missing a hostname")
+                raise InvalidSettingsError(
+                    f"URI {redact_uri(str(self._path))!r} is missing a hostname"
+                )
 
             self._api = APIClient(
                 address=parsed.hostname,
@@ -698,12 +704,12 @@ class ESPHomeSerial(BaseSerial):
             query = {}
             if info.serial_number is None:
                 query["port_name"] = proxy.name
-            else:
-                query["port_serial_number"] = info.serial_number
 
             udev_id = udev_serial_by_id_stem(info)
             if udev_id is not None:
                 query["port_udev_id"] = udev_id
+            elif info.serial_number is not None:
+                query["port_serial_number"] = info.serial_number
 
             url = urllib.parse.urlunparse(
                 urllib.parse.ParseResult(
@@ -895,6 +901,13 @@ class ESPHomeSerial(BaseSerial):
         # Older devices have no mode at all and never answer the request
         version = self._api.api_version
         if version is None or version < MIN_VERSION_SERIAL_PROXY_SET_MODE:
+            if self._mode is not SerialProxyModeName.RAW:
+                required = MIN_VERSION_SERIAL_PROXY_SET_MODE
+                raise UnsupportedSetting(
+                    f"Serial proxy {self._port_name!r} cannot be put in"
+                    f" {self._mode.value!r} mode: that needs API {required.major}"
+                    f".{required.minor}, the device runs {version}"
+                )
             self._active_mode = SerialProxyModeName.RAW
             return
 
@@ -908,13 +921,18 @@ class ESPHomeSerial(BaseSerial):
             )
         )
 
-        # A port with no tap refuses PROTOCOL; that is a fact about the port, not a failure
+        # A port with no tap refuses PROTOCOL. A client asked for it because it will not
+        # do that protocol's work itself, so raw bytes are not a fallback it can use
         if response.status is SerialProxyStatus.NOT_SUPPORTED:
-            self._active_mode = SerialProxyModeName.RAW
-        elif (factory := STATUS_TO_ERROR_MAP.get(response.status)) is not None:
+            raise UnsupportedSetting(
+                f"Serial proxy {self._port_name!r} has no tap for"
+                f" {self._mode.value!r} mode"
+            )
+
+        if (factory := STATUS_TO_ERROR_MAP.get(response.status)) is not None:
             raise factory(f"cannot set the mode of serial proxy {self._port_name!r}")
-        else:
-            self._active_mode = self._mode
+
+        self._active_mode = self._mode
 
     def _unsubscribe_instance(self) -> None:
         """Unsubscribe serial proxy streaming for this instance if supported."""
@@ -1157,6 +1175,8 @@ class ESPHomeSerialTransport(BaseSerialTransport):
         self._closed_unsub: Callable[[], None] | None = None
         self._identity_unsub: Callable[[], None] | None = None
         self._close_task: asyncio.Task[None] | None = None
+        # Data the device sent before the protocol was told about the transport
+        self._pending_data: list[bytes] | None = []
 
     @translate_esphome_errors
     async def _connect(
@@ -1190,6 +1210,14 @@ class ESPHomeSerialTransport(BaseSerialTransport):
         await self._serial._async_configure_port()
 
         self._call_protocol_connection_made()
+
+        # The device streams from the subscribe onwards, while the protocol only learns
+        # of the transport once the port is configured. Replay what arrived in between,
+        # as asyncio's subprocess transport does, so the protocol never sees data first.
+        pending_data, self._pending_data = self._pending_data, None
+        assert pending_data is not None
+        for data in pending_data:
+            self._protocol.data_received(data)
 
     async def _register_transport_closed_handler(self) -> Callable[[], None]:
         """Register `_on_api_connection_closed` on the client's loop, return the unsub."""
@@ -1288,9 +1316,21 @@ class ESPHomeSerialTransport(BaseSerialTransport):
 
         client_loop = self._serial._client_loop
         if client_loop is None or client_loop is self._loop:
-            self._protocol.data_received(msg.data)
+            self._deliver_data(msg.data)
         else:
-            self._loop.call_soon_threadsafe(self._protocol.data_received, msg.data)
+            self._loop.call_soon_threadsafe(self._deliver_data, msg.data)
+
+    def _deliver_data(self, data: bytes) -> None:
+        if self._pending_data is not None:
+            LOGGER.debug(
+                "Data received before connection made, buffering (%d bytes, %d total packets)",
+                len(data),
+                len(self._pending_data),
+            )
+            self._pending_data.append(data)
+            return
+
+        self._protocol.data_received(data)
 
     def write(self, data: bytes | bytearray | memoryview) -> None:
         """Write data to the serial proxy."""

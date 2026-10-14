@@ -4,15 +4,11 @@ Tools for loading example datasets, from both within photutils and
 remote servers.
 """
 
-from urllib.error import HTTPError, URLError
-
 from astropy.io import fits
 from astropy.table import Table
-from astropy.utils.data import (download_file, get_pkg_data_filename,
-                                is_url_in_cache)
+from astropy.utils.data import download_file, get_pkg_data_filename
 
-from photutils.utils._deprecation import (deprecated,
-                                          deprecated_positional_kwargs)
+from photutils.utils._deprecation import deprecated
 
 __all__ = [
     'get_path',
@@ -24,7 +20,7 @@ __all__ = [
 ]
 
 
-def _get_path(filename, location='local', cache=True, show_progress=False):
+def _get_path(filename, *, location='local', cache=True, show_progress=False):
     """
     Get the local path for a given file.
 
@@ -33,12 +29,14 @@ def _get_path(filename, location='local', cache=True, show_progress=False):
     filename : str
         File name in the local or remote data folder.
 
-    location : {'local', 'remote', 'photutils-datasets'}
+    location : {'local', 'remote', 'photutils-datasets'}, optional
         File location. ``'local'`` means bundled with ``photutils``.
+        If the file is not bundled, the astropy data server is tried.
         ``'remote'`` means the astropy data server (or the
         photutils-datasets repo as a backup) or the Astropy cache
         on your machine. ``'photutils-datasets'`` means the
         photutils-datasets repo or the Astropy cache on your machine.
+        The default is ``'local'``.
 
     cache : bool, optional
         Whether to cache the contents of remote URLs. Default is `True`.
@@ -61,25 +59,15 @@ def _get_path(filename, location='local', cache=True, show_progress=False):
     elif location == 'remote':
         url = f'http://data.astropy.org/photometry/{filename}'
 
-        # First check if the file is already in the local cache from the
-        # primary URL, then check the backup URL. If the file is in the
-        # cache, the download_file function will simply return the local
-        # path to the cached file without trying to download it again.
-        if is_url_in_cache(url):
-            path = download_file(url, cache=True,
-                                 show_progress=show_progress)
-        elif is_url_in_cache(datasets_url):
-            path = download_file(datasets_url, cache=True,
-                                 show_progress=show_progress)
-        else:
-            # If the file is not in the local cache, then try to
-            # download it from the respective URLs.
-            try:
-                path = download_file(url, cache=cache,
-                                     show_progress=show_progress)
-            except (URLError, HTTPError):  # timeout or not found
-                path = download_file(datasets_url, cache=cache,
-                                     show_progress=show_progress)
+        # Use download_file's ``sources`` argument to try the primary
+        # astropy data URL first and fall back to the photutils-datasets
+        # repo. The result is cached under the primary URL regardless
+        # of which source was used. If the file is already in the
+        # cache, download_file returns the local path without any
+        # network access.
+        path = download_file(url, cache=cache,
+                             sources=[url, datasets_url],
+                             show_progress=show_progress)
     elif location == 'photutils-datasets':
         path = download_file(datasets_url, cache=cache,
                              show_progress=show_progress)
@@ -90,7 +78,7 @@ def _get_path(filename, location='local', cache=True, show_progress=False):
     return path
 
 
-@deprecated(since='3.0')
+@deprecated(since='3.0', until='4.0')
 def get_path(filename, location='local', cache=True, show_progress=False):
     """
     Get the local path for a given file.
@@ -100,12 +88,14 @@ def get_path(filename, location='local', cache=True, show_progress=False):
     filename : str
         File name in the local or remote data folder.
 
-    location : {'local', 'remote', 'photutils-datasets'}
+    location : {'local', 'remote', 'photutils-datasets'}, optional
         File location. ``'local'`` means bundled with ``photutils``.
+        If the file is not bundled, the astropy data server is tried.
         ``'remote'`` means the astropy data server (or the
         photutils-datasets repo as a backup) or the Astropy cache
         on your machine. ``'photutils-datasets'`` means the
         photutils-datasets repo or the Astropy cache on your machine.
+        The default is ``'local'``.
 
     cache : bool, optional
         Whether to cache the contents of remote URLs. Default is `True`.
@@ -145,7 +135,7 @@ def _load_fits_as_imagehdu(path):
     return fits.ImageHDU(data, header)
 
 
-@deprecated(since='3.0')
+@deprecated(since='3.0', until='4.0')
 def load_spitzer_image(show_progress=False):
     """
     Load a 4.5 micron Spitzer image.
@@ -168,7 +158,7 @@ def load_spitzer_image(show_progress=False):
     return _load_fits_as_imagehdu(path)
 
 
-@deprecated(since='3.0')
+@deprecated(since='3.0', until='4.0')
 def load_spitzer_catalog(show_progress=False):
     """
     Load a 4.5 micron Spitzer catalog.
@@ -185,21 +175,22 @@ def load_spitzer_catalog(show_progress=False):
     Returns
     -------
     catalog : `~astropy.table.Table`
-        The catalog of sources.
+        The catalog of sources, with Galactic coordinates, 4.5 micron
+        fluxes, and magnitudes in the four IRAC channels.
     """
     path = _get_path('spitzer_example_catalog.xml', location='remote',
                      show_progress=show_progress)
     return Table.read(path)
 
 
-@deprecated_positional_kwargs(since='3.0', until='4.0')
+@deprecated(since='3.1', until='4.0')
 def load_irac_psf(channel, show_progress=False):
     """
     Load a Spitzer IRAC PSF image.
 
     Parameters
     ----------
-    channel : int (1-4)
+    channel : {1, 2, 3, 4}
         The IRAC channel number:
 
         * Channel 1:  3.6 microns
@@ -214,34 +205,14 @@ def load_irac_psf(channel, show_progress=False):
     Returns
     -------
     hdu : `~astropy.io.fits.ImageHDU`
-        The IRAC PSF in a FITS image HDU.
+        The IRAC PSF in a FITS image HDU. The PSF is oversampled by a
+        factor of 4 relative to the detector pixels and is normalized
+        to a sum of 1.
 
-    Examples
-    --------
-    .. plot::
-        :include-source:
-
-        import matplotlib.pyplot as plt
-        from astropy.visualization import simple_norm
-        from photutils.datasets import load_irac_psf
-
-        hdu1 = load_irac_psf(1)
-        hdu2 = load_irac_psf(2)
-        hdu3 = load_irac_psf(3)
-        hdu4 = load_irac_psf(4)
-
-        norm = simple_norm(hdu1.data, stretch='log')
-
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
-        ax1.imshow(hdu1.data, norm=norm, origin='lower')
-        ax1.set_title('IRAC Ch1 PSF')
-        ax2.imshow(hdu2.data, norm=norm, origin='lower')
-        ax2.set_title('IRAC Ch2 PSF')
-        ax3.imshow(hdu3.data, norm=norm, origin='lower')
-        ax3.set_title('IRAC Ch3 PSF')
-        ax4.imshow(hdu4.data, norm=norm, origin='lower')
-        ax4.set_title('IRAC Ch4 PSF')
-        fig.tight_layout()
+    Raises
+    ------
+    ValueError
+        If ``channel`` is not 1, 2, 3, or 4.
     """
     channel = int(channel)
     if channel < 1 or channel > 4:
@@ -253,7 +224,7 @@ def load_irac_psf(channel, show_progress=False):
     return _load_fits_as_imagehdu(path)
 
 
-@deprecated(since='3.0')
+@deprecated(since='3.0', until='4.0')
 def load_star_image(show_progress=False):
     """
     Load an optical image of stars.
@@ -280,7 +251,7 @@ def load_star_image(show_progress=False):
     return _load_fits_as_imagehdu(path)
 
 
-@deprecated_positional_kwargs(since='3.0', until='4.0')
+@deprecated(since='3.1', until='4.0')
 def load_simulated_hst_star_image(show_progress=False):
     """
     Load a simulated HST WFC3/IR F160W image of stars.
@@ -297,20 +268,6 @@ def load_simulated_hst_star_image(show_progress=False):
     -------
     hdu : `~astropy.io.fits.ImageHDU`
         A FITS image HDU containing the simulated HST star image.
-
-    Examples
-    --------
-    .. plot::
-        :include-source:
-
-        import matplotlib.pyplot as plt
-        from astropy.visualization import simple_norm
-        from photutils.datasets import load_simulated_hst_star_image
-
-        hdu = load_simulated_hst_star_image()
-        fig, ax = plt.subplots()
-        norm = simple_norm(hdu.data, 'sqrt', percent=99.5)
-        ax.imshow(hdu.data, norm=norm, origin='lower')
     """
     path = _get_path('hst_wfc3ir_f160w_simulated_starfield.fits',
                      location='photutils-datasets',

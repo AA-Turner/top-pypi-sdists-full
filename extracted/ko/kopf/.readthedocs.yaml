@@ -3,7 +3,7 @@
 version: 2
 formats: all
 build:
-  os: ubuntu-24.04
+  os: ubuntu-26.04
   tools:
     python: "3"
   jobs:
@@ -12,7 +12,7 @@ build:
       - asdf install uv latest
       - asdf global uv latest
     install:
-      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --group docs
+      - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --no-dev --group docs
 sphinx:
   configuration: docs/conf.py
   builder: "dirhtml"

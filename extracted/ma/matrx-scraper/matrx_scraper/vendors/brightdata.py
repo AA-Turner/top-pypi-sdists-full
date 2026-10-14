@@ -43,6 +43,8 @@ from typing import Any, Literal
 import httpx
 from matrx_utils import vcprint
 
+from matrx_scraper.utils.proxy import redact_url_secrets
+
 BRIGHTDATA_API_ROOT = "https://api.brightdata.com"
 
 #: Sync-scrape wait before Bright Data hands back a snapshot id, plus polling.
@@ -630,7 +632,7 @@ def _raise_for(resp: httpx.Response) -> None:
         body: Any = resp.json()
     except ValueError:
         body = resp.text[:500]
-    vcprint(f"[brightdata] HTTP {resp.status_code} from {resp.request.url.path}: {str(body)[:500]}",
+    vcprint(f"[brightdata] HTTP {resp.status_code} from {redact_url_secrets(str(resp.request.url.path))}: {str(body)[:500]}",
             color="red", log_level=logging.WARNING)
     if resp.status_code == 400 and isinstance(body, dict) and body.get("code") == "validation_error":
         errors = list(body.get("errors") or [])

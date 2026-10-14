@@ -8,14 +8,20 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.call_states import CallStates
+from ..models.evaluation_start_enum import EvaluationStartEnum
+from ..models.order_author_enum import OrderAuthorEnum
+from ..models.publish_results_enum import PublishResultsEnum
+from ..models.undecided_at_round_completion_enum import UndecidedAtRoundCompletionEnum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.call_applicant_visibility_config import CallApplicantVisibilityConfig
     from ..models.call_document import CallDocument
+    from ..models.call_proposal_field_config import CallProposalFieldConfig
     from ..models.call_resource_template import CallResourceTemplate
     from ..models.nested_requested_offering import NestedRequestedOffering
     from ..models.nested_round import NestedRound
+    from ..models.proposal_field_metadata import ProposalFieldMetadata
 
 
 T = TypeVar("T", bound="ProtectedCall")
@@ -43,6 +49,8 @@ class ProtectedCall:
         documents (Union[Unset, list['CallDocument']]):
         resource_templates (Union[Unset, list['CallResourceTemplate']]):
         fixed_duration_in_days (Union[None, Unset, int]):
+        max_prepaid_duration_months (Union[None, Unset, int]): The longest prepaid subscription, in whole months, that
+            fits inside fixed_duration_in_days measured from today; null when the call fixes no duration.
         backend_id (Union[Unset, str]):
         external_url (Union[None, Unset, str]):
         reviewer_identity_visible_to_submitters (Union[Unset, bool]): Whether proposal applicants can see reviewer
@@ -50,11 +58,17 @@ class ProtectedCall:
         reviews_visible_to_submitters (Union[Unset, bool]): Whether proposal applicants can see review comments and
             scores
         has_eligibility_restrictions (Union[Unset, bool]): Check if call has any eligibility restrictions configured.
+        proposal_field_config (Union[Unset, CallProposalFieldConfig]):
+        evaluation_start (Union[Unset, EvaluationStartEnum]):
+        publish_results (Union[Unset, PublishResultsEnum]):
         created_by (Union[None, Unset, str]):
         reference_code (Union[Unset, str]):
         compliance_checklist (Union[None, UUID, Unset]): Compliance checklist that proposals must complete before
             submission
         compliance_checklist_name (Union[Unset, str]):
+        panel_chair (Union[None, UUID, Unset]):
+        panel_chair_uuid (Union[Unset, UUID]):
+        panel_chair_name (Union[Unset, str]):
         proposal_slug_template (Union[None, Unset, str]): Template for proposal slugs. Supports: {call_slug},
             {round_slug}, {org_slug}, {year}, {month}, {counter}, {counter_padded}. Default: {round_slug}-{counter_padded}
         user_email_patterns (Union[Unset, list[str]]): List of email regex patterns. User must match one.
@@ -67,8 +81,18 @@ class ProtectedCall:
         user_assurance_levels (Union[Unset, list[str]]): List of required assurance URIs (REFEDS). User must have ALL of
             these.
         applicant_visibility_config (Union['CallApplicantVisibilityConfig', None, Unset]):
+        proposal_field_metadata (Union[Unset, list['ProposalFieldMetadata']]): Per-field state, permitted transitions
+            and downstream consumers for the Project details step.
         has_proposals (Union[Unset, bool]): Whether any proposal has been submitted to this call. Used by the frontend
             to gate slug-template and checklist fields.
+        order_author (Union[Unset, OrderAuthorEnum]):
+        order_author_user (Union[None, UUID, Unset]): The person orders are attributed to when the author is a named
+            contact. Must hold a role on this call or on the organisation managing it.
+        order_author_user_uuid (Union[None, UUID, Unset]):
+        order_author_user_name (Union[None, Unset, str]):
+        carry_over_drafts (Union[Unset, bool]): Whether a draft still open when its round's cut-off passes moves on to
+            the call's next round instead of being cancelled. Without a later round the draft is cancelled either way.
+        undecided_at_round_completion (Union[Unset, UndecidedAtRoundCompletionEnum]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -89,15 +113,22 @@ class ProtectedCall:
     documents: Union[Unset, list["CallDocument"]] = UNSET
     resource_templates: Union[Unset, list["CallResourceTemplate"]] = UNSET
     fixed_duration_in_days: Union[None, Unset, int] = UNSET
+    max_prepaid_duration_months: Union[None, Unset, int] = UNSET
     backend_id: Union[Unset, str] = UNSET
     external_url: Union[None, Unset, str] = UNSET
     reviewer_identity_visible_to_submitters: Union[Unset, bool] = UNSET
     reviews_visible_to_submitters: Union[Unset, bool] = UNSET
     has_eligibility_restrictions: Union[Unset, bool] = UNSET
+    proposal_field_config: Union[Unset, "CallProposalFieldConfig"] = UNSET
+    evaluation_start: Union[Unset, EvaluationStartEnum] = UNSET
+    publish_results: Union[Unset, PublishResultsEnum] = UNSET
     created_by: Union[None, Unset, str] = UNSET
     reference_code: Union[Unset, str] = UNSET
     compliance_checklist: Union[None, UUID, Unset] = UNSET
     compliance_checklist_name: Union[Unset, str] = UNSET
+    panel_chair: Union[None, UUID, Unset] = UNSET
+    panel_chair_uuid: Union[Unset, UUID] = UNSET
+    panel_chair_name: Union[Unset, str] = UNSET
     proposal_slug_template: Union[None, Unset, str] = UNSET
     user_email_patterns: Union[Unset, list[str]] = UNSET
     user_affiliations: Union[Unset, list[str]] = UNSET
@@ -106,7 +137,14 @@ class ProtectedCall:
     user_organization_types: Union[Unset, list[str]] = UNSET
     user_assurance_levels: Union[Unset, list[str]] = UNSET
     applicant_visibility_config: Union["CallApplicantVisibilityConfig", None, Unset] = UNSET
+    proposal_field_metadata: Union[Unset, list["ProposalFieldMetadata"]] = UNSET
     has_proposals: Union[Unset, bool] = UNSET
+    order_author: Union[Unset, OrderAuthorEnum] = UNSET
+    order_author_user: Union[None, UUID, Unset] = UNSET
+    order_author_user_uuid: Union[None, UUID, Unset] = UNSET
+    order_author_user_name: Union[None, Unset, str] = UNSET
+    carry_over_drafts: Union[Unset, bool] = UNSET
+    undecided_at_round_completion: Union[Unset, UndecidedAtRoundCompletionEnum] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -186,6 +224,12 @@ class ProtectedCall:
         else:
             fixed_duration_in_days = self.fixed_duration_in_days
 
+        max_prepaid_duration_months: Union[None, Unset, int]
+        if isinstance(self.max_prepaid_duration_months, Unset):
+            max_prepaid_duration_months = UNSET
+        else:
+            max_prepaid_duration_months = self.max_prepaid_duration_months
+
         backend_id = self.backend_id
 
         external_url: Union[None, Unset, str]
@@ -199,6 +243,18 @@ class ProtectedCall:
         reviews_visible_to_submitters = self.reviews_visible_to_submitters
 
         has_eligibility_restrictions = self.has_eligibility_restrictions
+
+        proposal_field_config: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.proposal_field_config, Unset):
+            proposal_field_config = self.proposal_field_config.to_dict()
+
+        evaluation_start: Union[Unset, str] = UNSET
+        if not isinstance(self.evaluation_start, Unset):
+            evaluation_start = self.evaluation_start.value
+
+        publish_results: Union[Unset, str] = UNSET
+        if not isinstance(self.publish_results, Unset):
+            publish_results = self.publish_results.value
 
         created_by: Union[None, Unset, str]
         if isinstance(self.created_by, Unset):
@@ -217,6 +273,20 @@ class ProtectedCall:
             compliance_checklist = self.compliance_checklist
 
         compliance_checklist_name = self.compliance_checklist_name
+
+        panel_chair: Union[None, Unset, str]
+        if isinstance(self.panel_chair, Unset):
+            panel_chair = UNSET
+        elif isinstance(self.panel_chair, UUID):
+            panel_chair = str(self.panel_chair)
+        else:
+            panel_chair = self.panel_chair
+
+        panel_chair_uuid: Union[Unset, str] = UNSET
+        if not isinstance(self.panel_chair_uuid, Unset):
+            panel_chair_uuid = str(self.panel_chair_uuid)
+
+        panel_chair_name = self.panel_chair_name
 
         proposal_slug_template: Union[None, Unset, str]
         if isinstance(self.proposal_slug_template, Unset):
@@ -256,7 +326,46 @@ class ProtectedCall:
         else:
             applicant_visibility_config = self.applicant_visibility_config
 
+        proposal_field_metadata: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.proposal_field_metadata, Unset):
+            proposal_field_metadata = []
+            for proposal_field_metadata_item_data in self.proposal_field_metadata:
+                proposal_field_metadata_item = proposal_field_metadata_item_data.to_dict()
+                proposal_field_metadata.append(proposal_field_metadata_item)
+
         has_proposals = self.has_proposals
+
+        order_author: Union[Unset, str] = UNSET
+        if not isinstance(self.order_author, Unset):
+            order_author = self.order_author.value
+
+        order_author_user: Union[None, Unset, str]
+        if isinstance(self.order_author_user, Unset):
+            order_author_user = UNSET
+        elif isinstance(self.order_author_user, UUID):
+            order_author_user = str(self.order_author_user)
+        else:
+            order_author_user = self.order_author_user
+
+        order_author_user_uuid: Union[None, Unset, str]
+        if isinstance(self.order_author_user_uuid, Unset):
+            order_author_user_uuid = UNSET
+        elif isinstance(self.order_author_user_uuid, UUID):
+            order_author_user_uuid = str(self.order_author_user_uuid)
+        else:
+            order_author_user_uuid = self.order_author_user_uuid
+
+        order_author_user_name: Union[None, Unset, str]
+        if isinstance(self.order_author_user_name, Unset):
+            order_author_user_name = UNSET
+        else:
+            order_author_user_name = self.order_author_user_name
+
+        carry_over_drafts = self.carry_over_drafts
+
+        undecided_at_round_completion: Union[Unset, str] = UNSET
+        if not isinstance(self.undecided_at_round_completion, Unset):
+            undecided_at_round_completion = self.undecided_at_round_completion.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -297,6 +406,8 @@ class ProtectedCall:
             field_dict["resource_templates"] = resource_templates
         if fixed_duration_in_days is not UNSET:
             field_dict["fixed_duration_in_days"] = fixed_duration_in_days
+        if max_prepaid_duration_months is not UNSET:
+            field_dict["max_prepaid_duration_months"] = max_prepaid_duration_months
         if backend_id is not UNSET:
             field_dict["backend_id"] = backend_id
         if external_url is not UNSET:
@@ -307,6 +418,12 @@ class ProtectedCall:
             field_dict["reviews_visible_to_submitters"] = reviews_visible_to_submitters
         if has_eligibility_restrictions is not UNSET:
             field_dict["has_eligibility_restrictions"] = has_eligibility_restrictions
+        if proposal_field_config is not UNSET:
+            field_dict["proposal_field_config"] = proposal_field_config
+        if evaluation_start is not UNSET:
+            field_dict["evaluation_start"] = evaluation_start
+        if publish_results is not UNSET:
+            field_dict["publish_results"] = publish_results
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if reference_code is not UNSET:
@@ -315,6 +432,12 @@ class ProtectedCall:
             field_dict["compliance_checklist"] = compliance_checklist
         if compliance_checklist_name is not UNSET:
             field_dict["compliance_checklist_name"] = compliance_checklist_name
+        if panel_chair is not UNSET:
+            field_dict["panel_chair"] = panel_chair
+        if panel_chair_uuid is not UNSET:
+            field_dict["panel_chair_uuid"] = panel_chair_uuid
+        if panel_chair_name is not UNSET:
+            field_dict["panel_chair_name"] = panel_chair_name
         if proposal_slug_template is not UNSET:
             field_dict["proposal_slug_template"] = proposal_slug_template
         if user_email_patterns is not UNSET:
@@ -331,8 +454,22 @@ class ProtectedCall:
             field_dict["user_assurance_levels"] = user_assurance_levels
         if applicant_visibility_config is not UNSET:
             field_dict["applicant_visibility_config"] = applicant_visibility_config
+        if proposal_field_metadata is not UNSET:
+            field_dict["proposal_field_metadata"] = proposal_field_metadata
         if has_proposals is not UNSET:
             field_dict["has_proposals"] = has_proposals
+        if order_author is not UNSET:
+            field_dict["order_author"] = order_author
+        if order_author_user is not UNSET:
+            field_dict["order_author_user"] = order_author_user
+        if order_author_user_uuid is not UNSET:
+            field_dict["order_author_user_uuid"] = order_author_user_uuid
+        if order_author_user_name is not UNSET:
+            field_dict["order_author_user_name"] = order_author_user_name
+        if carry_over_drafts is not UNSET:
+            field_dict["carry_over_drafts"] = carry_over_drafts
+        if undecided_at_round_completion is not UNSET:
+            field_dict["undecided_at_round_completion"] = undecided_at_round_completion
 
         return field_dict
 
@@ -340,9 +477,11 @@ class ProtectedCall:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.call_applicant_visibility_config import CallApplicantVisibilityConfig
         from ..models.call_document import CallDocument
+        from ..models.call_proposal_field_config import CallProposalFieldConfig
         from ..models.call_resource_template import CallResourceTemplate
         from ..models.nested_requested_offering import NestedRequestedOffering
         from ..models.nested_round import NestedRound
+        from ..models.proposal_field_metadata import ProposalFieldMetadata
 
         d = dict(src_dict)
         url = d.pop("url", UNSET)
@@ -443,6 +582,15 @@ class ProtectedCall:
 
         fixed_duration_in_days = _parse_fixed_duration_in_days(d.pop("fixed_duration_in_days", UNSET))
 
+        def _parse_max_prepaid_duration_months(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        max_prepaid_duration_months = _parse_max_prepaid_duration_months(d.pop("max_prepaid_duration_months", UNSET))
+
         backend_id = d.pop("backend_id", UNSET)
 
         def _parse_external_url(data: object) -> Union[None, Unset, str]:
@@ -459,6 +607,27 @@ class ProtectedCall:
         reviews_visible_to_submitters = d.pop("reviews_visible_to_submitters", UNSET)
 
         has_eligibility_restrictions = d.pop("has_eligibility_restrictions", UNSET)
+
+        _proposal_field_config = d.pop("proposal_field_config", UNSET)
+        proposal_field_config: Union[Unset, CallProposalFieldConfig]
+        if isinstance(_proposal_field_config, Unset):
+            proposal_field_config = UNSET
+        else:
+            proposal_field_config = CallProposalFieldConfig.from_dict(_proposal_field_config)
+
+        _evaluation_start = d.pop("evaluation_start", UNSET)
+        evaluation_start: Union[Unset, EvaluationStartEnum]
+        if isinstance(_evaluation_start, Unset):
+            evaluation_start = UNSET
+        else:
+            evaluation_start = EvaluationStartEnum(_evaluation_start)
+
+        _publish_results = d.pop("publish_results", UNSET)
+        publish_results: Union[Unset, PublishResultsEnum]
+        if isinstance(_publish_results, Unset):
+            publish_results = UNSET
+        else:
+            publish_results = PublishResultsEnum(_publish_results)
 
         def _parse_created_by(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -489,6 +658,32 @@ class ProtectedCall:
         compliance_checklist = _parse_compliance_checklist(d.pop("compliance_checklist", UNSET))
 
         compliance_checklist_name = d.pop("compliance_checklist_name", UNSET)
+
+        def _parse_panel_chair(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                panel_chair_type_0 = UUID(data)
+
+                return panel_chair_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        panel_chair = _parse_panel_chair(d.pop("panel_chair", UNSET))
+
+        _panel_chair_uuid = d.pop("panel_chair_uuid", UNSET)
+        panel_chair_uuid: Union[Unset, UUID]
+        if isinstance(_panel_chair_uuid, Unset):
+            panel_chair_uuid = UNSET
+        else:
+            panel_chair_uuid = UUID(_panel_chair_uuid)
+
+        panel_chair_name = d.pop("panel_chair_name", UNSET)
 
         def _parse_proposal_slug_template(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -528,7 +723,73 @@ class ProtectedCall:
 
         applicant_visibility_config = _parse_applicant_visibility_config(d.pop("applicant_visibility_config", UNSET))
 
+        proposal_field_metadata = []
+        _proposal_field_metadata = d.pop("proposal_field_metadata", UNSET)
+        for proposal_field_metadata_item_data in _proposal_field_metadata or []:
+            proposal_field_metadata_item = ProposalFieldMetadata.from_dict(proposal_field_metadata_item_data)
+
+            proposal_field_metadata.append(proposal_field_metadata_item)
+
         has_proposals = d.pop("has_proposals", UNSET)
+
+        _order_author = d.pop("order_author", UNSET)
+        order_author: Union[Unset, OrderAuthorEnum]
+        if isinstance(_order_author, Unset):
+            order_author = UNSET
+        else:
+            order_author = OrderAuthorEnum(_order_author)
+
+        def _parse_order_author_user(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                order_author_user_type_0 = UUID(data)
+
+                return order_author_user_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        order_author_user = _parse_order_author_user(d.pop("order_author_user", UNSET))
+
+        def _parse_order_author_user_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                order_author_user_uuid_type_0 = UUID(data)
+
+                return order_author_user_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        order_author_user_uuid = _parse_order_author_user_uuid(d.pop("order_author_user_uuid", UNSET))
+
+        def _parse_order_author_user_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        order_author_user_name = _parse_order_author_user_name(d.pop("order_author_user_name", UNSET))
+
+        carry_over_drafts = d.pop("carry_over_drafts", UNSET)
+
+        _undecided_at_round_completion = d.pop("undecided_at_round_completion", UNSET)
+        undecided_at_round_completion: Union[Unset, UndecidedAtRoundCompletionEnum]
+        if isinstance(_undecided_at_round_completion, Unset):
+            undecided_at_round_completion = UNSET
+        else:
+            undecided_at_round_completion = UndecidedAtRoundCompletionEnum(_undecided_at_round_completion)
 
         protected_call = cls(
             url=url,
@@ -549,15 +810,22 @@ class ProtectedCall:
             documents=documents,
             resource_templates=resource_templates,
             fixed_duration_in_days=fixed_duration_in_days,
+            max_prepaid_duration_months=max_prepaid_duration_months,
             backend_id=backend_id,
             external_url=external_url,
             reviewer_identity_visible_to_submitters=reviewer_identity_visible_to_submitters,
             reviews_visible_to_submitters=reviews_visible_to_submitters,
             has_eligibility_restrictions=has_eligibility_restrictions,
+            proposal_field_config=proposal_field_config,
+            evaluation_start=evaluation_start,
+            publish_results=publish_results,
             created_by=created_by,
             reference_code=reference_code,
             compliance_checklist=compliance_checklist,
             compliance_checklist_name=compliance_checklist_name,
+            panel_chair=panel_chair,
+            panel_chair_uuid=panel_chair_uuid,
+            panel_chair_name=panel_chair_name,
             proposal_slug_template=proposal_slug_template,
             user_email_patterns=user_email_patterns,
             user_affiliations=user_affiliations,
@@ -566,7 +834,14 @@ class ProtectedCall:
             user_organization_types=user_organization_types,
             user_assurance_levels=user_assurance_levels,
             applicant_visibility_config=applicant_visibility_config,
+            proposal_field_metadata=proposal_field_metadata,
             has_proposals=has_proposals,
+            order_author=order_author,
+            order_author_user=order_author_user,
+            order_author_user_uuid=order_author_user_uuid,
+            order_author_user_name=order_author_user_name,
+            carry_over_drafts=carry_over_drafts,
+            undecided_at_round_completion=undecided_at_round_completion,
         )
 
         protected_call.additional_properties = d

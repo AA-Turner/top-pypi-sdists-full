@@ -29,6 +29,7 @@ class UserRoleDetails:
         user_image (Union[Unset, str]):
         created_by_full_name (Union[Unset, str]):
         created_by_uuid (Union[Unset, UUID]):
+        source (Union[Unset, str]):
     """
 
     uuid: Union[Unset, UUID] = UNSET
@@ -43,6 +44,7 @@ class UserRoleDetails:
     user_image: Union[Unset, str] = UNSET
     created_by_full_name: Union[Unset, str] = UNSET
     created_by_uuid: Union[Unset, UUID] = UNSET
+    source: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,6 +88,8 @@ class UserRoleDetails:
         if not isinstance(self.created_by_uuid, Unset):
             created_by_uuid = str(self.created_by_uuid)
 
+        source = self.source
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -113,6 +117,8 @@ class UserRoleDetails:
             field_dict["created_by_full_name"] = created_by_full_name
         if created_by_uuid is not UNSET:
             field_dict["created_by_uuid"] = created_by_uuid
+        if source is not UNSET:
+            field_dict["source"] = source
 
         return field_dict
 
@@ -183,6 +189,8 @@ class UserRoleDetails:
         else:
             created_by_uuid = UUID(_created_by_uuid)
 
+        source = d.pop("source", UNSET)
+
         user_role_details = cls(
             uuid=uuid,
             created=created,
@@ -196,6 +204,7 @@ class UserRoleDetails:
             user_image=user_image,
             created_by_full_name=created_by_full_name,
             created_by_uuid=created_by_uuid,
+            source=source,
         )
 
         user_role_details.additional_properties = d

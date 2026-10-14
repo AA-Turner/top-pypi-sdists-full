@@ -42,6 +42,7 @@ __all__ = (
     "ConnectorStatusType",
     "ControlFindingGeneratorType",
     "ControlStatusType",
+    "CriticalitySourceTypeType",
     "CspmConnectorProviderNameType",
     "CspmConnectorStatusType",
     "CspmEnablementStatusType",
@@ -120,6 +121,7 @@ __all__ = (
     "RemediationStatusType",
     "RemediationStringFieldType",
     "ResourceCategoryType",
+    "ResourceCriticalityType",
     "ResourceGroupByFieldType",
     "ResourceServiceName",
     "ResourceSubCategoryType",
@@ -164,7 +166,9 @@ AssociationStatusType = Literal["DISABLED", "ENABLED"]
 AssociationTypeType = Literal["APPLIED", "INHERITED"]
 AutoEnableStandardsType = Literal["DEFAULT", "NONE"]
 AutomationRulesActionTypeType = Literal["FINDING_FIELDS_UPDATE"]
-AutomationRulesActionTypeV2Type = Literal["EXTERNAL_INTEGRATION", "FINDING_FIELDS_UPDATE"]
+AutomationRulesActionTypeV2Type = Literal[
+    "EXTERNAL_INTEGRATION", "FINDING_FIELDS_UPDATE", "RESOURCE_FIELDS_UPDATE"
+]
 AwsIamAccessKeyStatusType = Literal["Active", "Inactive"]
 AwsS3BucketNotificationConfigurationS3KeyFilterRuleNameType = Literal["Prefix", "Suffix"]
 BatchUpdateFindingsV2UnprocessedFindingErrorCodeType = Literal[
@@ -189,6 +193,7 @@ ConnectorStatusType = Literal[
 ]
 ControlFindingGeneratorType = Literal["SECURITY_CONTROL", "STANDARD_CONTROL"]
 ControlStatusType = Literal["DISABLED", "ENABLED"]
+CriticalitySourceTypeType = Literal["AutomationRule", "ResourceName", "TagInference"]
 CspmConnectorProviderNameType = Literal["AZURE"]
 CspmConnectorStatusType = Literal["CONNECTED", "DEGRADED", "FAILED_TO_CONNECT", "UNKNOWN"]
 CspmEnablementStatusType = Literal[
@@ -375,10 +380,13 @@ GroupByFieldType = Literal[
     "finding_info.related_events.traits.category",
     "finding_info.title",
     "finding_info.types",
+    "impact",
+    "likelihood",
     "metadata.product.name",
     "metadata.product.uid",
     "metadata.product.vendor_name",
     "resources.cloud_partition",
+    "resources.criticality",
     "resources.name",
     "resources.owner.account.name",
     "resources.owner.account.uid",
@@ -522,6 +530,8 @@ OcsfStringFieldType = Literal[
     "finding_info.title",
     "finding_info.types",
     "finding_info.uid",
+    "impact",
+    "likelihood",
     "malware.name",
     "malware.severity",
     "malware_scan_info.uid",
@@ -535,6 +545,7 @@ OcsfStringFieldType = Literal[
     "resources.cloud_function.runtime",
     "resources.cloud_function.user.uid",
     "resources.cloud_partition",
+    "resources.criticality",
     "resources.device.encryption_details.key_uid",
     "resources.device.image.uid",
     "resources.image.architecture",
@@ -582,6 +593,7 @@ RemediationStringFieldType = Literal[
 ResourceCategoryType = Literal[
     "AI/ML", "Code", "Compute", "Database", "Identity", "Messaging", "Network", "Other", "Storage"
 ]
+ResourceCriticalityType = Literal["High", "Low", "Medium", "Unknown", "Very High"]
 ResourceGroupByFieldType = Literal[
     "AccountId",
     "AccountName",
@@ -590,6 +602,7 @@ ResourceGroupByFieldType = Literal[
     "Region",
     "ResourceCategory",
     "ResourceCloudPartition",
+    "ResourceCriticality",
     "ResourceInfo.AIDetails.CanonicalId",
     "ResourceInfo.AIDetails.HostResourceType",
     "ResourceName",
@@ -643,6 +656,7 @@ ResourcesStringFieldType = Literal[
     "Region",
     "ResourceCategory",
     "ResourceCloudPartition",
+    "ResourceCriticality",
     "ResourceGuid",
     "ResourceId",
     "ResourceInfo.AIDetails.CanonicalId",

@@ -24,7 +24,7 @@ def apply_poisson_noise(data, seed=None):
     ----------
     data : array_like
         The array on which to apply Poisson noise. Every pixel in the
-        array must have a positive value (i.e., counts).
+        array must have a finite, nonnegative value (i.e., counts).
 
     seed : int, optional
         A seed to initialize the `numpy.random.BitGenerator`. If `None`,
@@ -35,6 +35,11 @@ def apply_poisson_noise(data, seed=None):
     result : `~numpy.ndarray`
         The data array after applying Poisson noise. The output array
         will have the same dtype as the input ``data``.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` contains any nonfinite or negative values.
 
     See Also
     --------
@@ -52,14 +57,17 @@ def apply_poisson_noise(data, seed=None):
         data1 = make_4gaussians_image(noise=False)
         data2 = apply_poisson_noise(data1, seed=0)
 
-        # plot the images
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8))
+        # Plot the images
+        fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(8, 8))
         ax1.imshow(data1, origin='lower')
         ax1.set_title('Original image')
         ax2.imshow(data2, origin='lower')
         ax2.set_title('Original image with Poisson noise applied')
     """
     data = np.asanyarray(data)
+    if not np.all(np.isfinite(data)):
+        msg = 'data must not contain any nonfinite values'
+        raise ValueError(msg)
     if np.any(data < 0):
         msg = 'data must not contain any negative values'
         raise ValueError(msg)
@@ -85,7 +93,7 @@ def make_noise_image(shape, distribution='gaussian', mean=None, stddev=None,
     shape : 2-tuple of int
         The shape of the output 2D image.
 
-    distribution : {'gaussian', 'poisson'}
+    distribution : {'gaussian', 'poisson'}, optional
         The distribution used to generate the random noise:
 
         * ``'gaussian'``: Gaussian distributed noise.
@@ -93,13 +101,12 @@ def make_noise_image(shape, distribution='gaussian', mean=None, stddev=None,
 
     mean : float
         The mean of the random distribution. Required for both Gaussian
-        and Poisson noise. The default is 0.
+        and Poisson noise.
 
     stddev : float, optional
-        The standard deviation of the Gaussian noise to add to the
-        output image. Required for Gaussian noise and ignored for
-        Poisson noise (the variance of the Poisson distribution is equal
-        to its mean).
+        The standard deviation of the Gaussian distribution. Required
+        for Gaussian noise and ignored for Poisson noise (the variance
+        of the Poisson distribution is equal to its mean).
 
     seed : int, optional
         A seed to initialize the `numpy.random.BitGenerator`. If `None`,
@@ -108,7 +115,14 @@ def make_noise_image(shape, distribution='gaussian', mean=None, stddev=None,
     Returns
     -------
     image : 2D `~numpy.ndarray`
-        Image containing random noise.
+        Image containing random noise. The dtype is float for Gaussian
+        noise and int for Poisson noise.
+
+    Raises
+    ------
+    ValueError
+        If ``mean`` is `None`, if ``stddev`` is `None` for Gaussian
+        noise, or if ``distribution`` is invalid.
 
     See Also
     --------
@@ -122,14 +136,14 @@ def make_noise_image(shape, distribution='gaussian', mean=None, stddev=None,
         import matplotlib.pyplot as plt
         from photutils.datasets import make_noise_image
 
-        # make Gaussian and Poisson noise images
+        # Make Gaussian and Poisson noise images
         shape = (100, 100)
         image1 = make_noise_image(shape, distribution='gaussian', mean=0.,
                                   stddev=5.)
         image2 = make_noise_image(shape, distribution='poisson', mean=5.)
 
-        # plot the images
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+        # Plot the images
+        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(8, 4))
         ax1.imshow(image1, origin='lower')
         ax1.set_title(r'Gaussian noise ($\mu=0$, $\sigma=5.$)')
         ax2.imshow(image2, origin='lower')

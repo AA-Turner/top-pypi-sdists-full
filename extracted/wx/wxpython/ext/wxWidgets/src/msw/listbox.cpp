@@ -29,6 +29,7 @@
 #endif
 
 #include "wx/msw/private.h"
+#include "wx/msw/private/darkmode.h"
 #include "wx/msw/dc.h"
 
 #include <windowsx.h>
@@ -176,9 +177,8 @@ WXDWORD wxListBox::MSWGetStyle(long style, WXDWORD *exstyle) const
 void wxListBox::MSWGetDarkModeSupport(MSWDarkModeSupport& support) const
 {
     // The default theme does not look good on starting with Windows 11
-    // build 26300.8553. DarkMode_DarkTheme looks OK and was available
-    // starting with Windows 11 build 26200.
-    if ( wxCheckOsVersion(10, 0, 26200) )
+    // build 26300.8553. DarkMode_DarkTheme looks OK.
+    if ( wxMSWDarkMode::HasDarkTheme() )
         support.themeName = L"DarkMode_DarkTheme";
     else
         wxListBoxBase::MSWGetDarkModeSupport(support);
@@ -515,6 +515,10 @@ void wxListBox::SetString(unsigned int n, const wxString& s)
     wxCHECK_RET( IsValid(n),
                  wxT("invalid index in wxListBox::SetString") );
 
+    // don't do anything if the string doesn't change, see wxChoice::SetString()
+    if ( s == GetString(n) )
+        return;
+
     // remember the state of the item
     bool wasSelected = IsSelected(n);
 
@@ -633,7 +637,7 @@ wxSize wxListBox::DoGetBestClientSize() const
     wListbox += 3*GetCharWidth();
 
     // add room for the scrollbar
-    wListbox += wxSystemSettings::GetMetric(wxSYS_VSCROLL_X, m_parent);
+    wListbox += GetScrollbarSize(wxVERTICAL);
 
     // don't make the listbox too tall (limit height to 10 items) but don't
     // make it too small either

@@ -3,6 +3,7 @@ export { map, reduce, min, min_by, max, max_by, sum, cumsum, every, some, find, 
 export declare function head<T>(array: T[]): T;
 export declare function last<T>(array: ArrayLike<T>): T;
 export declare function copy<T>(array: T[]): T[];
+export declare function inplace_filter<T>(array: T[], pred: (item: T, i: number) => boolean): void;
 export declare function concat<T>(arrays: T[][]): T[];
 export declare function nth<T>(array: T[], index: number): T;
 export declare function zip<A, B>(As: Arrayable<A>, Bs: Arrayable<B>): [A, B][];

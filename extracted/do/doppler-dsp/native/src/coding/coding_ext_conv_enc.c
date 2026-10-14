@@ -41,15 +41,30 @@ ConvEncoderObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 ConvEncoderObj_init (ConvEncoderObject *self, PyObject *args, PyObject *kwds)
 {
-  static char  *kwlist[]   = { "poly", "k", "invert", NULL };
-  PyObject     *poly_obj   = NULL;
-  unsigned long k_raw      = 7;
-  unsigned long invert_raw = 0;
+  static char *kwlist[]   = { "poly", "k", "invert", NULL };
+  PyObject    *poly_obj   = NULL;
+  long long    k_raw      = 7;
+  long long    invert_raw = 0;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|kk", kwlist, &poly_obj,
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|LL", kwlist, &poly_obj,
                                     &k_raw, &invert_raw))
     return -1;
-  uint32_t       k      = (uint32_t)k_raw;
+  if (k_raw < 0 || k_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "k: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)k_raw, (long long)0, (long long)UINT32_MAX);
+      return -1;
+    }
+  uint32_t k = (uint32_t)k_raw;
+  if (invert_raw < 0 || invert_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "invert: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)invert_raw, (long long)0,
+                    (long long)UINT32_MAX);
+      return -1;
+    }
   uint32_t       invert = (uint32_t)invert_raw;
   PyArrayObject *poly_arr
       = jm_array_arg (poly_obj, NPY_UINT32, NPY_ARRAY_C_CONTIGUOUS, "poly");
@@ -403,9 +418,11 @@ static PyMethodDef ConvEncoderObj_methods[] = {
   { "get_state", (PyCFunction)ConvEncoderObj_get_state, METH_NOARGS,
     "Serialize this object's mutable state to bytes.\n"
     "\n"
-    "Captures exactly the state that evolves as the object runs, so a blob\n"
-    "taken now and restored later resumes from this point. Construction\n"
-    "parameters are not included: restore into an object built the same way.\n"
+    "Captures the state that evolves as the object runs, including any value\n"
+    "a setter changed after construction, so a blob taken now and restored\n"
+    "later resumes from this point. Construction parameters are not\n"
+    "restored: restore into an object built the same way. A core may check\n"
+    "some of them and refuse a blob built differently.\n"
     "\n"
     "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
     "implementation detail of the C core and is not a stable format across\n"
@@ -420,10 +437,12 @@ static PyMethodDef ConvEncoderObj_methods[] = {
   { "set_state", (PyCFunction)ConvEncoderObj_set_state, METH_O,
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
-    "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()`\n"
-    "before the blob is handed to the C core, and the core may reject it as\n"
-    "well.\n"
+    "Overwrites the live state in place, including any value a setter\n"
+    "changed after construction. Construction parameters are not restored:\n"
+    "restore into an object built the same way. Length is validated against\n"
+    "`state_bytes()` before the blob is handed to the C core, which may\n"
+    "reject it too: a core may check some construction parameters and refuse\n"
+    "a blob built differently.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"

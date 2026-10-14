@@ -32,6 +32,7 @@ from testmu_selenium._vars import var, set_var, get_variable_value, resolve_vari
 from testmu_selenium._heal_cascade import _heal_cascade, HealResult
 from testmu_selenium._route_failure import route_failure
 from testmu_selenium._test_config import load_test_config
+from testmu_selenium._downloads_path import downloads_path
 from testmu_selenium._errors import (
     TestmuConfigError, AutohealExhausted, HealTierMiss, HealAuthError, ClickAllMethodsFailed,
 )
@@ -103,6 +104,7 @@ type = _type  # noqa: A001
 
 
 __all__ = [
+    "downloads_path",
     # Lifecycle
     "configure", "test", "run", "step",
     # Failure routing

@@ -310,13 +310,12 @@ def get_palette(may_use_fancy_formats: bool, theme: str = "classic") -> list:
     for style_name in set(INHERITANCE_MAP.keys()).union(BASE_STYLES.keys()):
         set_style(palette_dict, style_name, inheritance_overrides)
 
-    palette_list = [
+    return [
         astuple(entry)
         for entry in palette_dict.values()
         if isinstance(entry, PaletteEntry)
     ]
 
-    return palette_list
 
 # }}}
 

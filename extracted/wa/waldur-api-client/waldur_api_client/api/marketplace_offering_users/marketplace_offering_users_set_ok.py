@@ -45,7 +45,7 @@ def sync_detailed(
     """Set state to OK
 
      Manually sets the offering user state to 'OK'. This can be used to recover from an error state or to
-    complete a manual creation process.
+    complete a manual creation process. This clears any service provider comments.
 
     Args:
         uuid (UUID):
@@ -77,7 +77,7 @@ async def asyncio_detailed(
     """Set state to OK
 
      Manually sets the offering user state to 'OK'. This can be used to recover from an error state or to
-    complete a manual creation process.
+    complete a manual creation process. This clears any service provider comments.
 
     Args:
         uuid (UUID):

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 2.11.0
+Version: 2.12.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -11,20 +11,21 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: aiosqlite>=0.21
 Requires-Dist: authlib>=1.6.6,<2
 Requires-Dist: click>=8.1.8,<9
+Requires-Dist: cryptography>=42
 Requires-Dist: fastapi>=0.133,<1
 Requires-Dist: google-auth[pyopenssl]>=2.47
-Requires-Dist: google-genai>=2.19,<3
+Requires-Dist: google-genai>=2.30,<3
 Requires-Dist: graphviz>=0.20.2,<1
 Requires-Dist: httpx>=0.27,<1
 Requires-Dist: jsonschema>=4.23,<5
@@ -54,11 +55,13 @@ Requires-Dist: crewai[tools] ; extra == "all" and ( python_version>='3.11' and p
 Requires-Dist: daytona>=0.191 ; extra == "all"
 Requires-Dist: docker>=7 ; extra == "all"
 Requires-Dist: e2b>=2,<3 ; extra == "all"
+Requires-Dist: elevenlabs>=2.22.1,<3 ; extra == "all"
 Requires-Dist: gepa>=0.1 ; extra == "all"
 Requires-Dist: google-antigravity>=0.1.7,<0.2 ; extra == "all"
 Requires-Dist: google-api-python-client>=2.157,<3 ; extra == "all"
 Requires-Dist: google-cloud-agentidentitycredentials>=0.1,<0.2 ; extra == "all"
-Requires-Dist: google-cloud-aiplatform[agent-engines, evaluation]>=1.148.1,<2 ; extra == "all"
+Requires-Dist: google-cloud-agentplatform[agent-engines]>=2.2,<3 ; extra == "all"
+Requires-Dist: google-cloud-aiplatform[evaluation]>=2.2,<3 ; extra == "all"
 Requires-Dist: google-cloud-bigquery>=2.2 ; extra == "all"
 Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "all"
 Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "all"
@@ -67,6 +70,7 @@ Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "all"
 Requires-Dist: google-cloud-eventarc-publishing>=0.10,<1 ; extra == "all"
 Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "all"
 Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "all"
+Requires-Dist: google-cloud-kms>=3,<4 ; extra == "all"
 Requires-Dist: google-cloud-modelarmor>=0.7,<1 ; extra == "all"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "all"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "all"
@@ -92,6 +96,7 @@ Requires-Dist: nltk!=3.10.1 ; extra == "all"
 Requires-Dist: oci>=2.126 ; extra == "all"
 Requires-Dist: openai>=2.20,<3 ; extra == "all"
 Requires-Dist: openpyxl>=3.1.5,<4 ; extra == "all"
+Requires-Dist: opensandbox>=0.1.15,<0.2 ; extra == "all"
 Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0,<=1.12.0a0 ; extra == "all"
 Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.9.0a0,<2 ; extra == "all"
 Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9,<2 ; extra == "all"
@@ -148,8 +153,9 @@ Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
 Requires-Dist: sphinx-click ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: e2b>=2,<3 ; extra == "e2b"
+Requires-Dist: elevenlabs>=2.22.1,<3 ; extra == "elevenlabs"
 Requires-Dist: gepa>=0.1 ; extra == "eval"
-Requires-Dist: google-cloud-aiplatform[evaluation]>=1.148,<2 ; extra == "eval"
+Requires-Dist: google-cloud-aiplatform[evaluation]>=2.2,<3 ; extra == "eval"
 Requires-Dist: google-cloud-texttospeech>=2.37 ; extra == "eval"
 Requires-Dist: jinja2>=3.1.4,<4 ; extra == "eval"
 Requires-Dist: nltk!=3.10.1 ; extra == "eval"
@@ -175,13 +181,14 @@ Requires-Dist: nltk!=3.10.1 ; extra == "extensions"
 Requires-Dist: openai>=2.20,<3 ; extra == "extensions"
 Requires-Dist: pypika>=0.50 ; extra == "extensions"
 Requires-Dist: toolbox-adk>=1,<2 ; extra == "extensions"
-Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.1,<2 ; extra == "gcp"
+Requires-Dist: google-cloud-agentplatform[agent-engines]>=2.2,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-bigquery>=2.2 ; extra == "gcp"
 Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "gcp"
 Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "gcp"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "gcp"
 Requires-Dist: google-cloud-eventarc-publishing>=0.10,<1 ; extra == "gcp"
+Requires-Dist: google-cloud-kms>=3,<4 ; extra == "gcp"
 Requires-Dist: google-cloud-modelarmor>=0.7,<1 ; extra == "gcp"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "gcp"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "gcp"
@@ -205,6 +212,7 @@ Requires-Dist: mcp>=1.24,<3 ; extra == "mcp"
 Requires-Dist: pymongo>=4.9,<5 ; extra == "mongodb"
 Requires-Dist: oci>=2.126 ; extra == "oci"
 Requires-Dist: openai>=2.20,<3 ; extra == "openai"
+Requires-Dist: opensandbox>=0.1.15,<0.2 ; extra == "opensandbox"
 Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<1 ; extra == "otel-gcp"
 Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "otel-gcp"
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "otel-gcp"
@@ -223,7 +231,8 @@ Requires-Dist: gepa>=0.1 ; extra == "test"
 Requires-Dist: google-antigravity>=0.1.7,<0.2 ; extra == "test"
 Requires-Dist: google-api-python-client>=2.157,<3 ; extra == "test"
 Requires-Dist: google-cloud-agentidentitycredentials>=0.1,<0.2 ; extra == "test"
-Requires-Dist: google-cloud-aiplatform[agent-engines, evaluation]>=1.148.1,<2 ; extra == "test"
+Requires-Dist: google-cloud-agentplatform[agent-engines]>=2.2,<3 ; extra == "test"
+Requires-Dist: google-cloud-aiplatform[evaluation]>=2.2,<3 ; extra == "test"
 Requires-Dist: google-cloud-bigquery>=2.2 ; extra == "test"
 Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "test"
 Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "test"
@@ -255,6 +264,7 @@ Requires-Dist: mcp>=1.24,<3 ; extra == "test"
 Requires-Dist: nltk!=3.10.1 ; extra == "test"
 Requires-Dist: openai>=2.20,<3 ; extra == "test"
 Requires-Dist: openpyxl>=3.1.5,<4 ; extra == "test"
+Requires-Dist: opensandbox>=0.1.15,<0.2 ; extra == "test"
 Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0,<=1.12.0a0 ; extra == "test"
 Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.9.0a0,<2 ; extra == "test"
 Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9,<2 ; extra == "test"
@@ -297,6 +307,7 @@ Provides-Extra: db
 Provides-Extra: dev
 Provides-Extra: docs
 Provides-Extra: e2b
+Provides-Extra: elevenlabs
 Provides-Extra: eval
 Provides-Extra: extensions
 Provides-Extra: gcp
@@ -305,6 +316,7 @@ Provides-Extra: mcp
 Provides-Extra: mongodb
 Provides-Extra: oci
 Provides-Extra: openai
+Provides-Extra: opensandbox
 Provides-Extra: otel-gcp
 Provides-Extra: redis
 Provides-Extra: slack
@@ -319,7 +331,7 @@ Provides-Extra: tools
 [![Python versions](https://img.shields.io/pypi/pyversions/google-adk.svg)](https://pypi.org/project/google-adk/)
 [![PyPI downloads](https://static.pepy.tech/badge/google-adk/month)](https://pepy.tech/project/google-adk)
 [![Continuous Integration](https://github.com/google/adk-python/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/google/adk-python/actions/workflows/continuous-integration.yml)
-[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://google.github.io/adk-docs/)
+[![Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://adk.dev/)
 [![r/agentdevelopmentkit](https://img.shields.io/badge/Reddit-r%2Fagentdevelopmentkit-FF4500?style=flat&logo=reddit&logoColor=white)](https://www.reddit.com/r/agentdevelopmentkit/)
 <a href="https://codewiki.google/github.com/google/adk-python"><img src="https://www.gstatic.com/_/boq-sdlc-agents-ui/_/r/Mvosg4klCA4.svg" alt="Ask Code Wiki" height="20"></a>
 
@@ -331,8 +343,8 @@ Provides-Extra: tools
 </h3>
 <h3 align="center">
   Important Links:
-  <a href="https://google.github.io/adk-docs/">Docs</a>,
-  <a href="https://github.com/google/adk-samples">Samples</a> &
+  <a href="https://adk.dev/">Docs</a>,
+  <a href="https://github.com/google/adk-recipes">Samples</a> &
   <a href="https://github.com/google/adk-web">ADK Web</a>.
 </h3>
 <h3 align="center">
@@ -371,9 +383,9 @@ deployment-agnostic, and compatible with other frameworks.
   directly in Python for ultimate flexibility, testability, and versioning.
 
 - **Agent Config**: Build agents without code. Check out the
-  [Agent Config](https://google.github.io/adk-docs/agents/config/) feature.
+  [Agent Config](https://adk.dev/agents/config/) feature.
 
-- **Tool Confirmation**: A [tool confirmation flow (HITL)](https://google.github.io/adk-docs/tools/confirmation/) that can guard tool execution with explicit confirmation and custom input.
+- **Tool Confirmation**: A [tool confirmation flow (HITL)](https://adk.dev/tools-custom/confirmation/) that can guard tool execution with explicit confirmation and custom input.
 
 - **Deploy Anywhere**: Easily containerize and deploy agents on Cloud Run or
   scale seamlessly with Vertex AI Agent Engine.
@@ -388,18 +400,18 @@ You can install the latest stable version of ADK using `pip`:
 pip install google-adk
 ```
 
-**Requirements:** Python 3.10+.
+**Requirements:** Python 3.11+.
 
 For transitive dependency protection, we recommend to install with our companion
-constraints files (for python 3.10 to 3.14).
+constraints files (for python 3.11 to 3.15).
 
 Choose the constraints file matching your Python version:
 
 ```bash
-# For example, for Python 3.10
-curl -o constraints-3.10.txt https://raw.githubusercontent.com/google/adk-python/main/constraints-3.10.txt
-pip install google-adk -c constraints-3.10.txt
-rm constraints-3.10.txt
+# For example, for Python 3.11
+curl -o constraints-3.11.txt https://raw.githubusercontent.com/google/adk-python/main/constraints-3.11.txt
+pip install google-adk -c constraints-3.11.txt
+rm constraints-3.11.txt
 ```
 
 To install optional integrations, you can use the following command:
@@ -433,7 +445,7 @@ from google.adk import Agent
 
 root_agent = Agent(
     name="greeting_agent",
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     instruction="You are a helpful assistant. Greet the user warmly.",
 )
 ```
@@ -510,7 +522,7 @@ adk deploy cloud_run --with_ui --env GOOGLE_GENAI_USE_ENTERPRISE=1 <agent-folder
 
 ## 📚 Documentation
 
-- **Getting Started**: https://google.github.io/adk-docs/
+- **Getting Started**: https://adk.dev/
 - **Guides**: See
   [`docs/guides/`](https://github.com/google/adk-python/tree/main/docs/guides)
   for task-oriented walkthroughs of agents, tools, events, plugins, and
@@ -523,7 +535,7 @@ adk deploy cloud_run --with_ui --env GOOGLE_GENAI_USE_ENTERPRISE=1 <agent-folder
 
 We welcome contributions from the community! Whether it's bug reports, feature requests, documentation improvements, or code contributions, please see our:
 
-- [General contribution guideline and flow](https://google.github.io/adk-docs/contributing-guide/).
+- [General contribution guideline and flow](https://adk.dev/community/contributing-guide/).
 - [Code Contributing Guidelines](./CONTRIBUTING.md) to get started.
 
 ## Community Repo
@@ -534,7 +546,7 @@ of the ADK.
 
 ## Vibe Coding
 
-If you want to develop an agent via vibe coding the [llms.txt](./llms.txt) and the [llms-full.txt](./llms-full.txt) can be used as context to an LLM. While the former one is a summarized one and the latter one has the full information in case your LLM has a big enough context window.
+If you want to develop an agent via vibe coding the [llms.txt](https://adk.dev/llms.txt) and the [llms-full.txt](https://adk.dev/llms-full.txt) published on the ADK documentation site can be used as context to an LLM. While the former one is a summarized one and the latter one has the full information in case your LLM has a big enough context window.
 
 ## Community Events
 

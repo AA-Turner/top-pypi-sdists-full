@@ -229,6 +229,20 @@ def _extract_dataset_rows(dataset: types.EvaluationDataset) -> list[dict[str, An
             }
             processed_rows.append(processed_row)
 
+    for row in processed_rows:
+        if isinstance(row["agent_data"], str) or not isinstance(
+            row["intermediate_events"], str
+        ):
+            continue
+        try:
+            events = json.loads(row["intermediate_events"])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(events, list) and events:
+            row["agent_data"] = json.dumps(
+                {"turns": [{"turn_index": 0, "events": events}]}, ensure_ascii=False
+            )
+
     return processed_rows
 
 
@@ -1155,7 +1169,7 @@ def get_comparison_html(eval_result_json: str) -> str:
                     winRateText = m.win_rates.map((rate, i) => `<b>${{candidateNames ? candidateNames[i] : `Candidate #${{i+1}}`}}</b> wins: <b>${{(rate * 100).toFixed(1)}}%</b>`).join('<br>');
                     if (m.tie_rate !== undefined) {{ winRateText += `<br>Ties: <b>${{(m.tie_rate * 100).toFixed(1)}}%</b>`; }}
                 }}
-                table += `<tr><td>${{m.metric_name}}</td><td>${{m.mean_score.toFixed(4)}}</td><td>${{m.stdev_score.toFixed(4)}}</td><td>${{winRateText}}</td></tr>`;
+                table += `<tr><td>${{m.metric_name}}</td><td>${{m.mean_score != null ? m.mean_score.toFixed(4) : 'N/A'}}</td><td>${{m.stdev_score != null ? m.stdev_score.toFixed(4) : 'N/A'}}</td><td>${{winRateText}}</td></tr>`;
             }});
             container.innerHTML = table + '</tbody></table>';
         }}

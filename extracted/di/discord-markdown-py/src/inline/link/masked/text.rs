@@ -8,7 +8,8 @@ use crate::{
 	context::Context,
 	error::ParseError,
 	inline::{self, link::is_suspicious_whitespace},
-	node::SpannedNodes,
+	node::{Ids, ParsedNodes},
+	range,
 	span::{Span, TraceOk, TraceParse},
 };
 
@@ -17,18 +18,31 @@ use super::{Grammar, has_no_link};
 /// Whether the parsed text segment of a masked link is free of anything that reads as a link.
 ///
 /// The guard reads the segment at every depth, so markup between the characters of a URL cannot
-/// hide it: `**h**ttp*s*://foo` renders as `https://foo`.
+/// hide it: `**h**ttp*s*://foo` renders as `https://foo`. It reads the segment as rendered, with
+/// its delimiters resolved -- link text is a scope of its own -- so the ones that pair vanish and
+/// the ones that do not, like the underscores in `http_s_://foo`, stay as text.
 #[tracing::instrument(level = Level::TRACE)]
-fn segment_has_no_link<'data, S: Span>(nodes: &SpannedNodes<'data, S>, context: &Context) -> bool {
+fn segment_has_no_link<'data, S: Span>(nodes: &ParsedNodes<'data, S>, context: &Context) -> bool {
+	let rendered = range::resolve_inline(
+		nodes.value.clone(),
+		context.allowed_rules,
+		&mut Ids::default(),
+	);
 	// TODO: figure out lifetimes to avoid this
-	let text = nodes.iter().map(|span| span.content()).collect::<String>();
+	let text = rendered
+		.iter()
+		.map(|span| span.content())
+		.collect::<String>();
 
 	has_no_link(&text, context)
 }
 
-fn segment_is_not_whitespace<S: Span>(nodes: &SpannedNodes<'_, S>) -> bool {
-	nodes.iter().any(|span| {
-		span.content()
+/// Read before the delimiters resolve, so a segment of nothing but delimiters, like `[**]`, counts
+/// as empty.
+fn segment_is_not_whitespace<S: Span>(nodes: &ParsedNodes<'_, S>) -> bool {
+	nodes.iter().any(|node| {
+		node.value
+			.content()
 			.chars()
 			.any(|ch| !is_suspicious_whitespace(ch) && !ch.is_whitespace())
 	})
@@ -55,7 +69,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = SpannedNodes<'data, S>;
+	type Output = ParsedNodes<'data, S>;
 	type Error = E;
 
 	#[tracing::instrument(name = "segment_parser", level = Level::TRACE, fields(ok, output))]
@@ -83,7 +97,7 @@ where
 /// Parse the text segment of a masked link.
 pub fn segment<'ctx, 'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -99,7 +113,13 @@ where
 mod test {
 	use nom::{Finish, Parser};
 
-	use crate::{context::Context, node::Node, spanned_vec, test_utils::handle_nom_err};
+	use crate::{
+		context::Context,
+		range::Content,
+		spanned_vec,
+		test_utils::{handle_nom_err, resolved},
+		text,
+	};
 
 	use super::segment;
 
@@ -113,7 +133,7 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(Node::Text("foo".into())));
+		assert_eq!(resolved(res, Content::Inline), spanned_vec!(text!("foo")));
 	}
 
 	#[test]
@@ -126,7 +146,10 @@ mod test {
 			.expect("unable to parse");
 
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(Node::Text("foo [bar]".into())));
+		assert_eq!(
+			resolved(res, Content::Inline),
+			spanned_vec!(text!("foo [bar]"))
+		);
 	}
 
 	#[test]

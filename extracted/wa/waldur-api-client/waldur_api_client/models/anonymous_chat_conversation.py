@@ -18,6 +18,7 @@ class AnonymousChatConversation:
         message_count (int):
         is_flagged (bool):
         max_severity (str):
+        max_severity_rank (int): Numeric ordinal of max_severity (0=none … 4=critical) for severity-ordered sorting.
         has_feedback (bool):
         offerings_shown (int):
         offerings_clicked (int): Click-throughs on recommended offerings; repeat clicks count separately.
@@ -37,6 +38,7 @@ class AnonymousChatConversation:
     message_count: int
     is_flagged: bool
     max_severity: str
+    max_severity_rank: int
     has_feedback: bool
     offerings_shown: int
     offerings_clicked: int
@@ -59,6 +61,8 @@ class AnonymousChatConversation:
         is_flagged = self.is_flagged
 
         max_severity = self.max_severity
+
+        max_severity_rank = self.max_severity_rank
 
         has_feedback = self.has_feedback
 
@@ -97,6 +101,7 @@ class AnonymousChatConversation:
                 "message_count": message_count,
                 "is_flagged": is_flagged,
                 "max_severity": max_severity,
+                "max_severity_rank": max_severity_rank,
                 "has_feedback": has_feedback,
                 "offerings_shown": offerings_shown,
                 "offerings_clicked": offerings_clicked,
@@ -124,6 +129,8 @@ class AnonymousChatConversation:
         is_flagged = d.pop("is_flagged")
 
         max_severity = d.pop("max_severity")
+
+        max_severity_rank = d.pop("max_severity_rank")
 
         has_feedback = d.pop("has_feedback")
 
@@ -177,6 +184,7 @@ class AnonymousChatConversation:
             message_count=message_count,
             is_flagged=is_flagged,
             max_severity=max_severity,
+            max_severity_rank=max_severity_rank,
             has_feedback=has_feedback,
             offerings_shown=offerings_shown,
             offerings_clicked=offerings_clicked,

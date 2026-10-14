@@ -1,6 +1,17 @@
 import unittest
 import wx
-import sys, os
+import gc, importlib, os
+
+#---------------------------------------------------------------------------
+
+def isRunningUnderXVFB():
+    """
+    Tests running under Xvfb (as used by CI) have no window manager, so
+    window-manager-dependent behavior such as maximizing, iconizing, or
+    becoming active/focused won't work as expected. This can be used to
+    skip or adjust assertions that depend on such behavior.
+    """
+    return os.environ.get('WXPY_TEST_XVFB') == '1'
 
 #---------------------------------------------------------------------------
 
@@ -33,6 +44,10 @@ class WidgetTestCase(unittest.TestCase):
         timer.Start(100)
         self.app.MainLoop()
         del self.app
+
+        # Force-collect any reference cycle keeping the wxApp alive, so it
+        # doesn't get reaped later mid-test and cause a crash.
+        gc.collect()
 
 
     # helper methods
@@ -113,8 +128,7 @@ def mybytes(text):
 class PubsubTestCase(unittest.TestCase):
     """
     A testcase specifically to test wx.lib.pubsub, as pub is a singleton
-    the tearDown removes it from sys.modules to force a reinitialization on
-    each test.
+    the tearDown reloads it to force a reinitialization on each test.
     """
 
     def setUp(self):
@@ -134,11 +148,8 @@ class PubsubTestCase(unittest.TestCase):
                 topicMgr.delTopic('pubsub')
         except:
             pass
+
+        # del sys.modules[...] doesn't force reinit; the package still caches
+        # a 'pub' attribute, so reload in place instead.
+        importlib.reload(self.pub)
         del self.pub
-
-        if 'wx.lib.pubsub.pub' in sys.modules:
-            del sys.modules['wx.lib.pubsub.pub']
-
-        #skeys = sys.modules.keys()
-        #for name in skeys:
-            #del sys.modules[name]

@@ -49,7 +49,9 @@ def sync_detailed(
 ) -> Response[OfferingStateCounters]:
     """Get offering resource and user state counters
 
-     Returns resource and offering-user counts grouped by state for the given offering.
+     Returns resource and offering-user counts grouped by state for the given offering. Requires
+    SERVICE_PROVIDER.GET_STATISTICS on the offering's customer or its service provider, or ORDER.LIST on
+    the offering, its customer, or that customer's service provider.
 
     Args:
         uuid (UUID):
@@ -80,7 +82,9 @@ def sync(
 ) -> OfferingStateCounters:
     """Get offering resource and user state counters
 
-     Returns resource and offering-user counts grouped by state for the given offering.
+     Returns resource and offering-user counts grouped by state for the given offering. Requires
+    SERVICE_PROVIDER.GET_STATISTICS on the offering's customer or its service provider, or ORDER.LIST on
+    the offering, its customer, or that customer's service provider.
 
     Args:
         uuid (UUID):
@@ -106,7 +110,9 @@ async def asyncio_detailed(
 ) -> Response[OfferingStateCounters]:
     """Get offering resource and user state counters
 
-     Returns resource and offering-user counts grouped by state for the given offering.
+     Returns resource and offering-user counts grouped by state for the given offering. Requires
+    SERVICE_PROVIDER.GET_STATISTICS on the offering's customer or its service provider, or ORDER.LIST on
+    the offering, its customer, or that customer's service provider.
 
     Args:
         uuid (UUID):
@@ -135,7 +141,9 @@ async def asyncio(
 ) -> OfferingStateCounters:
     """Get offering resource and user state counters
 
-     Returns resource and offering-user counts grouped by state for the given offering.
+     Returns resource and offering-user counts grouped by state for the given offering. Requires
+    SERVICE_PROVIDER.GET_STATISTICS on the offering's customer or its service provider, or ORDER.LIST on
+    the offering, its customer, or that customer's service provider.
 
     Args:
         uuid (UUID):

@@ -30,7 +30,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 (function(root, factory) {
-  factory(root["Bokeh"], "3.10.0");
+  factory(root["Bokeh"], "3.10.1");
 })(this, function(Bokeh, version) {
   let define;
   return (function(modules, entry, aliases, externals) {
@@ -42,32 +42,32 @@
     }
   })
 ({
-681: /* api/main.js */ function _(require, module, exports, __esModule, __esExport) {
+684: /* api/main.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    tslib_1.__exportStar(require(682) /* ./index */, exports);
+    tslib_1.__exportStar(require(685) /* ./index */, exports);
 },
-682: /* api/index.js */ function _(require, module, exports, __esModule, __esExport) {
+685: /* api/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const LinAlg = tslib_1.__importStar(require(683) /* ./linalg */);
+    const LinAlg = tslib_1.__importStar(require(686) /* ./linalg */);
     exports.LinAlg = LinAlg;
-    const Charts = tslib_1.__importStar(require(684) /* ./charts */);
+    const Charts = tslib_1.__importStar(require(687) /* ./charts */);
     exports.Charts = Charts;
-    const Plotting = tslib_1.__importStar(require(687) /* ./plotting */);
+    const Plotting = tslib_1.__importStar(require(690) /* ./plotting */);
     exports.Plotting = Plotting;
-    const Palettes = tslib_1.__importStar(require(685) /* ./palettes */);
+    const Palettes = tslib_1.__importStar(require(688) /* ./palettes */);
     exports.Palettes = Palettes;
-    exports.Themes = tslib_1.__importStar(require(694) /* ./themes */);
+    exports.Themes = tslib_1.__importStar(require(697) /* ./themes */);
     var document_1 = require(5) /* ../document */;
     __esExport("Document", document_1.Document);
     var templating_1 = require(329) /* ../core/util/templating */;
     __esExport("sprintf", templating_1.sprintf);
-    tslib_1.__exportStar(require(686) /* ./models */, exports);
-    var expr_1 = require(695) /* ./expr */;
+    tslib_1.__exportStar(require(689) /* ./models */, exports);
+    var expr_1 = require(698) /* ./expr */;
     __esExport("f", expr_1.f);
 },
-683: /* api/linalg.js */ function _(require, module, exports, __esModule, __esExport) {
+686: /* api/linalg.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.is_Numerical = is_Numerical;
     const tslib_1 = require(1) /* tslib */;
@@ -467,18 +467,18 @@
         })(random = np.random || (np.random = {}));
     })(exports.np || (exports.np = {}));
 },
-684: /* api/charts.js */ function _(require, module, exports, __esModule, __esExport) {
+687: /* api/charts.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.pie = pie;
     exports.bar = bar;
     const tslib_1 = require(1) /* tslib */;
-    const palettes = tslib_1.__importStar(require(685) /* ./palettes */);
+    const palettes = tslib_1.__importStar(require(688) /* ./palettes */);
     const color_1 = require(23) /* ../core/util/color */;
     const array_1 = require(10) /* ../core/util/array */;
     const object_1 = require(9) /* ../core/util/object */;
     const types_1 = require(8) /* ../core/util/types */;
     const templating_1 = require(329) /* ../core/util/templating */;
-    const models_1 = require(686) /* ./models */;
+    const models_1 = require(689) /* ./models */;
     function resolve_palette(palette = "Spectral11") {
         return (0, types_1.isArray)(palette) ? palette : palettes[palette];
     }
@@ -727,7 +727,7 @@
         return plot;
     }
 },
-685: /* api/palettes.js */ function _(require, module, exports, __esModule, __esExport) {
+688: /* api/palettes.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.Greens4 = exports.Greens3 = exports.Blues9 = exports.Blues8 = exports.Blues7 = exports.Blues6 = exports.Blues5 = exports.Blues4 = exports.Blues3 = exports.Purples9 = exports.Purples8 = exports.Purples7 = exports.Purples6 = exports.Purples5 = exports.Purples4 = exports.Purples3 = exports.YlOrBr9 = exports.YlOrBr8 = exports.YlOrBr7 = exports.YlOrBr6 = exports.YlOrBr5 = exports.YlOrBr4 = exports.YlOrBr3 = exports.YlOrRd9 = exports.YlOrRd8 = exports.YlOrRd7 = exports.YlOrRd6 = exports.YlOrRd5 = exports.YlOrRd4 = exports.YlOrRd3 = exports.OrRd9 = exports.OrRd8 = exports.OrRd7 = exports.OrRd6 = exports.OrRd5 = exports.OrRd4 = exports.OrRd3 = exports.PuRd9 = exports.PuRd8 = exports.PuRd7 = exports.PuRd6 = exports.PuRd5 = exports.PuRd4 = exports.PuRd3 = exports.RdPu9 = exports.RdPu8 = exports.RdPu7 = exports.RdPu6 = exports.RdPu5 = exports.RdPu4 = void 0;
     exports.PRGn5 = exports.PRGn4 = exports.PRGn3 = exports.BrBG11 = exports.BrBG10 = exports.BrBG9 = exports.BrBG8 = exports.BrBG7 = exports.BrBG6 = exports.BrBG5 = exports.BrBG4 = exports.BrBG3 = exports.PuOr11 = exports.PuOr10 = exports.PuOr9 = exports.PuOr8 = exports.PuOr7 = exports.PuOr6 = exports.PuOr5 = exports.PuOr4 = exports.PuOr3 = exports.Greys256 = exports.Greys11 = exports.Greys10 = exports.Greys9 = exports.Greys8 = exports.Greys7 = exports.Greys6 = exports.Greys5 = exports.Greys4 = exports.Greys3 = exports.Reds9 = exports.Reds8 = exports.Reds7 = exports.Reds6 = exports.Reds5 = exports.Reds4 = exports.Reds3 = exports.Oranges9 = exports.Oranges8 = exports.Oranges7 = exports.Oranges6 = exports.Oranges5 = exports.Oranges4 = exports.Oranges3 = exports.Greens9 = exports.Greens8 = exports.Greens7 = exports.Greens6 = exports.Greens5 = void 0;
@@ -1706,42 +1706,42 @@
         return linear_palette(exports.Greys256, n);
     }
 },
-686: /* api/models.js */ function _(require, module, exports, __esModule, __esExport) {
+689: /* api/models.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     tslib_1.__exportStar(require(92) /* ../models */, exports);
 },
-687: /* api/plotting.js */ function _(require, module, exports, __esModule, __esExport) {
+690: /* api/plotting.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    var figure_1 = require(688) /* ./figure */;
+    var figure_1 = require(691) /* ./figure */;
     __esExport("figure", figure_1.figure);
     __esExport("Figure", figure_1.Figure);
-    var io_1 = require(691) /* ./io */;
+    var io_1 = require(694) /* ./io */;
     __esExport("show", io_1.show);
-    var gridplot_1 = require(692) /* ./gridplot */;
+    var gridplot_1 = require(695) /* ./gridplot */;
     __esExport("gridplot", gridplot_1.gridplot);
     var color_1 = require(23) /* ../core/util/color */;
     __esExport("color", color_1.color2css);
 },
-688: /* api/figure.js */ function _(require, module, exports, __esModule, __esExport) {
+691: /* api/figure.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.figure = figure;
     const tslib_1 = require(1) /* tslib */;
     const vectorization_1 = require(29) /* ../core/vectorization */;
     const properties_1 = require(20) /* ../core/properties */;
-    const class_1 = require(689) /* ../core/class */;
+    const class_1 = require(692) /* ../core/class */;
     const eq_1 = require(27) /* ../core/util/eq */;
     const array_1 = require(10) /* ../core/util/array */;
     const object_1 = require(9) /* ../core/util/object */;
     const types_1 = require(8) /* ../core/util/types */;
     const iterator_1 = require(15) /* ../core/util/iterator */;
     const nd = tslib_1.__importStar(require(31) /* ../core/util/ndarray */);
-    const models_1 = require(686) /* ./models */;
+    const models_1 = require(689) /* ./models */;
     const legend_1 = require(367) /* ../models/annotations/legend */;
     const legend_item_1 = require(368) /* ../models/annotations/legend_item */;
     const figure_1 = require(539) /* ../models/plots/figure */;
     const gesture_tool_1 = require(390) /* ../models/tools/gestures/gesture_tool */;
-    const glyph_api_1 = require(690) /* ./glyph_api */;
+    const glyph_api_1 = require(693) /* ./glyph_api */;
     const _default_tools = ["pan", "wheel_zoom", "auto_box_zoom", "save", "reset", "help"];
     // export type ExtMarkerType = MarkerType | "*" | "+" | "o" | "ox" | "o+"
     const _default_color = "#1f77b4";
@@ -2395,7 +2395,7 @@
         return new Figure(attributes);
     }
 },
-689: /* core/class.js */ function _(require, module, exports, __esModule, __esExport) {
+692: /* core/class.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.extend = extend;
     function extend(ctor, ...mixins) {
@@ -2409,7 +2409,7 @@
         }
     }
 },
-690: /* api/glyph_api.js */ function _(require, module, exports, __esModule, __esExport) {
+693: /* api/glyph_api.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const glyphs_1 = require(456) /* ../models/glyphs */;
     class GlyphAPI {
@@ -2620,7 +2620,7 @@
     }
     exports.GlyphAPI = GlyphAPI;
 },
-691: /* api/io.js */ function _(require, module, exports, __esModule, __esExport) {
+694: /* api/io.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.show = show;
     const document_1 = require(5) /* ../document */;
@@ -2689,7 +2689,7 @@
         });
     }
 },
-692: /* api/gridplot.js */ function _(require, module, exports, __esModule, __esExport) {
+695: /* api/gridplot.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.group_tools = group_tools;
     exports.gridplot = gridplot;
@@ -2702,7 +2702,7 @@
     const toolbar_1 = require(378) /* ../models/tools/toolbar */;
     const ui_element_1 = require(55) /* ../models/ui/ui_element */;
     const layout_dom_1 = require(131) /* ../models/layouts/layout_dom */;
-    const matrix_1 = require(693) /* ../core/util/matrix */;
+    const matrix_1 = require(696) /* ../core/util/matrix */;
     const eq_1 = require(27) /* ../core/util/eq */;
     const array_1 = require(10) /* ../core/util/array */;
     const types_1 = require(8) /* ../core/util/types */;
@@ -2871,7 +2871,7 @@
         return gp;
     }
 },
-693: /* core/util/matrix.js */ function _(require, module, exports, __esModule, __esExport) {
+696: /* core/util/matrix.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const array_1 = require(10) /* ./array */;
     class Matrix {
@@ -2942,7 +2942,7 @@
     }
     exports.Matrix = Matrix;
 },
-694: /* api/themes.js */ function _(require, module, exports, __esModule, __esExport) {
+697: /* api/themes.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const has_props_1 = require(16) /* ../core/has_props */;
     const object_1 = require(9) /* ../core/util/object */;
@@ -2974,7 +2974,7 @@
             return undefined;
         }
     }
-    const models_1 = require(686) /* ./models */;
+    const models_1 = require(689) /* ./models */;
     exports.dark_minimal = new Theme([
         themed(models_1.Plot, {
             background_fill_color: "#20262b",
@@ -3240,13 +3240,13 @@
         }),
     ]);
 },
-695: /* api/expr.js */ function _(require, module, exports, __esModule, __esExport) {
+698: /* api/expr.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.f = f;
     const types_1 = require(8) /* ../core/util/types */;
     const object_1 = require(9) /* ../core/util/object */;
-    const parser_1 = require(696) /* ./parser */;
-    const linalg_1 = require(683) /* ./linalg */;
+    const parser_1 = require(699) /* ./parser */;
+    const linalg_1 = require(686) /* ./linalg */;
     function evaluate(ast, refs) {
         const np_proxy = (0, object_1.dict)(linalg_1.np);
         function resolve(ast) {
@@ -3357,7 +3357,7 @@
         }
     }
 },
-696: /* api/parser.js */ function _(require, module, exports, __esModule, __esExport) {
+699: /* api/parser.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     // Based on https://ericsmekens.github.io/jsep/.
     const object_1 = require(9) /* ../core/util/object */;
@@ -3954,5 +3954,5 @@
     }
     exports.Parser = Parser;
 },
-}, 681, {"api/main":681,"api/index":682,"api/linalg":683,"api/charts":684,"api/palettes":685,"api/models":686,"api/plotting":687,"api/figure":688,"core/class":689,"api/glyph_api":690,"api/io":691,"api/gridplot":692,"core/util/matrix":693,"api/themes":694,"api/expr":695,"api/parser":696}, {});});
+}, 684, {"api/main":684,"api/index":685,"api/linalg":686,"api/charts":687,"api/palettes":688,"api/models":689,"api/plotting":690,"api/figure":691,"core/class":692,"api/glyph_api":693,"api/io":694,"api/gridplot":695,"core/util/matrix":696,"api/themes":697,"api/expr":698,"api/parser":699}, {});});
 //# sourceMappingURL=bokeh-api.js.map

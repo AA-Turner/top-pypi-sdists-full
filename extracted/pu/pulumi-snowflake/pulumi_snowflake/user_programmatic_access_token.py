@@ -442,8 +442,8 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
             disabled="false",
             comment="COMMENT")
         pulumi.export("token", complete.token)
-        # Note that the fields of this resource are updated only when Terraform is run.
-        # This means that the schedule may not be respected if Terraform is not run regularly.
+        # Note that the fields of this resource are updated only when Pulumi is run.
+        # This means that the schedule may not be respected if Pulumi is not run regularly.
         rotation_schedule = time.Rotating("rotation_schedule", rotation_days=30)
         # Rotate the token regularly using the keeper field and time_rotating resource.
         rotating = snowflake.UserProgrammaticAccessToken("rotating",
@@ -532,8 +532,8 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
             disabled="false",
             comment="COMMENT")
         pulumi.export("token", complete.token)
-        # Note that the fields of this resource are updated only when Terraform is run.
-        # This means that the schedule may not be respected if Terraform is not run regularly.
+        # Note that the fields of this resource are updated only when Pulumi is run.
+        # This means that the schedule may not be respected if Pulumi is not run regularly.
         rotation_schedule = time.Rotating("rotation_schedule", rotation_days=30)
         # Rotate the token regularly using the keeper field and time_rotating resource.
         rotating = snowflake.UserProgrammaticAccessToken("rotating",
@@ -617,7 +617,7 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
             name: pulumi.Input[Optional[_builtins.str]] = None,
             role_restriction: pulumi.Input[Optional[_builtins.str]] = None,
             rotated_token_name: pulumi.Input[Optional[_builtins.str]] = None,
-            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['UserProgrammaticAccessTokenShowOutputArgs', 'UserProgrammaticAccessTokenShowOutputArgsDict']]]]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['UserProgrammaticAccessTokenShowOutputArgs', 'UserProgrammaticAccessTokenShowOutputArgsDict', 'outputs.UserProgrammaticAccessTokenShowOutput']]]]] = None,
             token: pulumi.Input[Optional[_builtins.str]] = None,
             user: pulumi.Input[Optional[_builtins.str]] = None) -> 'UserProgrammaticAccessToken':
         """
@@ -636,7 +636,7 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: Specifies the name for the programmatic access token; must be unique for the user. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] role_restriction: The name of the role used for privilege evaluation and object creation. This must be one of the roles that has already been granted to the user. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] rotated_token_name: Name of the token that represents the prior secret. This field is updated only when the token is rotated. In this case, the field is marked as computed.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['UserProgrammaticAccessTokenShowOutputArgs', 'UserProgrammaticAccessTokenShowOutputArgsDict']]]] show_outputs: Outputs the result of `SHOW USER PROGRAMMATIC ACCESS TOKENS` for the given user programmatic access token.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['UserProgrammaticAccessTokenShowOutputArgs', 'UserProgrammaticAccessTokenShowOutputArgsDict', 'outputs.UserProgrammaticAccessTokenShowOutput']]]] show_outputs: Outputs the result of `SHOW USER PROGRAMMATIC ACCESS TOKENS` for the given user programmatic access token.
         :param pulumi.Input[_builtins.str] token: The token itself. Use this to authenticate to an endpoint. The data in this field is updated only when the token is created or rotated. In this case, the field is marked as computed.
         :param pulumi.Input[_builtins.str] user: The name of the user that the token is associated with. A user cannot use another user's programmatic access token to authenticate. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """

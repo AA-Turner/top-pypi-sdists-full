@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import json
+import re
+import fnmatch
 import warnings
 import math
 import torch # must before instanttensor._C
@@ -9,7 +11,7 @@ import torch.distributed as dist
 import instanttensor._C as _C
 from instanttensor._cpu_count import cpu_count
 from enum import Enum
-from typing import Union, Generator, Optional
+from typing import Union, Generator, Optional, Callable, Literal
 import threading
 import atexit
 from collections import defaultdict
@@ -432,6 +434,44 @@ def recommended_buffer_size_for_tensors(tensor_sizes: list[int], overlap_factor:
 
 group_communicator_cache = {}
 
+def _compile_name_matcher(
+    name_patterns: Optional[list[str]],
+    tensor_name_match_mode: Literal["exact", "glob", "regex"] = "glob",
+) -> Callable[[str], bool]:
+    if tensor_name_match_mode not in ("exact", "glob", "regex"):
+        raise ValueError("tensor_name_match_mode must be 'exact', 'glob', or 'regex'")
+    if name_patterns is not None and (
+        not isinstance(name_patterns, list)
+        or any(not isinstance(pattern, str) for pattern in name_patterns)
+    ):
+        raise TypeError("Name patterns must be a list of strings")
+    if name_patterns is None:
+        return lambda name: True
+    if tensor_name_match_mode == "exact":
+        return set(name_patterns).__contains__
+
+    exact_names = set()
+    patterns = []
+    for pattern in name_patterns:
+        # Glob patterns without these metacharacters are literal names.
+        if tensor_name_match_mode == "glob" and not any(char in pattern for char in "*?["):
+            exact_names.add(pattern)
+            continue
+        try:
+            patterns.append(re.compile(
+                fnmatch.translate(pattern) if tensor_name_match_mode == "glob" else pattern
+            ))
+        except re.error as error:
+            raise ValueError(f"Invalid regex pattern {pattern!r}: {error}") from error
+    if not patterns:
+        return exact_names.__contains__
+    if exact_names:
+        return lambda name: name in exact_names or any(
+            pattern.fullmatch(name) is not None for pattern in patterns
+        )
+    return lambda name: any(pattern.fullmatch(name) is not None for pattern in patterns)
+
+
 class safe_open:
     """Context manager for lazily loading safetensors files with high performance.
     
@@ -488,6 +528,15 @@ class safe_open:
             views into an internal ring buffer reused during iteration and
             freed on ``__exit__`` — consume each tensor before the next yield
             and do not store references past the ``with`` block.
+        tensor_filter: Optional list of name patterns selecting tensors before I/O.
+            Patterns are matched using the rules specified by ``tensor_name_match_mode``.
+            A tensor is selected when any pattern matches. An empty list selects none.
+            Excluded tensors do not contribute to buffer sizing or progress.
+            Requires ``process_group=None`` so ranks can select different tensors.
+        tensor_name_match_mode: How to match tensor name patterns: ``"glob"``
+            (default) for shell-style wildcards, ``"exact"`` for literal names,
+            or ``"regex"`` for regular expressions. Matching is case-sensitive
+            by default; all modes match the whole tensor name.
         backend: I/O backend candidate(s) to use. This can be a single
             ``Backend``/``BackendPolicy`` value or a list of them. Supported
             backends are ``Backend.AIO``, ``Backend.AIO_BUFFERED``,
@@ -545,12 +594,18 @@ class safe_open:
     def __init__(self, filename: Union[str, list[str]], framework: str,
             device: Union[int, str, torch.device], process_group=None, *,
             buffer_size: Optional[int]=None, chunk_size: Optional[int]=None, concurrency: Optional[int]=None, io_depth: Optional[int]=None,
-            max_free_mem_usage: Optional[float]=None, load_now: bool = True, copy: bool = True, backend: BackendCandidates = None):
+            max_free_mem_usage: Optional[float]=None, load_now: bool = True, copy: bool = True, backend: BackendCandidates = None,
+            tensor_filter: Optional[list[str]] = None,
+            tensor_name_match_mode: Literal["exact", "glob", "regex"] = "glob"):
         """Initialize the safe_open context manager.
         
         See class docstring for detailed parameter descriptions.
         """ 
         self.init_time = time.perf_counter()
+
+        if tensor_filter is not None and process_group is not None:
+            raise ValueError("tensor_filter requires process_group=None")
+        matches_tensor = _compile_name_matcher(tensor_filter, tensor_name_match_mode)
 
         if isinstance(filename, str):
             filename = [filename]
@@ -576,6 +631,7 @@ class safe_open:
 
         self.ordered_tensor_metadatas = []
         self.tensor_offsets = []
+        self.tensor_keep = []
         self.iterated = False
         self.tmp_generator = None
         self.copy = copy
@@ -604,7 +660,11 @@ class safe_open:
                 raise ValueError("Safetensors data offsets must be contiguous")
             
             self.tensor_offsets.extend([(f_idx, v["data_offsets"][0] + tensor_offset) for k, v in ordered_tensor_metadatas] + [(f_idx, ordered_tensor_metadatas[-1][1]["data_offsets"][1] + tensor_offset)])
-            self.ordered_tensor_metadatas.extend(ordered_tensor_metadatas)
+            for name, metadata in ordered_tensor_metadatas:
+                keep = matches_tensor(name)
+                self.tensor_keep.append(keep)
+                if keep:
+                    self.ordered_tensor_metadatas.append((name, metadata))
         
 
         self.tensor_name_to_index = {k: i for i, (k, v) in enumerate(self.ordered_tensor_metadatas)}
@@ -615,10 +675,11 @@ class safe_open:
 
         self._finalize_buffer_size(config.buffer_size)
 
-        if not self.copy and self.buffer_size < self.total_tensor_size:
+        if not self.copy and (tensor_filter is not None or self.buffer_size < self.total_tensor_size):
             warnings.warn(
-                f"copy=False with buffer_size ({self.buffer_size} B) < "
-                f"total_tensor_size ({self.total_tensor_size} B): earlier "
+                f"copy=False with buffer_size ({self.buffer_size} B) and "
+                f"total_tensor_size ({self.total_tensor_size} B): alignment "
+                f"padding and buffer reuse mean earlier "
                 f"tensors may be overwritten during iteration. This warning "
                 f"can be ignored if tensors are consumed inline; otherwise, "
                 f"use copy=True.",
@@ -814,7 +875,7 @@ class safe_open:
             self.buffer_size = max(buffer_size_for_tensors, buffer_size_for_io)
         else:
             self.buffer_size = buffer_size
-            min_buffer_size = max(self.tensor_sizes)
+            min_buffer_size = max(self.tensor_sizes, default=0)
             if self.buffer_size < min_buffer_size:
                 warnings.warn(
                     f"Enlarge buffer size from {self.buffer_size} to {min_buffer_size} to match the largest tensor size.",
@@ -886,7 +947,7 @@ class safe_open:
         nccl_communicator = self.process_group._get_backend(self.device)._comm_ptr() if self.process_group is not None else 0
         self.loader_handle = _C.open(
             self.filename, self.device_idx, nccl_communicator, self.buffer_size, 
-            self.chunk_size, self.concurrency, self.io_depth, self.backend.value, self.tensor_offsets)
+            self.chunk_size, self.concurrency, self.io_depth, self.backend.value, self.tensor_offsets, self.tensor_keep)
 
     def __enter__(self) -> 'safe_open':
         if self.loader_handle is None:

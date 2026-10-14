@@ -53,7 +53,7 @@ class DummyVar(ProblemLogger):
         ext_out = {
             var: data
             for ioclass, vardict in self._ext_dict.items()
-            if ioclass.endswith("-Output")
+            if ioclass.endswith(("-Output", "TX"))
             for var, data in vardict.items()
         }
         ext_ = {}

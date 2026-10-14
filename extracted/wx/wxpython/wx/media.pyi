@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -47,27 +50,28 @@ build so it may not always be available on your build of wxPython.
 import wx
 #-- end-_media --#
 #-- begin-mediactrl --#
+import wx.siplib
 MC_NO_AUTORESIZE: int
 
-class _MediaState(IntEnum):
-    MEDIASTATE_STOPPED = auto()
-    MEDIASTATE_PAUSED = auto()
-    MEDIASTATE_PLAYING = auto()
-MediaState: TypeAlias = Union[_MediaState, int]
-MEDIASTATE_STOPPED = _MediaState.MEDIASTATE_STOPPED
-MEDIASTATE_PAUSED = _MediaState.MEDIASTATE_PAUSED
-MEDIASTATE_PLAYING = _MediaState.MEDIASTATE_PLAYING
+@final
+class MediaState(int, metaclass=wx.siplib.enumtype):
+    MEDIASTATE_STOPPED: ClassVar[MediaState]
+    MEDIASTATE_PAUSED: ClassVar[MediaState]
+    MEDIASTATE_PLAYING: ClassVar[MediaState]
+MEDIASTATE_STOPPED: MediaState
+MEDIASTATE_PAUSED: MediaState
+MEDIASTATE_PLAYING: MediaState
 
-class _MediaCtrlPlayerControls(IntEnum):
-    MEDIACTRLPLAYERCONTROLS_NONE = auto()
-    MEDIACTRLPLAYERCONTROLS_STEP = auto()
-    MEDIACTRLPLAYERCONTROLS_VOLUME = auto()
-    MEDIACTRLPLAYERCONTROLS_DEFAULT = auto()
-MediaCtrlPlayerControls: TypeAlias = Union[_MediaCtrlPlayerControls, int]
-MEDIACTRLPLAYERCONTROLS_NONE = _MediaCtrlPlayerControls.MEDIACTRLPLAYERCONTROLS_NONE
-MEDIACTRLPLAYERCONTROLS_STEP = _MediaCtrlPlayerControls.MEDIACTRLPLAYERCONTROLS_STEP
-MEDIACTRLPLAYERCONTROLS_VOLUME = _MediaCtrlPlayerControls.MEDIACTRLPLAYERCONTROLS_VOLUME
-MEDIACTRLPLAYERCONTROLS_DEFAULT = _MediaCtrlPlayerControls.MEDIACTRLPLAYERCONTROLS_DEFAULT
+@final
+class MediaCtrlPlayerControls(int, metaclass=wx.siplib.enumtype):
+    MEDIACTRLPLAYERCONTROLS_NONE: ClassVar[MediaCtrlPlayerControls]
+    MEDIACTRLPLAYERCONTROLS_STEP: ClassVar[MediaCtrlPlayerControls]
+    MEDIACTRLPLAYERCONTROLS_VOLUME: ClassVar[MediaCtrlPlayerControls]
+    MEDIACTRLPLAYERCONTROLS_DEFAULT: ClassVar[MediaCtrlPlayerControls]
+MEDIACTRLPLAYERCONTROLS_NONE: MediaCtrlPlayerControls
+MEDIACTRLPLAYERCONTROLS_STEP: MediaCtrlPlayerControls
+MEDIACTRLPLAYERCONTROLS_VOLUME: MediaCtrlPlayerControls
+MEDIACTRLPLAYERCONTROLS_DEFAULT: MediaCtrlPlayerControls
 wxEVT_MEDIA_LOADED: int
 wxEVT_MEDIA_STOP: int
 wxEVT_MEDIA_FINISHED: int
@@ -85,7 +89,7 @@ class MediaCtrl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=-1, fileName: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, szBackend: str='', validator: wx.Validator=wx.DefaultValidator, name: str="mediaCtrl") -> None:
+    def __init__(self, parent: wx.Window, id: int=-1, fileName: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, szBackend: str='', validator: wx.Validator=wx.DefaultValidator, name: str="mediaCtrl") -> None:
         ...
 
     @overload
@@ -98,7 +102,7 @@ class MediaCtrl(wx.Control):
         videos, audio files, natively through native codecs.
         """
 
-    def Create(self, parent: wx.Window, id: int=-1, fileName: str='', pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, szBackend: str='', validator: wx.Validator=wx.DefaultValidator, name: str="mediaCtrl") -> bool:
+    def Create(self, parent: wx.Window, id: int=-1, fileName: str='', pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, szBackend: str='', validator: wx.Validator=wx.DefaultValidator, name: str="mediaCtrl") -> bool:
         """
         Create(parent, id=-1, fileName='', pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, szBackend='', validator=wx.DefaultValidator, name="mediaCtrl") -> bool
         
@@ -134,9 +138,9 @@ class MediaCtrl(wx.Control):
         Gets the volume of the media from a 0.0 to 1.0 range.
         """
 
-    def Length(self) -> FileOffset:
+    def Length(self) -> int:
         """
-        Length() -> FileOffset
+        Length() -> int
         
         Obtains the length - the total amount of time the media has in
         milliseconds.
@@ -177,9 +181,9 @@ class MediaCtrl(wx.Control):
         Resumes playback of the media.
         """
 
-    def Seek(self, where: FileOffset, mode: wx.SeekMode=wx.FromStart) -> FileOffset:
+    def Seek(self, where: int, mode: Union[wx.SeekMode, int]=wx.FromStart) -> int:
         """
-        Seek(where, mode=wx.FromStart) -> FileOffset
+        Seek(where, mode=wx.FromStart) -> int
         
         Seeks to a position within the media.
         """
@@ -200,7 +204,7 @@ class MediaCtrl(wx.Control):
         by dVolume.
         """
 
-    def ShowPlayerControls(self, flags: MediaCtrlPlayerControls=MEDIACTRLPLAYERCONTROLS_DEFAULT) -> bool:
+    def ShowPlayerControls(self, flags: Union[MediaCtrlPlayerControls, int]=MEDIACTRLPLAYERCONTROLS_DEFAULT) -> bool:
         """
         ShowPlayerControls(flags=MEDIACTRLPLAYERCONTROLS_DEFAULT) -> bool
         
@@ -214,9 +218,9 @@ class MediaCtrl(wx.Control):
         Stops the media.
         """
 
-    def Tell(self) -> FileOffset:
+    def Tell(self) -> int:
         """
-        Tell() -> FileOffset
+        Tell() -> int
         
         Obtains the current position in time within the media in milliseconds.
         """
@@ -242,7 +246,7 @@ class MediaEvent(wx.NotifyEvent):
     Event wxMediaCtrl uses.
     """
 
-    def __init__(self, commandType: EventType=wx.wxEVT_NULL, winid: int=0) -> None:
+    def __init__(self, commandType: int=wx.wxEVT_NULL, winid: int=0) -> None:
         """
         MediaEvent(commandType=wx.wxEVT_NULL, winid=0) -> None
         
@@ -252,12 +256,12 @@ class MediaEvent(wx.NotifyEvent):
 
 USE_MEDIACTRL: int
 
-EVT_MEDIA_LOADED = wx.PyEventBinder( wxEVT_MEDIA_LOADED )
-EVT_MEDIA_STOP = wx.PyEventBinder( wxEVT_MEDIA_STOP )
-EVT_MEDIA_FINISHED = wx.PyEventBinder( wxEVT_MEDIA_FINISHED )
-EVT_MEDIA_STATECHANGED = wx.PyEventBinder( wxEVT_MEDIA_STATECHANGED )
-EVT_MEDIA_PLAY = wx.PyEventBinder( wxEVT_MEDIA_PLAY )
-EVT_MEDIA_PAUSE = wx.PyEventBinder( wxEVT_MEDIA_PAUSE )
+EVT_MEDIA_LOADED: wx.PyEventBinder[MediaEvent]
+EVT_MEDIA_STOP: wx.PyEventBinder[MediaEvent]
+EVT_MEDIA_FINISHED: wx.PyEventBinder[MediaEvent]
+EVT_MEDIA_STATECHANGED: wx.PyEventBinder[MediaEvent]
+EVT_MEDIA_PLAY: wx.PyEventBinder[MediaEvent]
+EVT_MEDIA_PAUSE: wx.PyEventBinder[MediaEvent]
 
 MEDIABACKEND_DIRECTSHOW = "wxAMMediaBackend"
 MEDIABACKEND_MCI        = "wxMCIMediaBackend"

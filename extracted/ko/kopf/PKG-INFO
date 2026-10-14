@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kopf
-Version: 1.44.6
+Version: 1.45.0
 Summary: Kubernetes Operator Pythonic Framework (Kopf)
 Author-email: Sergey Vasilyev <nolar@nolar.info>
 Maintainer-email: Sergey Vasilyev <nolar@nolar.info>
@@ -13,16 +13,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python-json-logger
@@ -30,8 +30,7 @@ Requires-Dist: jsonpatch
 Requires-Dist: iso8601
 Requires-Dist: pyyaml
 Requires-Dist: click>=8.2.0
-Requires-Dist: aiohttp>=3.11.0
-Requires-Dist: aiohttp>=3.9.0; python_version >= "3.12"
+Requires-Dist: aiohttp>=3.14.0
 Provides-Extra: full-auth
 Requires-Dist: pykube-ng; extra == "full-auth"
 Requires-Dist: kubernetes>=12.0.0; extra == "full-auth"
@@ -180,7 +179,7 @@ That's easy! For more features, see the [documentation](https://docs.kopf.dev/).
 
 ## Usage
 
-Python 3.10+ is required:
+Python 3.11+ is required:
 [CPython](https://www.python.org/) and [PyPy](https://www.pypy.org/)
 are officially supported and tested; other Python implementations can work too.
 
@@ -188,7 +187,7 @@ We assume that when the operator is executed in the cluster, it must be packaged
 into a docker image with a CI/CD tool of your preference.
 
 ```dockerfile
-FROM python:3.14
+FROM python:3.15
 ADD . /src
 RUN pip install kopf
 CMD kopf run /src/handlers.py --verbose

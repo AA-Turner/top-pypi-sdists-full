@@ -352,6 +352,26 @@ class Connector:
             socket.create_connection((ip_address, SERVER_PROXY_PORT)),
             server_hostname=ip_address,
         )
+        try:
+            return self._metadata_exchange(sock, instance_uri, enable_iam_auth)
+        except Exception:
+            # Once the handshake is done, this socket is only reachable from
+            # here, so a failed exchange has to close it. wrap_socket closes
+            # the file descriptor itself when the handshake fails, but nothing
+            # closes an established socket on the way out.
+            sock.close()
+            raise
+
+    def _metadata_exchange(
+        self,
+        sock: ssl.SSLSocket,
+        instance_uri: str,
+        enable_iam_auth: bool,
+    ) -> ssl.SSLSocket:
+        """Performs the metadata exchange over an established TLS connection.
+
+        See ``metadata_exchange`` for the protocol description.
+        """
         # set auth type for metadata exchange
         auth_type = connectorspb.MetadataExchangeRequest.DB_NATIVE
         if enable_iam_auth:
@@ -431,9 +451,12 @@ class Connector:
         info cache from the map of caches.
         """
         logger.debug(f"['{instance_uri}']: Removing connection info from cache")
-        # remove cache from stored caches and close it
-        cache = self._cache.pop(instance_uri)
-        await cache.close()
+        # remove cache from stored caches and close it. The static connection
+        # info path never stores its cache, so a miss here is expected; a
+        # KeyError would replace whatever error sent us down this path.
+        cache = self._cache.pop(instance_uri, None)
+        if cache is not None:
+            await cache.close()
 
     def __enter__(self) -> "Connector":
         """Enter context manager by returning Connector object"""

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.trajectory_event import TrajectoryEvent
 
 
-class PaginatedResponseTrajectoryEvent(BaseModel):
+class PaginatedResponseTrajectoryEvent(SyncPage[TrajectoryEvent]):
   items: list[TrajectoryEvent]
 
   next_cursor: str | None = None

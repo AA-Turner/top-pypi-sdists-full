@@ -243,13 +243,6 @@ def dict_merge(master: dict, *updates: dict) -> dict:
         >>> dict_merge(a, b)
         {'a': 'a', 'one': 1, 'two': 2, 'three': {'b': b, 'four': 4}}
     """
-    warnings.warn(
-        'This function is no longer necessary and will be removed in a later version '
-        'of RESTfly.  For a more pythonic approach to handle this, please refer to '
-        'PEP-584.',
-        DeprecationWarning,
-        stacklevel=2,
-    )
     for update in updates:
         for key in update:
             if (
@@ -326,7 +319,7 @@ def redact_values(
             The modified object.
     """
     if not keys:
-        keys = []
+        keys = ['password', 'secret', 'key', 'token', 'current_password']
     new = copy(obj)
     for key in new:
         if isinstance(new[key], dict):
@@ -1200,9 +1193,9 @@ class APISession:
             # baseurl to the path.  In either case, the constructed uri string
             # is what we will be using for the rest of the method for making
             # the actual calls.
-            if len(urlparse(path).netloc) > 0:
-                uri = path
-            elif kwargs.pop('use_base', True) and self._base_path:
+            # if len(urlparse(path).netloc) > 0:
+            #    uri = path
+            if kwargs.pop('use_base', True) and self._base_path:
                 uri = f'{self._url}/{self._base_path}/{path}'
             else:
                 uri = f'{self._url}/{path}'

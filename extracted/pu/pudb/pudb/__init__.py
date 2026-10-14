@@ -55,7 +55,7 @@ __version__ = VERSION
 
 class PudbShortcuts:
     @property
-    def db(self):
+    def db(self):  # ruff:ignore[property-without-return]
         dbg = _get_debugger()
 
         import threading
@@ -63,18 +63,14 @@ class PudbShortcuts:
             set_interrupt_handler()
         dbg.set_trace(sys._getframe().f_back)
 
-        return None
-
     @property
-    def go(self):
+    def go(self):  # ruff:ignore[property-without-return]
         dbg = _get_debugger()
 
         import threading
         if isinstance(threading.current_thread(), threading._MainThread):
             set_interrupt_handler()
         dbg.set_trace(sys._getframe().f_back, paused=False)
-
-        return None
 
 
 import builtins
@@ -91,7 +87,7 @@ def _tty_override():
 def _open_tty(tty_path: str):
     import io
     import os
-    tty_file = io.TextIOWrapper(open(tty_path, "r+b", buffering=0))
+    tty_file = io.TextIOWrapper(open(tty_path, "r+b", buffering=0))  # ruff:ignore[open-file-with-context-handler]
     term_size = os.get_terminal_size(tty_file.fileno())
 
     return tty_file, term_size
@@ -109,9 +105,8 @@ def _get_debugger(**kwargs):
             kwargs.setdefault("tty_file", tty_file)
 
         from pudb.debugger import Debugger
-        dbg = Debugger(**kwargs)
+        return Debugger(**kwargs)
 
-        return dbg
     else:
         return Debugger._current_debugger[0]
 
@@ -125,7 +120,7 @@ def _have_debugger():
         return False
 
 
-import signal  # noqa
+import signal  # ruff:ignore[unsorted-imports]
 DEFAULT_SIGNAL = signal.SIGINT
 del signal
 
@@ -143,15 +138,15 @@ def runscript(
             pre_run: str = "",
             run_as_module: bool = False,
         ):
+    dbg = _get_debugger(
+        steal_output=steal_output,
+        _continue_at_start=_continue_at_start,
+    )
     try:
-        dbg = _get_debugger(
-            steal_output=steal_output,
-            _continue_at_start=_continue_at_start,
-        )
         _runscript(mainpyfile, dbg,
                    args=args, pre_run=pre_run, run_as_module=run_as_module)
     finally:
-        dbg.__del__()
+        del dbg
 
 
 def _runscript(
@@ -191,7 +186,7 @@ def _runscript(
             from subprocess import call
             retcode = call(pre_run, close_fds=True, shell=True)
             if retcode:
-                print("*** WARNING: pre-run process exited with code %d." % retcode)
+                print(f"*** WARNING: pre-run process exited with code {retcode}.")
                 input("[Hit Enter]")
 
         status_msg = ""
@@ -302,7 +297,7 @@ def _interrupt_handler(signum, frame):
     _get_debugger().set_trace(frame, as_breakpoint=False)
 
 
-def set_interrupt_handler(interrupt_signal=None):
+def set_interrupt_handler(interrupt_signal: int | None = None):
     """
     Set up an interrupt handler, to activate PuDB when Python receives the
     signal `interrupt_signal`.  By default it is SIGINT (i.e., Ctrl-c).
@@ -329,17 +324,17 @@ def set_interrupt_handler(interrupt_signal=None):
     import signal
     old_handler = signal.getsignal(interrupt_signal)
 
-    if old_handler is not signal.default_int_handler \
-            and old_handler != signal.SIG_DFL and old_handler != _interrupt_handler:
+    if (old_handler is not signal.default_int_handler
+                and old_handler not in (signal.SIG_DFL, _interrupt_handler)):
         # Since we don't currently have support for a non-default signal handlers,
         # let's avoid undefined-behavior territory and just show a warning.
         from warnings import warn
         if old_handler is None:
             # This is the documented meaning of getsignal()->None.
             old_handler = "not installed from python"
-        return warn("A non-default handler for signal %d is already installed (%s). "
-                "Skipping pudb interrupt support."
-                % (interrupt_signal, old_handler),
+        return warn("A non-default handler for signal "
+                f"{interrupt_signal} is already installed ({old_handler}). "
+                "Skipping pudb interrupt support.",
                 stacklevel=2)
 
     import threading
@@ -356,9 +351,9 @@ def set_interrupt_handler(interrupt_signal=None):
         import sys
         from traceback import format_exception
         from warnings import warn
-        warn("setting interrupt handler on signal %d failed: %s"
-                % (interrupt_signal, "".join(format_exception(*sys.exc_info()))),
-                stacklevel=2)
+        exc_str = "".join(format_exception(*sys.exc_info()))
+        warn("setting interrupt handler on signal "
+             f"{interrupt_signal} failed: {exc_str}", stacklevel=2)
 
 
 def post_mortem(

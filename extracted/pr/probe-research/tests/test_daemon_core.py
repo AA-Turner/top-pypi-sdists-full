@@ -204,7 +204,7 @@ def test_every_cli_command_has_an_owner():
     (["project", "set", "p", "--description", "digits classifiers"], False),
     (["project", "create", "p", "--kind", "general", "--description", "x"], False),
     (["project", "patch", "p", "--description", "x"], False),
-    (["run", "set", "r1", "--description", "x"], False),
+    (["run", "set", "r1", "--description", "x"], True),
     (["project", "set", "p", "--name", "Digits"], True),
     (["experiment", "create", "e", "--project", "p", "--question", "Does PCA help?"], True),
     # `--async` exits 0 before Probe answers: a refusal would never reach the daemon (L14).
@@ -231,8 +231,13 @@ def test_a_description_the_server_writes_is_refused_with_its_reason(tmp_path):
     block = precheck.check(precheck.parse(["project", "set", "p", "--description", "x"]), cwd=tmp_path)
     assert block is not None and block.check == "option"
     assert block.why == "a project's description is written by the server once a run finishes under it"
-    block = precheck.check(precheck.parse(["run", "set", "r1", "--description", "x"]), cwd=tmp_path)
-    assert block.why == "a run's description is written by the server once the run finishes"
+
+
+def test_a_run_description_is_the_daemons_when_the_run_starts(tmp_path):
+    """track-work names and describes a run when it starts. The 0.249.1 daemon
+    did, and this check refused the description half on a live Willow run."""
+    argv = ["run", "set", "r1", "--name", "Linear decay check", "--description", "Tests whether decay helps."]
+    assert precheck.check(precheck.parse(argv), cwd=tmp_path) is None
 
 
 def test_secret_scan_on_text_and_files(tmp_path):

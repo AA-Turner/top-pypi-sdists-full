@@ -1,6 +1,6 @@
 use std::{fmt::Display, num::TryFromIntError};
 
-use crate::Input;
+use crate::{Input, context::fuel::OutOfFuel};
 
 /// Any error used in the parser must implement this trait.
 ///
@@ -30,25 +30,6 @@ impl<'data> ParseError<'data> for nom_language::error::VerboseError<Input<'data>
 /// — including [`OutOfFuel`] — collapses into an indistinguishable failure. Cheap, and fine when
 /// the caller only needs to know that parsing did not succeed.
 impl<'data> ParseError<'data> for nom::error::Error<Input<'data>> {}
-
-/// Indicates that a parse exhausted the fuel it was given.
-///
-/// This is the external error the parser reports through
-/// [`FromExternalError`](nom::error::FromExternalError) when the tank runs dry. It is what an
-/// error type receives, not what a caller gets back: [`Error::OutOfFuel`] is the variant that
-/// survives to [`crate::parse`]'s return value.
-///
-/// See [`crate::context::Options::fuel`] for what fuel is and how to budget it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OutOfFuel;
-
-impl Display for OutOfFuel {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str("parser ran out of fuel")
-	}
-}
-
-impl std::error::Error for OutOfFuel {}
 
 /// A parse failure that remembers whether the parse ran out of fuel.
 ///

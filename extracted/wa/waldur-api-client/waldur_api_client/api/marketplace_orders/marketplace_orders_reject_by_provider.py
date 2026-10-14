@@ -35,6 +35,8 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
     if response.status_code == 200:
         return None
+    if response.status_code == 409:
+        return None
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
 
 

@@ -5,6 +5,7 @@ import type { ReglWrapper } from "./regl_wrap";
 import type { MultiLineView } from "../multi_line";
 export declare class MultiLineGL extends BaseLineGL {
     readonly glyph: MultiLineView;
+    private _point_offsets;
     constructor(regl_wrapper: ReglWrapper, glyph: MultiLineView);
     draw(indices: number[], main_glyph: MultiLineView, transform: Transform): void;
     protected _get_visuals(): BaseLineVisuals;

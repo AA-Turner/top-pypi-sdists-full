@@ -83,7 +83,7 @@
         e.g. the Terminal font in small sizes is not and this option may be
         used if wider fonts selection is more important than higher quality.
     @flag{msw.dark-mode}
-        If set to 1, enable experimental support of dark mode if the system is
+        If set to 1, enable unofficial support of dark mode if the system is
         using it, i.e. this has the same effect as calling
         wxApp::MSWEnableDarkMode(). If set to 2, use dark mode unconditionally,
         as if this function were called with wxApp::DarkMode_Always argument.
@@ -132,6 +132,10 @@
         Per default a wxFileDialog with wxFD_OPEN does not show a types-popup on macOS but allows
         the selection of files from any of the supported types. Setting this to 1 shows a wxChoice
         for selection (if there is more than one supported filetype).
+    @flag{osx.openfiledialog.disable-extra-controls}
+        Setting this to 1 disables the extra controls (including the file type
+        filter) in wxFileDialog, restoring the behaviour of sandboxed
+        applications before wxWidgets 3.3.4. Since wxWidgets 3.3.4.
     @endFlagTable
 
 

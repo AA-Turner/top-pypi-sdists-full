@@ -14,6 +14,7 @@
 #if wxUSE_RIBBON
 
 #include "wx/bmpbndl.h"
+#include "wx/weakref.h"
 #include "wx/ribbon/control.h"
 
 enum wxRibbonPanelOption
@@ -84,7 +85,34 @@ public:
 
     void HideIfExpanded();
 
+    // KeyTips (keyboard access mode).
+    void SetExtButtonKeyTip(const wxString& keytip) { m_extButtonKeyTip = keytip.Upper(); }
+    wxString GetExtButtonKeyTip() const { return m_extButtonKeyTip; }
+    wxRect GetExtButtonRect() const { return m_ext_button_rect; }
+
+    // Used when the panel is minimised.
+    void SetKeyTip(const wxString& keytip) { m_keyTip = keytip.Upper(); }
+    wxString GetKeyTip() const { return m_keyTip; }
+
+    // Keyboard navigation.
+    bool HasFocusableItems() const override;
+    bool FocusFirstItem() override;
+    bool FocusLastItem() override;
+    void ClearFocusedItem() override;
+    void ActivateFocusedItem(bool dropdown = false) override;
+
+    // Implementation only: appends the controls of this panel which can be
+    // navigated to with the keyboard, in navigation order.
+    void AppendFocusableControls(std::vector<wxRibbonControl*>& controls);
+
+#if wxUSE_ACCESSIBILITY
+    virtual wxAccessible* CreateAccessible() override;
+#endif // wxUSE_ACCESSIBILITY
+
 protected:
+#if wxUSE_ACCESSIBILITY
+    friend class wxRibbonPanelAccessible;
+#endif // wxUSE_ACCESSIBILITY
     virtual wxSize DoGetBestSize() const override;
     virtual wxSize GetPanelSizerBestSize() const;
     wxSize  GetPanelSizerMinSize() const;
@@ -108,6 +136,8 @@ protected:
     void OnMotion(wxMouseEvent& evt);
     void OnKillFocus(wxFocusEvent& evt);
     void OnChildKillFocus(wxFocusEvent& evt);
+    void OnKeyDown(wxKeyEvent& evt);
+    void DoActivateExtButton();
     void OnDPIChanged(wxDPIChangedEvent& evt);
     void OnSysColourChanged(wxSysColourChangedEvent& evt);
 
@@ -124,15 +154,24 @@ protected:
     wxBitmap m_minimised_icon_resized;
     wxSize m_smallest_unminimised_size;
     wxSize m_minimised_size;
-    wxDirection m_preferred_expand_direction;
-    wxRibbonPanel* m_expanded_dummy;
-    wxRibbonPanel* m_expanded_panel;
-    wxWindow* m_child_with_focus;
-    long m_flags;
-    bool m_minimised;
-    bool m_hovered;
-    bool m_ext_button_hovered;
+    wxDirection m_preferred_expand_direction = wxSOUTH;
+    wxRibbonPanel* m_expanded_dummy = nullptr;
+    wxRibbonPanel* m_expanded_panel = nullptr;
+    wxWindow* m_child_with_focus = nullptr;
+    long m_flags = 0;
+    bool m_minimised = false;
+    bool m_hovered = false;
+    bool m_ext_button_hovered = false;
+    // True if the keyboard focus is on this panel's item.
+    bool m_item_focused = false;
     wxRect m_ext_button_rect;
+
+    wxWeakRef<wxRibbonControl> m_focusedControl;
+
+    // Both are always stored in upper case, to allow case-insensitive
+    // matching.
+    wxString m_extButtonKeyTip;
+    wxString m_keyTip;
 
 #ifndef SWIG
     wxDECLARE_CLASS(wxRibbonPanel);

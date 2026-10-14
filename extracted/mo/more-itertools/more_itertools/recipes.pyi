@@ -1,7 +1,5 @@
 """Stubs for more_itertools.recipes"""
 
-from __future__ import annotations
-
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -21,8 +19,8 @@ __all__ = [
     'consume',
     'convolve',
     'dotproduct',
-    'first_true',
     'factor',
+    'first_true',
     'flatten',
     'grouper',
     'is_prime',
@@ -34,23 +32,23 @@ __all__ = [
     'ncycles',
     'nth',
     'nth_combination',
-    'padnone',
     'pad_none',
+    'padnone',
     'pairwise',
     'partition',
+    'polynomial_derivative',
     'polynomial_eval',
     'polynomial_from_roots',
-    'polynomial_derivative',
     'powerset',
     'prepend',
     'quantify',
-    'reshape',
-    'random_combination_with_replacement',
     'random_combination',
+    'random_combination_with_replacement',
     'random_derangement',
     'random_permutation',
     'random_product',
     'repeatfunc',
+    'reshape',
     'roundrobin',
     'running_max',
     'running_mean',

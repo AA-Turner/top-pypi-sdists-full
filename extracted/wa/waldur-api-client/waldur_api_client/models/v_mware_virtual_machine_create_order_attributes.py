@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -14,6 +14,10 @@ from ..models.v_mware_virtual_machine_create_order_attributes_guest_os_type_3_ty
     VMwareVirtualMachineCreateOrderAttributesGuestOsType3Type1,
 )
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.vmware_nested_network_request import VmwareNestedNetworkRequest
+
 
 T = TypeVar("T", bound="VMwareVirtualMachineCreateOrderAttributes")
 
@@ -31,6 +35,8 @@ class VMwareVirtualMachineCreateOrderAttributes:
         template (Union[None, Unset, str]):
         cluster (Union[None, Unset, str]):
         datastore (Union[None, Unset, str]):
+        folder (Union[None, Unset, str]):
+        networks (Union[Unset, list['VmwareNestedNetworkRequest']]):
     """
 
     name: str
@@ -46,6 +52,8 @@ class VMwareVirtualMachineCreateOrderAttributes:
     template: Union[None, Unset, str] = UNSET
     cluster: Union[None, Unset, str] = UNSET
     datastore: Union[None, Unset, str] = UNSET
+    folder: Union[None, Unset, str] = UNSET
+    networks: Union[Unset, list["VmwareNestedNetworkRequest"]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,6 +93,19 @@ class VMwareVirtualMachineCreateOrderAttributes:
         else:
             datastore = self.datastore
 
+        folder: Union[None, Unset, str]
+        if isinstance(self.folder, Unset):
+            folder = UNSET
+        else:
+            folder = self.folder
+
+        networks: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.networks, Unset):
+            networks = []
+            for networks_item_data in self.networks:
+                networks_item = networks_item_data.to_dict()
+                networks.append(networks_item)
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -104,11 +125,17 @@ class VMwareVirtualMachineCreateOrderAttributes:
             field_dict["cluster"] = cluster
         if datastore is not UNSET:
             field_dict["datastore"] = datastore
+        if folder is not UNSET:
+            field_dict["folder"] = folder
+        if networks is not UNSET:
+            field_dict["networks"] = networks
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.vmware_nested_network_request import VmwareNestedNetworkRequest
+
         d = dict(src_dict)
         name = d.pop("name")
 
@@ -193,6 +220,22 @@ class VMwareVirtualMachineCreateOrderAttributes:
 
         datastore = _parse_datastore(d.pop("datastore", UNSET))
 
+        def _parse_folder(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        folder = _parse_folder(d.pop("folder", UNSET))
+
+        networks = []
+        _networks = d.pop("networks", UNSET)
+        for networks_item_data in _networks or []:
+            networks_item = VmwareNestedNetworkRequest.from_dict(networks_item_data)
+
+            networks.append(networks_item)
+
         v_mware_virtual_machine_create_order_attributes = cls(
             name=name,
             description=description,
@@ -201,6 +244,8 @@ class VMwareVirtualMachineCreateOrderAttributes:
             template=template,
             cluster=cluster,
             datastore=datastore,
+            folder=folder,
+            networks=networks,
         )
 
         v_mware_virtual_machine_create_order_attributes.additional_properties = d

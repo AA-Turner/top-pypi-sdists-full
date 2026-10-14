@@ -12,7 +12,7 @@ _ALLOWED_KWARGS = {
     "automind_url", "lt_hub_url", "smart", "test_params",
     # V2/V4 capability-parity metadata
     "tc_id", "network", "timezone", "session_timezone", "chrome_options",
-    "multiple_profiles", "custom_headers",
+    "multiple_profiles", "custom_headers", "uploaded_files",
     # V3 instance-view opt-in: the generator sets kane_run_v3=True so build_capability emits kaneRunV3 + preCmdVisual.
     "kane_run_v3",
 }

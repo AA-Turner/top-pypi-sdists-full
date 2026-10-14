@@ -1140,6 +1140,13 @@ CLIENT_AHEAD: dict[Op, str] = {
     # route this client was ahead on -- floating runs, the log stream, the
     # multipart doors, a run's recorded outputs, a session's created work -- is
     # declared by the backend now, so the debt is paid.
+    #
+    # Run alerts to the agent (plan run-alerts-to-agent): the daemon's poller
+    # (`probe.daemon.probe_api.run_alerts`) is built against the route's contract
+    # while the server half (PR 1) lands beside it. Its old-backend guard: a 404
+    # reads as "no alerts", asked again at the next poll. Delete this entry once
+    # `make regen` brings the route into schema/openapi.json.
+    ("GET", "/v1/sessions/{}/run-alerts"): "daemon run-alert poller; the server route ships in its own PR",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

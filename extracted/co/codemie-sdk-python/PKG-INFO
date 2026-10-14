@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: codemie-sdk-python
-Version: 0.1.683
+Version: 0.1.688
 Summary: CodeMie SDK for Python
 Author: Vadym Vlasenko
 Author-email: vadym_vlasenko@epam.com
@@ -8,6 +8,7 @@ Requires-Python: >=3.12,<4.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: pydantic (>=2.12.2,<3.0.0)
+Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Description-Content-Type: text/markdown
 
@@ -40,6 +41,8 @@ Python SDK for CodeMie services. This SDK provides a comprehensive interface to 
     - [Core Methods](#core-methods-3)
     - [Workflow Execution](#workflow-execution)
     - [Workflow Configuration](#workflow-configuration)
+    - [Workflow Builder](#workflow-builder)
+    - [Workflow Node Types](#workflow-node-types)
     - [Best Practices](#best-practices)
     - [Error Handling](#error-handling)
     - [Workflow Status Monitoring](#workflow-status-monitoring)
@@ -792,28 +795,319 @@ def verify_workflow_execution(execution_service, execution_id):
 
 Workflows support various configuration options:
 
-1. **Modes**:
-- `SEQUENTIAL`: Tasks execute in sequence
-- `PARALLEL`: Tasks can execute simultaneously
+1. **Modes** (`WorkflowMode`):
+- `SEQUENTIAL`: states run one after another, following each state's `next`
+- `AUTONOMOUS`: the platform's older mode, deprecated on the backend
 
 2. **YAML Configuration**:
+
+The `yaml_config` you pass to `WorkflowCreateRequest` describes the workflow's assistants and
+states. This one has a single assistant that reviews a pull request:
 ```yaml
-name: Example Workflow
-description: Workflow description
-tasks:
-  - name: task1
-    type: llm
-    config:
-      prompt: "Your prompt here"
-      model: "gpt-4"
-  
-  - name: task2
-    type: tool
-    config:
-      tool_name: "your-tool"
-      parameters:
-        param1: "value1"
+assistants:
+  - id: reviewer
+    model: gpt-4.1-mini
+    system_prompt: You review pull requests and list the problems you find.
+
+states:
+  - id: review
+    assistant_id: reviewer
+    task: Review the pull request described in {{ user_input }}
+    next:
+      state_id: end
 ```
+Prefer Python over YAML? [Workflow Builder](#workflow-builder) produces this same config, and
+[Workflow Node Types](#workflow-node-types) shows how to add tools, custom and transform nodes,
+and sub-workflows.
+
+#### Workflow Builder
+
+Writing a workflow by hand means writing YAML and finding out it's wrong only when the backend
+rejects it. `WorkflowBuilder` lets you build the same workflow in plain Python instead, with
+autocomplete and local validation for the fields the builder itself checks (not a full mirror of
+the backend's schema — the backend remains the final check). Every method call gives you back a
+new builder, so it's safe to branch off and customize each copy differently without stepping on
+the others.
+
+1. **Build a workflow**
+```python
+from codemie_sdk.builders.workflow import WorkflowBuilder
+from codemie_sdk.builders.workflow.definition import WorkflowNextState
+from codemie_sdk.models.workflow import WorkflowMode
+
+builder = (
+    WorkflowBuilder("release-notes")
+    .with_description("Generate release notes from merged PRs")
+    .with_mode(WorkflowMode.SEQUENTIAL)
+    .add_assistant("parser", system_prompt="Extract structured PR data.")
+    .add_assistant("writer", assistant_id="a1b2c3d4-...")  # an existing assistant, by id
+    .add_state("parse", "parser", "Extract merged PRs from {{ user_input }}", WorkflowNextState(state_id="draft"))
+    .add_state("draft", "writer", "Write the release notes", WorkflowNextState())
+)
+
+definition = builder.render()
+yaml_config = definition.to_yaml_config()
+```
+
+2. **Reference an assistant by name instead of id**
+```python
+builder_with_ref = builder.add_assistant_ref("reviewer", assistant_name="Release Notes Reviewer")
+
+# Works once you tell it how to look the name up:
+builder_with_ref.render().to_yaml_config(resolve_assistant_name=lambda name: my_lookup(name))
+
+# Skip the resolver and it just tells you which name it couldn't find, instead of guessing.
+builder_with_ref.render().to_yaml_config()  # raises: unresolved assistant reference: 'Release Notes Reviewer'
+```
+
+3. **Branches, loops, retries, and human checkpoints**
+```python
+from codemie_sdk.builders.workflow.definition import (
+    WorkflowRetryPolicy,
+    WorkflowStateCondition,
+    WorkflowStateSwitch,
+    WorkflowStateSwitchCondition,
+)
+
+# Every add_state() call returns a new builder — keep reassigning it, or the
+# call is a no-op and chaining further calls on the old builder re-adds the
+# same id and raises "duplicate state id".
+
+# if / else
+builder = builder.add_state("check_count", "writer", "Assemble the notes", WorkflowNextState(
+    condition=WorkflowStateCondition(expression="count > 0", then="publish", otherwise="end")
+))
+
+# switch / case
+builder = builder.add_state("route", "writer", "Route by language", WorkflowNextState(
+    switch=WorkflowStateSwitch(
+        cases=[
+            WorkflowStateSwitchCondition(condition="language == 'Java'", state_id="java_path"),
+            WorkflowStateSwitchCondition(condition="language == 'Python'", state_id="python_path"),
+        ],
+        default="end",
+    )
+))
+
+# loop over an array, collect the results
+builder = builder.add_state("summarize", "writer", "Write a line for {{ iter_item }}",
+                             WorkflowNextState(state_id="route", iter_key="prs", output_key="lines"))
+
+# retry on failure
+builder = builder.add_state("retry_demo", "writer", "Write the release notes", WorkflowNextState(),
+                             retry_policy=WorkflowRetryPolicy(initial_interval=1.0, backoff_factor=2.0,
+                                                                max_interval=10.0, max_attempts=3))
+
+# pause here for a human to review before continuing
+builder = builder.add_state("human_review", "writer", "Assemble the notes", WorkflowNextState(), interrupt_before=True)
+
+builder = builder.with_mode(WorkflowMode.AUTONOMOUS)
+```
+
+4. **Publish it**
+```python
+# Create a new workflow
+result = builder.publish(client, project="my-project")
+
+# Or update one that already exists
+result = builder.publish(client, project="my-project", workflow_id="workflow-id")
+```
+This is just a shortcut for rendering the YAML and calling `client.workflows.create_workflow`/
+`.update` yourself, so nothing about using those directly changes.
+
+5. **Using `WorkflowBuilder` with `WorkflowCreateRequest`**
+
+If you'd rather build the request yourself instead of publishing right away:
+```python
+from codemie_sdk.models.workflow import WorkflowCreateRequest
+
+definition = builder.render()
+request = WorkflowCreateRequest(
+    project="my-project",
+    name=definition.name,
+    description=definition.description,
+    yaml_config=definition.to_yaml_config(),
+    mode=definition.mode,
+    shared=definition.shared,
+    icon_url=definition.icon_url,
+)
+```
+
+#### Workflow Node Types
+
+Every state in a workflow runs one thing: an assistant, a tool, a custom node (such as
+transform), or another workflow. The examples below are independent — each builds its own small
+workflow.
+
+**Assistant node**
+
+1. **Give it a tool**
+
+Tool names are the ones returned by `client.assistants.get_tools()`.
+```python
+from codemie_sdk.builders.workflow import (
+    WorkflowAssistantTool,
+    WorkflowBuilder,
+    WorkflowMCPServer,
+    WorkflowNextState,
+)
+
+builder = (
+    WorkflowBuilder("code-helper")
+    .add_assistant(
+        "helper",
+        system_prompt="You answer questions about the project files.",
+        tools=[WorkflowAssistantTool(name="_list_directory")],
+    )
+    .add_state("ask", "helper", "List what is in the project", WorkflowNextState())
+)
+```
+
+2. **Give it an external tool**
+
+Tools that talk to an outside system need an integration (see [Integration Service](#integration-service)).
+Point to it by alias:
+```python
+builder = (
+    WorkflowBuilder("file-reader")
+    .add_assistant(
+        "reader",
+        system_prompt="You read files from the project.",
+        tools=[WorkflowAssistantTool(name="_read_file", integration_alias="my-plugin-integration")],
+    )
+    .add_state("read", "reader", "Read the README", WorkflowNextState())
+)
+```
+
+3. **Give it an MCP server**
+```python
+builder = (
+    WorkflowBuilder("file-helper")
+    .add_assistant(
+        "files",
+        system_prompt="You manage files in the project folder.",
+        mcp_servers=[
+            WorkflowMCPServer(
+                name="filesystem",
+                config={"command": "mcp-server-filesystem", "args": ["/home/codemie"]},
+            ),
+            # or reuse a server from the MCP catalog
+            WorkflowMCPServer(name="github", mcp_config_id="your-catalog-config-id"),
+        ],
+    )
+    .add_state("tidy", "files", "Tidy up the project folder", WorkflowNextState())
+)
+```
+
+**Tool, custom, transform and sub-workflow nodes**
+
+Tools and custom nodes are declared once and then used by id, the same way an assistant is
+registered before a state runs it. Naming follows the workflow YAML, so `tool_id` and
+`custom_node_id` in a state point at the `id` you declared.
+
+4. **Tool node** — runs a single tool directly, no LLM in between
+```python
+builder = (
+    WorkflowBuilder("find-sources")
+    .add_tool(
+        "find_sources",
+        "_search_files_by_regex",
+        integration_alias="my-plugin-integration",
+    )
+    .add_tool_state(
+        "search",
+        "find_sources",
+        WorkflowNextState(state_id="end"),
+        tool_args={"path": "src", "regex": "[.]py$"},
+    )
+)
+```
+A tool that is served by an MCP server takes `mcp_server`:
+```python
+builder = WorkflowBuilder("run-commands").add_tool(
+    "run_command",
+    "run_command",
+    mcp_server=WorkflowMCPServer(
+        name="CLI MCP Server",
+        description="Runs shell commands",
+        mcp_connect_url="http://codemie-mcp-connect:3000",
+        config={"command": "uvx", "args": ["cli-mcp-server"]},
+    ),
+)
+```
+
+5. **Custom node** — a ready-made processing step from the platform. The first argument is your
+name for it, the second is the kind of node
+```python
+builder = (
+    WorkflowBuilder("review-summary")
+    .add_custom_node(
+        "summary",
+        "state_processor_node",
+        model="gpt-4.1-mini",
+        config={
+            "state_id": "review",
+            "output_template": "{% for item in items %}- {{ item.file_path }}: {{ item.conclusion }}\n{% endfor %}",
+        },
+    )
+    .add_custom_node_state(
+        "summarize",
+        "summary",
+        WorkflowNextState(state_id="end"),
+        task="Summarize the review results",
+    )
+)
+```
+
+6. **Transform node** — reshapes data without an LLM. It's a custom node, so you run it with
+`add_custom_node_state`
+```python
+builder = (
+    WorkflowBuilder("shape-pr")
+    .add_transform_node(
+        "shape_pr",
+        mappings=[
+            {"output_field": "title", "type": "extract", "source_path": "pull_request.title"},
+            {
+                "output_field": "summary",
+                "type": "template",
+                "template": "PR #{{ number }} by @{{ pull_request.user.login }}",
+            },
+            {
+                "output_field": "actionable",
+                "type": "condition",
+                "condition": "action in ['opened', 'reopened']",
+                "then_value": True,
+                "else_value": False,
+            },
+        ],
+        on_error="fail",
+    )
+    .add_custom_node_state(
+        "shape_event",
+        "shape_pr",
+        WorkflowNextState(state_id="end", output_key="pr"),
+        task="Shape the PR event",
+    )
+)
+```
+Other mapping types are `constant`, `script` and `array_map`. `on_error` can be `fail`, `skip`,
+`default` (use together with `default_output`) or `partial`.
+
+7. **Sub-workflow node** — runs another workflow and waits for it
+```python
+builder = WorkflowBuilder("review-pipeline").add_sub_workflow_state(
+    "run_review",
+    "your-workflow-id",
+    WorkflowNextState(state_id="end"),
+)
+```
+The sub-workflow gets the previous state's output as its input, and its last output becomes this
+state's output. The `subWorkflow` feature has to be enabled on your CodeMie instance, and
+workflows can only be nested up to a limit.
+
+All of these chain on the same builder, so one workflow can mix assistants, tools, custom
+nodes and sub-workflows.
 
 #### Best Practices
 

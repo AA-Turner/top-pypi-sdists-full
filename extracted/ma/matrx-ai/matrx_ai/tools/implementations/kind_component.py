@@ -183,6 +183,48 @@ def _dedup_incidents(rows: list[Any]) -> list[dict[str, Any]]:
     return out
 
 
+#: Room for the bodies of non-canonical examples in one kindcomp_get_context
+#: result, on top of the schema + canonical budget.
+ALTERNATE_EXAMPLES_BUDGET_CHARS = 12_000
+ALTERNATE_EXAMPLES_MAX = 4
+
+
+def _alternate_example_bodies(example_rows: list[Any], canonical: Any) -> tuple[list[dict[str, Any]], str | None]:
+    """Whole bodies of the newest passing non-canonical examples that fit the budget.
+
+    Varied real samples (often captured from agent runs) are what let a component
+    survive the data it will actually get; listing them by label alone hid them.
+    An example is included whole or not at all — never a cut body posing as data.
+    """
+    import json as _json
+
+    candidates = sorted(
+        (
+            e
+            for e in example_rows
+            if e is not canonical and e.validation_status == "passed" and e.data is not None
+        ),
+        key=lambda e: e.updated_at,
+        reverse=True,
+    )
+    out: list[dict[str, Any]] = []
+    used = 0
+    skipped = 0
+    for e in candidates:
+        size = len(_json.dumps(e.data, ensure_ascii=False, default=str))
+        if len(out) >= ALTERNATE_EXAMPLES_MAX or used + size > ALTERNATE_EXAMPLES_BUDGET_CHARS:
+            skipped += 1
+            continue
+        used += size
+        out.append({"id": str(e.id), "label": e.label, "source": e.source, "data": e.data})
+    note = (
+        f"{skipped} more passing example(s) are listed in examples but their bodies did not fit this result."
+        if skipped
+        else None
+    )
+    return out, note
+
+
 async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Primary context bundle for working on a kind's UI component.
 
@@ -264,6 +306,9 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             ctx=ctx,
             tool_name="kindcomp_get_context",
         )
+        alternate_examples, alternates_note = _alternate_example_bodies(example_rows, canonical)
+        if alternates_note:
+            bodies_note = f"{bodies_note} {alternates_note}" if bodies_note else alternates_note
         from matrx_ai.tools.kinds.kind_authoring import (
             KindComponentSummary,
             KindDefinitionSummary,
@@ -283,6 +328,7 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                 canonical_example=example_out,
                 canonical_example_status=canonical.validation_status if canonical else None,
                 examples=[KindExampleSummary(**example_summary(e)) for e in example_rows],
+                alternate_examples=alternate_examples,
                 components=[KindComponentSummary(**component_summary(c)) for c in comp_rows],
                 component_ids=[str(c.id) for c in comp_rows],
                 open_incidents=[KindComponentIncidentGroup(**g) for g in incidents],

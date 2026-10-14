@@ -4,9 +4,12 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.project_action_enum import ProjectActionEnum
+
 if TYPE_CHECKING:
     from ..models.customer_candidate import CustomerCandidate
     from ..models.filter_check_result import FilterCheckResult
+    from ..models.rule_test_match_response_user_claims import RuleTestMatchResponseUserClaims
 
 
 T = TypeVar("T", bound="RuleTestMatchResponse")
@@ -24,12 +27,19 @@ class RuleTestMatchResponse:
         user_registration_method (str):
         user_identity_source (str):
         user_affiliations (list[str]):
+        user_claims (RuleTestMatchResponseUserClaims): Values the user carries for each claim the rule requires.
+        unconfigured_claims (list[str]): Claims the rule matches on that no active identity provider passes through, so
+            Waldur never receives them. Distinguishes 'the provider sent a different value' from 'the provider never sent
+            this claim', which need opposite fixes.
         user_is_protected (bool):
         filter_results (list['FilterCheckResult']):
         customer_lookup_performed (bool):
         customer_candidates (list['CustomerCandidate']):
         customer_lookup_ambiguous (bool):
         resolved_project_name (Union[None, str]):
+        project_action (Union[None, ProjectActionEnum]): What provisioning does with the rule's project for this user:
+            'create' a new one, reuse an 'existing' one, or leave it deleted ('not_recreated') because this rule provisioned
+            it before. Null when the rule creates no project or would not provision.
     """
 
     would_provision: bool
@@ -40,12 +50,15 @@ class RuleTestMatchResponse:
     user_registration_method: str
     user_identity_source: str
     user_affiliations: list[str]
+    user_claims: "RuleTestMatchResponseUserClaims"
+    unconfigured_claims: list[str]
     user_is_protected: bool
     filter_results: list["FilterCheckResult"]
     customer_lookup_performed: bool
     customer_candidates: list["CustomerCandidate"]
     customer_lookup_ambiguous: bool
     resolved_project_name: Union[None, str]
+    project_action: Union[None, ProjectActionEnum]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,6 +77,10 @@ class RuleTestMatchResponse:
         user_identity_source = self.user_identity_source
 
         user_affiliations = self.user_affiliations
+
+        user_claims = self.user_claims.to_dict()
+
+        unconfigured_claims = self.unconfigured_claims
 
         user_is_protected = self.user_is_protected
 
@@ -84,6 +101,12 @@ class RuleTestMatchResponse:
         resolved_project_name: Union[None, str]
         resolved_project_name = self.resolved_project_name
 
+        project_action: Union[None, str]
+        if isinstance(self.project_action, ProjectActionEnum):
+            project_action = self.project_action.value
+        else:
+            project_action = self.project_action
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -96,12 +119,15 @@ class RuleTestMatchResponse:
                 "user_registration_method": user_registration_method,
                 "user_identity_source": user_identity_source,
                 "user_affiliations": user_affiliations,
+                "user_claims": user_claims,
+                "unconfigured_claims": unconfigured_claims,
                 "user_is_protected": user_is_protected,
                 "filter_results": filter_results,
                 "customer_lookup_performed": customer_lookup_performed,
                 "customer_candidates": customer_candidates,
                 "customer_lookup_ambiguous": customer_lookup_ambiguous,
                 "resolved_project_name": resolved_project_name,
+                "project_action": project_action,
             }
         )
 
@@ -111,6 +137,7 @@ class RuleTestMatchResponse:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.customer_candidate import CustomerCandidate
         from ..models.filter_check_result import FilterCheckResult
+        from ..models.rule_test_match_response_user_claims import RuleTestMatchResponseUserClaims
 
         d = dict(src_dict)
         would_provision = d.pop("would_provision")
@@ -128,6 +155,10 @@ class RuleTestMatchResponse:
         user_identity_source = d.pop("user_identity_source")
 
         user_affiliations = cast(list[str], d.pop("user_affiliations"))
+
+        user_claims = RuleTestMatchResponseUserClaims.from_dict(d.pop("user_claims"))
+
+        unconfigured_claims = cast(list[str], d.pop("unconfigured_claims"))
 
         user_is_protected = d.pop("user_is_protected")
 
@@ -156,6 +187,21 @@ class RuleTestMatchResponse:
 
         resolved_project_name = _parse_resolved_project_name(d.pop("resolved_project_name"))
 
+        def _parse_project_action(data: object) -> Union[None, ProjectActionEnum]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_action_type_0 = ProjectActionEnum(data)
+
+                return project_action_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, ProjectActionEnum], data)
+
+        project_action = _parse_project_action(d.pop("project_action"))
+
         rule_test_match_response = cls(
             would_provision=would_provision,
             block_reason=block_reason,
@@ -165,12 +211,15 @@ class RuleTestMatchResponse:
             user_registration_method=user_registration_method,
             user_identity_source=user_identity_source,
             user_affiliations=user_affiliations,
+            user_claims=user_claims,
+            unconfigured_claims=unconfigured_claims,
             user_is_protected=user_is_protected,
             filter_results=filter_results,
             customer_lookup_performed=customer_lookup_performed,
             customer_candidates=customer_candidates,
             customer_lookup_ambiguous=customer_lookup_ambiguous,
             resolved_project_name=resolved_project_name,
+            project_action=project_action,
         )
 
         rule_test_match_response.additional_properties = d

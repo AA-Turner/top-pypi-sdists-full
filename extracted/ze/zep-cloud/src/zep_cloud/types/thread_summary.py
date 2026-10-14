@@ -11,40 +11,50 @@ from ..core.serialization import FieldMetadata
 class ThreadSummary(UniversalBaseModel):
     created_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    CreatedAt is when the summary node was first created.
+    The time the summary was first created.
     """
 
     last_summarized_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    LastSummarizedAt is the wall-clock timestamp of the most recent
-    summary update. This is an ingestion-time watermark; for the
-    event-time recency of the summary's content, use
-    LastSummarizedEpisodeValidAt instead.
+    The wall-clock time of the most recent summary update.
     """
 
     last_summarized_episode_valid_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    LastSummarizedEpisodeValidAt is the maximum episode reference time
-    (valid_at) covered by the most recent summary. Use this when
-    answering "how recent is this summary's content in event-time?".
+    The latest episode reference time covered by the most recent summary
+    update.
+    """
+
+    relevance: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    A cross-encoder-derived relevance score, present only when the
+    cross-encoder reranker scored this result; like score, it is omitted from
+    plain list results.
+    """
+
+    score: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    A score accompanies every search result; it is omitted when the summary
+    appears in a plain list rather than a search result.
     """
 
     summary: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Summary is the incremental summary content.
+    The generated summary text for the thread.
     """
 
-    thread_id: typing.Optional[str] = pydantic.Field(default=None)
+    thread_uuid: typing.Optional[str] = pydantic.Field(default=None)
     """
-    ThreadID is the ID of the thread this summary belongs to.
-    When a thread was created without an explicit thread_id, this
-    field falls back to the thread's UUID. Clients should treat it
-    as an opaque identifier.
+    The unique identifier of the thread this summary belongs to.
     """
 
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = pydantic.Field(default=None)
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the thread summary."),
+    ] = None
     """
-    UUID of the derived thread summary node.
+    The unique identifier of the thread summary.
     """
 
     if IS_PYDANTIC_V2:

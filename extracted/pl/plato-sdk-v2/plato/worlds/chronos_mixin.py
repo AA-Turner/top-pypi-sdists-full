@@ -12,7 +12,7 @@ import os
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from plato.otel import init_tracing, shutdown_tracing
+from plato.otel import force_flush_tracing, init_tracing, shutdown_tracing
 from plato.vm_metrics import shutdown_metrics
 from plato.worlds.config import WorkspaceSourceSpec
 from plato.worlds.models import StateHistoryEntry, WorkspaceSnapshot
@@ -178,6 +178,10 @@ class ChronosSessionMixin:
                 type(run_error).__name__ if run_error else "None",
             )
         else:
+            # /complete closes the Plato session, which destroys THIS VM: send the
+            # buffered log spans first, or the run's last seconds of logs (the
+            # batch exporter's 5 s window) are lost with it.
+            await asyncio.to_thread(force_flush_tracing, 5000)
             if run_error:
                 error_msg = f"{type(run_error).__name__}: {run_error}"
                 await self._complete_chronos_session(

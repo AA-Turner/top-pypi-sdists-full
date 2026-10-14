@@ -6,6 +6,8 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.blank_enum import BlankEnum
+from ..models.undecided_at_round_completion_enum import UndecidedAtRoundCompletionEnum
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="PatchedProtectedRoundRequest")
@@ -19,12 +21,15 @@ class PatchedProtectedRoundRequest:
         cutoff_time (Union[Unset, datetime.datetime]):
         allocation_date (Union[None, Unset, datetime.datetime]):
         review_duration_in_days (Union[Unset, int]):
+        undecided_at_round_completion (Union[BlankEnum, None, UndecidedAtRoundCompletionEnum, Unset]): Overrides the
+            call's rule for proposals still without a decision when the round is completed. Empty: the call's rule applies.
     """
 
     start_time: Union[Unset, datetime.datetime] = UNSET
     cutoff_time: Union[Unset, datetime.datetime] = UNSET
     allocation_date: Union[None, Unset, datetime.datetime] = UNSET
     review_duration_in_days: Union[Unset, int] = UNSET
+    undecided_at_round_completion: Union[BlankEnum, None, UndecidedAtRoundCompletionEnum, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,6 +51,16 @@ class PatchedProtectedRoundRequest:
 
         review_duration_in_days = self.review_duration_in_days
 
+        undecided_at_round_completion: Union[None, Unset, str]
+        if isinstance(self.undecided_at_round_completion, Unset):
+            undecided_at_round_completion = UNSET
+        elif isinstance(self.undecided_at_round_completion, UndecidedAtRoundCompletionEnum):
+            undecided_at_round_completion = self.undecided_at_round_completion.value
+        elif isinstance(self.undecided_at_round_completion, BlankEnum):
+            undecided_at_round_completion = self.undecided_at_round_completion.value
+        else:
+            undecided_at_round_completion = self.undecided_at_round_completion
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -57,6 +72,8 @@ class PatchedProtectedRoundRequest:
             field_dict["allocation_date"] = allocation_date
         if review_duration_in_days is not UNSET:
             field_dict["review_duration_in_days"] = review_duration_in_days
+        if undecided_at_round_completion is not UNSET:
+            field_dict["undecided_at_round_completion"] = undecided_at_round_completion
 
         return field_dict
 
@@ -96,11 +113,41 @@ class PatchedProtectedRoundRequest:
 
         review_duration_in_days = d.pop("review_duration_in_days", UNSET)
 
+        def _parse_undecided_at_round_completion(
+            data: object,
+        ) -> Union[BlankEnum, None, UndecidedAtRoundCompletionEnum, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                undecided_at_round_completion_type_0 = UndecidedAtRoundCompletionEnum(data)
+
+                return undecided_at_round_completion_type_0
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                undecided_at_round_completion_type_1 = BlankEnum(data)
+
+                return undecided_at_round_completion_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union[BlankEnum, None, UndecidedAtRoundCompletionEnum, Unset], data)
+
+        undecided_at_round_completion = _parse_undecided_at_round_completion(
+            d.pop("undecided_at_round_completion", UNSET)
+        )
+
         patched_protected_round_request = cls(
             start_time=start_time,
             cutoff_time=cutoff_time,
             allocation_date=allocation_date,
             review_duration_in_days=review_duration_in_days,
+            undecided_at_round_completion=undecided_at_round_completion,
         )
 
         patched_protected_round_request.additional_properties = d

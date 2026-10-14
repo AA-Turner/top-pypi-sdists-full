@@ -36,7 +36,7 @@ class TicketCreationRuleDataCreate(ModelNormal):
 
     def __init__(self_, attributes: TicketCreationRuleAttributesCreate, type: TicketCreationRuleType, **kwargs):
         """
-        The data object for a ticket creation rule create or update request.
+        The data object for a ticket creation rule create request.
 
         :param attributes: Attributes for creating or updating a ticket creation rule.
         :type attributes: TicketCreationRuleAttributesCreate

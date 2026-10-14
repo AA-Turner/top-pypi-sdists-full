@@ -87,6 +87,16 @@ bool followsReturnKeyword(const StyleContext &sc, LexAccessor &styler) {
 	return !*s;
 }
 
+bool CheckRegexClosed(StyleContext &sc) {
+	const Sci_Position length = sc.lineEnd - sc.currentPos;
+	for (Sci_Position pos = 1; pos < length; pos++) {
+		if (sc.GetRelativeChar(pos) == '/') {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool IsOperatorOrSpace(int ch) noexcept {
 	return isoperator(ch) || IsASpace(ch);
 }
@@ -170,14 +180,16 @@ public:
 		digitsLeft = 0;
 		outerState = state;
 		escapeSetValid = &setNoneNumeric;
+		constexpr int lengthU = 9;
+		constexpr int lengthxu = 5;
 		if (nextChar == 'U') {
-			digitsLeft = 9;
+			digitsLeft = lengthU;
 			escapeSetValid = &setHexDigits;
 		} else if (nextChar == 'u') {
-			digitsLeft = 5;
+			digitsLeft = lengthxu;
 			escapeSetValid = &setHexDigits;
 		} else if (nextChar == 'x') {
-			digitsLeft = 5;
+			digitsLeft = lengthxu;
 			escapeSetValid = &setHexDigits;
 		} else if (setOctDigits.Contains(nextChar)) {
 			digitsLeft = 3;
@@ -224,6 +236,10 @@ constexpr bool IsStreamCommentStyle(int style) noexcept {
 		style == SCE_C_COMMENTDOC ||
 		style == SCE_C_COMMENTDOCKEYWORD ||
 		style == SCE_C_COMMENTDOCKEYWORDERROR;
+}
+
+bool IsStringStyle(int style) noexcept {
+	return AnyOf(style, SCE_C_STRING, SCE_C_CHARACTER, SCE_C_STRINGRAW);
 }
 
 struct PPDefinition {
@@ -389,6 +405,8 @@ Definition ParseDefine(std::string const& _definition, std::string const& endNam
 struct OptionsCPP {
 	bool stylingWithinPreprocessor = false;
 	bool identifiersAllowDollars = true;
+	bool identifiersAllowHashes = false;
+	bool enablePreprocessor = true;
 	bool trackPreprocessor = true;
 	bool updatePreprocessor = true;
 	bool verbatimStringsAllowEscapes = false;
@@ -396,6 +414,7 @@ struct OptionsCPP {
 	bool hashquotedStrings = false;
 	BackQuotedString backQuotedStrings = BackQuotedString::None;
 	bool escapeSequence = false;
+	bool continuationOnlyStrings = false;
 	bool fold = false;
 	bool foldSyntaxBased = true;
 	bool foldComment = false;
@@ -430,6 +449,12 @@ struct OptionSetCPP : public OptionSet<OptionsCPP> {
 		DefineProperty("lexer.cpp.allow.dollars", &OptionsCPP::identifiersAllowDollars,
 			"Set to 0 to disallow the '$' character in identifiers with the cpp lexer.");
 
+		DefineProperty("lexer.cpp.allow.hashes", &OptionsCPP::identifiersAllowHashes,
+			"Set to 1 to allow the '#' character in identifiers.");
+
+		DefineProperty("lexer.cpp.enable.preprocessor", &OptionsCPP::enablePreprocessor,
+			"Set to 0 to disable recognition of preprocessor directives.");
+
 		DefineProperty("lexer.cpp.track.preprocessor", &OptionsCPP::trackPreprocessor,
 			"Set to 1 to interpret #if/#else/#endif to grey out code that is not active.");
 
@@ -453,6 +478,9 @@ struct OptionSetCPP : public OptionSet<OptionsCPP> {
 
 		DefineProperty("lexer.cpp.escape.sequence", &OptionsCPP::escapeSequence,
 			"Set to 1 to enable highlighting of escape sequences in strings");
+
+		DefineProperty("lexer.cpp.continuation.only.in.strings", &OptionsCPP::continuationOnlyStrings,
+			"Set to 1 to only handle line continuation inside string literals");
 
 		DefineProperty("fold", &OptionsCPP::fold);
 
@@ -671,7 +699,7 @@ public:
 		const int firstSubStyle = subStyles.FirstAllocated();
 		if (firstSubStyle >= 0) {
 			const int lastSubStyle = subStyles.LastAllocated();
-			if (((style >= firstSubStyle) && (style <= (lastSubStyle))) ||
+			if (((style >= firstSubStyle) && (style <= lastSubStyle)) ||
 				((style >= firstSubStyle + inactiveFlag) && (style <= (lastSubStyle + inactiveFlag)))) {
 				int styleActive = style;
 				if (style > lastSubStyle) {
@@ -730,10 +758,14 @@ public:
 
 Sci_Position SCI_METHOD LexerCPP::PropertySet(const char *key, const char *val) {
 	if (osCPP.PropertySet(&options, key, val)) {
-		if (strcmp(key, "lexer.cpp.allow.dollars") == 0) {
+		const std::string keyView(key);
+		if ((keyView == "lexer.cpp.allow.dollars") || (keyView == "lexer.cpp.allow.hashes")) {
 			setWord = CharacterSet(CharacterSet::setAlphaNum, "._", true);
 			if (options.identifiersAllowDollars) {
 				setWord.Add('$');
+			}
+			if (options.identifiersAllowHashes) {
+				setWord.Add('#');
 			}
 		}
 		return 0;
@@ -804,6 +836,9 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 	if (options.identifiersAllowDollars) {
 		setWordStart.Add('$');
 	}
+	if (options.identifiersAllowHashes) {
+		setWordStart.Add('#');
+	}
 
 	int chPrevNonWhite = ' ';
 	int visibleChars = 0;
@@ -831,14 +866,17 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 		}
 	}
 
-	if ((MaskActive(initStyle) == SCE_C_PREPROCESSOR) ||
-      (MaskActive(initStyle) == SCE_C_COMMENTLINE) ||
-      (MaskActive(initStyle) == SCE_C_COMMENTLINEDOC)) {
+	if (AnyOf(MaskActive(initStyle), SCE_C_PREPROCESSOR, SCE_C_COMMENTLINE, SCE_C_COMMENTLINEDOC)) {
 		// Set continuationLine if last character of previous line is '\'
 		if (lineCurrent > 0) {
-			const Sci_Position endLinePrevious = styler.LineEnd(lineCurrent - 1);
-			if (endLinePrevious > 0) {
-				continuationLine = styler.SafeGetCharAt(endLinePrevious-1) == '\\';
+			const Sci_Position lastOfLinePrevious = styler.LineEnd(lineCurrent - 1) - 1;
+			if (lastOfLinePrevious >= 0) {
+				if (styler.SafeGetCharAt(lastOfLinePrevious) == '\\') {
+					if (!options.continuationOnlyStrings ||
+						IsStringStyle(styler.StyleAt(lastOfLinePrevious))) {
+						continuationLine = true;
+					}
+				}
 			}
 		}
 	}
@@ -935,13 +973,16 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 		}
 
 		// Handle line continuation generically.
-		if (sc.ch == '\\') {
-			if ((sc.currentPos+1) >= lineEndNext) {
+		if ((sc.ch == '\\') && ((sc.currentPos+1) >= lineEndNext)) {
+			if (!options.continuationOnlyStrings || IsStringStyle(sc.state)) {
+				// Handle line continuation when option disabled or inside string literals
+				// For C++, all \ at line end are continuations but,
+				// for JavaScript, \ is only a continuation inside string literals.
 				lineCurrent++;
 				lineEndNext = styler.LineEnd(lineCurrent);
 				vlls.Add(lineCurrent, preproc);
 				if (!rawStringTerminator.empty()) {
-					rawSTNew.Set(lineCurrent-1, rawStringTerminator);
+					rawSTNew.Set(lineCurrent - 1, rawStringTerminator);
 				}
 				sc.Forward();
 				if (sc.ch == '\r' && sc.chNext == '\n') {
@@ -1270,6 +1311,9 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 					sc.SetState(styleBeforeTaskMarker|activitySet);
 					styleBeforeTaskMarker = SCE_C_DEFAULT;
 				}
+				break;
+			default:
+				break;
 		}
 
 		if (sc.atLineEnd && !atLineEndBeforeSwitch) {
@@ -1326,7 +1370,8 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 				   && (setOKBeforeRE.Contains(chPrevNonWhite)
 				       || followsReturnKeyword(sc, styler))
 				   && (!setCouldBePostOp.Contains(chPrevNonWhite)
-				       || !FollowsPostfixOperator(sc, styler))) {
+				       || !FollowsPostfixOperator(sc, styler))
+				   && CheckRegexClosed(sc)) {
 				sc.SetState(SCE_C_REGEX|activitySet);	// JavaScript's RegEx
 				inRERange = false;
 			} else if (sc.ch == '\"') {
@@ -1353,7 +1398,7 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 				sc.SetState(SCE_C_STRING|activitySet);
 			} else if (sc.ch == '\'') {
 				sc.SetState(SCE_C_CHARACTER|activitySet);
-			} else if (sc.ch == '#' && visibleChars == 0) {
+			} else if (sc.ch == '#' && visibleChars == 0 && options.enablePreprocessor) {
 				// Preprocessor commands are alone on their line
 				sc.SetState(SCE_C_PREPROCESSOR|activitySet);
 				// Skip whitespace between # and preprocessor word
@@ -1439,7 +1484,7 @@ void SCI_METHOD LexerCPP::Lex(Sci_PositionU startPos, Sci_Position length, int i
 								const std::string restOfLine = GetRestOfLine(styler, sc.currentPos + 5, false);
 								Tokens tokens = Tokenize(restOfLine);
 								if (!tokens.empty()) {
-									const std::string key = tokens[0];
+									const std::string &key = tokens[0];
 									preprocessorDefinitions.erase(key);
 									ppDefineHistory.emplace_back(lineCurrent, key, "", true, "");
 									definitionsChanged = true;
@@ -1530,9 +1575,9 @@ void SCI_METHOD LexerCPP::Fold(Sci_PositionU startPos, Sci_Position length, int 
 		}
 		if (options.foldComment && options.foldCommentExplicit && ((style == SCE_C_COMMENTLINE) || options.foldExplicitAnywhere)) {
 			if (userDefinedFoldMarkers) {
-				if (styler.Match(i, options.foldExplicitStart.c_str())) {
+				if (styler.Match(i, std::string(options.foldExplicitStart))) {
 					levelNext++;
-				} else if (styler.Match(i, options.foldExplicitEnd.c_str())) {
+				} else if (styler.Match(i, std::string(options.foldExplicitEnd))) {
 					levelNext--;
 				}
 			} else {
@@ -1556,6 +1601,19 @@ void SCI_METHOD LexerCPP::Fold(Sci_PositionU startPos, Sci_Position length, int 
 					levelNext++;
 				} else if (styler.Match(j, "end")) {
 					levelNext--;
+				} else if (styler.Match(j, "pragma")) {
+					constexpr size_t lenPragma = 6;
+					j += lenPragma;
+					if (IsASpaceOrTab(styler.SafeGetCharAt(j))) {
+						while ((j < endPos) && IsASpaceOrTab(styler.SafeGetCharAt(j))) {
+							j++;
+						}
+						if (styler.Match(j, "region")) {
+							levelNext++;
+						} else if (styler.Match(j, "endregion")) {
+							levelNext--;
+						}
+					}
 				}
 
 				if (options.foldPreprocessorAtElse && (styler.Match(j, "else") || styler.Match(j, "elif"))) {
@@ -1591,7 +1649,7 @@ void SCI_METHOD LexerCPP::Fold(Sci_PositionU startPos, Sci_Position length, int 
 			lineStartNext = styler.LineStart(lineCurrent+1);
 			levelCurrent = levelNext;
 			levelMinCurrent = levelCurrent;
-			if (atEOL && (i == static_cast<Sci_PositionU>(styler.Length()-1))) {
+			if (atEOL && ((i+1) == static_cast<Sci_PositionU>(styler.Length()))) {
 				// There is an empty line at end of file so give it same level and empty
 				styler.SetLevel(lineCurrent, FoldLevelForCurrent(levelCurrent) | SC_FOLDLEVELWHITEFLAG);
 			}
@@ -1722,7 +1780,7 @@ void LexerCPP::EvaluateTokens(Tokens &tokens, const SymbolTable &preprocessorDef
 	// Evaluate logical negations
 	for (size_t j=0; (j+1)<tokens.size();) {
 		if (setNegationOp.Contains(tokens[j][0]) && (tokens[j] != "!=")) {
-			int isTrue = atoi(tokens[j+1].c_str());
+			bool isTrue = atoi(tokens[j+1].c_str());
 			if (tokens[j] == "!")
 				isTrue = !isTrue;
 			const Tokens::iterator itInsert =

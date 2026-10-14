@@ -325,7 +325,8 @@ def daemon_override(ctx: typer.Context) -> None:
 def approvals_cmd(
     list_only: bool = typer.Option(False, "--list", help="only list them; ask nothing"),
 ) -> None:
-    """Questions the Probe daemon is holding for you. In a terminal, answer each y/n.
+    """Questions Probe is holding for you (the daemon's, and feedback for the Probe team). In a terminal,
+    answer each y/n.
 
     The coding agent normally puts these to you word for word with its question
     tool; this is the fallback for harnesses without one, and for anything left
@@ -343,7 +344,14 @@ def approvals_cmd(
     # answer file directly. What protects a yes is on the daemon's side: the
     # request's held action must still match (`approvals.verify_held`), and the
     # guard hook refuses the agent's plain writes into the approvals folder.
-    interactive = sys.stdin.isatty() and sys.stdout.isatty() and not list_only
+    # And a shell that carries a coding agent's session (`script -qc` included,
+    # which keeps the environment) lists only: the researcher answers in a
+    # terminal of their own, which carries no agent session.
+    from probe.sdk import agent_session
+
+    in_agent = agent_session.session_id_from_env() is not None or agent_session.detect_agent() is not None
+    interactive = sys.stdin.isatty() and sys.stdout.isatty() and not list_only and not in_agent
+    answered_feedback = False
     for req in waiting:
         q = req.question
         typer.echo(f"\n[{q.header}] {q.question}\n  y = {q.yes_label}   n = {q.no_label}")
@@ -356,7 +364,16 @@ def approvals_cmd(
             continue
         choice = typer.prompt("y/n", default="n").strip().lower()
         board.answer(req.id, q.yes_label if choice in ("y", "yes") else q.no_label, channel="terminal")
-    if not interactive:
+        answered_feedback = answered_feedback or req.policy == appr.FEEDBACK
+    if answered_feedback:
+        # Feedback has no daemon to act on its answer: send what was said yes to now.
+        from .feedback_cli import flush_quietly
+
+        flush_quietly()
+    if in_agent and not list_only:
+        typer.echo("\n(this shell belongs to a coding agent, so it answers nothing: the researcher answers in a "
+                   "terminal of their own with `probe approvals`; anyone may say no with `probe deny <id>`)")
+    elif not interactive:
         typer.echo("\n(answer in your own terminal: `probe approvals`; say no with `probe deny <id>`)")
 
 
@@ -380,6 +397,16 @@ ASK_HELP = ("Ask the Probe daemon about the team's prior work. Returns at once; 
             "[Probe] message.")
 ASK_ARG_HELP = "What you want to know - short is fine; the daemon sees the session."
 ASK_WAIT_HELP = "Wait for the answer and print it - for when you cannot go on without it. Give the shell command a long timeout."
+#: `--writer` (Richard's approved text, 2026-10-13: ~/plans/writer-channel).
+ASK_WRITER_HELP = ("Ask the daemon's writer to change the record (file runs, make or regroup an experiment). "
+                   "Its reply says what it did.")
+#: `--writer` refused: the writer records nothing in `read only (daemon)`.
+ASK_WRITER_READ_ONLY = "not asked: Probe is read only for this session, so the daemon's writer records nothing."
+#: `--writer` refused: the worker running now is from before requests (a reinstall
+#: under a live session): nothing would take one.
+ASK_WRITER_OLD_DAEMON = ("not asked: the Probe daemon running now is older than this CLI and takes no requests; "
+                         "the next session's daemon does.")
+ASK_WRITER_TOO_LONG = "not asked: a request is at most {n:,} characters."
 ASK_NOTHING = "nothing in the team's records for this."
 ASK_STILL_LOOKING = "still looking ({id}) - the answer will reach you as a [Probe] message."
 ASK_FAILED = "ask {id} failed: {reason}"
@@ -411,9 +438,8 @@ def calling_agent() -> str | None:
 def ask_cmd(
     question: str = typer.Argument("", help=ASK_ARG_HELP, show_default=False),
     wait: bool = typer.Option(False, "--wait", help=ASK_WAIT_HELP),
+    writer: bool = typer.Option(False, "--writer", help=ASK_WRITER_HELP),
 ) -> None:
-    import time
-
     from probe.daemon import mailbox
     from probe.sdk import agent_session, session_marker
 
@@ -442,6 +468,9 @@ def ask_cmd(
         typer.echo(ASK_NO_DAEMON, err=True)
         raise typer.Exit(1)
     alive = mailbox.worker_alive(sid)
+    if writer:
+        _ask_writer(sid, question, wait=wait, alive=alive, reads_only=reads_only)
+        return
     ask = mailbox.write_ask(sid, question, wait=wait and alive)
     if not alive:
         # Nothing would answer while the agent blocks: the worker restarts only at
@@ -455,25 +484,62 @@ def ask_cmd(
         # the answer arrives as a [Probe] message instead.
         typer.echo((ASK_FINISHING if finishing else ASK_ASKED).format(id=ask.id))
         return
+    _wait_for(sid, ask.id)
+
+
+def _ask_writer(sid: str, text: str, *, wait: bool, alive: bool, reads_only: bool) -> None:
+    """`probe ask --writer`: a request for the daemon's WRITER (`requests.py`),
+    filed in the mailbox's `requests/` folder -- never `asks/`, where a worker
+    from before requests would hand it to the reader."""
+    from probe.daemon import mailbox
+
+    if reads_only:
+        typer.echo(ASK_WRITER_READ_ONLY, err=True)
+        raise typer.Exit(1)
+    if len(text) > mailbox.REQUEST_MAX_CHARS:
+        typer.echo(ASK_WRITER_TOO_LONG.format(n=mailbox.REQUEST_MAX_CHARS), err=True)
+        raise typer.Exit(1)
+    takes = alive and mailbox.accepts_requests(sid)
+    if alive and not takes:
+        typer.echo(ASK_WRITER_OLD_DAEMON, err=True)
+        raise typer.Exit(1)
+    req = mailbox.write_request(sid, text, wait=wait and takes)
+    if not alive:
+        # The next worker (this install's) takes it when it starts, at the next prompt.
+        typer.echo(ASK_NO_WORKER.format(id=req.id))
+        return
+    finishing = mailbox.finishing(sid)
+    if not wait or finishing:
+        typer.echo((ASK_FINISHING if finishing else ASK_ASKED).format(id=req.id))
+        return
+    _wait_for(sid, req.id)
+
+
+def _wait_for(sid: str, ask_id: str) -> None:
+    """Hold the answer to `ask_id` (its heartbeat) and print it, up to WAIT_MAX_S."""
+    import time
+
+    from probe.daemon import mailbox
+
     deadline = time.monotonic() + mailbox.WAIT_MAX_S
     beat = 0.0
     try:
         while time.monotonic() < deadline:
             if time.monotonic() - beat >= mailbox.HEARTBEAT_S:
-                mailbox.touch_heartbeat(sid, ask.id)
+                mailbox.touch_heartbeat(sid, ask_id)
                 beat = time.monotonic()
-            msg = mailbox.claim_answer(sid, ask.id)
+            msg = mailbox.claim_answer(sid, ask_id)
             if msg is not None:
                 if msg.kind == mailbox.Kind.FAILED:
-                    typer.echo(ASK_FAILED.format(id=ask.id, reason=msg.reason or "unknown"))
+                    typer.echo(ASK_FAILED.format(id=ask_id, reason=msg.reason or "unknown"))
                     raise typer.Exit(1)
                 typer.echo(ASK_NOTHING if msg.kind == mailbox.Kind.NOTHING else msg.text)
                 return
             time.sleep(ASK_POLL_S)
-        typer.echo(ASK_STILL_LOOKING.format(id=ask.id))
+        typer.echo(ASK_STILL_LOOKING.format(id=ask_id))
     finally:
         # Not waiting any more, however this ends: the answer is the hooks' now.
-        mailbox.heartbeat_path(sid, ask.id).unlink(missing_ok=True)
+        mailbox.heartbeat_path(sid, ask_id).unlink(missing_ok=True)
 
 
 ask_cmd.__doc__ = ASK_HELP

@@ -4,9 +4,9 @@ StarFinder class.
 """
 
 import warnings
+from functools import cached_property
 
 import numpy as np
-from astropy.utils import lazyproperty
 
 from photutils.detection.core import (StarFinderBase, StarFinderCatalogBase,
                                       _validate_n_brightest)
@@ -34,13 +34,15 @@ class StarFinder(StarFinderBase):
         the same units.
 
     kernel : `~numpy.ndarray`
-        A 2D array of the PSF kernel.
+        A 2D array of the PSF kernel. The kernel values must be finite
+        and its maximum value must be positive.
 
     min_separation : `None` or float, optional
         The minimum separation (in pixels) for detected objects. If
         `None` (default) then the minimum separation is set to ``2.5 *
-        (min(kernel.shape) // 2)``. Note that large values may result in
-        long run times.
+        (min(kernel.shape) // 2)``. If 0, a local peak is required only
+        within a region with the shape of the kernel. Note that large
+        values may result in long run times.
 
         .. versionchanged:: 3.0
             The default ``min_separation`` changed from 5 to ``2.5
@@ -73,7 +75,7 @@ class StarFinder(StarFinderBase):
     -----
     If the star finder is run on an image that is a
     `~astropy.units.Quantity` array, then ``threshold`` and ``peak_max``
-    must all have the same units as the image.
+    must have the same units as the image.
 
     For the convolution step, this routine sets pixels beyond the image
     borders to 0.0.
@@ -96,6 +98,12 @@ class StarFinder(StarFinderBase):
         kernel = np.asarray(kernel)
         if kernel.ndim != 2:
             msg = 'kernel must be a 2D array'
+            raise ValueError(msg)
+        if not np.all(np.isfinite(kernel)):
+            msg = 'kernel must contain only finite values'
+            raise ValueError(msg)
+        if np.max(kernel) <= 0:
+            msg = 'kernel must have a positive maximum value'
             raise ValueError(msg)
         self.kernel = kernel
 
@@ -158,6 +166,8 @@ class StarFinder(StarFinderBase):
                                       fill_value=0.0,
                                       check_normalization=False)
 
+        # _find_stars returns the integer peak pixel positions.
+        # The subpixel centroids are computed later in the catalog.
         xypos = self._find_stars(convolved_data, kernel, self.threshold,
                                  min_separation=self.min_separation,
                                  mask=mask, exclude_border=self.exclude_border)
@@ -178,7 +188,7 @@ class StarFinder(StarFinderBase):
 
         Parameters
         ----------
-        data : 2D array_like
+        data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
             The 2D image array. The image should be
             background-subtracted.
 
@@ -191,22 +201,24 @@ class StarFinder(StarFinderBase):
         Returns
         -------
         table : `~astropy.table.QTable` or `None`
-            A table of found objects with the following parameters:
+            A table of found sources with the following parameters:
 
-            * ``id``: unique object identification number.
-            * ``x_centroid, y_centroid``: object centroid.
-            * ``fwhm``: object FWHM.
-            * ``roundness``: object roundness.
-            * ``orientation``: the angle between the ``x`` axis and the
-              major axis source measured counter-clockwise in the range
-              [0, 360) degrees.
-            * ``max_value``: the maximum pixel value in the source
-            * ``flux``: the source instrumental flux.
+            * ``id``: unique source identification number.
+            * ``x_centroid, y_centroid``: source centroid.
+            * ``fwhm``: source FWHM.
+            * ``roundness``: source roundness.
+            * ``orientation``: the angle between the x-axis and the
+              major axis of the source, measured counterclockwise, in
+              the range (-90, 90] degrees.
+            * ``max_value``: the maximum pixel value in the source.
+            * ``flux``: the source instrumental flux calculated as the
+              sum of the nonnegative data values within a cutout with
+              the shape of the kernel.
             * ``mag``: the source instrumental magnitude calculated as
               ``-2.5 * log10(flux)``.
 
             `None` is returned if no stars are found or no stars meet
-            the peak_max criteria.
+            the ``peak_max`` criterion.
         """
         # Validate the units
         check_units((data, self.threshold, self.peak_max),
@@ -238,7 +250,7 @@ class _StarFinderCatalog(StarFinderCatalogBase):
         An Nx2 array of (x, y) pixel coordinates denoting the central
         positions of the stars.
 
-    kernel: 2D `~numpy.ndarray`
+    kernel : 2D `~numpy.ndarray`
         A 2D array of the PSF kernel.
 
     n_brightest : int, None, optional
@@ -272,7 +284,7 @@ class _StarFinderCatalog(StarFinderCatalogBase):
         return ('data', 'unit', 'kernel', 'n_brightest', 'peak_max',
                 'cutout_shape', 'default_columns')
 
-    @lazyproperty
+    @cached_property
     def cutout_data(self):
         """
         The cutout data arrays with negative values set to zero.
@@ -281,14 +293,14 @@ class _StarFinderCatalog(StarFinderCatalogBase):
         cutouts[cutouts < 0] = 0.0  # exclude negative pixels
         return cutouts
 
-    @lazyproperty
+    @cached_property
     def max_value(self):
         """
         The maximum pixel value in the cutout data.
         """
         return self.peak
 
-    @lazyproperty
+    @cached_property
     def x_centroid(self):
         """
         The x centroid of the source.
@@ -296,7 +308,7 @@ class _StarFinderCatalog(StarFinderCatalogBase):
         xoff = self.cutout_shape[1] // 2
         return self.cutout_x_centroid + self.xypos[:, 0] - xoff
 
-    @lazyproperty
+    @cached_property
     def y_centroid(self):
         """
         The y centroid of the source.

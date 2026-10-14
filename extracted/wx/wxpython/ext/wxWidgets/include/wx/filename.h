@@ -102,7 +102,8 @@ enum
 enum
 {
     wxPATH_RMDIR_FULL       = 0x0001,  // delete with subdirectories if empty
-    wxPATH_RMDIR_RECURSIVE  = 0x0002   // delete all recursively (dangerous!)
+    wxPATH_RMDIR_RECURSIVE  = 0x0002,  // delete all recursively (dangerous!)
+    wxPATH_RMDIR_PARENTS    = 0x0004,  // also delete empty parent directories
 };
 
 // FileExists flags
@@ -264,6 +265,9 @@ public:
         // set the file permissions to a combination of wxPosixPermissions enum
         // values
     bool SetPermissions(int permissions);
+
+        // copy the supported attributes of the given file to this one
+    bool CopyAttributesFrom(const wxFileName& source) const;
 
     // Returns the native path for a file URL
     static wxFileName URLToFileName(const wxString& url);

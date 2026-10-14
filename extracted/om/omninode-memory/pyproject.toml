@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-memory"
-version = "0.18.4"
+version = "0.18.5"
 description = "OmniNode memory primitives — models, protocols, and storage adapters for Qdrant, Memgraph, and PostgreSQL backends."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -412,7 +412,7 @@ markers = [
     "benchmark: marks tests as performance benchmarks",
     "slow: marks tests as slow-running (excluded from quick test runs)",
     "memgraph: marks tests as requiring Memgraph database",
-    "embedding: marks tests as requiring embedding server (http://192.168.86.201:8002)",
+    "embedding: marks tests as requiring an embedding server (LLM_EMBEDDING_URL)",
 ]
 
 [tool.uv]

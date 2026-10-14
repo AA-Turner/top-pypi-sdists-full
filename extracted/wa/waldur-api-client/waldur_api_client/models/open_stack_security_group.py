@@ -53,6 +53,8 @@ class OpenStackSecurityGroup:
         tenant_name (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         rules (Union[Unset, list['OpenStackSecurityGroupRuleCreate']]):
+        instance_count (Union[None, Unset, int]): Number of instances the security group is attached to. It is annotated
+            by the security group endpoints only, so it is null when the group is rendered as a nested object.
         marketplace_offering_uuid (Union[None, Unset, str]):
         marketplace_offering_name (Union[None, Unset, str]):
         marketplace_offering_type (Union[None, Unset, str]):
@@ -96,6 +98,7 @@ class OpenStackSecurityGroup:
     tenant_name: Union[Unset, str] = UNSET
     tenant_uuid: Union[Unset, UUID] = UNSET
     rules: Union[Unset, list["OpenStackSecurityGroupRuleCreate"]] = UNSET
+    instance_count: Union[None, Unset, int] = UNSET
     marketplace_offering_uuid: Union[None, Unset, str] = UNSET
     marketplace_offering_name: Union[None, Unset, str] = UNSET
     marketplace_offering_type: Union[None, Unset, str] = UNSET
@@ -201,6 +204,12 @@ class OpenStackSecurityGroup:
             for rules_item_data in self.rules:
                 rules_item = rules_item_data.to_dict()
                 rules.append(rules_item)
+
+        instance_count: Union[None, Unset, int]
+        if isinstance(self.instance_count, Unset):
+            instance_count = UNSET
+        else:
+            instance_count = self.instance_count
 
         marketplace_offering_uuid: Union[None, Unset, str]
         if isinstance(self.marketplace_offering_uuid, Unset):
@@ -333,6 +342,8 @@ class OpenStackSecurityGroup:
             field_dict["tenant_uuid"] = tenant_uuid
         if rules is not UNSET:
             field_dict["rules"] = rules
+        if instance_count is not UNSET:
+            field_dict["instance_count"] = instance_count
         if marketplace_offering_uuid is not UNSET:
             field_dict["marketplace_offering_uuid"] = marketplace_offering_uuid
         if marketplace_offering_name is not UNSET:
@@ -484,6 +495,15 @@ class OpenStackSecurityGroup:
 
             rules.append(rules_item)
 
+        def _parse_instance_count(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        instance_count = _parse_instance_count(d.pop("instance_count", UNSET))
+
         def _parse_marketplace_offering_uuid(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -627,6 +647,7 @@ class OpenStackSecurityGroup:
             tenant_name=tenant_name,
             tenant_uuid=tenant_uuid,
             rules=rules,
+            instance_count=instance_count,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,
             marketplace_offering_type=marketplace_offering_type,

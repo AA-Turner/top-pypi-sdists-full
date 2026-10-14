@@ -1,56 +1,88 @@
 # -*- coding: utf-8 -*-
 
 """
-Tagging related API.
+Object tagging related API.
 
-.. _get_object_tagging: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_object_tagging.html
-.. _put_object_tagging: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_object_tagging.html
+The methods work on a file (an S3 object). Without ``version_id``, they work
+on the latest version of the object, even if this ``S3Path`` has the metadata
+snapshot of an older version (see :mod:`s3pathlib.core.metadata`); pass
+``version_id=p.version_id`` to work on that version. Changing the tags does
+not create a new version and does not change ``last_modified_at``.
+
+Errors of the AWS calls are raised as is (``botocore.exceptions.ClientError``,
+check ``e.response["Error"]["Code"]``), e.g.:
+
+- ``NoSuchKey``: the object does not exist.
+- ``NoSuchBucket``: the bucket does not exist.
+- ``MethodNotAllowed``: the latest version, or ``version_id``, is a delete
+  marker (moto raises ``NoSuchKey`` / ``NoSuchVersion`` instead).
+- ``BadRequest``: more than 10 tags, or a key / value that is too long.
+- ``AccessDenied``: the bucket belongs to another AWS account, or you lack the
+  ``s3:GetObjectTagging`` / ``s3:PutObjectTagging`` permission.
+
+.. _get_object_tagging: https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/get_object_tagging.html
+.. _put_object_tagging: https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/put_object_tagging.html
 """
+
+from __future__ import annotations
 
 import typing as T
 
-from func_args import NOTHING, resolve_kwargs
-
+from .._arg import OPT
+from .._arg import remove_optional
 from .resolve_s3_client import resolve_s3_client
 from ..better_client.tagging import update_object_tagging
-from ..aws import context
+from ..aws import s3_context
 from ..type import TagType
 from ..tag import parse_tags, encode_tag_set
 
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from .s3path import S3Path
-    from boto_session_manager import BotoSesManager
     from mypy_boto3_s3 import S3Client
 
 
 class TaggingAPIMixin:
     """
-    A mixin class that implements the tagging related methods.
+    A mixin class that implements the tagging related methods, see the module
+    docstring.
     """
 
-    def get_tags(
-        self: "S3Path",
-        version_id: str = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        request_payer: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ) -> T.Tuple[T.Optional[str], TagType]:
+    __slots__ = ()
+
+    def _ensure_taggable(self: S3Path) -> None:
         """
-        Get s3 object tags in key value pairs dict.
-
-        :return: ``(version_id, tags)``, tags is in string key value pairs dict.
-
-        .. versionadded:: 1.1.1
-
-        .. versionchanged:: 2.0.1
-
-            Add ``version_id``, ``expected_bucket_owner``, ``request_payer`` parameter.
+        :raises S3PathTypeError: for a relative path or the void path.
+        :raises S3PathIsNotFileError: for a folder or a bucket.
         """
+        self.ensure_not_relpath()
         self.ensure_object()
-        s3_client = resolve_s3_client(context, bsm)
-        res = s3_client.get_object_tagging(
-            **resolve_kwargs(
+
+    def get_tags(
+        self: S3Path,
+        version_id: str = OPT,
+        expected_bucket_owner: str = OPT,
+        request_payer: str = OPT,
+        s3_client: S3Client | None = None,
+    ) -> tuple[str | None, TagType]:
+        """
+        Get the tags of the object, see get_object_tagging_.
+
+        Example::
+
+            S3Path("bucket", "file.txt").get_tags()  # (None, {'team': 'data'})
+
+        :return: ``(version_id, tags)``: the version that was read (``None``
+            if the bucket never had versioning), and its tags as a dict
+            (``{}`` if it has none).
+
+        :raises S3PathTypeError: for a relative path or the void path.
+        :raises S3PathIsNotFileError: for a folder or a bucket.
+        """
+        self._ensure_taggable()
+        client = resolve_s3_client(s3_context, s3_client)
+        res = client.get_object_tagging(
+            **remove_optional(
                 Bucket=self.bucket,
                 Key=self.key,
                 VersionId=version_id,
@@ -63,32 +95,36 @@ class TaggingAPIMixin:
         return returned_version_id, tags
 
     def put_tags(
-        self: "S3Path",
+        self: S3Path,
         tags: TagType,
-        version_id: str = NOTHING,
-        content_md5: str = NOTHING,
-        checksum_algorithm: str = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        request_payer: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ) -> T.Tuple[T.Optional[str], TagType]:
+        version_id: str = OPT,
+        content_md5: str = OPT,
+        checksum_algorithm: str = OPT,
+        expected_bucket_owner: str = OPT,
+        request_payer: str = OPT,
+        s3_client: S3Client | None = None,
+    ) -> tuple[str | None, TagType]:
         """
-        Do full replacement of s3 object tags.
+        Replace all the tags of the object with ``tags``, see
+        put_object_tagging_. ``{}`` removes all tags.
 
-        :param tags: the s3 object tags in string key value pairs dict.
+        Example::
 
-        :return: ``(version_id, tags)``, tags is in string key value pairs dict.
+            S3Path("bucket", "file.txt").put_tags({"team": "data"})  # (None, {'team': 'data'})
 
-        .. versionadded:: 1.1.1
+        :param tags: the new tags; keys and values must be ``str``.
 
-        .. versionchanged:: 2.0.1
+        :return: ``(version_id, tags)``: the version that was changed
+            (``None`` if the bucket never had versioning), and a copy of
+            ``tags``.
 
-            Add ``version_id``, ``expected_bucket_owner``, ``request_payer`` parameter.
+        :raises S3PathTypeError: for a relative path or the void path.
+        :raises S3PathIsNotFileError: for a folder or a bucket.
         """
-        self.ensure_object()
-        s3_client = resolve_s3_client(context, bsm)
-        res = s3_client.put_object_tagging(
-            **resolve_kwargs(
+        self._ensure_taggable()
+        client = resolve_s3_client(s3_context, s3_client)
+        res = client.put_object_tagging(
+            **remove_optional(
                 Bucket=self.bucket,
                 Key=self.key,
                 Tagging=dict(TagSet=encode_tag_set(tags)),
@@ -100,32 +136,44 @@ class TaggingAPIMixin:
             )
         )
         returned_version_id = res.get("VersionId", None)
-        return returned_version_id, tags
+        return returned_version_id, dict(tags)
 
     def update_tags(
-        self: "S3Path",
+        self: S3Path,
         tags: TagType,
-        version_id: str = NOTHING,
-        content_md5: str = NOTHING,
-        checksum_algorithm: str = NOTHING,
-        expected_bucket_owner: str = NOTHING,
-        request_payer: str = NOTHING,
-        bsm: T.Optional[T.Union["BotoSesManager", "S3Client"]] = None,
-    ) -> T.Tuple[T.Optional[str], TagType]:
+        version_id: str = OPT,
+        content_md5: str = OPT,
+        checksum_algorithm: str = OPT,
+        expected_bucket_owner: str = OPT,
+        request_payer: str = OPT,
+        s3_client: S3Client | None = None,
+    ) -> tuple[str | None, TagType]:
         """
-        Do partial updates of s3 object tags.
+        Update the tags of the object like ``dict.update``: add the new keys,
+        overwrite the existing ones, keep the others. It reads the tags, merges
+        and writes them back, so it is not atomic: a change made by someone
+        else in between is lost. See
+        :func:`s3pathlib.better_client.tagging.update_object_tagging`.
 
-        :param tags: the s3 object tags in string key value pairs dict.
+        Example::
 
-        :return: ``(version_id, tags)``, tags is the latest, merged object tags
-            in string key value pairs dict.
+            S3Path("bucket", "file.txt").update_tags({"owner": "alice"})
+            # (None, {'team': 'data', 'owner': 'alice'})
 
-        .. versionadded:: 1.1.1
+        :param tags: the tags to add or overwrite; keys and values must be
+            ``str``.
+
+        :return: ``(version_id, tags)``: the version that was changed
+            (``None`` if the bucket never had versioning), and all its tags
+            after the update.
+
+        :raises S3PathTypeError: for a relative path or the void path.
+        :raises S3PathIsNotFileError: for a folder or a bucket.
         """
-        self.ensure_object()
-        s3_client = resolve_s3_client(context, bsm)
+        self._ensure_taggable()
+        client = resolve_s3_client(s3_context, s3_client)
         return update_object_tagging(
-            s3_client=s3_client,
+            s3_client=client,
             bucket=self.bucket,
             key=self.key,
             tags=tags,

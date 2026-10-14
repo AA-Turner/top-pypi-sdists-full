@@ -38,17 +38,17 @@ from functools import partial
 from itertools import count
 from os.path import splitext
 from types import FrameType, ModuleType, TracebackType
-from typing import TYPE_CHECKING, Any, ClassVar, Mapping, TextIO, TypeVar, cast, final
+from typing import TYPE_CHECKING, Any, ClassVar, TextIO, TypeAlias, TypeVar, cast, final
 
 import urwid
-from typing_extensions import ParamSpec, TypeAlias, override
+from typing_extensions import ParamSpec, override
 
 from pudb.lowlevel import ConsoleSingleKeyReader, decode_lines, ui_log
 from pudb.settings import get_save_config_path, load_config, save_config
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from pudb.source_view import SourceLine
 
@@ -200,6 +200,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 """
+
+
+def bool_only(x: object) -> bool:
+    assert isinstance(x, bool)
+    return x
 
 
 def mod_exists(mod: ModuleType):
@@ -535,7 +540,7 @@ class Debugger(bdb.Bdb):
         self.ui.stack_list._w.set_focus(self.ui.translate_ui_stack_index(index))
 
     @staticmethod
-    def open_file_to_edit(filename, line_number):
+    def open_file_to_edit(filename: str, line_number: int):
         if not os.path.isfile(filename):
             raise FileNotFoundError(f"'{filename}' not found or is not a file.")
 
@@ -544,8 +549,16 @@ class Debugger(bdb.Bdb):
 
         editor = os.environ.get("EDITOR", "nano")
 
+        if "zed" in editor:
+            cmdline_tail = [f"{filename}:{line_number}"]
+        else:
+            cmdline_tail = [f"+{line_number}", filename]
+
+        import shlex
         import subprocess
-        subprocess.call([editor, f"+{line_number}", filename], shell=False)
+        subprocess.call([
+            *shlex.split(editor),
+            *cmdline_tail], shell=False)
 
         return filename
 
@@ -791,7 +804,12 @@ from pudb.ui_tools import (
     labelled_value,
     make_hotkey_markup,
 )
-from pudb.var_view import FrameVarInfoKeeper, VariableWidget, WatchExpression
+from pudb.var_view import (
+    FrameVarInfoKeeper,
+    VarAccessLevel,
+    VariableWidget,
+    WatchExpression,
+)
 
 
 # {{{ display setup
@@ -1257,7 +1275,7 @@ class DebuggerUI(FrameVarInfoKeeper):
             iinfo = get_inspect_info(var.id_path)
             focus_index = None
 
-            if key == "enter" or key == "\\" or key == " ":
+            if key in {"enter", "\\", " "}:
                 iinfo.show_detail = not iinfo.show_detail
             elif key == "h":
                 focus_index = collapse_current(var, pos, iinfo)
@@ -1280,7 +1298,7 @@ class DebuggerUI(FrameVarInfoKeeper):
             elif key == "@":
                 iinfo.repeated_at_top = not iinfo.repeated_at_top
             elif key == "*":
-                levels = ["public", "private", "all", "public"]
+                levels: list[VarAccessLevel] = ["public", "private", "all", "public"]
                 iinfo.access_level = levels[levels.index(iinfo.access_level)+1]
             elif key == "w":
                 iinfo.wrap = not iinfo.wrap
@@ -1377,11 +1395,11 @@ class DebuggerUI(FrameVarInfoKeeper):
             result = self.dialog(lb, buttons, title=title)
 
             if result is True:
-                iinfo.show_detail = expanded_checkbox.get_state()
-                iinfo.wrap = wrap_checkbox.get_state()
-                iinfo.highlighted = highlighted_checkbox.get_state()
-                iinfo.repeated_at_top = repeated_at_top_checkbox.get_state()
-                iinfo.show_methods = show_methods_checkbox.get_state()
+                iinfo.show_detail = bool_only(expanded_checkbox.get_state())
+                iinfo.wrap = bool_only(wrap_checkbox.get_state())
+                iinfo.highlighted = bool_only(highlighted_checkbox.get_state())
+                iinfo.repeated_at_top = bool_only(repeated_at_top_checkbox.get_state())
+                iinfo.show_methods = bool_only(show_methods_checkbox.get_state())
 
                 if rb_show_default.get_state():
                     iinfo.display_type = "default"
@@ -1468,7 +1486,7 @@ class DebuggerUI(FrameVarInfoKeeper):
 
         self.stack_list.listen("enter", examine_frame)
 
-        def open_file_editor(file_name, line_number):
+        def open_file_editor(file_name: str, line_number: int):
             file_changed = False
 
             try:
@@ -1540,6 +1558,8 @@ class DebuggerUI(FrameVarInfoKeeper):
                 pos = self.bp_list._w.focus_position
                 bp = bp_list[pos]
                 delete_breakpoint(bp)
+            else:
+                self.message("Cannot delete, no breakpoint set.")
 
         def delete_breakpoint(bp):
             err = self.debugger.clear_break(bp.file, bp.line)
@@ -1551,21 +1571,23 @@ class DebuggerUI(FrameVarInfoKeeper):
                 set_breakpoint_source(bp)
 
         def enable_disable_breakpoint(w, size, key):
-            pos = self.bp_list._w.focus_position
             bp_entry = self.bp_list._w.focus
             if bp_entry is None:
+                self.message("Cannot enable/disable, no breakpoint set.")
                 return
+            pos = self.bp_list._w.focus_position
             bp = self._get_bp_list()[pos]
             bp.enabled = not bp.enabled
             self.update_breakpoints()
             set_breakpoint_source(bp)
 
         def examine_breakpoint(w, size, key):
-            pos = self.bp_list._w.focus_position
             bp_entry = self.bp_list._w.focus
 
             if bp_entry is None:
+                self.message("Cannot examine, no breakpoint set.")
                 return
+            pos = self.bp_list._w.focus_position
 
             bp = self._get_bp_list()[pos]
 
@@ -1620,14 +1642,15 @@ class DebuggerUI(FrameVarInfoKeeper):
             set_breakpoint_source(bp)
 
         def show_breakpoint(w, size, key):
-            pos = self.bp_list._w.focus_position
             bp_entry = self.bp_list._w.focus
-
             if bp_entry is not None:
+                pos = self.bp_list._w.focus_position
                 bp = self._get_bp_list()[pos]
                 self.show_line(bp.line,
                         FileSourceCodeProvider(self.debugger, bp.file))
                 self.columns.focus_position = 0
+            else:
+                self.message("Cannot show breakpoint location, no breakpoint set.")
 
         self.bp_list.listen("enter", show_breakpoint)
         self.bp_list.listen("d", handle_delete_breakpoint)
@@ -1919,7 +1942,9 @@ Error with jump. Note that jumping only works on the topmost stack frame.
                 return
 
             try:
-                from packaging.version import parse as LooseVersion  # noqa: N812
+                from packaging.version import (
+                    parse as LooseVersion,  # ruff:ignore[lowercase-imported-as-non-lowercase]
+                )
             except ImportError:
                 from distutils.version import LooseVersion
 
@@ -1950,7 +1975,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
             chopped_completions = [i.complete for i in completions]
 
             def common_prefix(a, b):
-                for i, (a_i, b_i) in enumerate(zip(a, b)):
+                for i, (a_i, b_i) in enumerate(zip(a, b, strict=False)):
                     if a_i != b_i:
                         return a[:i]
 
@@ -2010,7 +2035,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
             sys.stderr = sys.stdout = StringIO()
             try:
                 eval(compile(cmd, "<pudb command line>", "single"),
-                     cmdline_get_namespace())
+                     {}, cmdline_get_namespace())
             except Exception:
                 tp, val, tb = sys.exc_info()
 
@@ -2238,7 +2263,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
             with StoppedScreen(self.screen):
                 curframe = self.debugger.curframe
 
-                import pudb.shell as shell
+                from pudb import shell
                 if CONFIG["shell"] == "ipython" and shell.have_ipython():
                     runner = shell.run_ipython_shell
                 elif CONFIG["shell"] == "ipython_kernel" and shell.have_ipython():
@@ -2300,7 +2325,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
             def __init__(self, idx):
                 self.idx = idx
 
-            def __call__(subself, w, size, key):  # noqa # pylint: disable=no-self-argument
+            def __call__(subself, w, size, key):  # ruff:ignore[invalid-first-argument-name-for-method] # pylint: disable=no-self-argument
                 focus_widget_in_container(self.columns, self.rhs_col_sigwrap)
                 self.rhs_col.focus_position = subself.idx
 
@@ -2329,6 +2354,8 @@ Error with jump. Note that jumping only works on the topmost stack frame.
                     "Cannot edit the current file--"
                     "source code does not correspond to a file location. "
                     "(perhaps this is generated code)")
+                return
+
             open_file_editor(source_identifier, pos+1)
 
         self.top.listen("o", show_output)
@@ -2388,7 +2415,9 @@ Error with jump. Note that jumping only works on the topmost stack frame.
                 # Something went wrong--oh well. Nobody will die if their
                 # 256 color support breaks. Just carry on without it.
                 # https://github.com/inducer/pudb/issues/78
-                pass
+                ui_log.warning(
+                        "Curses failed to initialize. "
+                        "Support for 256 colors will not be available.")
             else:
                 color_support = curses.tigetnum("colors")
 
@@ -2480,7 +2509,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
         if extra_bindings is None:
             extra_bindings = []
 
-        Attr = urwid.AttrMap  # noqa
+        Attr = urwid.AttrMap  # ruff:ignore[non-lowercase-variable-in-function]
 
         if bind_enter_esc:
             content = SignalWrap(content)
@@ -2611,7 +2640,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
                 exit_loop_on_ok: bool = False):
         res = self.dialog(
             urwid.ListBox(urwid.SimpleListWalker([urwid.Text(
-                "\n\n".join([description, error_info])
+                f"{description}\n\n{error_info}"
             )])),
             title=title,
             buttons_and_results=[
@@ -2627,7 +2656,7 @@ Error with jump. Note that jumping only works on the topmost stack frame.
             from os.path import exists
             filename = next(
                 fname for n in count()
-                for fname in ["traceback-%d.txt" % n if n else "traceback.txt"]
+                for fname in [f"traceback-{n}.txt" if n else "traceback.txt"]
                 if not exists(fname)
             )
 
@@ -2690,14 +2719,14 @@ Error with jump. Note that jumping only works on the topmost stack frame.
         prev_quit_loop = self.quit_event_loop
 
         try:
-            import pygments  # noqa
+            import pygments  # ruff:ignore[unused-import]
         except ImportError:
             if not hasattr(self, "pygments_message_shown"):
                 self.pygments_message_shown = True
                 self.message("Package 'pygments' not found. "
                         "Syntax highlighting disabled.")
 
-        WELCOME_LEVEL = "e056"  # noqa
+        WELCOME_LEVEL = "e056"  # ruff:ignore[non-lowercase-variable-in-function]
         if CONFIG["seen_welcome"] < WELCOME_LEVEL:
             CONFIG["seen_welcome"] = WELCOME_LEVEL
             from pudb import VERSION
@@ -3021,8 +3050,8 @@ Error with jump. Note that jumping only works on the topmost stack frame.
 
         from pudb import VERSION
         caption = [(None,
-            f"PuDB {VERSION} - ?:help  n:next  s:step into  b:breakpoint  "
-            "!:python command line")]
+            (f"PuDB {VERSION} - ?:help  n:next  s:step into  b:breakpoint  "
+            "!:python command line"))]
 
         if self.debugger.post_mortem:
             if show_exc_dialog and exc_tuple is not None:

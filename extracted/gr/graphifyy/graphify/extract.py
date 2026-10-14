@@ -130,6 +130,7 @@ from graphify.extractors.resolution import (  # noqa: E402,F401
     _load_workspace_packages,
     _match_tsconfig_alias,
     _merge_decl_def_classes,
+    _merge_go_package_types,
     _node_disambiguation_source_key,
     _package_entry_candidates,
     _parse_js_tree,
@@ -4229,7 +4230,9 @@ def _merge_csharp_partial_class_nodes(
     onto it. Member node ids are left untouched — only the class-level nodes
     collapse.
 
-    Must run BEFORE _disambiguate_colliding_node_ids / _rewire_unique_stub_nodes /
+    Must run AFTER _disambiguate_colliding_node_ids (so a half whose id collides
+    with another file's node is already salted apart, and every edge still sits
+    on its own half when it is rewired) and BEFORE _rewire_unique_stub_nodes /
     _resolve_csharp_type_references and the resolver registry, so every later
     pass sees one definition per partial type.
     """
@@ -4961,7 +4964,7 @@ def _resolve_python_member_calls(
             # receiver also matches the local alias bound on that import edge
             # (#2082), so an aliased import resolves the same as the bare name.
             rkey = _key(receiver)
-            caller_file = file_of_node.get(caller)
+            caller_file = _file_node(caller)
             file_aliases = import_alias_by_filenode.get(caller_file, {})
             mods = [t for t in imported_by_filenode.get(caller_file, ())
                     if t in contains_children
@@ -4973,6 +4976,11 @@ def _resolve_python_member_calls(
             if len(children) != 1:  # absent or ambiguous callable -> bail
                 continue
             _emit_call(caller, children[0], rc)
+
+
+# Every suffix the TS/JS extractors claim, so a pure-ESM (`.mjs`) repo still activates
+# the member-call resolver below.
+_JS_TS_SUFFIXES = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 
 
 def _resolve_typescript_member_calls(
@@ -4998,6 +5006,10 @@ def _resolve_typescript_member_calls(
     defined in the caller's own file, a named import of the caller's file, or
     contained in a module the caller's file imports. Otherwise EMIT NOTHING —
     a false call edge is worse than a missing one (the C++ resolver's bar).
+
+    A receiver typed to a class this corpus declares nowhere is parked on the caller
+    for a merged graph to finish (#3152); the gate above never sees it, since it only
+    vets a name that did match locally.
     """
     type_table_by_file: dict[str, dict[str, str]] = {}
     for result in per_file:
@@ -5012,11 +5024,15 @@ def _resolve_typescript_member_calls(
 
     contained = {e.get("target") for e in all_edges if e.get("relation") == "contains"}
 
+    # Only the JS/TS interop family declares a type this receiver can hold (SFC script
+    # blocks included). A same-named class in another language must neither answer nor
+    # hide from the parking branch that nothing local declares the name.
     type_def_nids: dict[str, list[str]] = {}
     node_by_id: dict[str, dict] = {}
     for n in all_nodes:
         node_by_id[n.get("id")] = n
-        if n.get("source_file") and n.get("id") in contained and _is_type_like_definition(n):
+        if (_lang_family(n.get("source_file")) == "jsts"
+                and n.get("id") in contained and _is_type_like_definition(n)):
             type_def_nids.setdefault(_key(n.get("label", "")), []).append(n["id"])
 
     method_index: dict[tuple[str, str], str] = {}
@@ -5080,6 +5096,15 @@ def _resolve_typescript_member_calls(
         if type_name in _LANGUAGE_BUILTIN_GLOBALS:
             continue
         type_defs = type_def_nids.get(_key(type_name), [])
+        if not type_defs:
+            # Table-typed only: an uppercase receiver also matches namespace aliases and
+            # default imports, and node_modules is unscanned, so those are npm names.
+            # The caller's family stands in for the `lang` tag TS raw_calls do not carry.
+            if not type_qualified and _lang_family(rc.get("source_file")) == "jsts":
+                _park_unresolved_member_call(
+                    node_by_id.get(caller), callee, type_name, "typescript", rc,
+                )
+            continue
         # Origin gate (#2553): the caller's file must actually see the matched
         # type — same file, a named import of the type, or a module import of
         # the type's file. Otherwise a third-party type name that happens to
@@ -5342,7 +5367,10 @@ def _resolve_csharp_member_calls(
     Must run after id-disambiguation so node ids and caller_nids are final.
     """
     def _key(label: str) -> str:
-        return re.sub(r"[^a-zA-Z0-9]+", "", str(label)).lower()
+        # Case and `_` are part of a C# name: `Put` and `_Put` are two
+        # methods, so `this.Put()` must not bind to `_Put` (#4415). Only the
+        # label decoration (`.Put()`) goes.
+        return re.sub(r"\W+", "", str(label))
 
     contained = {e.get("target") for e in all_edges if e.get("relation") == "contains"}
 
@@ -5710,7 +5738,7 @@ def _resolve_php_member_calls(
     type_def_nids: dict[str, list[str]] = {}
     for node in all_nodes:
         if (
-            node.get("source_file")
+            _lang_family(node.get("source_file")) == "php"
             and node.get("id") in contained
             and _is_type_like_definition(node)
         ):
@@ -5733,6 +5761,12 @@ def _resolve_php_member_calls(
         if edge.get("relation") == "inherits":
             inherits_bases.setdefault(edge["source"], []).append(edge["target"])
 
+    type_table_by_file: dict[str, dict[str, str]] = {}
+    for result in per_file:
+        tt = result.get("php_type_table")
+        if tt and tt.get("path"):
+            type_table_by_file[str(tt["path"])] = tt.get("table", {})
+
     existing_pairs = {(edge.get("source"), edge.get("target")) for edge in all_edges}
     for result in per_file:
         for raw_call in result.get("raw_calls", []):
@@ -5746,6 +5780,7 @@ def _resolve_php_member_calls(
             if not receiver or not callee or not caller:
                 continue
 
+            inferred = False
             receiver_lower = receiver.lower()
             if receiver_lower in ("self", "static"):
                 type_nid = enclosing_type.get(caller)
@@ -5756,6 +5791,25 @@ def _resolve_php_member_calls(
                 if len(bases) != 1:
                     continue
                 type_nid = bases[0]
+            elif not raw_call.get("php_scoped") and not receiver.startswith("$"):
+                # Instance receiver (`$g->m()`, `$this->prop->m()`): the type comes
+                # from the annotation table, never the call site, so this rung is
+                # INFERRED. An untyped, union or longer-chain receiver is absent from
+                # the table and stays unresolved rather than guessing a class name.
+                typed = type_table_by_file.get(
+                    str(raw_call.get("source_file", "")), {}).get(receiver)
+                if typed is None:
+                    continue
+                inferred = True
+                type_defs = type_def_nids.get(class_key(typed), [])
+                if not type_defs:
+                    _park_unresolved_member_call(
+                        node_by_id.get(caller), callee, typed, "php", raw_call,
+                    )
+                    continue
+                if len(type_defs) != 1:
+                    continue
+                type_nid = type_defs[0]
             elif not receiver.startswith("$"):
                 type_defs = type_def_nids.get(class_key(receiver), [])
                 if not type_defs:
@@ -5783,8 +5837,10 @@ def _resolve_php_member_calls(
                 "target": method_nid,
                 "relation": "calls",
                 "context": "call",
-                "confidence": "EXTRACTED",
-                "confidence_score": 1.0,
+                "confidence": "INFERRED" if inferred else "EXTRACTED",
+                # Table-typed receiver -> the discrete INFERRED rung (0.85);
+                # a source-named class scope stays EXTRACTED (1.0).
+                "confidence_score": 0.85 if inferred else 1.0,
                 "source_file": raw_call.get("source_file", ""),
                 "source_location": raw_call.get("source_location"),
                 "weight": 1.0,
@@ -6079,7 +6135,9 @@ def _resolve_objc_member_calls(
         captured; a dotted receiver like ``Foo.shared`` is never passed through,
         because ``_key`` would strip the dot and collide with a real ``FooShared``.
     An uninferable receiver is SKIPPED (no guess), so an ambiguous selector across
-    classes never fans out. ``_merge_decl_def_classes`` folds each @interface/@impl
+    classes never fans out. A receiver typed to a class this corpus declares nowhere
+    is parked on the caller for a merged graph to finish (#3152).
+    ``_merge_decl_def_classes`` folds each @interface/@impl
     pair into one node, so a paired class clears the single-definition guard.
     ``@protocol`` declarations are excluded from the receiver-type index: a protocol
     is a contract, not a message receiver, and ObjC keeps protocol and class names in
@@ -6178,6 +6236,16 @@ def _resolve_objc_member_calls(
             queue.extend(_objc_bases.get(c, []))
         return None
 
+    def _park_absent(caller: str, callee: str, type_name: str, rc: dict) -> None:
+        """Park a typed receiver whose class is declared nowhere here (#3152).
+
+        A builtin type (NSString, DispatchQueue, ...) is not what another repo
+        declares, so parking one would only let a same-named user class answer it.
+        """
+        if type_name in _LANGUAGE_BUILTIN_GLOBALS:
+            return
+        _park_unresolved_member_call(node_by_id.get(caller), callee, type_name, "objc", rc)
+
     for rc in all_raw_calls:
         if not rc.get("is_member_call"):
             continue
@@ -6198,7 +6266,10 @@ def _resolve_objc_member_calls(
             if not type_name:
                 continue
             type_defs = type_def_nids.get(_key(type_name), [])
-            if len(type_defs) != 1:  # ambiguous or absent -> bail (god-node guard)
+            if not type_defs:
+                _park_absent(caller, callee, type_name, rc)
+                continue
+            if len(type_defs) != 1:  # ambiguous -> bail (god-node guard)
                 continue
             type_nid = type_defs[0]
             type_qualified = False
@@ -6209,7 +6280,10 @@ def _resolve_objc_member_calls(
             type_qualified = True
         elif receiver[:1].isupper():
             type_defs = type_def_nids.get(_key(receiver), [])
-            if len(type_defs) != 1:  # ambiguous or absent -> bail (god-node guard)
+            if not type_defs:
+                _park_absent(caller, callee, receiver, rc)
+                continue
+            if len(type_defs) != 1:  # ambiguous -> bail (god-node guard)
                 continue
             type_nid = type_defs[0]
             type_qualified = True
@@ -6223,7 +6297,10 @@ def _resolve_objc_member_calls(
             if not type_name:
                 continue
             type_defs = type_def_nids.get(_key(type_name), [])
-            if len(type_defs) != 1:  # ambiguous or absent -> bail (god-node guard)
+            if not type_defs:
+                _park_absent(caller, callee, type_name, rc)
+                continue
+            if len(type_defs) != 1:  # ambiguous -> bail (god-node guard)
                 continue
             type_nid = type_defs[0]
             type_qualified = False
@@ -6795,6 +6872,106 @@ def _resolve_rust_self_member_calls(
         })
 
 
+def _resolve_go_member_calls(
+    per_file: list[dict],
+    all_nodes: list[dict],
+    all_edges: list[dict],
+) -> None:
+    """Resolve Go member calls (``g.Greet()``) through the receiver's declared type.
+
+    The shared cross-file pass skips member calls, so a method call on a receiver whose
+    type is declared in another file resolved to nothing. The per-file ``go_type_table``
+    names the declared type of every struct field, parameter (the method receiver
+    included), ``var x T`` and ``x := T{}`` binding; this pass looks the receiver up
+    there, takes the single declaration of that type, and emits the ``calls`` edge to its
+    method. Always INFERRED: the type comes from a declaration, never from the call site.
+
+    Names are matched case-sensitively, unlike the sibling resolvers. Go exports by
+    capitalisation, so `Run` and `run` on one type are two different methods with two
+    different visibilities, and folding them would pick whichever came last.
+
+    A receiver typed to a type this corpus declares nowhere is parked on the caller for
+    a merged graph to finish (#3152).
+    """
+    raw = [
+        rc
+        for result in per_file
+        for rc in result.get("raw_calls", [])
+        if rc.get("language") == "go" and rc.get("is_member_call")
+        and rc.get("member_receiver") and rc.get("callee") and rc.get("caller_nid")
+    ]
+    if not raw:
+        return
+    type_table_by_file: dict[str, dict[str, str]] = {}
+    for result in per_file:
+        tt = result.get("go_type_table")
+        if tt and tt.get("path"):
+            type_table_by_file[tt["path"]] = tt.get("table", {})
+
+    def _key(label: object) -> str:
+        return str(label or "").strip().removeprefix(".").removesuffix("()")
+
+    # A Go type node id folds in the package directory, so two packages declaring the
+    # same name stay two entries and the single-definition guard below bails: without
+    # import evidence neither one is the answer.
+    # Only Go declarations count: `_callable_class` is corpus-wide, so a same-named Java
+    # class would both answer a Go receiver and hide that nothing local declares it.
+    type_def_nids: dict[str, list[str]] = {}
+    node_by_id: dict[str, dict] = {}
+    for n in all_nodes:
+        node_by_id[n.get("id")] = n
+        if n.get("_callable_class") and _lang_family(n.get("source_file")) == "go":
+            type_def_nids.setdefault(_key(n.get("label", "")), []).append(n["id"])
+
+    method_index: dict[tuple[str, str], list[str]] = {}
+    for e in all_edges:
+        if e.get("relation") != "method":
+            continue
+        tnode = node_by_id.get(e.get("target"))
+        if tnode is not None:
+            method_index.setdefault(
+                (e.get("source"), _key(tnode.get("label", ""))), []).append(e["target"])
+
+    existing_pairs = {(e.get("source"), e.get("target")) for e in all_edges}
+    for rc in raw:
+        receiver, callee, caller = rc["member_receiver"], rc["callee"], rc["caller_nid"]
+        # The enclosing method's own receiver is typed by its declaration, which beats the
+        # flat table: two types in one file may both name their receiver `s`.
+        type_name = rc.get("receiver_type") or type_table_by_file.get(
+            rc.get("source_file", ""), {}).get(receiver)
+        if not type_name or type_name in _LANGUAGE_BUILTIN_GLOBALS:
+            continue
+        type_defs = type_def_nids.get(_key(type_name), [])
+        if not type_defs:
+            # Declared nowhere here — usually "in a repo this build does not contain",
+            # so park it for the merge (#3152). The extractor's language tag already
+            # says who is asking, so no suffix sniff is needed.
+            _park_unresolved_member_call(node_by_id.get(caller), callee, type_name, "go", rc)
+            continue
+        if len(type_defs) != 1:  # ambiguous -> bail (god-node guard)
+            continue
+        targets = method_index.get((type_defs[0], _key(callee)), [])
+        if len(targets) != 1:
+            continue
+        target = targets[0]
+        if target == caller or (caller, target) in existing_pairs:
+            continue
+        existing_pairs.add((caller, target))
+        all_edges.append({
+            "source": caller,
+            "target": target,
+            "relation": "calls",
+            "context": "call",
+            "confidence": "INFERRED",
+            # The rubric's discrete INFERRED scale (references/extraction-spec.md):
+            # a single-definition type-table hit is the high-confidence rung.
+            "confidence_score": 0.85,
+            "source_file": rc.get("source_file", ""),
+            "source_location": rc.get("source_location"),
+            "weight": 1.0,
+        })
+
+
 def _resolve_elixir_import_targets(
     per_file: list[dict],
     all_nodes: list[dict],
@@ -6994,6 +7171,14 @@ def _resolve_kotlin_member_calls(
         callee = rc["callee"]
         caller = rc["caller_nid"]
         type_nids = types_by_name.get(receiver, [])
+        if not type_nids:
+            # Object/class declared nowhere here — usually in a repo this build does
+            # not contain, so park it for the merge (#3152/#3388). A builtin receiver
+            # (String.format, ...) never crosses a repo boundary.
+            if receiver not in _LANGUAGE_BUILTIN_GLOBALS:
+                _park_unresolved_member_call(
+                    node_by_id.get(caller), callee, receiver, "kotlin", rc)
+            continue
         if len(type_nids) != 1:
             continue
         wanted = f".{callee}"
@@ -7049,7 +7234,8 @@ register_language_resolver(
     LanguageResolver("ruby_member_calls", frozenset({".rb", ".rake"}), resolve_ruby_member_calls)
 )
 register_language_resolver(
-    LanguageResolver("typescript_member_calls", frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx"}), _resolve_typescript_member_calls)
+    LanguageResolver("typescript_member_calls", frozenset(_JS_TS_SUFFIXES),
+                     _resolve_typescript_member_calls)
 )
 # C++ (#1547) and ObjC (#1556) receiver-typed member-call resolution. `.h` is in
 # both suffix sets because it routes to extract_cpp or extract_objc by content; the
@@ -7143,6 +7329,12 @@ register_language_resolver(
     LanguageResolver(
         "kotlin_member_calls", frozenset({".kt", ".kts"}), _resolve_kotlin_member_calls
     )
+)
+# Go receiver-typed member-call resolution: `g.Greet()` where the method is declared in
+# another file. The shared pass skips member calls, so these had no edge unless the bare
+# method name happened to match a symbol in the caller's own file.
+register_language_resolver(
+    LanguageResolver("go_member_calls", frozenset({".go"}), _resolve_go_member_calls)
 )
 # C# qualified construction (#2997): `new A.B.Cache()` arrives as the bare name,
 # so a colliding `Cache` elsewhere makes it ambiguous. Runs in the tail registry
@@ -9240,6 +9432,10 @@ def extract(
     # also means disambiguation sees one source_file per id and won't split them.
     _merge_decl_def_classes(all_nodes, all_edges)
 
+    # Same fold for a Go package's type, which every file declaring a method on it mints
+    # again under one id; also before disambiguation, which would otherwise split them.
+    _merge_go_package_types(all_nodes, all_edges)
+
     # Remap file node IDs from absolute-path-derived to the canonical
     # {parent_dir}_{stem} spec form so (a) graph.json edge endpoints are stable
     # across machines (#502) and (b) AST file nodes match the IDs semantic
@@ -9667,8 +9863,16 @@ def extract(
     _repoint_python_package_imports(paths, all_nodes, all_edges, root)
     _repoint_python_sibling_imports(paths, all_nodes, all_edges, root)
     _merge_swift_extensions(per_file, all_nodes, all_edges)
-    _merge_csharp_partial_class_nodes(per_file, all_nodes, all_edges, paths, root)
+    # Salt colliding ids apart BEFORE the C# partial merge. The merge rewires the
+    # edges of every half onto the canonical half's id; if that id collides with
+    # another file's node (`Spec.cs` next to `_Spec.cs`, `Cfg/Helpers.cs` next to
+    # `Cfg_Helpers.cs`), the disambiguation would look those rewired edges up by
+    # their own source_file, i.e. the file of the half they came from, not of the
+    # canonical half; it would miss and leave them on a dead id. Run first, it
+    # splits only genuinely distinct nodes; the merge then joins the halves by
+    # type path, whatever their (salted) ids.
     _disambiguate_colliding_node_ids(all_nodes, all_edges, all_raw_calls, root)
+    _merge_csharp_partial_class_nodes(per_file, all_nodes, all_edges, paths, root)
     _canonicalize_csharp_namespace_nodes(all_nodes, all_edges)
     # PHP namespace/use disambiguation must run BEFORE the unique-stub rewire:
     # the false merge (#1923) happens inside the rewire when a bare-name stub
@@ -9973,6 +10177,7 @@ def extract(
             )
     _csharp_stub_resolver: CsharpNameResolver | None = None  # built on first use
     _csharp_method_owner: dict[str, str] | None = None  # method nid -> type nid, built on first use
+    _csharp_outer_type: dict[str, str] | None = None  # nested type nid -> outer type label, built on first use
     for rc in all_raw_calls:
         if rc.get("_ambiguous_python_import"):
             continue
@@ -10029,6 +10234,16 @@ def extract(
             # #4245) bound to the case instead of getting no edge/deferring to
             # raw_calls resolution that could reject it on its own grounds.
             candidates = [c for c in candidates if c not in _member_nids]
+            if rc.get("csharp_new"):
+                # Nor does `new X()` construct a method that shares X's name:
+                # without this every `new List<T>()` in the corpus binds to a
+                # `List()` method as an INFERRED hub.
+                if _csharp_method_owner is None:
+                    _csharp_method_owner = {
+                        e["target"]: e["source"] for e in all_edges
+                        if e.get("relation") == "method"
+                    }
+                candidates = [c for c in candidates if c not in _csharp_method_owner]
             if not candidates:
                 continue
         # A call rescued from an annotation stub (#3888): the caller's own file
@@ -10176,13 +10391,31 @@ def extract(
                     # tie-breakers (non-test preference, then path proximity).
                     # Resolve only if exactly one candidate survives; otherwise
                     # the #543/#1219 guard still holds and we skip.
-                    tgt = disambiguate_ambiguous_candidates(
-                        candidates,
-                        {c: nid_to_source_file.get(c, "") for c in candidates},
-                        rc.get("source_file", ""),
-                    )
-                    if tgt is None:
-                        continue
+                    # A qualified C# construction (`new Outer.Slot()`) names
+                    # which Slot it means, and a proximity guess over the bare
+                    # name ignores that: it takes the one Slot nested in a type
+                    # called Outer, or no edge. A namespace qualifier matches no
+                    # outer type and is left to _resolve_csharp_qualified_calls.
+                    if rc.get("csharp_new") and rc.get("qualified_prefix"):
+                        if _csharp_outer_type is None:
+                            labels = {n["id"]: str(n.get("label", "")) for n in all_nodes}
+                            _csharp_outer_type = {
+                                e["target"]: labels.get(e["source"], "")
+                                for e in all_edges if e.get("relation") == "contains"
+                            }
+                        outer = str(rc["qualified_prefix"]).rsplit(".", 1)[-1]
+                        nested = [c for c in candidates if _csharp_outer_type.get(c) == outer]
+                        if len(nested) != 1:
+                            continue
+                        tgt = nested[0]
+                    else:
+                        tgt = disambiguate_ambiguous_candidates(
+                            candidates,
+                            {c: nid_to_source_file.get(c, "") for c in candidates},
+                            rc.get("source_file", ""),
+                        )
+                        if tgt is None:
+                            continue
                     has_import_evidence = False
         # A source-less candidate is an unresolved external stub, not a
         # project-defined callable. It can remain a target of type/reference

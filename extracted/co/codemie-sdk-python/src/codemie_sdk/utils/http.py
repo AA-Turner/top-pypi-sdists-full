@@ -199,6 +199,7 @@ class ApiRequestHandler:
         raise_on_error: bool = True,
         extra_headers: dict[str, str] | None = None,
         include_auth: bool = True,
+        data: str | bytes | None = None,
     ) -> T:
         """Makes a POST request and parses the response.
 
@@ -212,6 +213,7 @@ class ApiRequestHandler:
             raise_on_error: Whether to raise exception on HTTP error status codes
             extra_headers: Optional additional HTTP headers to include (e.g., X-* for MCP propagation)
             include_auth: Whether to include the Authorization header
+            data: Raw request body for non-JSON payloads; set its Content-Type via extra_headers
         """
         if json_data:
             logger.debug(f"Request body: {json_data}")
@@ -224,6 +226,7 @@ class ApiRequestHandler:
             url=f"{self._base_url}{endpoint}",
             headers=headers,
             json=json_data,
+            data=data,
             params=params,
             verify=self._verify_ssl,
             stream=stream,

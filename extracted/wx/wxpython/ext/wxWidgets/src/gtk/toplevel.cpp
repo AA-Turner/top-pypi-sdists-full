@@ -49,6 +49,12 @@
     #include "wx/unix/private/x11ptr.h"
 #endif
 
+#ifdef wxHAVE_WAYLAND_SESSION_MANAGEMENT
+    #include "wx/gtk/private/wayland.h"
+
+    static constexpr const char* TRACE_XDGSM = "xdgsm";
+#endif // wxHAVE_WAYLAND_SESSION_MANAGEMENT
+
 #define TRACE_TLWSIZE "tlwsize"
 
 // ----------------------------------------------------------------------------
@@ -62,6 +68,9 @@ static wxTopLevelWindowGTK *g_activeFrame = nullptr;
 extern wxCursor g_globalCursor;
 extern wxCursor g_busyCursor;
 extern wxRecursionGuardFlag g_inSizeAllocate;
+
+// This is defined in window.cpp.
+extern GdkEventKey *wxKeyEventClaimedByWindow;
 
 #ifdef GDK_WINDOWING_X11
 // Whether _NET_REQUEST_FRAME_EXTENTS support is working
@@ -224,11 +233,30 @@ wxgtk_tlw_key_press_event(GtkWidget *widget, GdkEventKey *event)
     // customize this by reversing the order of the steps done in the standard
     // GTK+ gtk_window_key_press_event() handler.
 
+    // Small helper to ensure wxKeyEventClaimedByWindow is never stale.
+    struct ResetClaimedByWindow
+    {
+        ResetClaimedByWindow()
+        {
+            wxKeyEventClaimedByWindow = nullptr;
+        }
+
+        ~ResetClaimedByWindow()
+        {
+            wxKeyEventClaimedByWindow = nullptr;
+        }
+    } resetClaimedByWindow;
+
     if ( gtk_window_propagate_key_event(window, event) )
         return true;
 
-    if ( gtk_window_activate_key(window, event) )
-        return true;
+    // Check if the focused window claimed this key for its own use by setting
+    // this variable: we must not use it as an accelerator then.
+    if ( wxKeyEventClaimedByWindow != event )
+    {
+        if ( gtk_window_activate_key(window, event) )
+            return true;
+    }
 
     void* parent_class = g_type_class_peek_parent(G_OBJECT_GET_CLASS(widget));
     GTK_WIDGET_CLASS(parent_class)->key_press_event(widget, event);
@@ -383,6 +411,205 @@ void wxTopLevelWindowGTK::GTKConfigureEvent(int x, int y)
 // "realize" from m_widget
 //-----------------------------------------------------------------------------
 
+// ----------------------------------------------------------------------------
+// XDG session management support under Wayland
+// ----------------------------------------------------------------------------
+
+#ifdef wxHAVE_WAYLAND_SESSION_MANAGEMENT
+
+using wxWayland::wl_unique_ptr;
+
+class wxXDGSessionData
+{
+public:
+    wxXDGSessionData() = default;
+    ~wxXDGSessionData() = default;
+
+    wl_unique_ptr<xdg_session_v1> m_xdgSession;
+    wl_unique_ptr<xdg_toplevel_session_v1> m_xdgToplevelSession;
+    wxString m_sessionId;
+
+    wxDECLARE_NO_COPY_CLASS(wxXDGSessionData);
+};
+
+namespace
+{
+
+void
+xdgSessionCreated(void* data,
+                  xdg_session_v1* WXUNUSED(session),
+                  const char *id)
+{
+    auto* const win = static_cast<wxTopLevelWindowGTK*>(data);
+
+    wxLogTrace(TRACE_XDGSM, "New XDG session \"%s\" created for %s",
+               id, wxDumpWindow(win));
+
+    win->m_xdgSessionData->m_sessionId = wxString::FromUTF8(id);
+}
+
+void xdgSessionRestored(void* data, xdg_session_v1* WXUNUSED(session))
+{
+    auto* const win = static_cast<wxTopLevelWindowGTK*>(data);
+
+    wxLogTrace(TRACE_XDGSM, "XDG session \"%s\" restored for %s",
+               win->m_xdgSessionData->m_sessionId, wxDumpWindow(win));
+}
+
+void xdgSessionReplaced(void* data, xdg_session_v1* WXUNUSED(session))
+{
+    auto* const win = static_cast<wxTopLevelWindowGTK*>(data);
+
+    // It's not clear what can we possibly do here, so don't do anything.
+    wxLogTrace(TRACE_XDGSM, "XDG session \"%s\" replaced for %s",
+               win->m_xdgSessionData->m_sessionId, wxDumpWindow(win));
+}
+
+const xdg_session_v1_listener xdgSessionListener = {
+    xdgSessionCreated,
+    xdgSessionRestored,
+    xdgSessionReplaced,
+};
+
+void
+xdgToplevelSessionRestored(void* data, xdg_toplevel_session_v1* WXUNUSED(ts))
+{
+    auto* const win = static_cast<wxTopLevelWindowGTK*>(data);
+
+    wxLogTrace(TRACE_XDGSM, "XDG toplevel session \"%s\" restored for %s",
+               win->m_xdgSessionData->m_sessionId, wxDumpWindow(win));
+}
+
+const xdg_toplevel_session_v1_listener xdgToplevelSessionListener = {
+    xdgToplevelSessionRestored,
+};
+
+} // anonymous namespace
+
+extern "C" {
+static gboolean wxgtk_tlw_xdg_realized(GdkWindow* window, wxTopLevelWindow* win)
+{
+    wxLogTrace(TRACE_XDGSM, "xdg_toplevel_realized for %s", wxDumpWindow(win));
+
+    auto& data = win->m_xdgSessionData;
+    wxCHECK_MSG( data, FALSE, "XDG session data should have been initialized" );
+
+    auto& xdgSession = data->m_xdgSession;
+
+    xdgSession.reset(xdg_session_manager_v1_get_session(
+        wxWayland::WLGlobals.session_manager.get(),
+        XDG_SESSION_MANAGER_V1_REASON_LAUNCH,
+        data->m_sessionId.empty() ? nullptr : data->m_sessionId.utf8_str().data()
+    ));
+    wxCHECK_MSG( xdgSession, FALSE, "Failed to get xdg_session" );
+
+    xdg_session_v1_add_listener(xdgSession.get(), &xdgSessionListener, win);
+
+    xdg_toplevel* const xdgToplevel = gdk_wayland_window_get_xdg_toplevel(window);
+    if ( data->m_sessionId.empty() )
+    {
+        wxLogTrace(TRACE_XDGSM, "Adding %s to a new session",
+                   wxDumpWindow(win));
+
+        data->m_xdgToplevelSession.reset(xdg_session_v1_add_toplevel(
+            xdgSession.get(),
+            xdgToplevel,
+            win->GetName().utf8_str()
+        ));
+    }
+    else
+    {
+        wxLogTrace(TRACE_XDGSM, "Restoring session \"%s\" for %s",
+                   data->m_sessionId, wxDumpWindow(win));
+
+        data->m_xdgToplevelSession.reset(xdg_session_v1_restore_toplevel(
+            data->m_xdgSession.get(),
+            xdgToplevel,
+            win->GetName().utf8_str()
+        ));
+    }
+
+    xdg_toplevel_session_v1_add_listener(
+        data->m_xdgToplevelSession.get(), &xdgToplevelSessionListener, win
+    );
+
+    return FALSE;
+}
+}
+
+/* static */
+bool wxTopLevelWindowGTK::HasWaylandXDGSessionManagement()
+{
+    // Cache it just to avoid giving the trace messages more than once.
+    static int s_cachedValue = -1;
+
+    if ( s_cachedValue == -1 )
+    {
+        s_cachedValue = 1;
+
+        if ( !g_signal_lookup("xdg-toplevel-realized", GDK_TYPE_WAYLAND_WINDOW) )
+        {
+            wxLogTrace(TRACE_XDGSM, "Runtime GTK version %d.%d.%d is too old.",
+                       gtk_get_major_version(),
+                       gtk_get_minor_version(),
+                       gtk_get_micro_version());
+
+            s_cachedValue = 0;
+        }
+
+        if ( !wxWayland::WLGlobals.session_manager )
+        {
+            wxLogTrace(TRACE_XDGSM, "Compositor doesn't support the protocol.");
+
+            s_cachedValue = 0;
+        }
+    }
+
+    return s_cachedValue != 0;
+}
+
+bool wxTopLevelWindowGTK::SetWaylandXDGSessionId(const wxString& sessionId)
+{
+    wxCHECK_MSG( !m_xdgSessionData, false, "XDG session ID already set?" );
+
+    wxCHECK_MSG( !gtk_widget_get_realized(m_widget), false,
+                 "XDG session ID must be set before showing the window" );
+
+    wxCHECK_MSG( HasWaylandXDGSessionManagement(), false,
+                 "Shouldn't be called if not supported" );
+
+    m_xdgSessionData = new wxXDGSessionData();
+    m_xdgSessionData->m_sessionId = sessionId;
+
+    return true;
+}
+
+wxString wxTopLevelWindowGTK::GetWaylandXDGSessionId() const
+{
+    return m_xdgSessionData ? m_xdgSessionData->m_sessionId : wxString{};
+}
+
+#else // !wxHAVE_WAYLAND_SESSION_MANAGEMENT
+
+/* static */
+bool wxTopLevelWindowGTK::HasWaylandXDGSessionManagement()
+{
+    return false;
+}
+
+bool wxTopLevelWindowGTK::SetWaylandXDGSessionId(const wxString& sessionId)
+{
+    wxUnusedVar(sessionId);
+    return false;
+}
+
+wxString wxTopLevelWindowGTK::GetWaylandXDGSessionId() const
+{
+    return {};
+}
+
+#endif // wxHAVE_WAYLAND_SESSION_MANAGEMENT/!wxHAVE_WAYLAND_SESSION_MANAGEMENT
+
 #if GTK_CHECK_VERSION(3,10,0)
 extern "C" {
 static void findTitlebar(GtkWidget* widget, void* data)
@@ -409,6 +636,16 @@ void wxTopLevelWindowGTK::GTKHandleRealized()
     }
 
     GdkWindow* window = gtk_widget_get_window(m_widget);
+
+#ifdef wxHAVE_WAYLAND_SESSION_MANAGEMENT
+    // We effectively check if SetWaylandXDGSessionId() has been called, which
+    // includes the check for the new enough GTK with support for this signal.
+    if ( m_xdgSessionData )
+    {
+        g_signal_connect (window, "xdg-toplevel-realized",
+                          G_CALLBACK (wxgtk_tlw_xdg_realized), this);
+    }
+#endif // wxHAVE_WAYLAND_SESSION_MANAGEMENT
 
 #if GTK_CHECK_VERSION(3,10,0)
     if (wx_is_at_least_gtk3(10))
@@ -471,6 +708,19 @@ void wxTopLevelWindowGTK::GTKHandleRealized()
     }
     wxGCC_WARNING_RESTORE()
 #endif
+}
+
+void wxTopLevelWindowGTK::GTKHandleUnrealized()
+{
+#ifdef wxHAVE_WAYLAND_SESSION_MANAGEMENT
+    if ( m_xdgSessionData )
+    {
+        delete m_xdgSessionData;
+        m_xdgSessionData = nullptr;
+    }
+#endif // wxHAVE_WAYLAND_SESSION_MANAGEMENT
+
+    wxTopLevelWindowBase::GTKHandleUnrealized();
 }
 
 //-----------------------------------------------------------------------------
@@ -564,9 +814,7 @@ gtk_frame_window_state_callback( GtkWidget* WXUNUSED(widget),
 extern "C" {
 static void notify_gtk_theme_name(GObject*, GParamSpec*, wxTopLevelWindowGTK* win)
 {
-    wxSysColourChangedEvent event;
-    event.SetEventObject(win);
-    win->HandleWindowEvent(event);
+    win->SendSysColourChangedEvents();
 }
 }
 

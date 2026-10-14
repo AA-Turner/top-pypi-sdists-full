@@ -4,6 +4,7 @@ Tools for calculating limiting fluxes.
 """
 
 import warnings
+from copy import copy
 
 import astropy.units as u
 import numpy as np
@@ -20,8 +21,6 @@ from photutils.utils._repr import make_repr
 from photutils.utils.footprints import circular_footprint
 
 __all__ = ['ImageDepth']
-
-__doctest_requires__ = {('ImageDepth', 'ImageDepth.*'): ['skimage']}
 
 SIGMA_CLIP = SigmaClipSentinelDefault(sigma=3.0, maxiters=10)
 
@@ -54,7 +53,8 @@ class ImageDepth:
 
     mask_pad : float, optional
         An additional padding (in pixels) to apply when dilating the
-        input mask.
+        input mask. The dilation radius is ``aper_radius`` plus
+        ``mask_pad``, rounded up to the nearest integer.
 
     n_apertures : int, optional
         The number of circular apertures used to compute the image
@@ -73,20 +73,24 @@ class ImageDepth:
             instead.
 
     overlap : bool, optional
-        Whether to allow the apertures to overlap.
+        Whether to allow the apertures to overlap. If `False`, fewer
+        than ``n_apertures`` apertures may be used when the unmasked
+        area is too small, in which case a warning is issued (see the
+        ``n_apertures_used`` attribute).
 
     overlap_maxiters : int, optional
-        The maximum number of iterations that will be used when
-        attempting to find additional non-overlapping apertures. This
-        keyword has no effect unless ``overlap=False``. While increasing
-        this number may generate more non-overlapping apertures in
-        crowded cases, it will also run slower.
+        This keyword is unused and has no effect.
+
+        .. deprecated:: 3.1
+            The ``overlap_maxiters`` keyword is deprecated and will be
+            removed in version 4.0.
 
     seed : int, optional
         A seed to initialize the `numpy.random.BitGenerator`. If `None`,
         then fresh, unpredictable entropy will be pulled from the OS.
-        Separate function calls with the same ``seed`` will generate the
-        same results.
+        Each call to the object creates a fresh generator initialized
+        with ``seed``, so all calls with the same ``seed`` generate
+        identical results.
 
     zeropoint : float, optional
         The zeropoint used to calculate the magnitude limit from the
@@ -99,8 +103,10 @@ class ImageDepth:
 
     sigma_clip : `astropy.stats.SigmaClip`, optional
         A `~astropy.stats.SigmaClip` object that defines the sigma
-        clipping parameters to use when computing the limiting flux. If
-        `None` then no sigma clipping will be performed.
+        clipping parameters to use when computing the limiting flux.
+        The default is a `~astropy.stats.SigmaClip` instance with
+        ``sigma=3.0`` and ``maxiters=10``. If `None` then no sigma
+        clipping will be performed.
 
     progress_bar : bool, optional
         Whether to display a progress bar. The progress bar requires
@@ -137,8 +143,9 @@ class ImageDepth:
     regions are calculated from an input mask, which should mask both
     sources in the image and areas without image coverage. The input
     mask will be dilated with a circular footprint with a radius equal
-    to the input ``aper_radius`` plus ``mask_pad``. The image border
-    is also masked with the same radius.
+    to the input ``aper_radius`` plus ``mask_pad``, rounded up to the
+    nearest integer. The image border is also masked with the same
+    radius.
 
     The flux limit is calculated as the standard deviation of the
     aperture fluxes times the input ``n_sigma`` significance level. The
@@ -149,18 +156,30 @@ class ImageDepth:
     randomly-generated set of circular apertures. The returned flux
     limit is the average of these flux limits.
 
-    The magnitude limit is calculated from flux limit using the input
-    ``zeropoint`` keyword as:
+    The magnitude limit is calculated from the flux limit using the
+    input ``zeropoint`` keyword as:
 
     .. math::
 
         m_{\mathrm{lim}} = -2.5 \log_{10} f_{\mathrm{lim}}
             + \mathrm{zeropoint}
 
+    Instances are safe to call concurrently from multiple threads.
+    Each call uses only local state, including a fresh random
+    generator initialized with ``seed``. The result attributes
+    (``apertures``, ``n_apertures_used``, ``fluxes``, ``flux_limits``,
+    and ``mag_limits``) reflect the most recently completed call.
+
+    A `ValueError` is raised if no unmasked pixels remain after dilating
+    the mask and masking the border, or if ``n_apertures`` exceeds the
+    number of unmasked pixels. A warning is issued if fewer than
+    ``n_apertures`` nonoverlapping apertures could be placed, or if any
+    flux limit is zero.
+
     Examples
     --------
+    >>> import numpy as np
     >>> from astropy.convolution import convolve
-    >>> from astropy.visualization import simple_norm
     >>> from photutils.datasets import make_100gaussians_image
     >>> from photutils.segmentation import SourceFinder, make_2dgaussian_kernel
     >>> from photutils.utils import ImageDepth
@@ -170,7 +189,7 @@ class ImageDepth:
     >>> convolved_data = convolve(data, kernel)
     >>> n_pixels = 10
     >>> threshold = 3.2
-    >>> finder = SourceFinder(n_pixels=n_pixels, progress_bar=False)
+    >>> finder = SourceFinder(n_pixels=n_pixels)
     >>> segment_map = finder(convolved_data, threshold)
     >>> mask = segment_map.make_source_mask()
     >>> radius = 4
@@ -179,7 +198,7 @@ class ImageDepth:
     ...                    seed=123, zeropoint=23.9,
     ...                    progress_bar=False)
     >>> limits = depth(data, mask)
-    >>> print(np.array(limits))  # doctest: +FLOAT_CMP
+    >>> print(np.array(limits))
     [68.7403149  19.30697121]
 
     .. plot::
@@ -200,16 +219,17 @@ class ImageDepth:
         convolved_data = convolve(data, kernel)
         n_pixels = 10
         threshold = 3.2
-        finder = SourceFinder(n_pixels=n_pixels, progress_bar=False)
+        finder = SourceFinder(n_pixels=n_pixels)
         segment_map = finder(convolved_data, threshold)
         mask = segment_map.make_source_mask()
         radius = 4
         depth = ImageDepth(radius, n_sigma=5.0, n_apertures=500,
-                           n_iters=2, overlap=False, seed=123,
+                           n_iters=2, mask_pad=5, overlap=False,
+                           seed=123, zeropoint=23.9,
                            progress_bar=False)
         limits = depth(data, mask)
 
-        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(5, 7))
+        fig, ax = plt.subplots(nrows=2, figsize=(5, 7))
         norm = simple_norm(data, 'sqrt', percent=99.5)
         ax[0].imshow(data, norm=norm, origin='lower')
         color = 'white'
@@ -225,6 +245,8 @@ class ImageDepth:
     @deprecated_renamed_argument('nsigma', 'n_sigma', '3.0', until='4.0')
     @deprecated_renamed_argument('napers', 'n_apertures', '3.0', until='4.0')
     @deprecated_renamed_argument('niters', 'n_iters', '3.0', until='4.0')
+    @deprecated_renamed_argument('overlap_maxiters', None, '3.1',
+                                 until='4.0')
     def __init__(self, aper_radius, *, n_sigma=5.0, mask_pad=0,
                  n_apertures=1000, n_iters=10, overlap=True,
                  overlap_maxiters=100, seed=None, zeropoint=0.0,
@@ -236,6 +258,12 @@ class ImageDepth:
         if mask_pad < 0:
             msg = 'mask_pad must be >= 0'
             raise ValueError(msg)
+        if n_apertures < 1:
+            msg = 'n_apertures must be >= 1'
+            raise ValueError(msg)
+        if n_iters < 1:
+            msg = 'n_iters must be >= 1'
+            raise ValueError(msg)
 
         self.aper_radius = aper_radius
         self.n_sigma = n_sigma
@@ -243,7 +271,7 @@ class ImageDepth:
         self.n_apertures = n_apertures
         self.n_iters = n_iters
         self.overlap = overlap
-        self.overlap_maxiters = overlap_maxiters
+        self.overlap_maxiters = overlap_maxiters  # remove in 4.0
         self.seed = seed
         self.zeropoint = zeropoint
         if sigma_clip is SIGMA_CLIP:
@@ -255,7 +283,6 @@ class ImageDepth:
         self.sigma_clip = sigma_clip
         self.progress_bar = progress_bar
 
-        self.rng = np.random.default_rng(self.seed)
         self.dilate_radius = int(np.ceil(self.aper_radius + self.mask_pad))
         self.dilate_footprint = circular_footprint(radius=self.dilate_radius)
 
@@ -267,8 +294,8 @@ class ImageDepth:
 
     def __repr__(self):
         params = ('aper_radius', 'n_sigma', 'mask_pad', 'n_apertures',
-                  'n_iters', 'overlap', 'overlap_maxiters', 'seed',
-                  'zeropoint', 'sigma_clip', 'progress_bar')
+                  'n_iters', 'overlap', 'seed', 'zeropoint', 'sigma_clip',
+                  'progress_bar')
         return make_repr(self, params)
 
     # Remove in 4.0
@@ -283,7 +310,7 @@ class ImageDepth:
 
         Parameters
         ----------
-        data : 2D `~numpy.ndarray`
+        data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
             The 2D array, which should be in flux units (not surface
             brightness units).
 
@@ -292,17 +319,20 @@ class ImageDepth:
             a `True` value indicates the corresponding element of
             ``data`` is masked. The input array should mask both sources
             (e.g., from a segmentation image) and regions without image
-            coverage. If `None`, then the entire image will be used.
+            coverage. If `None`, then the entire image will be used,
+            apart from the masked image border.
 
         Returns
         -------
-        flux_limit, mag_limit : float
-            The flux and magnitude limits. The flux limit is returned in
-            the same units as the input ``data``. The magnitude limit is
-            calculated from the flux limit and the input ``zeropoint``.
+        flux_limit : float or `~astropy.units.Quantity`
+            The flux limit, in the same units as the input ``data``.
+
+        mag_limit : float
+            The magnitude limit, calculated from the flux limit and the
+            input ``zeropoint``.
         """
         # Prevent circular import
-        from photutils.aperture import CircularAperture
+        from photutils.aperture import AperturePhotometry, CircularAperture
 
         if mask is None or not np.any(mask):
             all_xycoords = self._make_all_coords_no_mask(data.shape)
@@ -326,50 +356,61 @@ class ImageDepth:
             iter_range = add_progress_bar(iter_range,
                                           desc=desc)
 
-        flux_limits = []
+        # Use a fresh, local random generator so that calls use no
+        # shared mutable state and are safe to run concurrently from
+        # multiple threads. With a fixed seed, every call produces
+        # identical results.
+        rng = np.random.default_rng(self.seed)
+
+        # Use a local copy of the SigmaClip instance because SigmaClip
+        # stores internal state on the instance during calls, so a
+        # shared instance is not safe to call concurrently from multiple
+        # threads.
+        sigma_clip = copy(self.sigma_clip)
+
         apertures = []
+        all_fluxes = []
+        flux_limits = []
         for _ in iter_range:
             if self.overlap:
-                xycoords = self._make_coords(all_xycoords, n_apertures)
+                xycoords = self._make_coords(all_xycoords, n_apertures,
+                                             rng=rng)
             else:
                 # Cut the number of coords (only need to input ~10x)
                 xycoords = self._make_coords(all_xycoords,
-                                             n_apertures * 10)
+                                             n_apertures * 10, rng=rng)
                 min_separation = self.aper_radius * 2.0
                 xycoords = apply_separation(xycoords, min_separation)
                 xycoords = xycoords[0:self.n_apertures]
 
             apers = CircularAperture(xycoords, r=self.aper_radius)
             apertures.append(apers)
-            fluxes, _ = apers.do_photometry(data)
-            if self.sigma_clip is not None:
-                fluxes = self.sigma_clip(fluxes, masked=False)  # ndarray
-            self.fluxes.append(fluxes)
+            fluxes = AperturePhotometry(data, apers).flux
+            if sigma_clip is not None:
+                fluxes = sigma_clip(fluxes, masked=False)  # ndarray
+            all_fluxes.append(fluxes)
             flux_limits.append(self.n_sigma * np.std(fluxes))
 
-        self.apertures = apertures
         n_apertures_used = np.array([len(apers) for apers in apertures])
-        self.n_apertures_used = n_apertures_used
         if np.any(n_apertures_used < self.n_apertures):
             msg = (f'Unable to generate {self.n_apertures} '
-                   'non-overlapping apertures in unmasked regions. '
+                   'nonoverlapping apertures in unmasked regions. '
                    'The number of apertures used was less than '
                    f'{self.n_apertures} (see the '
                    '"n_apertures_used" ImageDepth object attribute). '
                    'To fix this, decrease the number of apertures '
-                   'and/or aperture size, or increase '
-                   '`overlap_maxiters`. Alternatively, you may set '
+                   'and/or aperture size. Alternatively, you may set '
                    'overlap=True')
             warnings.warn(msg, AstropyUserWarning)
 
         if isinstance(flux_limits[0], u.Quantity):
             units = True
-            self.flux_limits = u.Quantity(flux_limits)
+            flux_limits = u.Quantity(flux_limits)
         else:
             units = False
-            self.flux_limits = np.array(flux_limits)
-        flux_limit = np.mean(self.flux_limits)
-        if np.any(self.flux_limits == 0):
+            flux_limits = np.array(flux_limits)
+        flux_limit = np.mean(flux_limits)
+        if np.any(flux_limits == 0):
             msg = ('One or more flux_limit values was zero. This is '
                    'likely due to constant image values. Check the '
                    'input mask.')
@@ -378,13 +419,21 @@ class ImageDepth:
         # Ignore divide-by-zero RuntimeWarning in log10
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
-            flux_limits = self.flux_limits
+            flux_limit_values = flux_limits
             flux_limit_ = flux_limit
             if units:
-                flux_limits = flux_limits.value
+                flux_limit_values = flux_limits.value
                 flux_limit_ = flux_limit.value
-            self.mag_limits = -2.5 * np.log10(flux_limits) + self.zeropoint
+            mag_limits = -2.5 * np.log10(flux_limit_values) + self.zeropoint
             mag_limit = -2.5 * np.log10(flux_limit_) + self.zeropoint
+
+        # Store the per-iteration results computed above. The result
+        # attributes reflect the most recently completed call.
+        self.apertures = apertures
+        self.n_apertures_used = n_apertures_used
+        self.fluxes = all_fluxes
+        self.flux_limits = flux_limits
+        self.mag_limits = mag_limits
 
         return flux_limit, mag_limit
 
@@ -399,14 +448,15 @@ class ImageDepth:
         data : 2D bool `~numpy.ndarray`
             The boolean array.
         axis : int
-            The axis to use (0 or 1).
+            The axis (0 or 1) that is collapsed. The returned slice is
+            for the other axis.
 
         Returns
         -------
         slice : slice object
-            A slice object for the input axis. If the data values along
-            the input axis are all `False`, then the slice object will
-            include the entire axis range.
+            A slice object for the axis orthogonal to ``axis``. If the
+            array is all `False`, then the slice object will include the
+            entire range of that axis.
         """
         xx = np.any(data, axis=axis)
         if np.all(~xx):
@@ -466,7 +516,8 @@ class ImageDepth:
         the mask.
 
         The mask is dilated with a circular footprint with a radius
-        equal to the input ``aper_radius`` plus ``mask_pad``.
+        equal to the input ``aper_radius`` plus ``mask_pad``, rounded
+        up to the nearest integer.
 
         Border pixels are also masked with the same radius.
 
@@ -499,7 +550,7 @@ class ImageDepth:
 
         Returns
         -------
-        xycoords : 2xN `~numpy.ndarray`
+        xycoords : Nx2 `~numpy.ndarray`
             The (x, y) coordinates.
         """
         ny, nx = shape
@@ -533,7 +584,7 @@ class ImageDepth:
 
         Returns
         -------
-        xycoords : 2xN `~numpy.ndarray`
+        xycoords : Nx2 `~numpy.ndarray`
             The (x, y) coordinates.
         """
         mask_inv = ~self._dilate_mask(mask)
@@ -546,9 +597,10 @@ class ImageDepth:
 
         return np.column_stack((xi, yi))
 
-    def _make_coords(self, xycoords, napers):
+    @staticmethod
+    def _make_coords(xycoords, n_apertures, *, rng):
         """
-        Randomly choose ``napers`` (without replacement) coordinates
+        Randomly choose ``n_apertures`` (without replacement) coordinates
         from the input ``xycoords``.
 
         This function also adds < +/-0.5 pixel random shifts so that the
@@ -556,24 +608,28 @@ class ImageDepth:
 
         Parameters
         ----------
-        xycoords : 2xN `~numpy.ndarray`
+        xycoords : Nx2 `~numpy.ndarray`
             The (x, y) coordinates.
-        napers : int
-            The number of aperture to make.
+
+        n_apertures : int
+            The number of apertures to make.
+
+        rng : `~numpy.random.Generator`
+            The random number generator.
 
         Returns
         -------
-        xycoords : 2xN `~numpy.ndarray`
+        xycoords : Nx2 `~numpy.ndarray`
             The (x, y) coordinates.
         """
-        if napers > xycoords.shape[0]:
+        if n_apertures > xycoords.shape[0]:
             msg = 'Too many apertures for given unmasked area'
             raise ValueError(msg)
 
-        idx = self.rng.choice(xycoords.shape[0], napers, replace=False)
+        idx = rng.choice(xycoords.shape[0], n_apertures, replace=False)
         xycoords = xycoords[idx, :].astype(float)
 
-        shift = self.rng.uniform(-0.5, 0.5, size=xycoords.shape)
+        shift = rng.uniform(-0.5, 0.5, size=xycoords.shape)
         xycoords += shift
 
         return xycoords

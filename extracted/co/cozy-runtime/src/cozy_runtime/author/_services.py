@@ -19,6 +19,7 @@ import shutil
 import stat
 import threading
 import time
+import warnings
 from collections.abc import Buffer, Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -192,6 +193,8 @@ class Attempt:
     #: harness with no worker: `published` then records what would have been shown.
     publish: Callable[[Publish], Published] | None = None
     published: list[Publish] = field(default_factory=list)
+    #: The result fields `Outputs.publish` may name (`Surface.outputs`); None: not known here.
+    outputs: frozenset[str] | None = None
     #: Handles delivered as products, or joined into one: the result need not return them.
     shown: set[str] = field(default_factory=set)
     #: A composite asset's parts, by its handle: what `publish` sends instead of one file.
@@ -205,7 +208,7 @@ class Attempt:
         if not self.ring.subject:
             self.ring.subject = self.request_id
 
-    def emit(self, kind: str, name: str, value: Scalar = None, **fields: Scalar) -> Observation:
+    def emit(self, kind: str, name: str, value: Scalar = None, /, **fields: Scalar) -> Observation:
         """One RETAINED record: the bounded ring, its emit-boundary checks, then the lane."""
         with self._recording:
             observation = self.ring.emit(cast("Any", kind), name, value, **fields)
@@ -352,6 +355,23 @@ def settle_frame(attempt: Attempt, handle: str) -> Asset:
 # --------------------------------------------------------------------------- services
 
 
+class _AuthorEvents(Iterator[DecodedMediaEvent]):
+    """An author's media events. What their iterator raises is the author's, never the encoder's."""
+
+    __slots__ = ("_events", "raised")
+
+    def __init__(self, events: Iterable[DecodedMediaEvent]) -> None:
+        self._events = iter(events)
+        self.raised: Exception | None = None
+
+    def __next__(self) -> DecodedMediaEvent:
+        try:
+            return next(self._events)
+        except Exception as exc:
+            self.raised = exc
+            raise
+
+
 class Outputs(_Bound):
     """Transactional outputs (``out``). Save registers a bounded pending handle.
 
@@ -449,7 +469,7 @@ class Outputs(_Bound):
         """Consume one canonical event stream into one bounded, probed, atomic MP4."""
         self._attempt.check_open("Outputs.save_video_stream")
         _codec.require_encoder()
-        source = iter(events)
+        source = _AuthorEvents(events)
         try:
             header = next(source)
         except StopIteration:
@@ -514,6 +534,7 @@ class Outputs(_Bound):
                 color_range=video_format.color_range,
             ),
             audio_format,
+            source,
             feed,
         )
 
@@ -547,7 +568,7 @@ class Outputs(_Bound):
             video._check_file()
             paths.append(video._local)
         copy = _codec.plan_video_copy(tuple(paths))
-        source = iter(soundtrack(copy.frames))
+        source = _AuthorEvents(soundtrack(copy.frames))
         header = next(source, None)
         if (
             not isinstance(header, DecodedMediaHeader)
@@ -592,6 +613,7 @@ class Outputs(_Bound):
                 color_range=copy.color_range,
             ),
             audio_format,
+            source,
             feed,
             copy,
         )
@@ -655,10 +677,12 @@ class Outputs(_Bound):
         self,
         video: dict[str, Any],
         audio_format: DecodedAudioFormat | None,
+        source: _AuthorEvents,
         feed: Callable[[_codec.StreamingMP4Encoder], int],
         copy: _codec.VideoCopy | None = None,
     ) -> SavedVideo:
-        """Write, probe and atomically register one MP4; `feed` returns its audio samples."""
+        """Write, probe and atomically register one MP4; `feed` writes `source` and returns
+        its audio samples. Only encoder failures become `output_encode`."""
         handle = self._attempt.next_handle(VideoAsset.kind)
         tail = handle.rsplit("/", 1)[-1]
         temporary = self._attempt.spool / f".video-{tail}.partial"
@@ -759,9 +783,9 @@ class Outputs(_Bound):
                 ),
                 submitted_audio_samples=audio_samples,
             )
-        except AuthorError:
-            raise
         except Exception as exc:
+            if isinstance(exc, AuthorError) or exc is source.raised:
+                raise
             raise OutputError(
                 f"streaming video encode failed: {type(exc).__name__}: {exc}",
                 code="output_encode",
@@ -799,17 +823,24 @@ class Outputs(_Bound):
 
     def publish(self, output: str, asset: Asset, *, label: str = "") -> None:
         """Show `asset` to the run's owner now, as a product of `output`: an asset field of
-        this function's declared result. A single field's product is replaced by each publish;
-        a `list[...]` field grows by one. Returning the result is the last publish, so the
-        returned value keeps what was published (a list extends it). `label` is for people:
-        its first 256 characters, printable ASCII (others read "?"). A child call's publishes
-        are not shown; its parent publishes what it wants seen."""
+        this function's declared result (any other name warns and drops the product). A single
+        field's product is replaced by each publish; a `list[...]` field grows by one.
+        Returning the result is the last publish, so the returned value keeps what was
+        published (a list extends it). `label` is for people: its first 256 characters,
+        printable ASCII (others read "?"). A child call's publishes are not shown; its parent
+        publishes what it wants seen."""
         attempt = self._attempt
         attempt.check_open("Outputs.publish")
         if not isinstance(asset, Asset):
             raise OutputError("publish takes one saved or received asset", code="output_kind")
         # The log carries printable ASCII: anything else reads as "?", never a refusal.
         label = "".join(char if 0x20 <= ord(char) <= 0x7E else "?" for char in label[:256])
+        # Published or dropped, the author meant it as a product, never an unreturned save.
+        attempt.shown.add(asset.ref)
+        if attempt.outputs is not None and output not in attempt.outputs:
+            declared = ", ".join(sorted(attempt.outputs)) or "none"
+            self._drop(output, f"its result declares asset outputs: {declared}")
+            return
         if asset.ref in attempt.frames:
             settle_frame(attempt, asset.ref)
         request = Publish(
@@ -826,20 +857,22 @@ class Outputs(_Bound):
             attempt.published.append(request)
         else:
             answer = attempt.publish(request)
+            if answer.code == "output_undeclared":
+                self._drop(output, answer.detail)
+                return
             if not answer.ok:
                 raise OutputError(
                     answer.detail or "the worker refused the publish", code=answer.code
                 )
-        attempt.shown.add(asset.ref)
+
+    def _drop(self, output: str, why: str) -> None:
+        """An undeclared output warns and drops its product; the run goes on (unknown fields
+        warn, never fail). The warning reaches the run log and a CPU test of the package."""
+        self._attempt.emit("log", "undeclared output dropped", "warn", output=output, reason=why)
+        warnings.warn(f"publish to undeclared output {output!r} dropped: {why}", stacklevel=3)
 
     def save_bytes(self, data: bytes, *, media_type: str) -> FileAsset:
         return self._register(data, FileAsset, media_type)
-
-    async def commit(self, pending: FileAsset) -> FileAsset:
-        """Complete an owned pending file now, for reading or forwarding to another call."""
-        from cozy_runtime.author._output_commit import commit
-
-        return await commit(self._attempt, pending)
 
     def save_tree(self, path: Path | str) -> Tree:
         """Snapshot regular files now; native retention commits after the handler returns."""
@@ -1231,7 +1264,7 @@ class Telemetry(_Bound):
 
         return on_step
 
-    def log(self, message: str, *, level: str = "info", **fields: Scalar) -> None:
+    def log(self, message: str, /, *, level: str = "info", **fields: Scalar) -> None:
         self._attempt.check_open("Telemetry.log")
         self._attempt.emit("log", message, level, **fields)
 

@@ -22,15 +22,16 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.services.usage_pricer.v1 import endpoint_usage_pricer_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_usage__pricer_dot_v1_dot_endpoint__usage__pricer__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nTsentry_protos/billing/v1/services/events/v1/billing_alert_evaluation_requested.proto\x12+sentry_protos.billing.v1.services.events.v1\"!\n\x1f\x42illingAlertEvaluationRequestedb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nTsentry_protos/billing/v1/services/events/v1/billing_alert_evaluation_requested.proto\x12+sentry_protos.billing.v1.services.events.v1\x1aMsentry_protos/billing/v1/services/usage_pricer/v1/endpoint_usage_pricer.proto\"\x94\x01\n\x1f\x42illingAlertEvaluationRequested\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12\\\n\x0cpriced_usage\x18\x02 \x01(\x0b\x32\x46.sentry_protos.billing.v1.services.usage_pricer.v1.UsagePricerResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.events.v1.billing_alert_evaluation_requested_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_BILLINGALERTEVALUATIONREQUESTED']._serialized_start=133
-  _globals['_BILLINGALERTEVALUATIONREQUESTED']._serialized_end=166
+  _globals['_BILLINGALERTEVALUATIONREQUESTED']._serialized_start=213
+  _globals['_BILLINGALERTEVALUATIONREQUESTED']._serialized_end=361
 # @@protoc_insertion_point(module_scope)

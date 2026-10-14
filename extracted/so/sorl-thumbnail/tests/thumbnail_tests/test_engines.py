@@ -2,16 +2,18 @@ import os
 import platform
 import unittest
 from subprocess import PIPE, Popen
+from unittest import mock
 
-from django.core.files.storage import default_storage
+from django.core.files.storage import default_storage, storages
 from django.template.loader import render_to_string
 from PIL import Image
 
 from sorl.thumbnail import default
 from sorl.thumbnail.base import ThumbnailBackend
 from sorl.thumbnail.conf import settings
+from sorl.thumbnail.engines.convert_engine import EngineError
 from sorl.thumbnail.engines.pil_engine import Engine as PILEngine
-from sorl.thumbnail.helpers import get_module_class
+from sorl.thumbnail.helpers import get_module_class, tokey
 from sorl.thumbnail.images import ImageFile
 from sorl.thumbnail.parsers import parse_geometry
 from sorl.thumbnail.templatetags.thumbnail import margin
@@ -191,6 +193,21 @@ class SimpleTestCase(BaseTestCase):
             'tests.thumbnail_tests.storage.TestStorage',
         )
 
+    def test_storage_serialize_same_backend_class(self):
+        test_storage = 'tests.thumbnail_tests.storage.TestStorage'
+        with self.settings(STORAGES={
+            'default': {'BACKEND': test_storage},
+            'other': {'BACKEND': test_storage},
+        }):
+            on_default = ImageFile('same.jpg', storages['default'])
+            on_other = ImageFile('same.jpg', storages['other'])
+            self.assertEqual(on_default.serialize_storage(), 'default')
+            self.assertEqual(on_other.serialize_storage(), 'other')
+            # The default storage keeps its pre-13 key, the other one must not collide.
+            self.assertEqual(on_default.key, tokey('same.jpg', test_storage))
+            self.assertEqual(on_other.key, tokey('same.jpg', 'other'))
+            self.assertNotEqual(on_default.key, on_other.key)
+
     @unittest.skipIf(platform.system() == "Darwin", 'quality is saved a different way on os x')
     def test_quality(self):
         im = ImageFile(Item.objects.get(image='500x500.jpg').image)
@@ -283,6 +300,57 @@ class SimpleTestCase(BaseTestCase):
         self.assertNotEqual(factor_noop, factor_center)
         self.assertEqual(factor_center, max(400 / 800, 400 / 600))
         self.assertEqual(factor_none, min(400 / 800, 400 / 600))
+
+    @unittest.skipIf(
+        'convert_engine' not in settings.THUMBNAIL_ENGINE,
+        'read options are only supported by the convert engine',
+    )
+    def test_read_options(self):
+        item = Item.objects.get(image='100x100.jpg')
+        cases = {'density': '300'}
+        if not settings.THUMBNAIL_CONVERT.startswith('gm'):
+            cases['authenticate'] = 'secret'  # gm identify has no -authenticate
+
+        with mock.patch('subprocess.Popen', wraps=Popen) as popen:
+            t = self.BACKEND.get_thumbnail(item.image, '50x50', **cases)
+
+        self.assertEqual((t.x, t.y), (50, 50))
+        self.assertNotEqual(t.name, self.BACKEND.get_thumbnail(item.image, '50x50').name)
+
+        convert = settings.THUMBNAIL_CONVERT.split(' ')
+        identify = settings.THUMBNAIL_IDENTIFY.split(' ')
+        for key, value in cases.items():
+            flag = '-' + key
+            commands = [call.args[0] for call in popen.call_args_list if flag in call.args[0]]
+            # both the convert and the identify run must read the source with the flag
+            self.assertTrue(any(args[:len(convert)] == convert for args in commands))
+            self.assertTrue(any(args[:len(identify)] == identify for args in commands))
+            for args in commands:
+                source = next(arg for arg in args if arg.endswith('[0]'))
+                self.assertEqual(args[args.index(flag) + 1], value)
+                self.assertLess(args.index(flag), args.index(source))
+
+    @unittest.skipIf(
+        'convert_engine' not in settings.THUMBNAIL_ENGINE,
+        'only the convert engine shells out to identify',
+    )
+    def test_identify_failure(self):
+        with open(os.path.join(settings.MEDIA_ROOT, 'broken.pdf'), 'wb') as f:
+            f.write(b'not a pdf')
+        with self.assertRaises(EngineError):
+            self.BACKEND.get_thumbnail('broken.pdf', '50x50')
+
+    @unittest.skipIf(
+        'convert_engine' not in settings.THUMBNAIL_ENGINE,
+        'only the convert engine shells out to identify',
+    )
+    def test_read_option_without_details(self):
+        with open(os.path.join(settings.MEDIA_ROOT, 'broken.pdf'), 'wb') as f:
+            f.write(b'not a pdf')
+        with self.assertRaises(EngineError) as cm:
+            self.BACKEND.get_thumbnail('broken.pdf', '50x50', authenticate='hunter2')
+        # neither the password, the command line nor the tool's stderr leak into the error
+        self.assertEqual(str(cm.exception), 'The identify command did not report an image size')
 
     def test_falsey_file_argument(self):
         with self.assertRaises(ValueError):

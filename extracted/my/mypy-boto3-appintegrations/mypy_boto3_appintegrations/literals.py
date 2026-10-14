@@ -43,7 +43,7 @@ __all__ = (
 
 
 ApplicationTypeType = Literal["A2A_SERVER", "MCP_SERVER", "SERVICE", "STANDARD"]
-AuthTypeType = Literal["API_KEY"]
+AuthTypeType = Literal["API_KEY", "CONNECT_JWT"]
 ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -134,6 +134,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -206,8 +207,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -279,6 +282,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -331,6 +335,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -412,6 +417,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

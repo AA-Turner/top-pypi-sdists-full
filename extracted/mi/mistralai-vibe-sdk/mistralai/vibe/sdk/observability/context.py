@@ -33,6 +33,7 @@ class _HostObservabilityAttributes(BaseModel):
     workspace_id: str | None = None
     organization_id: str | None = None
     customer_id: str | None = None
+    user_plan: str | None = None
     started_from: str | None = None
     nb_models: int | None = None
 

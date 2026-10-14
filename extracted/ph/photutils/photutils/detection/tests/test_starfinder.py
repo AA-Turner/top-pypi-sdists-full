@@ -7,11 +7,11 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.table import Table
-from astropy.utils.exceptions import AstropyDeprecationWarning
-from numpy.testing import assert_array_equal, assert_equal
+from numpy.testing import assert_allclose, assert_array_equal, assert_equal
 
 from photutils.detection import StarFinder
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 
 class TestStarFinder:
@@ -69,6 +69,26 @@ class TestStarFinder:
         with pytest.raises(ValueError, match=match):
             StarFinder(1, bad_kernel)
 
+    def test_kernel_nonpositive(self):
+        """
+        Test that kernels without a positive maximum raise ValueError.
+        """
+        match = 'kernel must have a positive maximum value'
+        for bad_kernel in (np.zeros((3, 3)), -np.ones((3, 3))):
+            with pytest.raises(ValueError, match=match):
+                StarFinder(1, bad_kernel)
+
+    def test_kernel_nonfinite(self):
+        """
+        Test that kernels with nonfinite values raise ValueError.
+        """
+        match = 'kernel must contain only finite values'
+        for bad_value in (np.nan, np.inf):
+            kernel = np.ones((3, 3))
+            kernel[1, 1] = bad_value
+            with pytest.raises(ValueError, match=match):
+                StarFinder(1, kernel)
+
     def test_nosources(self, data, kernel):
         """
         Test that no sources returns None with a warning.
@@ -86,7 +106,7 @@ class TestStarFinder:
             tbl = finder(-data)
         assert tbl is None
 
-    def test_exclude_border(self, data, kernel):
+    def test_exclude_border(self):
         """
         Test that border sources are excluded.
         """
@@ -95,8 +115,11 @@ class TestStarFinder:
         data[9:12, 9:12] = 1
         kernel = np.ones((3, 3))
 
-        finder0 = StarFinder(1, kernel, exclude_border=False)
-        finder1 = StarFinder(1, kernel, exclude_border=True)
+        # min_separation=0 keeps the equal-valued peaks
+        finder0 = StarFinder(1, kernel, exclude_border=False,
+                             min_separation=0)
+        finder1 = StarFinder(1, kernel, exclude_border=True,
+                             min_separation=0)
         tbl0 = finder0(data)
         tbl1 = finder1(data)
         assert len(tbl0) > len(tbl1)
@@ -111,8 +134,11 @@ class TestStarFinder:
         tbl1 = starfinder(data)
         tbl2 = starfinder(data, mask=mask)
         assert len(tbl1) == 25
-        assert len(tbl2) == 13
-        assert min(tbl2['y_centroid']) > 50
+        # The 14 sources include one whose unmasked peak pixel lies at
+        # the mask boundary (its centroid falls just below it). Masked
+        # pixels do not suppress nearby peaks.
+        assert len(tbl2) == 14
+        assert min(tbl2['y_centroid']) > 49.5
 
     def test_mask_int(self, data, kernel):
         """
@@ -127,6 +153,23 @@ class TestStarFinder:
         tbl_bool = starfinder(data, mask=bool_mask)
         tbl_int = starfinder(data, mask=int_mask)
         assert_array_equal(tbl_bool, tbl_int)
+
+    def test_min_separation_equal_values(self):
+        """
+        Test that equal-valued pixels of the convolved image give one
+        source, unless min_separation is 0.
+        """
+        data = np.zeros((40, 40))
+        data[18:23, 18:23] = 100.0
+        kernel = np.ones((3, 3))
+
+        tbl = StarFinder(1, kernel)(data)
+        assert len(tbl) == 1
+        assert_allclose(tbl['x_centroid'], 20.0)
+        assert_allclose(tbl['y_centroid'], 20.0)
+
+        tbl = StarFinder(1, kernel, min_separation=0)(data)
+        assert len(tbl) == 9
 
     def test_min_separation(self, data, kernel):
         """
@@ -147,7 +190,7 @@ class TestStarFinder:
         finder = StarFinder(1, kernel)
         assert finder.min_separation == 2.5 * (min(kernel.shape) // 2)
 
-        # Non-square kernel
+        # Nonsquare kernel
         rect_kernel = np.ones((3, 7))
         finder2 = StarFinder(1, rect_kernel)
         assert finder2.min_separation == 2.5 * (3 // 2)
@@ -350,7 +393,7 @@ class TestStarFinder:
         and still works.
         """
         match = "'brightest' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = StarFinder(threshold=5.0, kernel=kernel, brightest=5)
         assert finder.n_brightest == 5
 
@@ -360,6 +403,6 @@ class TestStarFinder:
         and still works.
         """
         match = "'peakmax' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             finder = StarFinder(threshold=5.0, kernel=kernel, peakmax=100.0)
         assert finder.peak_max == 100.0

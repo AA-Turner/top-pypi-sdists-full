@@ -15,10 +15,12 @@ class UsageTimeseriesBucket:
     Attributes:
         billing_period (datetime.date):
         usage (float):
+        usage_terminated (float): Part of usage that came from terminated resources.
     """
 
     billing_period: datetime.date
     usage: float
+    usage_terminated: float
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -26,12 +28,15 @@ class UsageTimeseriesBucket:
 
         usage = self.usage
 
+        usage_terminated = self.usage_terminated
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "billing_period": billing_period,
                 "usage": usage,
+                "usage_terminated": usage_terminated,
             }
         )
 
@@ -44,9 +49,12 @@ class UsageTimeseriesBucket:
 
         usage = d.pop("usage")
 
+        usage_terminated = d.pop("usage_terminated")
+
         usage_timeseries_bucket = cls(
             billing_period=billing_period,
             usage=usage,
+            usage_terminated=usage_terminated,
         )
 
         usage_timeseries_bucket.additional_properties = d

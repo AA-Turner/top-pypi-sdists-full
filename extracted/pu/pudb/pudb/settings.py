@@ -37,7 +37,7 @@ from pudb.lowlevel import get_breakpoint_invalid_reason, lookup_module, settings
 
 if TYPE_CHECKING:
     from bdb import Breakpoint
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from urwid import CheckBox
 
@@ -102,8 +102,8 @@ def get_save_config_path():
 CONF_SECTION = "pudb"
 CONF_FILE_NAME = "pudb.cfg"
 
-SAVED_BREAKPOINTS_FILE_NAME = "saved-breakpoints-%d.%d" % sys.version_info[:2]
-BREAKPOINTS_FILE_NAME = "breakpoints-%d.%d" % sys.version_info[:2]
+SAVED_BREAKPOINTS_FILE_NAME = "saved-breakpoints-%d.%d" % sys.version_info[:2]  # ruff:ignore[printf-string-formatting]
+BREAKPOINTS_FILE_NAME = "breakpoints-%d.%d" % sys.version_info[:2]  # ruff:ignore[printf-string-formatting]
 
 
 _config_: list[ConfDict | None] = [None]
@@ -168,7 +168,10 @@ def load_config():
 
     def normalize_bool_inplace(name: str):
         try:
-            if conf_dict[name].lower() in ["0", "false", "off"]:  # pyright: ignore[reportUnknownMemberType]
+            val = conf_dict[name]
+            if isinstance(val, bool):
+                return
+            if val.lower() in ["0", "false", "off"]:  # pyright: ignore[reportUnknownMemberType]
                 conf_dict[name] = False
             else:
                 conf_dict[name] = True
@@ -199,9 +202,8 @@ def save_config(conf_dict: ConfDict):
         save_path = get_save_config_path()
         if not save_path:
             return
-        outf = open(join(save_path, CONF_FILE_NAME), "w")
-        cparser.write(outf)
-        outf.close()
+        with open(join(save_path, CONF_FILE_NAME), "w") as outf:
+            cparser.write(outf)
     except Exception:
         settings_log.exception("Failed to save config")
 
@@ -567,11 +569,11 @@ def edit_config(ui: DebuggerUI, conf_dict: ConfDict):
             newvalue = shell_edit.get_edit_text()
             conf_dict.update(shell=newvalue, custom_shell=newvalue)
         else:
-            for shell, shell_rb in zip(shells, shell_rbs):
+            for shell, shell_rb in zip(shells, shell_rbs, strict=True):
                 if shell_rb.get_state():
                     conf_dict["shell"] = shell
 
-        for display, display_rb in zip(displays, display_rbs):
+        for display, display_rb in zip(displays, display_rbs, strict=True):
             if display_rb.get_state():
                 conf_dict["display"] = display
 
@@ -585,10 +587,10 @@ def edit_config(ui: DebuggerUI, conf_dict: ConfDict):
 
 # {{{ breakpoint saving
 
-def parse_breakpoints(lines):
+def parse_breakpoints(lines: Iterable[str]):
     # b [ (filename:lineno | function) [, "condition"] ]
 
-    breakpoints = []
+    breakpoints: list[tuple[str, int, bool, str | None, str | None]] = []
     for arg in lines:
         if not arg:
             continue
@@ -646,21 +648,19 @@ def load_breakpoints():
     """
     from os.path import isdir, join
 
-    file_names = []
+    file_names: list[str] = []
     for cdir in XDG_CONFIG_DIRS:
         if isdir(cdir):
-            for name in [SAVED_BREAKPOINTS_FILE_NAME, BREAKPOINTS_FILE_NAME]:
-                file_names.append(join(cdir, XDG_CONF_RESOURCE, name))
+            file_names.extend(join(cdir, XDG_CONF_RESOURCE, name) for name in [
+                SAVED_BREAKPOINTS_FILE_NAME, BREAKPOINTS_FILE_NAME])
 
-    lines = []
+    lines: list[str] = []
     for fname in file_names:
         try:
-            rc_file = open(fname)
+            with open(fname) as rc_file:
+                lines.extend([line.strip() for line in rc_file])
         except OSError:
             pass
-        else:
-            lines.extend([line.strip() for line in rc_file.readlines()])
-            rc_file.close()
 
     return parse_breakpoints(lines)
 
@@ -673,15 +673,15 @@ def save_breakpoints(bp_list: Sequence[Breakpoint]):
     if not save_path:
         return
 
-    histfile = open(get_breakpoints_file_name(), "w")
-    bps = {(bp.file, bp.line, bp.cond) for bp in bp_list}
-    for bp in bps:
-        line = "b %s:%d" % (bp[0], bp[1])
-        if bp[2]:
-            line += f", {bp[2]}"
-        line += "\n"
-        histfile.write(line)
-    histfile.close()
+    with open(save_path, "w") as histfile:
+        for bp_file, bp_line, bp_cond in {
+                    (bp.file, bp.line, bp.cond)
+                    for bp in bp_list}:
+            line = f"b {bp_file}:{bp_line}"
+            if bp_cond:
+                line += f", {bp_cond}"
+            line += "\n"
+            histfile.write(line)
 
 # }}}
 

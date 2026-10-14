@@ -281,9 +281,9 @@ wxSize wxGridCellChoiceRenderer::GetMaxBestSize(wxGrid& WXUNUSED(grid),
 {
     wxSize size;
 
-    for ( size_t n = 0; n < m_choices.size(); ++n )
+    for ( const auto& choice : m_choices )
     {
-        size.IncTo(DoGetBestSize(attr, dc, m_choices[n]));
+        size.IncTo(DoGetBestSize(attr, dc, choice));
     }
 
     return size;
@@ -408,12 +408,8 @@ wxGridCellAutoWrapStringRenderer::GetTextLines(wxGrid& grid,
         return logicalLines;
 
     wxArrayString physicalLines;
-    for ( wxArrayString::const_iterator it = logicalLines.begin();
-          it != logicalLines.end();
-          ++it )
+    for ( const auto& line : logicalLines )
     {
-        const wxString& line = *it;
-
         if ( dc.GetTextExtent(line).x > maxWidth )
         {
             // Line does not fit, break it up.
@@ -537,6 +533,8 @@ wxGridCellAutoWrapStringRenderer::GetBestSize(wxGrid& grid,
                                               wxDC& dc,
                                               int row, int col)
 {
+    dc.SetFont(attr.GetFont());
+
     // We have to make a choice here and fix either width or height because we
     // don't have any naturally best size. This choice is mostly arbitrary, but
     // we need to be consistent about it, otherwise wxGrid auto-sizing code
@@ -556,6 +554,8 @@ wxGridCellAutoWrapStringRenderer::GetBestHeight(wxGrid& grid,
                                                 int row, int col,
                                                 int width)
 {
+    dc.SetFont(attr.GetFont());
+
     const int lineHeight = dc.GetCharHeight();
 
     // Use as many lines as we need for this width and add a small border to
@@ -571,6 +571,8 @@ wxGridCellAutoWrapStringRenderer::GetBestWidth(wxGrid& grid,
                                                int row, int col,
                                                int height)
 {
+    dc.SetFont(attr.GetFont());
+
     const int lineHeight = dc.GetCharHeight();
 
     // Base the maximal number of lines either on how many fit or how many

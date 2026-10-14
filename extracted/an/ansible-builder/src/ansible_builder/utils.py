@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import filecmp
 import logging
 import logging.config
@@ -10,68 +12,104 @@ import sys
 from collections import deque
 from pathlib import Path
 
-from .colors import MessageColors
 from . import constants
 
 
 logger = logging.getLogger(__name__)
-logging_levels = {
-    '0': 'ERROR',
-    '1': 'WARNING',
-    '2': 'INFO',
-    '3': 'DEBUG',
-}
 
 
 class ColorFilter(logging.Filter):
+    """
+    Custom logging filter for adding colors to log messages based on their severity levels.
+
+    This class enhances the readability of log messages by applying specific colors to
+    messages depending on their log level. The colors are defined using ANSI escape codes, and
+    are mapped to each log level through a predefined color map.
+    """
+    class MessageColors:
+        """Contains ANSI color codes for different color themes used in log messages."""
+        ERROR = '\033[91m'    # bright red
+        WARNING = '\033[93m'  # bright yellow
+        INFO = '\033[94m'     # bright blue
+        DEBUG = '\033[95m'    # bright magenta
+        OKGREEN = '\033[92m'  # bright green
+        DEFAULT = '\033[0m'   # terminal default
+
     color_map = {
-        'ERROR': MessageColors.FAIL,
-        'WARNING': MessageColors.WARNING,
-        'INFO': MessageColors.HEADER,
-        'DEBUG': MessageColors.OK
+        logging.CRITICAL: MessageColors.ERROR,
+        logging.ERROR: MessageColors.ERROR,
+        logging.WARNING: MessageColors.WARNING,
+        logging.INFO: MessageColors.INFO,
+        logging.DEBUG: MessageColors.DEBUG,
+        constants.SUCCESS_LOGLEVEL: MessageColors.OKGREEN,
     }
 
     def filter(self, record):
-        if sys.stdout.isatty():
-            record.msg = self.color_map[record.levelname] + record.msg + MessageColors.ENDC
+        record.msg = self.color_map[record.levelno] + record.msg + ColorFilter.MessageColors.DEFAULT
         return record
 
 
-LOGGING = {
-    'version': 1,
-    'filters': {
-        'colorize': {
-            '()': ColorFilter
-        }
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'filters': ['colorize'],
-            'stream': 'ext://sys.stdout'
-        }
-    },
-    'loggers': {
-        'ansible_builder': {
-            'handlers': ['console'],
-        }
+def configure_logger(verbosity: int, disable_colors: bool = False):
+    logging_levels = {
+        0: 'ERROR',
+        1: 'WARNING',
+        2: 'INFO',
+        3: 'DEBUG',
     }
-}
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging_levels[verbosity])
+    handler = logging.StreamHandler(sys.stdout)
+    if not disable_colors:
+        handler.addFilter(ColorFilter())
+    root_logger.addHandler(handler)
 
 
-def configure_logger(verbosity):
-    LOGGING['loggers']['ansible_builder']['level'] = logging_levels[str(verbosity)]
-    logging.config.dictConfig(LOGGING)
+def deprecation_notice(msg: str) -> None:
+    """Utility function to standardize deprecation notice logging."""
+    logger.warning("DEPRECATION NOTICE: %s", msg)
 
 
 def run_command(command, capture_output=False, allow_error=False):
     logger.info('Running command:')
     logger.info('  %s', ' '.join(command))
     try:
-        # pylint: disable=R1732
-        process = subprocess.Popen(command,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+        with subprocess.Popen(command,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT) as process:
+            output = []
+            trailing_output = deque(maxlen=20)
+            for line in iter(process.stdout.readline, b''):
+                line = line.decode(sys.stdout.encoding)
+                if capture_output:
+                    output.append(line.rstrip())
+                trailing_output.append(line.rstrip())
+                logger.debug(line.rstrip('\n'))  # line ends added by logger itself
+            logger.debug('')
+
+            rc = process.wait()
+            if rc is not None and rc != 0 and (not allow_error):
+                # Show command that had error if logging level is -v (WARNING) (already shown at higher logging)
+                if logging.root.level > logging.INFO:
+                    logger.error('Command that had error:')
+                    logger.error('  %s', ' '.join(command))
+                # Show error summary with -v (WARNING) or -vv (INFO) verbosity. We expect -vvv (DEBUG) will have
+                # the full output, so a summary shouldn't be necessary.
+                if logging.root.level > logging.DEBUG:
+                    if capture_output:
+                        for line in output:
+                            logger.error(line)
+                        logger.error('')
+                    else:
+                        if len(trailing_output) == 20:
+                            logger.error('...showing last 20 lines of output...')
+                        for line in trailing_output:
+                            logger.error(line)
+                        logger.error('')
+                logger.error("An error occurred (rc=%s). Use -vvv for full details.", rc)
+                sys.exit(1)
+
+            return rc, output
     except FileNotFoundError:
         msg = f"You do not have {command[0]} installed."
         if command[0] in constants.runtime_files:
@@ -88,38 +126,6 @@ def run_command(command, capture_output=False, allow_error=False):
             )
         logger.error(msg)
         sys.exit(1)
-
-    output = []
-    trailing_output = deque(maxlen=20)
-    for line in iter(process.stdout.readline, b''):
-        line = line.decode(sys.stdout.encoding)
-        if capture_output:
-            output.append(line.rstrip())
-        trailing_output.append(line.rstrip())
-        logger.debug(line.rstrip('\n'))  # line ends added by logger itself
-    logger.debug('')
-
-    rc = process.wait()
-    if rc is not None and rc != 0 and (not allow_error):
-        main_logger = logging.getLogger('ansible_builder')
-        if main_logger.level > logging.INFO:
-            logger.error('Command that had error:')
-            logger.error('  %s', ' '.join(command))
-        if main_logger.level > logging.DEBUG:
-            if capture_output:
-                for line in output:
-                    logger.error(line)
-                logger.error('')
-            else:
-                if len(trailing_output) == 20:
-                    logger.error('...showing last 20 lines of output...')
-                for line in trailing_output:
-                    logger.error(line)
-                logger.error('')
-        logger.error("An error occurred (rc=%s), see output line(s) above for details.", rc)
-        sys.exit(1)
-
-    return (rc, output)
 
 
 def write_file(filename: str, lines: list) -> bool:
@@ -150,7 +156,7 @@ def copy_directory(source_dir: Path, dest: Path):
     """
 
     if not source_dir.is_dir():
-        raise Exception(f"Expected a directory at '{source_dir}'")
+        raise ValueError(f"Expected a directory at '{source_dir}'")
 
     for child in source_dir.iterdir():
         copy_location = dest / child.name
@@ -171,13 +177,13 @@ def copy_file(source: str, dest: str, ignore_mtime: bool = False) -> bool:
     to copy the file if it doesn't exist, or if it has changed between builds.
     See the `copy_directory()` function for the directory copy equivalent.
 
-    :param source str: Path to a source file.
-    :param dest str: Path to a destination file within the context subdir.
-    :param ignore_mtime bool: Whether or not mtime should be considered.
+    :param str source: Path to a source file.
+    :param str dest: Path to a destination file within the context subdir.
+    :param bool ignore_mtime: Whether mtime should be considered.
 
     :returns: True if the file was copied, False if not.
 
-    :raises: Exception if called with the path to a directory. This helps to
+    :raises: ValueError if called with the path to a directory. This helps to
         catch programming errors.
     """
 
@@ -187,10 +193,13 @@ def copy_file(source: str, dest: str, ignore_mtime: bool = False) -> bool:
         logger.info("File %s was placed in build context by user, leaving unmodified.", dest)
         return False
     if Path(source).is_dir():
-        raise Exception(f"Source {source} can not be a directory. Please use copy_directory instead.")
+        raise ValueError(f"Source {source} can not be a directory. Please use copy_directory instead.")
     if Path(dest).is_dir():
-        raise Exception(f"Destination {dest} can not be a directory. Please use copy_directory instead.")
-    if not os.path.exists(dest):
+        raise ValueError(f"Destination {dest} can not be a directory. Please use copy_directory instead.")
+    if Path(source).is_symlink() and Path(dest).is_symlink() and os.readlink(source) == os.readlink(dest):
+        logger.debug("Symlink %s already exists and matches.", dest)
+        should_copy = False
+    elif not os.path.exists(dest):
         logger.debug("File %s will be created.", dest)
         should_copy = True
     elif not filecmp.cmp(source, dest, shallow=False):
@@ -201,7 +210,10 @@ def copy_file(source: str, dest: str, ignore_mtime: bool = False) -> bool:
         should_copy = True
 
     if should_copy:
-        shutil.copy2(source, dest)
+        if Path(dest).is_symlink() or (Path(source).is_symlink() and os.path.exists(dest)):
+            os.unlink(dest)
+
+        shutil.copy2(source, dest, follow_symlinks=False)
     else:
         logger.debug("File %s is already up-to-date.", dest)
 

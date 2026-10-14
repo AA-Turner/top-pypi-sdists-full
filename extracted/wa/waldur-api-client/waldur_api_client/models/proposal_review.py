@@ -25,7 +25,12 @@ class ProposalReview:
         proposal_slug (str):
         reviewer_image (str):
         state (ProposalReviewStateEnum):
-        review_end_date (datetime.datetime):
+        review_end_date (Union[None, datetime.datetime]): When the review is due, or None if the round sets no review
+            duration.
+
+            A review created by accepting an assignment is also due no earlier than
+            its assignment batch's deadline, so extending the batch deadline moves
+            the deadline of the reviews accepted from it.
         round_uuid (UUID):
         round_name (str):
         round_slug (str):
@@ -51,10 +56,7 @@ class ProposalReview:
         summary_private_comment (Union[Unset, str]):
         comment_project_title (Union[None, Unset, str]):
         comment_project_summary (Union[None, Unset, str]):
-        comment_project_is_confidential (Union[None, Unset, str]):
-        comment_project_has_civilian_purpose (Union[None, Unset, str]):
         comment_project_description (Union[None, Unset, str]):
-        comment_project_duration (Union[None, Unset, str]):
         comment_project_supporting_documentation (Union[None, Unset, str]):
         comment_resource_requests (Union[None, Unset, str]):
         comment_team (Union[None, Unset, str]):
@@ -68,7 +70,7 @@ class ProposalReview:
     proposal_slug: str
     reviewer_image: str
     state: ProposalReviewStateEnum
-    review_end_date: datetime.datetime
+    review_end_date: Union[None, datetime.datetime]
     round_uuid: UUID
     round_name: str
     round_slug: str
@@ -92,10 +94,7 @@ class ProposalReview:
     summary_private_comment: Union[Unset, str] = UNSET
     comment_project_title: Union[None, Unset, str] = UNSET
     comment_project_summary: Union[None, Unset, str] = UNSET
-    comment_project_is_confidential: Union[None, Unset, str] = UNSET
-    comment_project_has_civilian_purpose: Union[None, Unset, str] = UNSET
     comment_project_description: Union[None, Unset, str] = UNSET
-    comment_project_duration: Union[None, Unset, str] = UNSET
     comment_project_supporting_documentation: Union[None, Unset, str] = UNSET
     comment_resource_requests: Union[None, Unset, str] = UNSET
     comment_team: Union[None, Unset, str] = UNSET
@@ -118,7 +117,11 @@ class ProposalReview:
 
         state = self.state.value
 
-        review_end_date = self.review_end_date.isoformat()
+        review_end_date: Union[None, str]
+        if isinstance(self.review_end_date, datetime.datetime):
+            review_end_date = self.review_end_date.isoformat()
+        else:
+            review_end_date = self.review_end_date
 
         round_uuid = str(self.round_uuid)
 
@@ -184,29 +187,11 @@ class ProposalReview:
         else:
             comment_project_summary = self.comment_project_summary
 
-        comment_project_is_confidential: Union[None, Unset, str]
-        if isinstance(self.comment_project_is_confidential, Unset):
-            comment_project_is_confidential = UNSET
-        else:
-            comment_project_is_confidential = self.comment_project_is_confidential
-
-        comment_project_has_civilian_purpose: Union[None, Unset, str]
-        if isinstance(self.comment_project_has_civilian_purpose, Unset):
-            comment_project_has_civilian_purpose = UNSET
-        else:
-            comment_project_has_civilian_purpose = self.comment_project_has_civilian_purpose
-
         comment_project_description: Union[None, Unset, str]
         if isinstance(self.comment_project_description, Unset):
             comment_project_description = UNSET
         else:
             comment_project_description = self.comment_project_description
-
-        comment_project_duration: Union[None, Unset, str]
-        if isinstance(self.comment_project_duration, Unset):
-            comment_project_duration = UNSET
-        else:
-            comment_project_duration = self.comment_project_duration
 
         comment_project_supporting_documentation: Union[None, Unset, str]
         if isinstance(self.comment_project_supporting_documentation, Unset):
@@ -273,14 +258,8 @@ class ProposalReview:
             field_dict["comment_project_title"] = comment_project_title
         if comment_project_summary is not UNSET:
             field_dict["comment_project_summary"] = comment_project_summary
-        if comment_project_is_confidential is not UNSET:
-            field_dict["comment_project_is_confidential"] = comment_project_is_confidential
-        if comment_project_has_civilian_purpose is not UNSET:
-            field_dict["comment_project_has_civilian_purpose"] = comment_project_has_civilian_purpose
         if comment_project_description is not UNSET:
             field_dict["comment_project_description"] = comment_project_description
-        if comment_project_duration is not UNSET:
-            field_dict["comment_project_duration"] = comment_project_duration
         if comment_project_supporting_documentation is not UNSET:
             field_dict["comment_project_supporting_documentation"] = comment_project_supporting_documentation
         if comment_resource_requests is not UNSET:
@@ -309,7 +288,20 @@ class ProposalReview:
 
         state = ProposalReviewStateEnum(d.pop("state"))
 
-        review_end_date = isoparse(d.pop("review_end_date"))
+        def _parse_review_end_date(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                review_end_date_type_0 = isoparse(data)
+
+                return review_end_date_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        review_end_date = _parse_review_end_date(d.pop("review_end_date"))
 
         round_uuid = UUID(d.pop("round_uuid"))
 
@@ -396,28 +388,6 @@ class ProposalReview:
 
         comment_project_summary = _parse_comment_project_summary(d.pop("comment_project_summary", UNSET))
 
-        def _parse_comment_project_is_confidential(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        comment_project_is_confidential = _parse_comment_project_is_confidential(
-            d.pop("comment_project_is_confidential", UNSET)
-        )
-
-        def _parse_comment_project_has_civilian_purpose(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        comment_project_has_civilian_purpose = _parse_comment_project_has_civilian_purpose(
-            d.pop("comment_project_has_civilian_purpose", UNSET)
-        )
-
         def _parse_comment_project_description(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -426,15 +396,6 @@ class ProposalReview:
             return cast(Union[None, Unset, str], data)
 
         comment_project_description = _parse_comment_project_description(d.pop("comment_project_description", UNSET))
-
-        def _parse_comment_project_duration(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        comment_project_duration = _parse_comment_project_duration(d.pop("comment_project_duration", UNSET))
 
         def _parse_comment_project_supporting_documentation(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -498,10 +459,7 @@ class ProposalReview:
             summary_private_comment=summary_private_comment,
             comment_project_title=comment_project_title,
             comment_project_summary=comment_project_summary,
-            comment_project_is_confidential=comment_project_is_confidential,
-            comment_project_has_civilian_purpose=comment_project_has_civilian_purpose,
             comment_project_description=comment_project_description,
-            comment_project_duration=comment_project_duration,
             comment_project_supporting_documentation=comment_project_supporting_documentation,
             comment_resource_requests=comment_resource_requests,
             comment_team=comment_team,

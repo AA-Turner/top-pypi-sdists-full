@@ -1,10 +1,11 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Photutils is an Astropy affiliated package to provide tools for
+Photutils is an Astropy coordinated package that provides tools for
 detecting and performing photometry of astronomical sources.
 
-It also has tools for background estimation, ePSF building, PSF
-matching, radial profiles, centroiding, and morphological measurements.
+It also has tools for background estimation, image segmentation, ePSF
+building, PSF matching, radial profiles, centroiding, elliptical
+isophote fitting, and morphological measurements.
 """
 
 try:
@@ -14,17 +15,17 @@ except ImportError:
 
 from .utils._deprecation import use_future_column_names  # noqa: F401
 
-
 future_column_names = False
 """
 If `True`, all photutils functions return standard
 `~astropy.table.QTable` (or `~astropy.table.Table`) instances with the
-new column names instead of deprecated-column subclasses. Set this to
-`True` after updating your code to use the new column names to verify
-compatibility with the 4.0 behavior.
+new column names instead of deprecated-column subclasses. Use this with
+caution, as it is a global flag that affects all photutils functions
+across all packages that return tables.
 
-For a scoped override that does not affect the global flag, use
-`photutils.use_future_column_names` as a context manager::
+A better approach is to use ``photutils.use_future_column_names`` as a
+context manager. This provides a scoped override without modifying the
+global flag::
 
     with photutils.use_future_column_names():
         table = cat.to_table()  # returns a plain QTable

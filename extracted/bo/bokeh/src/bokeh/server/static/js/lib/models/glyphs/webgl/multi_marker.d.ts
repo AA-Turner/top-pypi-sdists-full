@@ -10,10 +10,13 @@ export declare class MultiMarkerGL extends BaseMarkerGL {
     readonly glyph: ScatterView;
     protected _marker_types?: Uniform<MarkerType | ExtMarkerType | null>;
     protected _unique_marker_types: (MarkerType | null)[];
+    private readonly _show_by_type;
+    private readonly _nshow_by_type;
+    private _show_marker_types?;
     constructor(regl_wrapper: ReglWrapper, glyph: ScatterView);
     draw(indices: number[], main_glyph: ScatterView, transform: Transform): void;
     protected _get_visuals(): MarkerVisuals;
-    protected _set_data(): void;
+    protected _set_data(data_changed?: boolean): void;
     protected _set_once(): void;
 }
 //# sourceMappingURL=multi_marker.d.ts.map

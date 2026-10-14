@@ -20,36 +20,94 @@ from powertrain_build.problem_logger import ProblemLogger
 class Core(ProblemLogger):
     """A class holding core configuration data."""
 
-    __wrk_sheets = {'EventIDs': {'mdl_col': 0,
-                                 'id_col': 1,
-                                 'desc_col': 2,
-                                 'fid_col': 3,
-                                 'com_col': 4,
-                                 'data_col': 5},
-                    'FunctionIDs': {'mdl_col': 0,
-                                    'id_col': 1,
-                                    'desc_col': 2,
-                                    'com_col': 3,
-                                    'data_col': 4},
-                    'IUMPR': {'mdl_col': 0,
-                              'id_col': 1,
-                              'desc_col': 2,
-                              'fid_col': 3,
-                              'com_col': 4,
-                              'data_col': 5},
-                    'Mode$06': {'mdl_col': 0,
-                                'id_col': 1,
-                                'desc_col': 2,
-                                'fid_col': 3,
-                                'UAS_col': 4,
-                                'com_col': 5,
-                                'data_col': 6},
-                    'Ranking': {'mdl_col': 0,
-                                'id_col': 1,
-                                'desc_col': 2,
-                                'fid_col': 3,
-                                'com_col': 4,
-                                'data_col': 5}}
+    __wrk_sheets_1 = {
+        'EventIDs': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'com_col': 4,
+            'data_col': 5
+        },
+        'FunctionIDs': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'com_col': 3,
+            'data_col': 4
+        },
+        'IUMPR': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'com_col': 4,
+            'data_col': 5
+        },
+        'Mode$06': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'UAS_col': 4,
+            'com_col': 5,
+            'data_col': 6
+        },
+        'Ranking': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'com_col': 4,
+            'data_col': 5
+        }
+    }
+
+    __wrk_sheets_2 = {
+        'EventIDs': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'com_col': 4,
+            'data_col': 5
+        },
+        'FunctionIDs': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'len_col': 3,
+            'com_col': 4,
+            'data_col': 5
+        },
+        'IUMPR': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'eventid_col': 4,
+            'com_col': 5,
+            'data_col': 6
+        },
+        'Mode$06': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'eventid_col': 4,
+            'UAS_col': 5,
+            'com_col': 6,
+            'data_col': 7
+        },
+        'Ranking': {
+            'mdl_col': 0,
+            'id_col': 1,
+            'desc_col': 2,
+            'fid_col': 3,
+            'com_col': 4,
+            'data_col': 5
+        }
+    }
 
     _NoFid = '_NoFid'
 
@@ -63,6 +121,14 @@ class Core(ProblemLogger):
         super().__init__()
         self._prj_cfg = project_cfg
         self._unit_cfgs = unit_cfgs
+        core_id_config_version = self._prj_cfg.get_core_id_config_version()
+        if core_id_config_version == "1":
+            self.__wrk_sheets = self.__wrk_sheets_1
+        elif core_id_config_version == "2":
+            self.__wrk_sheets = self.__wrk_sheets_2
+        else:
+            self.critical(f'Unsupported core ID config version: {core_id_config_version}')
+            self.__wrk_sheets = self.__wrk_sheets_1
         self._csv_files = None
         self._read_csv_files(self._prj_cfg.get_prj_cfg_dir())
         self._parse_core_config()

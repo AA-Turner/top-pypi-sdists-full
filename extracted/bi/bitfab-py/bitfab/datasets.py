@@ -188,6 +188,32 @@ class DatasetsClient:
         result = self._http_client.get(_dataset_path(dataset_id))
         return result["dataset"]
 
+    def update(
+        self,
+        dataset_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> Dataset:
+        """Rename a dataset or change its description, by id. ``None`` leaves a
+        field untouched, and an empty ``description`` clears it. The dataset
+        keeps its id, traces, and graders. A blank name, or a name another
+        dataset under the same trace function already uses, raises
+        ``requests.HTTPError`` with a 400. A dataset outside this organization
+        raises one with a 404. Passing neither field raises ``ValueError``
+        without sending a request."""
+        payload: dict[str, Any] = {}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        if not payload:
+            raise ValueError("Provide name and/or description to update.")
+        result = self._http_client.request(
+            _dataset_path(dataset_id), payload, method="PATCH"
+        )
+        return result["dataset"]
+
     def list_traces(self, dataset_id: str) -> DatasetTraceIds:
         """The ids of every trace in the dataset, the same membership a replay
         with ``dataset_id`` selects. Fetches all pages automatically."""

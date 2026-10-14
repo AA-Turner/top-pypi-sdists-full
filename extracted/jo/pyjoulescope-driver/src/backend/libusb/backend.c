@@ -202,6 +202,17 @@ static struct transfer_s * transfer_alloc(struct dev_s * d) {
     return t;
 }
 
+// transfer_free pools transfers while the handle is open.  Release the
+// pool when the device goes away, or each removal strands it in its slot.
+static void transfers_free_drain(struct dev_s * d) {
+    struct jsdrv_list_s * item;
+    while (NULL != (item = jsdrv_list_remove_head(&d->transfers_free))) {
+        struct transfer_s * t = JSDRV_CONTAINER_OF(item, struct transfer_s, item);
+        libusb_free_transfer(t->transfer);
+        jsdrv_free(t);
+    }
+}
+
 static void transfer_free(struct transfer_s * t) {
     if (NULL == t) {
         return;
@@ -284,7 +295,33 @@ static void device_close(struct dev_s * d) {
     }
 }
 
+static int32_t libusb_error_to_jsdrv(int rc) {
+    switch (rc) {
+        case LIBUSB_SUCCESS: return 0;
+        case LIBUSB_ERROR_ACCESS: return JSDRV_ERROR_PERMISSIONS;
+        case LIBUSB_ERROR_NO_DEVICE: return JSDRV_ERROR_NOT_FOUND;
+        case LIBUSB_ERROR_BUSY: return JSDRV_ERROR_IN_USE;  // claimed by another process
+        case LIBUSB_ERROR_TIMEOUT: return JSDRV_ERROR_TIMED_OUT;
+        case LIBUSB_ERROR_NO_MEM: return JSDRV_ERROR_NOT_ENOUGH_MEMORY;
+        case LIBUSB_ERROR_NOT_SUPPORTED: return JSDRV_ERROR_NOT_SUPPORTED;
+        default: return JSDRV_ERROR_IO;
+    }
+}
+
+static int32_t device_open_inner(struct dev_s * d);
+
 static int32_t device_open(struct dev_s * d) {
+    int32_t rc = device_open_inner(d);
+    if (rc && d->handle && (d->mode != DEVICE_MODE_OPEN)) {
+        // Opened, but could not configure or claim, such as when another
+        // process holds the device.  Close, or the next open leaks it.
+        libusb_close(d->handle);
+        d->handle = NULL;
+    }
+    return libusb_error_to_jsdrv(rc);
+}
+
+static int32_t device_open_inner(struct dev_s * d) {
     int rc;
     device_close(d);
 
@@ -962,6 +999,7 @@ static void process_removing(struct backend_s * s) {
             libusb_close(d->handle);
             d->handle = NULL;
         }
+        transfers_free_drain(d);  // the slot goes to the tail of devices_free
         device_close_respond(d, 0);
 
         JSDRV_LOGI("process_removing(%s): LL_TERMINATED", d->ll_device.prefix);
@@ -1119,13 +1157,7 @@ static void device_close_all(struct backend_s * s) {
             d->usb_device = NULL;
         }
         device_close_respond(d, 0);
-        // transfer_free pools transfers while the handle is open.
-        struct jsdrv_list_s * item;
-        while (NULL != (item = jsdrv_list_remove_head(&d->transfers_free))) {
-            struct transfer_s * t = JSDRV_CONTAINER_OF(item, struct transfer_s, item);
-            libusb_free_transfer(t->transfer);
-            jsdrv_free(t);
-        }
+        transfers_free_drain(d);
     }
 }
 

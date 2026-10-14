@@ -5,6 +5,7 @@ Public API (consumed by codegen-emitted test.py):
     configure(**kwargs)          — set test config at module top
     @testmu_appium.test          — decorator for the test function
     testmu_appium.run(fn)        — session lifecycle (local Appium / LT mobile hub)
+    open_session(entry, ...), close_session(status) — the same session, owned by a host process
     testmu_appium.step(...)      — step context manager
     var(template), set_var(name, value) — variable store + template substitution
 
@@ -40,6 +41,13 @@ injects env vars itself.
 """
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
+# Old module paths (testmu_appium._vars, testmu_appium.perception, …) alias the
+# v4 modules. Installed first so every import below, and any made by the host,
+# resolves them.
+from testmu_appium import _aliases
+
+_aliases.install()
+
 try:
     __version__ = _pkg_version("testmuai-appium-bindings")
 except PackageNotFoundError:
@@ -47,88 +55,23 @@ except PackageNotFoundError:
 
 # Lifecycle
 from testmu_appium._configure import configure
-from testmu_appium._test_config import test_config_overrides
-from testmu_appium._decorator import test
-from testmu_appium._session import run
+from typing import TYPE_CHECKING
+
+# --- shared: one of each, whatever the mode ---------------------------------------
 from testmu_appium._step import step
-from testmu_appium._vars import var, set_var, get_variable_value, resolve_variable
-from testmu_appium._route_failure import route_failure
-from testmu_appium._helpers.driver import get_driver
-from testmu_appium._timing import capture_action_timings
-from testmu_appium.perception import (
-    ELEMENT_CONTRACT,
-    find_by_fingerprint,
-    format_for_prompt,
-    parse_tree,
-    position_hint,
-)
 
-# Element verbs — find + heal + act
-from testmu_appium._action_click import click
-from testmu_appium._action_type import type as _type, search, clear
-from testmu_appium._action_select import select
-from testmu_appium._action_scroll import scroll
-from testmu_appium._action_scroll_until import scroll_until
-from testmu_appium._action_drag import drag
+# --- per mode: served by testmu_appium._v4 (and a future _v3) on each call ------------
+# They're forwarders (see testmu_appium._router), so names imported before
+# configure() runs still follow the mode.
+from testmu_appium import _router
 
-# Driver verbs — act on the session
-from testmu_appium._helpers.navigate import navigate
-from testmu_appium._helpers.keyevent import keyevent
-from testmu_appium._helpers.app_lifecycle import app_lifecycle
-from testmu_appium._helpers.device_control import device_control, device_control_query
-from testmu_appium._helpers.geolocation import set_geolocation
-from testmu_appium._helpers.wait import wait
-from testmu_appium._helpers.smartui import smartui_screenshot
-from testmu_appium._helpers.cookies import set_cookies, delete_cookies, clear_cookies
-from testmu_appium._helpers.local_storage import (
-    set_local_storage, delete_local_storage, clear_local_storage,
-)
-from testmu_appium._helpers.clipboard import (
-    set_clipboard, paste_clipboard, clear_clipboard,
-)
-from testmu_appium._helpers.navigation_history import go_back, go_forward
-from testmu_appium._helpers.refresh import refresh
-from testmu_appium._helpers.accessibility import accessibility_scan
-from testmu_appium._helpers.tabs import get_tabs, new_tab, switch_tab, close_tab
-from testmu_appium._helpers.media_injection import inject_media
-from testmu_appium._helpers.network_throttle import network_throttle
-from testmu_appium._helpers.network_mock import network_mock
+_router.load_impls()
+globals().update(_router.build_public_namespace())
 
-# Value / query verbs
-from testmu_appium._helpers.assertion import assertion, evaluate_branch
-from testmu_appium._helpers.math import math
-from testmu_appium._helpers.verify_assertion import verify_assertion
-from testmu_appium._helpers.evaluate_math import evaluate_math
-from testmu_appium._helpers.condition import check_until_condition
-from testmu_appium._helpers.kane_cli import execute_kane_cli
-from testmu_appium._helpers.textual_query import textual_query
-from testmu_appium._helpers.vision_query import vision_query
-from testmu_appium._helpers.execute_api import execute_api
-from testmu_appium._helpers.execute_js import execute_js
-from testmu_appium._helpers.execute_db import execute_db
-from testmu_appium._helpers.textual_analyzer import (
-    textual_analyzer,
-    textual_analyzer_authoring,
-)
-from testmu_appium._helpers.network_query import (
-    network_query,
-    network_capture_query,
-    network_capture_capabilities,
-    evaluate_network_assertion,
-    NetworkCaptureError,
-    NetworkCaptureUnavailable,
-    NetworkCaptureTimeout,
-    NetworkCaptureNotFound,
-    NetworkCaptureContractError,
-    NetworkAssertionError,
-)
+if TYPE_CHECKING:  # the real objects, for type checkers and IDEs
+    from testmu_appium._v4 import *  # noqa: F401,F403
 
-# Heal outcomes — exported so a host runtime can introspect a heal result
-from testmu_appium._heal import (
-    HealDisabled, HealHit, HealNoMatch, HealProtocolError, HealUnavailable,
-)
-
-from testmu_appium._errors import (
+from testmu_appium._errors import (  # shared: `except` needs the real classes
     TestmuConfigError,
     UnsupportedOnPlatform,
     UnknownStrategy,
@@ -152,16 +95,30 @@ from testmu_appium._errors import (
     ViewportScriptTimeoutError,
     ViewportScriptRuntimeError,
     ViewportResultTypeError,
+    NetworkCaptureError,
+    NetworkCaptureUnavailable,
+    NetworkCaptureTimeout,
+    NetworkCaptureNotFound,
+    NetworkCaptureContractError,
+    NetworkAssertionError,
 )
 
-# Bound at module level so codegen can emit `testmu_appium.type(...)`. This only
-# shadows the builtin for `from testmu_appium import type`, which codegen never does.
-type = _type  # noqa: A001
+# `type` is routed like every other verb (see ROUTED_NAMES), so codegen's
+# `testmu_appium.type(...)` works; it only shadows the builtin for
+# `from testmu_appium import type`, which codegen never does.
+
+
+
+
+def __getattr__(name):
+    """``testmu_appium._vars`` etc. as attributes: see testmu_appium._aliases."""
+    return _aliases.package_getattr(name)
 
 
 __all__ = [
     # Lifecycle
     "configure", "test_config_overrides", "test", "run", "step",
+    "open_session", "close_session",
     "var", "set_var", "get_variable_value", "resolve_variable",
     "route_failure", "get_driver",
     # Perception
@@ -179,7 +136,7 @@ __all__ = [
     "get_tabs", "new_tab", "switch_tab", "close_tab",
     "inject_media", "network_throttle", "network_mock",
     # Value / query verbs
-    "verify_assertion", "evaluate_math", "assertion", "evaluate_branch", "math",
+    "verify_assertion", "verify_schema_assertion", "evaluate_math", "assertion", "evaluate_branch", "math",
     "textual_query", "vision_query", "check_until_condition", "execute_kane_cli",
     "execute_api", "execute_js", "execute_db", "network_query", "network_capture_query",
     "network_capture_capabilities", "evaluate_network_assertion",

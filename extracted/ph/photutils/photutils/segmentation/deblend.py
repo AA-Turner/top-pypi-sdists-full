@@ -5,26 +5,76 @@ image.
 """
 
 import warnings
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from functools import partial
-from multiprocessing import cpu_count, get_context
+from itertools import pairwise
 
 import numpy as np
 from astropy.units import Quantity
-from astropy.utils import lazyproperty
-from astropy.utils.exceptions import AstropyUserWarning
-from scipy.ndimage import label as ndi_label
-from scipy.ndimage import sum_labels
 
-from photutils.segmentation.core import SegmentationImage
-from photutils.segmentation.detect import _detect_sources
+from photutils.segmentation._deblend_markers import (deblend_markers_chunk,
+                                                     deblend_source_stats)
+from photutils.segmentation._deblend_watershed import (apply_relabel_map,
+                                                       deblend_contrast_chunk,
+                                                       find_present_labels,
+                                                       write_deblended_labels)
+from photutils.segmentation.core import (SegmentationImage, _get_labels,
+                                         _make_relabel_map, _max_dense_label,
+                                         _remap_deblend_label_map)
+from photutils.segmentation.flags import SEGMENTATION_FLAGS
 from photutils.segmentation.utils import _make_binary_structure
 from photutils.utils._deprecation import deprecated_renamed_argument
-from photutils.utils._progress_bars import add_progress_bar, tqdm
-from photutils.utils._stats import nanmax, nanmin, nansum
+from photutils.utils.exceptions import DeblendWarning
 
 __all__ = ['deblend_sources']
+
+# The number of markers above which a source is deblended again with
+# linearly spaced threshold levels, which have fewer levels at low
+# thresholds. The value is arbitrary but works well in practice
+_MAX_MARKERS = 200
+
+
+def _validate_deblend_kwargs(*, n_levels, contrast, contrast_method, mode,
+                             connectivity, n_threads):
+    """
+    Validate the deblending keywords shared by `deblend_sources` and
+    `~photutils.segmentation.SourceFinder`.
+
+    Parameters
+    ----------
+    n_levels, contrast, contrast_method, mode, connectivity, n_threads
+        The keyword values to validate. See `deblend_sources`.
+
+    Raises
+    ------
+    ValueError
+        If any of the values is invalid.
+    """
+    if (n_levels < 1) or (int(n_levels) != n_levels):
+        msg = f'n_levels must be a positive integer, got {n_levels!r}'
+        raise ValueError(msg)
+
+    if contrast < 0 or contrast > 1:
+        msg = 'contrast must be >= 0 and <= 1'
+        raise ValueError(msg)
+
+    if contrast_method not in (None, 'basin', 'saddle'):
+        msg = "contrast_method must be None, 'basin', or 'saddle'"
+        raise ValueError(msg)
+
+    if mode not in ('exponential', 'linear', 'sinh'):
+        msg = "mode must be 'exponential', 'linear', or 'sinh'"
+        raise ValueError(msg)
+
+    if connectivity not in (4, 8):
+        msg = f'Invalid connectivity={connectivity}. Options are 4 or 8'
+        raise ValueError(msg)
+
+    if (isinstance(n_threads, bool)
+            or not isinstance(n_threads, (int, np.integer))
+            or n_threads < 1):
+        msg = f'n_threads must be a positive integer, got {n_threads!r}'
+        raise ValueError(msg)
 
 
 @dataclass
@@ -34,72 +84,139 @@ class _DeblendParams:
     n_levels: int
     contrast: float
     mode: str
+    contrast_method: str = 'basin'
+
+
+@dataclass
+class _ChunkResult:
+    """
+    The deblending results of a chunk of sources.
+
+    The deblended labels of every source are stored in the packed
+    cutout layout of the compiled kernels. The region of source ``i``
+    is ``packed[offsets[i]:offsets[i + 1]]``, its bounding-box cutout
+    in raster order. It holds consecutive labels from 1 if the source
+    deblended (``n_labels[i] >= 2``), and zeros otherwise.
+    """
+
+    n_labels: np.ndarray
+    packed: np.ndarray
+    offsets: np.ndarray
+    y0: np.ndarray
+    y1: np.ndarray
+    x0: np.ndarray
+    x1: np.ndarray
+    nonposmin: np.ndarray
+    n_markers_fallback: np.ndarray
 
 
 @deprecated_renamed_argument('segment_img', 'segmentation_image', '3.0',
                              until='4.0')
 @deprecated_renamed_argument('npixels', 'n_pixels', '3.0', until='4.0')
 @deprecated_renamed_argument('nlevels', 'n_levels', '3.0', until='4.0')
-@deprecated_renamed_argument('nproc', 'n_processes', '3.0', until='4.0')
+@deprecated_renamed_argument('nproc', None, '3.0', until='4.0')
+@deprecated_renamed_argument('n_processes', None, '3.1', until='4.0')
+@deprecated_renamed_argument('progress_bar', None, '3.1', until='4.0')
 def deblend_sources(data, segmentation_image, n_pixels, *, labels=None,
-                    n_levels=32, contrast=0.001, mode='exponential',
-                    connectivity=8, relabel=True, n_processes=1,
-                    progress_bar=True):
+                    n_levels=32, contrast=0.001,
+                    contrast_method=None, mode='exponential',
+                    connectivity=8, relabel=True, n_threads=1,
+                    nproc=1,  # noqa: ARG001
+                    n_processes=1,  # noqa: ARG001
+                    progress_bar=True):  # noqa: ARG001
     """
     Deblend overlapping sources labeled in a segmentation image.
 
-    Sources are deblended using a combination of multi-thresholding and
-    `watershed segmentation
+    Sources are deblended using a combination of
+    multithresholding and `watershed segmentation
     <https://en.wikipedia.org/wiki/Watershed_(image_processing)>`_. In
-    order to deblend sources, there must be a saddle between them.
+    order to deblend sources, they must be separated enough that there
+    is a saddle point between them.
 
     Parameters
     ----------
-    data : 2D `~numpy.ndarray`
+    data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
         The 2D array of the image. If filtering is desired, please input
         a convolved image here. This array should be the same array used
-        in `~photutils.segmentation.detect_sources`.
+        in `~photutils.segmentation.detect_sources`. NaN pixels within
+        a source segment are excluded from the multithreshold levels
+        and the source flux, and are assigned to a neighboring
+        deblended source after all finite pixels have been assigned.
 
     segmentation_image : `~photutils.segmentation.SegmentationImage`
         The segmentation image to deblend.
 
     n_pixels : int
-        The minimum number of connected pixels, each greater than
-        ``threshold``, that an object must have to be deblended.
-        ``n_pixels`` must be a positive integer.
+        The minimum number of connected pixels, each greater than a
+        given multithresholding level, that a local peak must have
+        at that level to be considered a separate object. ``n_pixels``
+        must be a positive integer. Sources with fewer than
+        ``2 * n_pixels`` pixels are not deblended.
 
     labels : int or array_like of int, optional
         The label numbers to deblend. If `None` (default), then all
         labels in the segmentation image will be deblended.
 
     n_levels : int, optional
-        The number of multi-thresholding levels to use for deblending.
-        Each source will be re-thresholded at ``n_levels`` levels spaced
-        between its minimum and maximum values (non-inclusive). The
+        The number of multithresholding levels to use for deblending.
+        Each source will be rethresholded at ``n_levels`` levels spaced
+        between its minimum and maximum values (noninclusive). The
         ``mode`` keyword determines how the levels are spaced.
 
     contrast : float, optional
         The fraction of the total source flux that a local peak must
-        have (at any one of the multi-thresholds) to be deblended
+        have (at any one of the multithresholds) to be deblended
         as a separate object. ``contrast`` must be between 0 and 1,
-        inclusive. If ``contrast=0`` then every local peak will be made
-        a separate object (maximum deblending). If ``contrast=1`` then
-        no deblending will occur. The default is 0.001, which will
-        deblend sources with a 7.5 magnitude difference.
+        inclusive. If ``contrast=0`` then every local peak will be
+        made a separate object (maximum deblending). If ``contrast=1``
+        then no deblending will occur. The default is 0.001, which
+        will deblend sources with a 7.5 magnitude difference. The
+        ``contrast_method`` keyword selects the flux to which the
+        fraction refers.
+
+    contrast_method : {`None`, 'basin', 'saddle'}, optional
+        The flux used by the contrast criterion. For ``'basin'``,
+        the fraction is the total flux in the source's watershed
+        basin, which includes the share of the surrounding envelope
+        territory assigned to the source. Basins below the contrast are
+        removed iteratively (faintest first, in batches when provably
+        equivalent) and their territory is reflooded. For ``'saddle'``,
+        the fraction is the flux the source holds above the saddle
+        level where it separates from its neighbors, evaluated once
+        during marker construction with no iteration. This measures
+        the significance of the peak itself, independently of how much
+        envelope territory it would inherit. Because ``'saddle'``
+        needs only a single watershed pass, it is never slower than
+        ``'basin'`` and is substantially faster when many below-contrast
+        basins would otherwise be removed iteratively. Note that the
+        two methods measure different fluxes, so the same ``contrast``
+        value selects sources differently. The saddle flux excludes
+        all regions below the saddle and is therefore smaller than the
+        basin flux, making ``'saddle'`` stricter for faint peaks on
+        bright envelopes. If `None` (default), the ``'basin'`` method
+        is currently used. The default may change to ``'saddle'`` in
+        version 4.0.
 
     mode : {'exponential', 'linear', 'sinh'}, optional
         The mode used in defining the spacing between the
-        multi-thresholding levels (see the ``n_levels`` keyword)
+        multithresholding levels (see the ``n_levels`` keyword)
         during deblending. The ``'exponential'`` and ``'sinh'`` modes
-        have more threshold levels near the source minimum and less
+        have more threshold levels near the source minimum and fewer
         near the source maximum. The ``'linear'`` mode evenly spaces
         the threshold levels between the source minimum and maximum.
         The ``'exponential'`` and ``'sinh'`` modes differ in that
         the ``'exponential'`` levels are dependent on the source
-        maximum/minimum ratio (smaller ratios are more linear; larger
-        ratios are more exponential), while the ``'sinh'`` levels
-        are not. Also, the ``'exponential'`` mode will be changed to
-        ``'linear'`` for sources with non-positive minimum data values.
+        maximum/minimum ratio (smaller ratios are more linear and
+        larger ratios are more exponential), while the ``'sinh'`` levels
+        are not. Unlike the ``'exponential'`` mode, the ``'sinh'``
+        and ``'linear'`` modes are well defined for sources with
+        nonpositive minimum data values. For such sources, the
+        ``'exponential'`` mode will be changed to ``'sinh'``. In
+        addition, with the ``'basin'`` contrast method, a source that
+        has more than 200 potential deblended sources (markers) in the
+        ``'exponential'`` or ``'sinh'`` mode is deblended again in the
+        ``'linear'`` mode, because that many markers make the
+        deblending very slow.
 
     connectivity : {8, 4}, optional
         The type of pixel connectivity used in determining how pixels
@@ -107,38 +224,80 @@ def deblend_sources(data, segmentation_image, n_pixels, *, labels=None,
         or 4. 8-connected pixels touch along their edges or corners.
         4-connected pixels touch along their edges. The ``connectivity``
         must be the same as that used to create the input segmentation
-        image.
+        image. A `ValueError` is raised if a source cannot be deblended
+        because the connectivities differ.
 
     relabel : bool, optional
         If `True` (default), then the segmentation image will be
         relabeled such that the labels are in consecutive order starting
-        from 1.
+        from 1. If `False`, the labels of the sources that are not
+        deblended are unchanged, and each deblended source is replaced
+        by new labels that are larger than the maximum label of the
+        input segmentation image.
+
+    n_threads : int, optional
+        The number of threads to use to deblend the sources. The
+        default is 1 (no multithreading). When ``n_threads`` > 1, the
+        sources are divided into chunks and processed concurrently. The
+        per-source results are independent and are assembled in the
+        input-label order, so they are identical to the single-threaded
+        computation. Each chunk is deblended by a few compiled calls
+        that release the Python global interpreter lock (GIL), so
+        multithreading speeds up the deblending of fields of many small
+        sources as well as of large sources.
+
+    nproc : int, optional
+        This keyword is deprecated and has no effect. It was the name of
+        the ``n_processes`` keyword before version 3.0.
+
+        .. deprecated:: 3.0
+            The ``nproc`` keyword is deprecated and will be removed in
+            version 4.0.
 
     n_processes : int, optional
-        The number of processes to use for multiprocessing (if larger
-        than 1). If set to 1, then a serial implementation is used
-        instead of a parallel one. If `None`, then the number of
-        processes will be set to the number of CPUs detected on the
-        machine. Please note that due to overheads, multiprocessing may
-        be slower than serial processing if only a small number of
-        sources are to be deblended. The benefits of multiprocessing
-        require ~1000 or more sources to deblend, with larger gains as
-        the number of sources increase.
+        This keyword is deprecated and has no effect. Multiprocessing
+        no longer provides any benefit. The deblending computation is
+        now dominated by compiled code, and the process startup and
+        data-pickling overheads of multiprocessing made it slower than
+        the serial implementation. Use the ``n_threads`` keyword
+        instead.
+
+        .. deprecated:: 3.1
+            The ``n_processes`` keyword is deprecated and will be
+            removed in version 4.0.
 
     progress_bar : bool, optional
-        Whether to display a progress bar. If ``n_processes = 1``, then the
-        ID shown after the progress bar is the source label being
-        deblended. If multiprocessing is used (``n_processes > 1``), the ID
-        shown is the last source label that was deblended. The progress
-        bar requires that the `tqdm <https://tqdm.github.io/>`_ optional
-        dependency be installed.
+        This keyword is deprecated and has no effect. Deblending no
+        longer displays a progress bar.
+
+        .. deprecated:: 3.1
+            The ``progress_bar`` keyword is deprecated and will be
+            removed in version 4.0.
 
     Returns
     -------
     segment_image : `~photutils.segmentation.SegmentationImage`
         A segmentation image, with the same shape as ``data``, where
         sources are marked by different positive integer values. A value
-        of zero is reserved for the background.
+        of zero is reserved for the background. The ``info`` attribute
+        of the returned segmentation image is a dictionary that stores
+        the input labels for which the deblending mode was changed
+        to a fallback mode as arrays under ``'non_positive_min_labels'``
+        (nonpositive minimum data values, changed to "sinh") and
+        ``'too_many_markers_labels'`` (too many potential deblended
+        sources, changed to "linear") keys. The dictionary is empty if
+        no mode fallbacks occurred. The ``flags`` attribute of the
+        returned segmentation image records per-source deblending
+        provenance. See
+        `~photutils.segmentation.decode_segmentation_flags`.
+
+    Warns
+    -----
+    DeblendWarning
+        If the deblending mode for one or more sources was changed
+        from ``mode`` to "sinh" due to nonpositive minimum data
+        values or to "linear" due to too many potential deblended
+        sources.
 
     See Also
     --------
@@ -156,19 +315,23 @@ def deblend_sources(data, segmentation_image, n_pixels, *, labels=None,
         msg = 'segmentation_image must have the same shape as data'
         raise ValueError(msg)
 
-    if n_levels < 1:
-        msg = 'n_levels must be >= 1'
-        raise ValueError(msg)
-    if contrast < 0 or contrast > 1:
-        msg = 'contrast must be >= 0 and <= 1'
+    if segmentation_image.n_labels == 0:
+        msg = 'segmentation_image must have at least one nonzero label'
         raise ValueError(msg)
 
-    if contrast == 1:  # no deblending
-        return segmentation_image.copy()
-
-    if mode not in ('exponential', 'linear', 'sinh'):
-        msg = "mode must be 'exponential', 'linear', or 'sinh'"
+    if (n_pixels <= 0) or (int(n_pixels) != n_pixels):
+        msg = f'n_pixels must be a positive integer, got {n_pixels!r}'
         raise ValueError(msg)
+
+    _validate_deblend_kwargs(n_levels=n_levels, contrast=contrast,
+                             contrast_method=contrast_method, mode=mode,
+                             connectivity=connectivity,
+                             n_threads=n_threads)
+
+    if contrast_method is None:
+        # The default resolution is planned to change to 'saddle' in
+        # version 4.0
+        contrast_method = 'basin'
 
     if labels is None:
         labels = segmentation_image.labels
@@ -176,8 +339,15 @@ def deblend_sources(data, segmentation_image, n_pixels, *, labels=None,
         labels = np.atleast_1d(labels)
         segmentation_image.check_labels(labels)
 
-    # Include only sources that have at least (2 * n_pixels);
-    # this is required for a source to be deblended into multiple
+    if contrast == 1:  # no deblending
+        segm_img = SegmentationImage._from_data(
+            segmentation_image.data.copy())
+        if relabel:
+            segm_img.relabel_consecutive()
+        return segm_img
+
+    # Include only sources that have at least (2 * n_pixels).
+    # This is required for a source to be deblended into multiple
     # sources, each with a minimum of n_pixels
     mask = (segmentation_image.areas[
             segmentation_image.get_indices(labels)]
@@ -186,491 +356,507 @@ def deblend_sources(data, segmentation_image, n_pixels, *, labels=None,
 
     footprint = _make_binary_structure(data.ndim, connectivity)
     deblend_params = _DeblendParams(n_pixels, footprint, n_levels, contrast,
-                                    mode)
+                                    mode, contrast_method)
 
-    segm_deblended = segmentation_image.data.copy()
     label_indices = segmentation_image.get_indices(labels)
+    all_slices = [segmentation_image.slices[idx] for idx in label_indices]
 
-    if n_processes is None:
-        n_processes = cpu_count()
-
-    deblend_label_map = {}
-    max_label = segmentation_image.max_label
-    if n_processes == 1:
-        if progress_bar:
-            desc = 'Deblending'
-            label_indices = add_progress_bar(label_indices, desc=desc)
-
-        nonposmin_labels = []
-        nmarkers_labels = []
-        for label, label_idx in zip(labels, label_indices, strict=True):
-            if not isinstance(label_indices, np.ndarray):
-                label_indices.set_postfix_str(f'ID: {label}')
-            source_slice = segmentation_image.slices[label_idx]
-            source_data = data[source_slice]
-            source_segment = segmentation_image.data[source_slice]
-            source_deblended, warns = _deblend_source(source_data,
-                                                      source_segment,
-                                                      label,
-                                                      deblend_params)
-
-            if warns:
-                if 'nonposmin' in warns:
-                    nonposmin_labels.append(label)
-                if 'nmarkers' in warns:
-                    nmarkers_labels.append(label)
-
-            if source_deblended is not None:
-                source_mask = source_deblended > 0
-                new_segm = source_deblended[source_mask]  # min label = 1
-                segm_deblended[source_slice][source_mask] = (
-                    new_segm + max_label)
-                new_labels = _get_labels(new_segm) + max_label
-                deblend_label_map[label] = new_labels
-                max_label += len(new_labels)
-
+    # Contiguous, native-byte-order views of the inputs for the
+    # compiled kernels. Casting the non-float data dtypes to float64 is
+    # exact for the threshold comparisons, matching the NumPy promotion
+    # rules
+    if data.dtype.type in (np.float32, np.float64):
+        driver_dtype = data.dtype.newbyteorder('=')
     else:
-        # Use multiprocessing to deblend sources
+        driver_dtype = np.float64
+    driver_data = np.ascontiguousarray(data, dtype=driver_dtype)
+    segm_data = segmentation_image.data
+    if segm_data.dtype.type in (np.int32, np.int64):
+        driver_dtype = segm_data.dtype.newbyteorder('=')
+    else:
+        driver_dtype = np.int64
+    driver_segm = np.ascontiguousarray(segm_data, dtype=driver_dtype)
 
-        # Prepare the arguments for the worker function
-        all_source_data = []
-        all_source_segments = []
-        all_source_slices = []
-        for label_idx in label_indices:
-            source_slice = segmentation_image.slices[label_idx]
-            source_data = data[source_slice]
-            source_segment = segmentation_image.data[source_slice]
-            all_source_data.append(source_data)
-            all_source_segments.append(source_segment)
-            all_source_slices.append(source_slice)
+    n_chunks = min(int(n_threads), len(labels))
+    if n_chunks > 1:
+        # The sources are dealt out to the chunks in decreasing order of
+        # their bounding-box area (the size of the cutouts the kernels
+        # work on), so that the chunks carry similar amounts of work
+        # regardless of the source ordering. The chunks are processed
+        # concurrently and the per-source results are gathered back
+        # into the input order, so they are identical to the
+        # single-threaded computation.
+        bbox_areas = np.array([(slc[0].stop - slc[0].start)
+                               * (slc[1].stop - slc[1].start)
+                               for slc in all_slices])
+        order = np.argsort(bbox_areas, kind='stable')[::-1]
+        chunk_indices = [np.sort(order[i::n_chunks])
+                         for i in range(n_chunks)]
 
-        args_all = zip(all_source_data, all_source_segments, labels,
-                       strict=True)
+        def _run_chunk(indices):
+            chunk_slices = [all_slices[idx] for idx in indices]
+            return _deblend_sources_chunk(data, segm_data, driver_data,
+                                          driver_segm, labels[indices],
+                                          chunk_slices, deblend_params)
 
-        # Create a partial function to pass the deblend_params to the
-        # worker function
-        worker = partial(_deblend_source, deblend_params=deblend_params)
+        with ThreadPoolExecutor(max_workers=n_chunks) as executor:
+            chunk_results = list(zip(chunk_indices,
+                                     executor.map(_run_chunk,
+                                                  chunk_indices),
+                                     strict=True))
+    else:
+        chunk_results = [(np.arange(len(labels)),
+                          _deblend_sources_chunk(data, segm_data,
+                                                 driver_data, driver_segm,
+                                                 labels, all_slices,
+                                                 deblend_params))]
 
-        # Prepare to store futures and results to preserve the input
-        # order of the labels when using as_completed()
-        futures_dict = {}
-        results = [None] * len(labels)
+    # Gather the per-source counts and fallback flags in the input
+    # order. The deblended labels of each source follow its
+    # predecessors, so the label offsets are a cumulative sum of the
+    # counts, starting after the largest input label
+    n_labels = np.zeros(len(labels), dtype=np.intp)
+    nonposmin = np.zeros(len(labels), dtype=bool)
+    n_markers_fallback = np.zeros(len(labels), dtype=bool)
+    for indices, result in chunk_results:
+        n_labels[indices] = result.n_labels
+        nonposmin[indices] = result.nonposmin
+        n_markers_fallback[indices] = result.n_markers_fallback
+    deblended = n_labels >= 2
+    counts = np.where(deblended, n_labels, 0)
+    label_offsets = np.zeros(len(labels), dtype=np.int64)
+    np.cumsum(counts[:-1], out=label_offsets[1:])
+    label_offsets += int(segmentation_image.max_label)
 
-        disable_pbar = not progress_bar
-        mp_context = get_context('spawn')
-        with ProcessPoolExecutor(mp_context=mp_context,
-                                 max_workers=n_processes) as executor:
-            # Submit all jobs at once
-            for index, args in enumerate(args_all):
-                futures_dict[executor.submit(worker, *args)] = index
+    segm_out = driver_segm.copy()
+    for indices, result in chunk_results:
+        write_deblended_labels(segm_out, result.packed,
+                               result.offsets[:-1], result.y0,
+                               result.y1, result.x0, result.x1,
+                               result.n_labels, label_offsets[indices])
 
-            with tqdm(total=len(labels), desc='Deblending',
-                      disable=disable_pbar) as pbar:
-                # Process the results as they are completed
-                for future in as_completed(futures_dict):
-                    pbar.update(1)
-                    idx = futures_dict[future]
-                    pbar.set_postfix_str(f'ID: {labels[idx]}')
-                    results[idx] = future.result()
+    # The labels are made consecutive in place by compiled code, before
+    # the cast to the dtype of the input segmentation image, unless the
+    # labels are too large for its per-label arrays
+    relabel_map = None
+    max_label = int(segmentation_image.max_label) + int(counts.sum())
+    use_kernel = max_label <= _max_dense_label(segm_out.size)
+    if relabel and use_kernel:
+        relabel_map = _relabel_consecutive(segm_out, max_label,
+                                           int(n_threads))
+    segm_deblended = segm_out.astype(segm_data.dtype, copy=False)
 
-        # Process the results
-        nonposmin_labels = []
-        nmarkers_labels = []
-        for label, source_slice, source_deblended in zip(labels,
-                                                         all_source_slices,
-                                                         results, strict=True):
-            source_deblended, warns = source_deblended
+    # The child labels carry the dtype of the output segmentation
+    # image, as the image itself does
+    deblend_label_map = {
+        int(label): (np.arange(1, count + 1) + offset).astype(
+            segm_deblended.dtype)
+        for label, count, offset in zip(labels[deblended],
+                                        counts[deblended],
+                                        label_offsets[deblended],
+                                        strict=True)}
+    non_positive_min_labels = list(labels[nonposmin])
+    too_many_markers_labels = list(labels[n_markers_fallback])
 
-            if warns:
-                if 'nonposmin' in warns:
-                    nonposmin_labels.append(label)
-                if 'nmarkers' in warns:
-                    nmarkers_labels.append(label)
-
-            if source_deblended is not None:
-                source_mask = source_deblended > 0
-                new_segm = source_deblended[source_mask]  # min label = 1
-                segm_deblended[source_slice][source_mask] = (
-                    new_segm + max_label)
-                new_labels = _get_labels(new_segm) + max_label
-                deblend_label_map[label] = new_labels
-                max_label += len(new_labels)
-
-    # Process any warnings during deblending
-    warning_info = {}
-    if nonposmin_labels or nmarkers_labels:
+    if non_positive_min_labels or too_many_markers_labels:
         msg = ('The deblending mode of one or more source labels from the '
-               f'input segmentation image was changed from "{mode}" to '
-               '"linear". See the "info" attribute for the list of affected '
-               'input labels.')
-        warnings.warn(msg, AstropyUserWarning)
+               f'input segmentation image was changed from "{mode}" to a '
+               'fallback mode. See the "info" attribute of the returned '
+               'segmentation image for the affected input labels and the '
+               '"mode" documentation for the fallback rules.')
+        warnings.warn(msg, DeblendWarning)
 
-        if nonposmin_labels:
-            nonposmin_labels = np.array(nonposmin_labels)
-            msg = (f'Deblending mode changed from {mode} to linear due to '
-                   'non-positive minimum data values.')
-            warn = {'message': msg, 'input_labels': nonposmin_labels}
-            warning_info['nonposmin'] = warn
-
-        if nmarkers_labels:
-            nmarkers_labels = np.array(nmarkers_labels)
-            msg = (f'Deblending mode changed from {mode} to linear due to '
-                   'too many potential deblended sources.')
-            warn = {'message': msg, 'input_labels': nmarkers_labels}
-            warning_info['nmarkers'] = warn
-
-    if relabel:
+    if relabel and not use_kernel:
         relabel_map = _create_relabel_map(segm_deblended, start_label=1)
         if relabel_map is not None:
             segm_deblended = relabel_map[segm_deblended]
-            deblend_label_map = _update_deblend_label_map(deblend_label_map,
-                                                          relabel_map)
+    elif relabel_map is not None:
+        # This is the map of the compiled relabeling, which is always
+        # an array and never a _SparseRelabelMap
+        relabel_map = relabel_map.astype(segm_deblended.dtype, copy=False)
+    if relabel_map is not None:
+        deblend_label_map = _remap_deblend_label_map(deblend_label_map,
+                                                     relabel_map)
 
-    segm_img = object.__new__(SegmentationImage)
-    segm_img._data = segm_deblended
-    segm_img._deblend_label_map = deblend_label_map
+    segm_img = SegmentationImage._from_data(
+        segm_deblended, deblend_label_map=deblend_label_map)
 
-    # Store the warnings in the output SegmentationImage info attribute
-    if warning_info:
-        segm_img.info = {'warnings': warning_info}
+    # Store the input labels affected by deblending mode fallbacks in
+    # the info attribute
+    if non_positive_min_labels:
+        segm_img.info['non_positive_min_labels'] = np.array(
+            non_positive_min_labels)
+    if too_many_markers_labels:
+        segm_img.info['too_many_markers_labels'] = np.array(
+            too_many_markers_labels)
+
+    segm_img._flags_map = _make_flags_map(
+        deblend_label_map, non_positive_min_labels, too_many_markers_labels,
+        relabel_map)
 
     return segm_img
 
 
-def _deblend_source(data, segment_data, label, deblend_params):
+def _linspace_rows(start, stop, num):
     """
-    Convenience function to deblend a single labeled source.
+    Evaluate ``np.linspace(start[i], stop[i], num)`` for every row.
+
+    This replicates the NumPy implementation operation for operation
+    (the evaluation dtype, the step computation, and the zero-step
+    special case), so that every row is bitwise identical to the
+    scalar ``np.linspace`` call of the pure-Python reference
+    implementation.
+
+    Parameters
+    ----------
+    start, stop : 1D `~numpy.ndarray`
+        The start and stop values of each row.
+
+    num : int
+        The number of samples per row.
+
+    Returns
+    -------
+    result : 2D `~numpy.ndarray`
+        The samples, with shape ``(len(start), num)``.
     """
-    deblender = _SingleSourceDeblender(data, segment_data, label,
-                                       deblend_params)
-    return deblender.deblend_source(), deblender.warnings
+    dtype = np.result_type(start, stop)
+    if not np.issubdtype(dtype, np.inexact):
+        dtype = np.float64
+    div = num - 1
+    delta = np.subtract(stop, start, dtype=dtype)
+    samples = np.arange(0, num, dtype=dtype)
+    step = delta / div
+    result = samples[None, :] * step[:, None]
+    zero_step = step == 0
+    if np.any(zero_step):
+        # The np.linspace special case for subnormal steps
+        result[zero_step] = (samples / div)[None, :] * delta[zero_step, None]
+    result += start[:, None]
+    result[:, -1] = stop
+    return result
 
 
-class _SingleSourceDeblender:
+def _compute_thresholds(source_min, source_max, n_levels, mode):
     """
-    Class to deblend a single labeled source.
+    Compute the multithreshold levels of a set of sources.
+
+    This is the vectorized form of the per-source threshold
+    computation of the pure-Python reference implementation
+    (``_SingleSourceDeblender.compute_thresholds``). It performs the
+    same NumPy operations in the same dtypes, so the levels are bitwise
+    identical to the reference implementation on every platform.
+
+    Parameters
+    ----------
+    source_min, source_max : 1D `~numpy.ndarray`
+        The minimum and maximum data value of each source segment, in
+        the data dtype. Each maximum must be larger than its minimum.
+
+    n_levels : int
+        The number of levels per source.
+
+    mode : {'exponential', 'linear', 'sinh'}
+        The level spacing. For the ``'exponential'`` mode, the sources
+        with a nonpositive minimum use the ``'sinh'`` spacing.
+
+    Returns
+    -------
+    thresholds : 2D float64 `~numpy.ndarray`
+        The levels of each source, with shape ``(n_sources,
+        n_levels)`` and ascending along the second axis. The source
+        minimum and maximum are excluded.
+
+    nonposmin : 1D bool `~numpy.ndarray`
+        Whether each source fell back to the ``'sinh'`` spacing
+        because of a nonpositive minimum.
+    """
+    source_min = np.asarray(source_min)
+    source_max = np.asarray(source_max)
+    nonposmin = np.zeros(source_min.shape, dtype=bool)
+    if mode == 'exponential':
+        nonposmin = source_min <= 0
+
+    thresholds = _linspace_rows(source_min, source_max, n_levels + 2)
+    if mode != 'linear':
+        delta = source_max - source_min
+        normalized = (thresholds - source_min[:, None]) / delta[:, None]
+        # The exponential rows keep the data dtype of the reference
+        # implementation (widened exactly below) while the sinh rows
+        # are float64, so the rows are combined in float64
+        thresholds = thresholds.astype(np.float64)
+        if mode == 'exponential':
+            use_sinh = nonposmin
+            keep = ~nonposmin
+            ratio = source_max[keep] / source_min[keep]
+            thresholds[keep] = (source_min[keep, None]
+                                * ratio[:, None] ** normalized[keep])
+        else:
+            use_sinh = np.ones(source_min.shape, dtype=bool)
+        if np.any(use_sinh):
+            # The exponential spacing is undefined for nonpositive
+            # minima, so those sources use the sinh spacing, which
+            # keeps the levels concentrated near the source minimum and
+            # is defined for any data values
+            a = 0.25
+            levels = np.sinh(normalized[use_sinh] / a) / np.sinh(1.0 / a)
+            levels *= delta[use_sinh, None]
+            levels += source_min[use_sinh, None]
+            thresholds[use_sinh] = levels
+
+    # Do not include the source minimum and maximum
+    return (np.ascontiguousarray(thresholds[:, 1:-1], dtype=np.float64),
+            nonposmin)
+
+
+def _deblend_sources_chunk(data, segm_data,  # noqa: ARG001
+                           driver_data, driver_segm, labels, slices,
+                           deblend_params):
+    """
+    Deblend a chunk of labeled sources.
+
+    The signature is shared with the pure-Python chunk function of the
+    cross-implementation tests, which needs ``segm_data`` even though
+    the compiled kernels read only ``driver_segm``.
+
+    The data extrema of every source in the chunk are computed by a
+    compiled kernel, the multithreshold levels and the mode fallbacks
+    are computed for all sources at once in NumPy, the level
+    quantization and the marker construction run in the compiled chunk
+    driver (which releases the GIL and reuses one workspace across the
+    chunk), and the watershed and contrast steps then run for the
+    sources that split into two or more markers, in one compiled call
+    over the chunk.
 
     Parameters
     ----------
     data : 2D `~numpy.ndarray`
-        The cutout data array for a single source. ``data`` should
-        also already be smoothed by the same filter used in
-        :func:`~photutils.segmentation.detect_sources`, if applicable.
+        The data array.
 
-    segment_data : 2D int `~numpy.ndarray`
-        The cutout segmentation image for a single source. Must have the
-        same shape as ``data``.
+    segm_data : 2D int `~numpy.ndarray`
+        The segmentation array.
 
-    label : int
-        The label of the source to deblend. This is needed because there
-        may be more than one source label within the cutout.
+    driver_data, driver_segm : 2D `~numpy.ndarray`
+        Contiguous views (or exact casts) of ``data`` and
+        ``segm_data`` with dtypes supported by the compiled kernels.
+
+    labels : 1D `~numpy.ndarray`
+        The labels of the sources in the chunk.
+
+    slices : list of tuple of slice
+        The bounding-box slices of the sources in the chunk.
 
     deblend_params : `_DeblendParams`
-        The parameters for deblending the source.
-    """
-
-    def __init__(self, data, segment_data, label, deblend_params):
-        self.data = data
-        self.segment_data = segment_data
-        self.label = label
-        self.n_pixels = deblend_params.n_pixels
-        self.footprint = deblend_params.footprint
-        self.n_levels = deblend_params.n_levels
-        self.contrast = deblend_params.contrast
-        self.mode = deblend_params.mode
-
-        self.segment_mask = segment_data == label
-        data_values = data[self.segment_mask]
-        self.source_min = nanmin(data_values)
-        self.source_max = nanmax(data_values)
-        self.source_sum = nansum(data_values)
-        self.warnings = {}
-
-    @lazyproperty
-    def linear_thresholds(self):
-        """
-        Linearly spaced thresholds between the source minimum and
-        maximum (inclusive).
-
-        The source min/max are excluded later, giving n_levels
-        thresholds between min and max (noninclusive).
-        """
-        return np.linspace(self.source_min, self.source_max, self.n_levels + 2)
-
-    @lazyproperty
-    def normalized_thresholds(self):
-        """
-        Normalized thresholds (from 0 to 1) between the source minimum
-        and maximum (inclusive).
-        """
-        return ((self.linear_thresholds - self.source_min)
-                / (self.source_max - self.source_min))
-
-    def compute_thresholds(self):
-        """
-        Compute the multi-level detection thresholds for the source.
-
-        Returns
-        -------
-        thresholds : 1D `~numpy.ndarray`
-            The multi-level detection thresholds for the source.
-        """
-        if self.mode == 'exponential' and self.source_min <= 0:
-            self.warnings['nonposmin'] = 'non-positive minimum'
-            self.mode = 'linear'
-
-        if self.mode == 'linear':
-            thresholds = self.linear_thresholds
-        elif self.mode == 'sinh':
-            a = 0.25
-            minval = self.source_min
-            maxval = self.source_max
-            thresholds = self.normalized_thresholds
-            thresholds = np.sinh(thresholds / a) / np.sinh(1.0 / a)
-            thresholds *= (maxval - minval)
-            thresholds += minval
-        elif self.mode == 'exponential':
-            minval = self.source_min
-            maxval = self.source_max
-            thresholds = self.normalized_thresholds
-            thresholds = minval * (maxval / minval) ** thresholds
-
-        return thresholds[1:-1]  # do not include source min and max
-
-    def multithreshold(self):
-        """
-        Perform multithreshold detection for each source.
-
-        This method is useful for debugging and testing.
-
-        Parameters
-        ----------
-        deblend_mode : bool, optional
-            If `True` then only segmentation images with more than one
-            label will be returned. If `False` then all segmentation
-            images will be returned.
-
-        Returns
-        -------
-        segments : list of 2D `~numpy.ndarray`
-            A list of segmentation images, one for each threshold.
-            Only segmentation images with more than one label will be
-            returned.
-        """
-        thresholds = self.compute_thresholds()
-        segms = []
-        for threshold in thresholds:
-            segm = _detect_sources(self.data, threshold, self.n_pixels,
-                                   self.footprint, self.segment_mask,
-                                   relabel=False, return_segmimg=False)
-            segms.append(segm)
-        return segms
-
-    def make_markers(self, *, return_all=False):
-        """
-        Make markers (possible sources) for the watershed algorithm.
-
-        Parameters
-        ----------
-        return_all : bool, optional
-            If `False` then return only the final segmentation marker
-            image. If `True` then return all segmentation marker images.
-            This keyword is useful for debugging and testing.
-
-        Returns
-        -------
-        markers : 2D `~numpy.ndarray` or list of 2D `~numpy.ndarray`
-            A segmentation image that contain markers for possible
-            sources. If ``return_all=True`` then a list of all
-            segmentation marker images is returned. `None` is returned
-            if there is only one source at every threshold.
-        """
-        thresholds = self.compute_thresholds()
-        segm_lower = _detect_sources(self.data, thresholds[0], self.n_pixels,
-                                     self.footprint, self.segment_mask,
-                                     relabel=False, return_segmimg=False)
-
-        if return_all:
-            all_segms = [segm_lower]
-
-        for threshold in thresholds[1:]:
-            segm_upper = _detect_sources(self.data, threshold, self.n_pixels,
-                                         self.footprint, self.segment_mask,
-                                         relabel=False, return_segmimg=False)
-            if segm_upper is None:  # 0 or 1 labels
-                continue
-
-            segm_lower = self.make_marker_segment(segm_lower, segm_upper)
-
-            if return_all:
-                all_segms.append(segm_lower)
-
-        if return_all:
-            return all_segms
-
-        return segm_lower
-
-    def make_marker_segment(self, segment_lower, segment_upper):
-        """
-        Make markers (possible sources) for the watershed algorithm.
-
-        Parameters
-        ----------
-        segment_lower : 2D `~numpy.ndarray`
-            The "lower" threshold level segmentation image.
-
-        segment_upper : 2D `~numpy.ndarray`
-            The next-highest threshold level segmentation image.
-
-        Returns
-        -------
-        markers : 2D `~numpy.ndarray`
-            A segmentation image that contain markers for possible
-            sources.
-
-        Notes
-        -----
-        For a given label in the lower level, find the labels in the
-        upper level (higher threshold value) that are its children
-        (i.e., the labels within the same mask as the lower level). If
-        there are multiple children, then the lower-level parent label
-        is replaced by its children. Parent labels that do not have
-        multiple children in the upper level are kept as is (maximizing
-        the marker size).
-        """
-        if segment_lower is None:
-            return segment_upper
-
-        labels = _get_labels(segment_lower)
-        new_markers = False
-        markers = segment_lower.astype(bool)
-        for label in labels:
-            mask = (segment_lower == label)
-            # Find label mapping from the lower to upper level
-            upper_labels = _get_labels(segment_upper[mask])
-            if upper_labels.size >= 2:  # new child markers found
-                new_markers = True
-                markers[mask] = segment_upper[mask].astype(bool)
-
-        if new_markers:
-            # Convert bool markers to integer labels
-            return ndi_label(markers, structure=self.footprint)[0]
-
-        return segment_lower
-
-    def apply_watershed(self, markers):
-        """
-        Apply the watershed algorithm to the source markers.
-
-        Parameters
-        ----------
-        markers : list of `~photutils.segmentation.SegmentationImage`
-            A list of segmentation images that contain possible sources
-            as markers. The last list element contains all the potential
-            source markers.
-
-        Returns
-        -------
-        segment_data : 2D int `~numpy.ndarray`
-            A 2D int array containing the deblended source labels. Note
-            that the source labels may not be consecutive if a label was
-            removed.
-        """
-        from skimage.segmentation import watershed
-
-        # Deblend using watershed. If any source does not meet the contrast
-        # criterion, then remove the faintest such source and repeat until
-        # all sources meet the contrast criterion.
-        remove_marker = True
-        while remove_marker:
-            markers = watershed(-self.data, markers, mask=self.segment_mask,
-                                connectivity=self.footprint)
-
-            labels = _get_labels(markers)
-            if labels.size == 1:  # only 1 source left
-                remove_marker = False
-            else:
-                flux_frac = (sum_labels(self.data, markers, index=labels)
-                             / self.source_sum)
-                remove_marker = any(flux_frac < self.contrast)
-
-                if remove_marker:
-                    # Remove only the faintest source (one at a time)
-                    # because several faint sources could combine to meet
-                    # the contrast criterion
-                    markers[markers == labels[np.argmin(flux_frac)]] = 0.0
-
-        return markers
-
-    def deblend_source(self):
-        """
-        Deblend a single labeled source.
-
-        Returns
-        -------
-        segment_data : 2D int `~numpy.ndarray`
-            A 2D int array containing the deblended source labels. The
-            source labels are consecutive starting at 1.
-        """
-        if self.source_min == self.source_max:  # no deblending
-            return None
-
-        # Define the markers (possible sources) for the watershed algorithm
-        markers = self.make_markers()
-        if markers is None:
-            return None
-
-        # If there are too many markers (e.g., due to low threshold
-        # and/or small n_pixels), the watershed step can be very slow
-        # (the threshold of 200 is arbitrary, but seems to work well).
-        # This mostly affects the "exponential" mode, where there are
-        # many levels at low thresholds, so here we try again with
-        # "linear" mode.
-        nlabels = len(_get_labels(markers))
-        if self.mode != 'linear' and nlabels > 200:
-            del markers  # free memory
-            self.warnings['nmarkers'] = 'too many markers'
-            self.mode = 'linear'
-            markers = self.make_markers()
-            if markers is None:
-                return None
-
-        # Deblend using the watershed algorithm using the markers as seeds
-        markers = self.apply_watershed(markers)
-
-        if not np.array_equal(self.segment_mask, markers.astype(bool)):
-            msg = (f'Deblending failed for source {self.label!r}. '
-                   'Please ensure you used the same pixel connectivity '
-                   'in detect_sources and deblend_sources.')
-            raise ValueError(msg)
-
-        if len(_get_labels(markers)) == 1:  # no deblending
-            return None
-
-        # Markers may not be consecutive if a label was removed due to
-        # the contrast criterion
-        relabel_map = _create_relabel_map(markers, start_label=1)
-        if relabel_map is not None:
-            markers = relabel_map[markers]
-        return markers
-
-
-def _get_labels(array):
-    """
-    Get the unique labels greater than zero in an array.
-
-    Parameters
-    ----------
-    array : `~numpy.ndarray`
-        The array to get the unique labels from.
+        The parameters for deblending the sources.
 
     Returns
     -------
-    labels : int `~numpy.ndarray`
-        The unique labels in the array.
+    result : `_ChunkResult`
+        The per-source deblended labels and mode-fallback flags.
     """
-    labels = np.unique(array)
-    return labels[labels != 0]
+    labels = np.asarray(labels, dtype=np.int64)
+    y0 = np.array([slc[0].start for slc in slices], dtype=np.int64)
+    y1 = np.array([slc[0].stop for slc in slices], dtype=np.int64)
+    x0 = np.array([slc[1].start for slc in slices], dtype=np.int64)
+    x1 = np.array([slc[1].stop for slc in slices], dtype=np.int64)
+    connectivity = 8 if deblend_params.footprint[0, 0] else 4
+    n_levels = int(deblend_params.n_levels)
+    mode = deblend_params.mode
+    chunk_kwargs = {'n_pixels': int(deblend_params.n_pixels),
+                    'connectivity': connectivity}
+
+    source_min, source_max, source_sum = deblend_source_stats(
+        driver_data, driver_segm, labels, y0, y1, x0, x1)
+
+    # Constant (or all-NaN) sources do not deblend. The multithreshold
+    # levels of the other sources are computed in the data dtype, as
+    # the pure-Python reference implementation does
+    active = np.flatnonzero(source_min < source_max)
+    nonposmin = np.zeros(len(labels), dtype=bool)
+    n_markers_fallback = np.zeros(len(labels), dtype=bool)
+    n_markers = np.zeros(len(labels), dtype=np.intp)
+
+    # One packed buffer holds the bounding-box cutout of every source
+    # in the chunk, back to back. The kernels write the markers and
+    # then the deblended labels into it, so no per-source arrays are
+    # created in Python
+    sizes = (y1 - y0) * (x1 - x0)
+    offsets = np.zeros(len(labels) + 1, dtype=np.intp)
+    np.cumsum(sizes, out=offsets[1:])
+    packed = np.zeros(offsets[-1], dtype=np.int32)
+    starts = offsets[:-1]
+
+    use_saddle = deblend_params.contrast_method == 'saddle'
+    if active.size > 0:
+        values_dtype = data.dtype.newbyteorder('=')
+        smin = source_min[active].astype(values_dtype)
+        smax = source_max[active].astype(values_dtype)
+        thresholds, fallback = _compute_thresholds(smin, smax, n_levels,
+                                                   mode)
+        nonposmin[active] = fallback
+        saddle_limits = None
+        if use_saddle:
+            saddle_limits = deblend_params.contrast * source_sum[active]
+        # Sources with too many markers are only retried with linearly
+        # spaced levels (below), so only then may the kernel skip
+        # building their markers. With the saddle criterion the markers
+        # are already contrast-selected and there is no iterative
+        # watershed, so no fallback is needed.
+        can_retry = mode != 'linear' and not use_saddle
+        max_markers = _MAX_MARKERS if can_retry else -1
+        n_markers[active] = deblend_markers_chunk(
+            driver_data, driver_segm, labels[active], y0[active],
+            y1[active], x0[active], x1[active], thresholds, packed,
+            starts[active], max_markers=max_markers,
+            saddle_limits=saddle_limits, **chunk_kwargs)
+
+        # Too many markers make the watershed step very slow, so such
+        # sources are deblended again with linearly spaced levels
+        if can_retry:
+            retry = np.flatnonzero(n_markers[active] > _MAX_MARKERS)
+            if retry.size > 0:
+                thresholds, _ = _compute_thresholds(
+                    smin[retry], smax[retry], n_levels, 'linear')
+                retry = active[retry]
+                n_markers[retry] = deblend_markers_chunk(
+                    driver_data, driver_segm, labels[retry], y0[retry],
+                    y1[retry], x0[retry], x1[retry], thresholds, packed,
+                    starts[retry], max_markers=-1, **chunk_kwargs)
+                n_markers_fallback[retry] = True
+
+    n_labels = deblend_contrast_chunk(
+        driver_data, driver_segm, labels, y0, y1, x0, x1, packed, starts,
+        n_markers, connectivity=connectivity,
+        contrast=float(deblend_params.contrast), source_sum=source_sum,
+        source_min=source_min, apply_contrast=not use_saddle)
+
+    return _ChunkResult(n_labels=n_labels, packed=packed, offsets=offsets,
+                        y0=y0, y1=y1, x0=x0, x1=x1, nonposmin=nonposmin,
+                        n_markers_fallback=n_markers_fallback)
+
+
+def _make_flags_map(deblend_label_map, non_positive_min_labels,
+                    too_many_markers_labels, relabel_map):
+    """
+    Build the per-label flags mapping for a deblended segmentation
+    image.
+
+    Deblended children get the "deblended" flag. Mode-fallback flags
+    are set on the children of affected parents, or on the parent's own
+    (possibly relabeled) output label if it did not split.
+
+    Parameters
+    ----------
+    deblend_label_map : dict
+        Mapping of input parent labels to arrays of output child labels,
+        in the final (post-relabel) label frame.
+
+    non_positive_min_labels, too_many_markers_labels : list of int
+        Input parent labels affected by each mode fallback.
+
+    relabel_map : `~numpy.ndarray`, ``_SparseRelabelMap``, or `None`
+        The relabeling map applied to the deblended image, or `None` if
+        no relabeling was applied.
+
+    Returns
+    -------
+    flags_map : dict
+        Mapping of output labels to bitwise flag values.
+    """
+    flags_map = {}
+    for children in deblend_label_map.values():
+        for child in children:
+            child = int(child)
+            flags_map[child] = (flags_map.get(child, 0)
+                                | SEGMENTATION_FLAGS.DEBLENDED)
+
+    fallbacks = [
+        (non_positive_min_labels,
+         SEGMENTATION_FLAGS.DEBLEND_NON_POSITIVE_MIN),
+        (too_many_markers_labels,
+         SEGMENTATION_FLAGS.DEBLEND_TOO_MANY_MARKERS),
+    ]
+    for input_labels, bit in fallbacks:
+        for label in input_labels:
+            label = int(label)
+            if label in deblend_label_map:
+                targets = [
+                    int(child) for child in deblend_label_map[label]
+                ]
+            else:
+                # The source did not split. Translate its input label to
+                # the output label frame.
+                if relabel_map is None:
+                    out_label = label
+                else:
+                    out_label = int(relabel_map[label])
+                targets = [out_label]
+            for target in targets:
+                flags_map[target] = flags_map.get(target, 0) | bit
+    return flags_map
+
+
+def _relabel_consecutive(segm, max_label, n_threads):
+    """
+    Relabel a segmentation array in place so that its labels are
+    consecutive integers starting from 1, keeping their order.
+
+    The labels that are present are found, and the array is then
+    rewritten, by compiled code that releases the GIL. When
+    ``n_threads`` > 1, the image is divided into bands of rows that are
+    processed concurrently. The result is identical to the
+    single-threaded computation.
+
+    Parameters
+    ----------
+    segm : 2D int32 or int64 `~numpy.ndarray`
+        The C-contiguous segmentation array to relabel in place.
+
+    max_label : int
+        An upper limit of the label values in ``segm``.
+
+    n_threads : int
+        The number of threads.
+
+    Returns
+    -------
+    relabel_map : 1D int64 `~numpy.ndarray` or None
+        The array mapping the original labels to the new labels. If the
+        labels are already consecutive starting from 1, then ``segm`` is
+        left unchanged and `None` is returned.
+    """
+    n_bands = max(min(n_threads, segm.shape[0]), 1)
+    edges = np.arange(n_bands + 1) * segm.shape[0] // n_bands
+    bands = [segm[i0:i1] for i0, i1 in pairwise(edges)]
+
+    def find_present(band):
+        present = np.zeros(max_label + 1, dtype=np.uint8)
+        find_present_labels(band, present)
+        return present
+
+    def get_relabel_map(present):
+        present[0] = 0  # the background is not a label
+        labels = np.flatnonzero(present)
+        if len(labels) == 0 or labels[-1] == len(labels):
+            return None  # already consecutive
+        relabel_map = np.zeros(max_label + 1, dtype=np.int64)
+        relabel_map[labels] = np.arange(1, len(labels) + 1)
+        return relabel_map
+
+    if n_bands == 1:
+        relabel_map = get_relabel_map(find_present(segm))
+        if relabel_map is not None:
+            apply_relabel_map(segm, relabel_map)
+        return relabel_map
+
+    with ThreadPoolExecutor(max_workers=n_bands) as executor:
+        present = np.bitwise_or.reduce(
+            list(executor.map(find_present, bands)))
+        relabel_map = get_relabel_map(present)
+        if relabel_map is not None:
+            list(executor.map(lambda band: apply_relabel_map(
+                band, relabel_map), bands))
+    return relabel_map
 
 
 def _create_relabel_map(array, *, start_label=1):
@@ -690,10 +876,10 @@ def _create_relabel_map(array, *, start_label=1):
 
     Returns
     -------
-    relabel_map : 1D `~numpy.ndarray` or None
-        The array mapping the original labels to the new labels. If the
-        labels are already consecutive starting from ``start_label``,
-        then `None` is returned.
+    relabel_map : 1D `~numpy.ndarray`, `_SparseRelabelMap`, or None
+        The map from the original labels to the new labels (see
+        ``_make_relabel_map``). If the labels are already consecutive
+        starting from ``start_label``, then `None` is returned.
     """
     labels = _get_labels(array)
 
@@ -703,32 +889,6 @@ def _create_relabel_map(array, *, start_label=1):
             and (labels[-1] - start_label + 1) == len(labels)):
         return None
 
-    # Create an array to map old labels to new labels
-    relabel_map = np.zeros(labels.max() + 1, dtype=array.dtype)
-    relabel_map[labels] = np.arange(len(labels)) + start_label
-
-    return relabel_map
-
-
-def _update_deblend_label_map(deblend_label_map, relabel_map):
-    """
-    Update the deblend_label_map to reflect the new labels that are
-    consecutive integers.
-
-    Parameters
-    ----------
-    deblend_label_map : dict
-        A dictionary mapping the original labels to the new deblended
-        labels.
-
-    relabel_map : 1D `~numpy.ndarray`
-        The array mapping the original labels to the new labels.
-
-    Returns
-    -------
-    deblend_label_map : dict
-        The updated deblend_label_map.
-    """
-    for old_label, new_labels in deblend_label_map.items():
-        deblend_label_map[old_label] = relabel_map[new_labels]
-    return deblend_label_map
+    # Create the map from the old labels to the new labels
+    new_labels = (np.arange(len(labels)) + start_label).astype(array.dtype)
+    return _make_relabel_map(labels, new_labels, array.size)

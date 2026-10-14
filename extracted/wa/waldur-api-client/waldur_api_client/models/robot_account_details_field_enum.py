@@ -18,6 +18,7 @@ class RobotAccountDetailsFieldEnum(str, Enum):
     PROVIDER_NAME = "provider_name"
     PROVIDER_UUID = "provider_uuid"
     RESOURCE = "resource"
+    RESOURCE_BACKEND_ID = "resource_backend_id"
     RESOURCE_NAME = "resource_name"
     RESOURCE_UUID = "resource_uuid"
     RESPONSIBLE_USER = "responsible_user"

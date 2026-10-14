@@ -27,7 +27,7 @@ class Ellipse:
     Class to fit elliptical isophotes to a galaxy image.
 
     The isophotes in the image are measured using an iterative method
-    described by `Jedrzejewski (1987; MNRAS  226, 747)
+    described by `Jedrzejewski (1987, MNRAS 226, 747)
     <https://ui.adsabs.harvard.edu/abs/1987MNRAS.226..747J/abstract>`_.
     See the **Notes** section below for details about the algorithm.
 
@@ -58,7 +58,7 @@ class Ellipse:
     Notes
     -----
     The image is measured using an iterative method
-    described by `Jedrzejewski (1987; MNRAS 226, 747)
+    described by `Jedrzejewski (1987, MNRAS 226, 747)
     <https://ui.adsabs.harvard.edu/abs/1987MNRAS.226..747J/abstract>`_.
     Each isophote is fitted at a predefined, fixed semimajor axis
     length. The algorithm starts from a first-guess elliptical isophote
@@ -100,7 +100,7 @@ class Ellipse:
     iterations stop because of reasons 2 or 3 above, then those ellipse
     parameters that generated the lowest absolute values for harmonic
     amplitudes will be used. At this point, the image data sample coming
-    from the best fit ellipse is fitted by the following function:
+    from the best-fit ellipse is fitted by the following function:
 
     .. math::
 
@@ -114,7 +114,7 @@ class Ellipse:
     `~photutils.isophote.Isophote` instance).
 
     The algorithm then measures the integrated intensity and the number
-    of non-flagged pixels inside the elliptical isophote, and also
+    of nonflagged pixels inside the elliptical isophote, and also
     inside the corresponding circle with same center and radius equal
     to the semimajor axis length. These parameters, their errors, other
     associated parameters, and auxiliary information, are stored in the
@@ -127,7 +127,7 @@ class Ellipse:
     harmonic fit. Third and fourth harmonic amplitude errors
     are obtained in the same way, but only after the first and
     second harmonics are subtracted from the raw data. For more
-    details, see the error analysis in `Busko (1996; ASPC 101, 139)
+    details, see the error analysis in `Busko (1996, ASPC 101, 139)
     <https://ui.adsabs.harvard.edu/abs/1996ASPC..101..139B/abstract>`_.
 
     After fitting the ellipse that corresponds to a given value of the
@@ -147,7 +147,7 @@ class Ellipse:
 
     The fit algorithm provides a k-sigma clipping algorithm for cleaning
     deviant sample points at each isophote, thus improving convergence
-    stability against any non-elliptical structure such as stars, spiral
+    stability against any nonelliptical structure such as stars, spiral
     arms, HII regions, defects, etc.
 
     The fit algorithm has no way of finding where, in the input image
@@ -308,7 +308,7 @@ class Ellipse:
             for preventing ellipses to grow to regions of too
             low signal-to-noise ratio. It specifies the maximum
             acceptable relative error in the local radial
-            intensity gradient. `Busko (1996; ASPC 101, 139)
+            intensity gradient. `Busko (1996, ASPC 101, 139)
             <https://ui.adsabs.harvard.edu/abs/1996ASPC..101..139B/abstr
             act>`_ showed that the fitting precision relates to that
             relative error. The usual behavior of the gradient relative
@@ -320,13 +320,13 @@ class Ellipse:
             contamination such as stars and HII regions.
 
             A number of actions may happen when the gradient error
-            exceeds ``maxgerr`` (or becomes non-significant and is
+            exceeds ``maxgerr`` (or becomes nonsignificant and is
             set to `None`). If the maximum semimajor axis specified
             by ``maxsma`` is set to `None`, semimajor axis growth is
             stopped and the algorithm proceeds inwards to the galaxy
             center. If ``maxsma`` is set to some finite value, and this
             value is larger than the current semimajor axis length, the
-            algorithm enters non-iterative mode and proceeds outwards
+            algorithm enters noniterative mode and proceeds outwards
             until reaching ``maxsma``. The default is 0.5.
 
         sclip : float, optional
@@ -364,11 +364,11 @@ class Ellipse:
             The maximum value of semimajor axis to perform an actual
             fit. Whenever the current semimajor axis length is larger
             than ``maxrit``, the isophotes will be extracted using the
-            current geometry, without being fitted. This non-iterative
+            current geometry, without being fitted. This noniterative
             mode may be useful for sampling regions of very low surface
             brightness, where the algorithm may become unstable
             and unable to recover reliable geometry information.
-            Non-iterative mode can also be entered automatically
+            Noniterative mode can also be entered automatically
             whenever the ellipticity exceeds 1.0 or the ellipse center
             crosses the image boundaries. If `None` (default), then no
             maximum value is used.
@@ -378,7 +378,7 @@ class Ellipse:
             False.
 
         fix_pa : bool, optional
-            Keep position angle of semi-major axis of ellipse fixed
+            Keep position angle of semimajor axis of ellipse fixed
             during fit? The default is False.
 
         fix_eps : bool, optional
@@ -461,7 +461,7 @@ class Ellipse:
                     if maxsma and maxsma > isophote.sma:
                         # if a maximum sma value was provided by
                         # user, and the current sma is smaller than
-                        # maxsma, keep growing sma in non-iterative
+                        # maxsma, keep growing sma in noniterative
                         # mode until reaching it.
                         noiter = True
                     else:
@@ -508,8 +508,8 @@ class Ellipse:
             # `isophote` instance may no longer be OK.
             isophote = isophote_list[-1]
 
-            # figure out next sma; if exceeded user-defined
-            # minimum, or too small, bail out from this loop
+            # Figure out the next sma. If it exceeded the user-defined
+            # minimum, or is too small, bail out from this loop
             sma = isophote.sample.geometry.update_sma(step)
             if sma <= max(minsma, 0.5):
                 break
@@ -613,11 +613,11 @@ class Ellipse:
             The maximum value of semimajor axis to perform an actual
             fit. Whenever the current semimajor axis length is larger
             than ``maxrit``, the isophotes will be extracted using the
-            current geometry, without being fitted. This non-iterative
+            current geometry, without being fitted. This noniterative
             mode may be useful for sampling regions of very low surface
             brightness, where the algorithm may become unstable
             and unable to recover reliable geometry information.
-            Non-iterative mode can also be entered automatically
+            Noniterative mode can also be entered automatically
             whenever the ellipticity exceeds 1.0 or the ellipse center
             crosses the image boundaries. If `None` (default), then no
             maximum value is used.
@@ -629,7 +629,7 @@ class Ellipse:
             instance stored in the ``isophote_list`` parameter. This
             parameter is mainly used when running the method in a loop
             over different values of semimajor axis length, and we want
-            to change from iterative to non-iterative mode somewhere
+            to change from iterative to noniterative mode somewhere
             along the sequence of isophotes. When set to `True`, this
             parameter overrides the behavior associated with parameter
             ``maxrit``. The default is `False`.
@@ -709,9 +709,9 @@ class Ellipse:
         if isophote_list:
             isophote = isophote_list.pop()
 
-            # check if isophote is bad; if so, fix its geometry
+            # Check if the isophote is bad. If so, fix its geometry
             # to be like the geometry of the index-th isophote
-            # in list.
+            # in the list.
             isophote.fix_geometry(isophote_list[index])
 
             # force new extraction of raw data, since

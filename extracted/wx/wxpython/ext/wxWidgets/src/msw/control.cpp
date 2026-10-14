@@ -131,7 +131,7 @@ bool wxControl::MSWCreateControl(const wxChar *classname,
     }
 
     if ( wxMSWDarkMode::IsActive() )
-        MSWSetDarkOrLightMode(SetMode::Initial);
+        MSWSetDarkOrLightMode();
 
     // saving the label in m_labelOrig to return it verbatim
     // later in GetLabel()
@@ -179,9 +179,9 @@ bool wxControl::MSWCreateControl(const wxChar *classname,
     return true;
 }
 
-void wxControl::MSWSetDarkOrLightMode(SetMode setmode)
+void wxControl::MSWSetDarkOrLightMode()
 {
-    wxControlBase::MSWSetDarkOrLightMode(setmode);
+    wxControlBase::MSWSetDarkOrLightMode();
 
     if ( const int msgTT = MSWGetToolTipMessage() )
     {
@@ -599,11 +599,19 @@ bool wxMSWOwnerDrawnButtonBase::MSWDrawButton(WXDRAWITEMSTRUCT *item)
     {
         RECT oldLabelRect = rectLabel; // needed if right aligned
 
-        if ( !::DrawText(hdc, label.t_str(), label.length(), &rectLabel,
+        // If the label is empty, use a space character to avoid a focus
+        // rectangle size 0x0.
+        auto s = label.empty() ? wxString(" ") : label;
+        if ( !::DrawText(hdc, s.t_str(), s.length(), &rectLabel,
                          fmt | DT_CALCRECT) )
         {
             wxLogLastError(wxT("DrawText(DT_CALCRECT)"));
         }
+
+        // For empty label, mimic the native control by extending to the
+        // client width.
+        if ( label.empty() )
+            rectLabel.right = dis->rcItem.right - 1;
 
         if ( isRightAligned )
         {

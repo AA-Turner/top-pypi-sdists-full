@@ -10,6 +10,7 @@ from typing_extensions import NotRequired, TypeGuard
 from bitfab.approval import ApprovalFields, Assignee, Justification
 from bitfab.assertion_categories import AssertionCategorySummary
 from bitfab.http import HttpClient
+from bitfab.replay import TokenUsage
 
 TraceTargetOccurrence = Literal["first", "last"] | int
 
@@ -32,6 +33,9 @@ class TraceSearchEntry(TypedDict):
     status: Literal["pending", "completed", "failed", "dropped"]
     createdAt: str
     callerMetadata: dict[str, str]
+    experimentId: str | None
+    durationMs: int | None
+    tokens: TokenUsage | None
 
 
 class TraceSearchResult(TypedDict):
@@ -399,20 +403,24 @@ class TracesClient:
         caller_metadata: dict[str, str] | None = None,
         name: str | None = None,
         name_contains: str | None = None,
+        experiment_id: str | None = None,
         trace_function_key: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
     ) -> TraceSearchResult:
-        """Search traces by caller metadata or by name.
+        """Search traces by caller metadata, by name, or by experiment.
 
         ``caller_metadata`` matches up to 10 key/value pairs exactly and every
         pair must match. ``name`` matches the trace name's words in order, so
         "Order ABC" also matches "Order ABC 123", and it matches whole words
         rather than inside a word. ``name_contains`` matches any part of the
         name, including inside a word, and needs at least 3 characters. All
-        three are case-insensitive, and supplying more than one narrows the
-        search. At least one is required. Pass ``nextCursor`` from the result as
-        ``cursor`` to fetch another page.
+        three are case-insensitive. ``experiment_id`` returns only the replay
+        traces that experiment produced. Supplying more than one filter narrows
+        the search, and at least one is required. Each result carries its
+        ``durationMs`` and ``tokens``, either of which is None when not
+        recorded. Pass ``nextCursor`` from the result as ``cursor`` to fetch
+        another page.
         """
         payload: dict[str, Any] = {}
         if caller_metadata is not None:
@@ -421,6 +429,8 @@ class TracesClient:
             payload["name"] = name
         if name_contains is not None:
             payload["nameContains"] = name_contains
+        if experiment_id is not None:
+            payload["experimentId"] = experiment_id
         if trace_function_key is not None:
             payload["traceFunctionKey"] = trace_function_key
         if cursor is not None:

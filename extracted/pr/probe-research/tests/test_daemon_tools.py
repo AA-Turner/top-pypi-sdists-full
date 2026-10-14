@@ -618,3 +618,46 @@ def test_session_refuses_every_argument_of_another_op(tmp_path, op):
     # Its own arguments are never refused.
     own = tools.session(deps, op.value, status=lambda: "state", **{name: SESSION_ARGS[name] for name in options})
     assert "is not an option" not in own and "are not options" not in own
+
+
+# ---------------------------------------------------------------------------
+# Writer channel PR-2: a run move that files a branch outside any experiment
+# says how many branches of that run sit there (plain code, from the logbook).
+# ---------------------------------------------------------------------------
+
+BASE = "aaaaaaaa-0000-0000-0000-000000000000"
+
+
+def _moves(runs: dict[str, dict]):
+    """`run move RUN ...` answers the run's row as the CLI prints it."""
+    async def run(deps, argv, op_id, **kw):
+        row = runs[argv[2]]
+        return tools.ProbeResult(0, json.dumps({"id": argv[2], "slug": row.get("slug", argv[2]),
+                                                "experiment_id": row.get("experiment_id"),
+                                                "parent_run_id": row.get("parent")}) + "\n")
+    return run
+
+
+def test_the_second_branch_filed_outside_an_experiment_says_so(tmp_path, monkeypatch):
+    deps = _deps(tmp_path)
+    runs = {BASE: {"slug": "toy-base"}, "a1": {"parent": BASE}, "a2": {"parent": BASE}, "a3": {"parent": BASE}}
+    monkeypatch.setattr(tools, "run_probe_process", _moves(runs))
+    first = _run(tools.run_probe_command(deps, ["run", "move", BASE, "--to", "toy-sft"]))
+    assert "branch from" not in first, "a run with no parent"
+    one = _run(tools.run_probe_command(deps, ["run", "move", "a1", "--to", "toy-sft"]))
+    assert "branch from" not in one, "one branch is not a comparison"
+    two = _run(tools.run_probe_command(deps, ["run", "move", "a2", "--to", "toy-sft"]))
+    assert two.endswith("\n2 runs branch from toy-base; none is in an experiment")
+    three = _run(tools.run_probe_command(deps, ["run", "move", "a3", "--to", "toy-sft"]))
+    assert three.endswith("\n3 runs branch from toy-base; none is in an experiment")
+
+
+def test_no_branch_fact_once_a_sibling_is_in_an_experiment(tmp_path, monkeypatch):
+    deps = _deps(tmp_path)
+    runs = {"a1": {"parent": BASE, "experiment_id": "e1"}, "a2": {"parent": BASE}}
+    monkeypatch.setattr(tools, "run_probe_process", _moves(runs))
+    _run(tools.run_probe_command(deps, ["run", "move", "a1", "--to", "sft-wave1"]))
+    out = _run(tools.run_probe_command(deps, ["run", "move", "a2", "--to", "toy-sft"]))
+    assert "branch from" not in out
+    runs["a2"]["experiment_id"] = "e1"
+    assert "branch from" not in _run(tools.run_probe_command(deps, ["run", "move", "a2", "--to", "sft-wave1"]))

@@ -28,6 +28,7 @@
 #include "wx/html/htmlproc.h"
 #include "wx/clipbrd.h"
 #include "wx/recguard.h"
+#include "wx/renderer.h"
 
 #include <array>
 #include <list>
@@ -195,49 +196,46 @@ void wxHtmlWindowMouseHelper::HandleIdle(wxHtmlCell *rootCell,
                                          const wxPoint& pos)
 {
     wxHtmlCell *cell = rootCell ? rootCell->FindCellByPos(pos.x, pos.y) : nullptr;
+    wxHtmlLinkInfo *lnk = nullptr;
+    wxPoint relpos;
 
-    if (cell != m_tmpLastCell)
+    if ( cell )
     {
-        wxHtmlLinkInfo *lnk = nullptr;
-        if (cell)
-        {
-            // adjust the coordinates to be relative to this cell:
-            wxPoint relpos = pos - cell->GetAbsPos(rootCell);
-            lnk = cell->GetLink(relpos.x, relpos.y);
-        }
-
-        wxCursor cur;
-        if (cell)
-            cur = cell->GetMouseCursorAt(m_interface, pos);
-        else
-            cur = m_interface->GetHTMLCursor(
-                        wxHtmlWindowInterface::HTMLCursor_Default);
-
-        m_interface->GetHTMLWindow()->SetCursor(cur);
-
-        if (lnk != m_tmpLastLink)
-        {
-            if (lnk)
-                m_interface->SetHTMLStatusText(lnk->GetHref());
-            else
-                m_interface->SetHTMLStatusText(wxEmptyString);
-
-            m_tmpLastLink = lnk;
-        }
-
-        m_tmpLastCell = cell;
+        relpos = pos - cell->GetAbsPos(rootCell);
+        lnk = cell->GetLink(relpos.x, relpos.y);
     }
-    else // mouse moved but stayed in the same cell
+
+    wxCursor cur;
+    if ( cell )
+    {
+        cur = cell->GetMouseCursorAt(m_interface, relpos);
+    }
+    else
+    {
+        cur = m_interface->GetHTMLCursor(
+                    wxHtmlWindowInterface::HTMLCursor_Default);
+    }
+
+    m_interface->GetHTMLWindow()->SetCursor(cur);
+
+    if ( lnk != m_tmpLastLink )
+    {
+        if ( lnk )
+            m_interface->SetHTMLStatusText(lnk->GetHref());
+        else
+            m_interface->SetHTMLStatusText(wxEmptyString);
+
+        m_tmpLastLink = lnk;
+    }
+
+    if ( cell == m_tmpLastCell )
     {
         if ( cell )
-        {
-            // A single cell can have different cursors for different positions,
-            // so update cursor for this case as well.
-            wxCursor cur = cell->GetMouseCursorAt(m_interface, pos);
-            m_interface->GetHTMLWindow()->SetCursor(cur);
-
-            OnCellMouseHover(cell, pos.x, pos.y);
-        }
+            OnCellMouseHover(cell, relpos.x, relpos.y);
+    }
+    else
+    {
+        m_tmpLastCell = cell;
     }
 
     m_tmpMouseMoved = false;
@@ -1190,6 +1188,19 @@ void wxHtmlWindow::OnPaint(wxPaintEvent& WXUNUSED(event))
                  y * wxHTML_SCROLL_STEP + rect.GetBottom(),
                  rinfo);
 
+    if ( HasFocus() )
+    {
+        int xFocus, yFocus;
+        CalcUnscrolledPosition(0, 0, &xFocus, &yFocus);
+
+        wxRect rectFocus(xFocus, yFocus, sz.x, sz.y);
+        if ( rectFocus.width > 2 && rectFocus.height > 2 )
+            rectFocus.Deflate(1);
+
+        wxRendererNative::Get().DrawFocusRect(this, *dc, rectFocus,
+                                              wxCONTROL_FOCUSED);
+    }
+
 #ifdef DEBUG_HTML_SELECTION
     {
     int xc, yc, x, y;
@@ -1315,6 +1326,8 @@ wxRect GetBoundingRect(const wxHtmlCell* const fromCell,
 void wxHtmlWindow::OnFocusEvent(wxFocusEvent& event)
 {
     event.Skip();
+
+    Refresh(false);
 
     // Redraw selection, because its background colour depends on
     // whether the window has keyboard focus or not.
@@ -1568,13 +1581,7 @@ void wxHtmlWindow::OnInternalIdle()
 
         // handle cursor and status bar text changes:
 
-        // NB: because we're passing in 'cell' and not 'm_Cell' (so that the
-        //     leaf cell lookup isn't done twice), we need to adjust the
-        //     position for the new root:
-        wxPoint posInCell(x, y);
-        if (cell)
-            posInCell -= cell->GetAbsPos();
-        wxHtmlWindowMouseHelper::HandleIdle(cell, posInCell);
+        wxHtmlWindowMouseHelper::HandleIdle(m_Cell, wxPoint(x, y));
     }
 }
 

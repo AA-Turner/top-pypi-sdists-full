@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dilithium-py
-Version: 1.4.0
+Version: 1.5.1
 Summary: A pure python implementation of ML-DSA (FIPS 204)
 Project-URL: Homepage, https://github.com/GiacomoPope/dilithium-py
 Project-URL: Issues, https://github.com/GiacomoPope/dilithium-py/issues

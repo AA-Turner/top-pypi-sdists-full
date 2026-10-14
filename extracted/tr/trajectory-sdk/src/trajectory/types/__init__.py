@@ -115,19 +115,19 @@ from trajectory.types.eval_rollout_statistics_response import (
 from trajectory.types.eval_rollout_statistics_response import (
   EvalRolloutStatisticsResponse as EvalRolloutStatisticsResponse,
 )
-from trajectory.types.eval_trajectory_rewards_response import (
+from trajectory.types.eval_trajectory_rewards_page import (
   EvalTrajectoryReward as EvalTrajectoryReward,
 )
-from trajectory.types.eval_trajectory_rewards_response import (
-  EvalTrajectoryRewardsResponse as EvalTrajectoryRewardsResponse,
+from trajectory.types.eval_trajectory_rewards_page import (
+  EvalTrajectoryRewardsPage as EvalTrajectoryRewardsPage,
 )
 from trajectory.types.evals.eval_run import EvalRun as EvalRun
 from trajectory.types.evals.eval_run_lifecycle_status import (
   EvalRunLifecycleStatus as EvalRunLifecycleStatus,
 )
-from trajectory.types.held_out_rewards_by_step_response import HeldOutReward as HeldOutReward
-from trajectory.types.held_out_rewards_by_step_response import (
-  HeldOutRewardsByStepResponse as HeldOutRewardsByStepResponse,
+from trajectory.types.held_out_rewards_by_step_page import HeldOutReward as HeldOutReward
+from trajectory.types.held_out_rewards_by_step_page import (
+  HeldOutRewardsByStepPage as HeldOutRewardsByStepPage,
 )
 from trajectory.types.inference.chat_completion_chunk import (
   ChatCompletionChunk as ChatCompletionChunk,
@@ -173,7 +173,16 @@ from trajectory.types.paginated_response_benchmark_runtime import (
 from trajectory.types.paginated_response_dataset_metadata import (
   PaginatedResponseDatasetMetadata as PaginatedResponseDatasetMetadata,
 )
+from trajectory.types.paginated_response_eval_run import (
+  PaginatedResponseEvalRun as PaginatedResponseEvalRun,
+)
 from trajectory.types.paginated_response_step import PaginatedResponseStep as PaginatedResponseStep
+from trajectory.types.paginated_response_training_checkpoint_response import (
+  PaginatedResponseTrainingCheckpointResponse as PaginatedResponseTrainingCheckpointResponse,
+)
+from trajectory.types.paginated_response_training_run_response import (
+  PaginatedResponseTrainingRunResponse as PaginatedResponseTrainingRunResponse,
+)
 from trajectory.types.paginated_response_trajectory_event import (
   PaginatedResponseTrajectoryEvent as PaginatedResponseTrajectoryEvent,
 )
@@ -203,9 +212,9 @@ from trajectory.types.telemetry_events_ingest_response import (
 )
 from trajectory.types.tool_call import ToolCall as ToolCall
 from trajectory.types.tool_definition import ToolDefinition as ToolDefinition
-from trajectory.types.trainer_rewards_by_step_response import TrainerReward as TrainerReward
-from trajectory.types.trainer_rewards_by_step_response import (
-  TrainerRewardsByStepResponse as TrainerRewardsByStepResponse,
+from trajectory.types.trainer_rewards_by_step_page import TrainerReward as TrainerReward
+from trajectory.types.trainer_rewards_by_step_page import (
+  TrainerRewardsByStepPage as TrainerRewardsByStepPage,
 )
 from trajectory.types.training.checkpoints.training_checkpoint_response import (
   TrainingCheckpointResponse as TrainingCheckpointResponse,
@@ -219,10 +228,16 @@ from trajectory.types.training.training_run_response import (
 from trajectory.types.training_progress_response import (
   TrainingProgressResponse as TrainingProgressResponse,
 )
-from trajectory.types.training_trajectory_rewards_response import (
-  TrainingTrajectoryRewardsResponse as TrainingTrajectoryRewardsResponse,
+from trajectory.types.training_step_summaries_page import (
+  TrainingStepSummariesPage as TrainingStepSummariesPage,
 )
-from trajectory.types.training_trajectory_rewards_response import (
+from trajectory.types.training_step_summaries_page import (
+  TrainingStepSummary as TrainingStepSummary,
+)
+from trajectory.types.training_trajectory_rewards_page import (
+  TrainingTrajectoryRewardsPage as TrainingTrajectoryRewardsPage,
+)
+from trajectory.types.training_trajectory_rewards_page import (
   TrajectoryReward as TrajectoryReward,
 )
 from trajectory.types.trajectories.steps.step import ImagePart as ImagePart
@@ -306,11 +321,11 @@ __all__ = [
   "EvalRun",
   "EvalRunLifecycleStatus",
   "EvalTrajectoryReward",
-  "EvalTrajectoryRewardsResponse",
+  "EvalTrajectoryRewardsPage",
   "GeneratedToolInfo",
   "HarnessDiagnostic",
   "HeldOutReward",
-  "HeldOutRewardsByStepResponse",
+  "HeldOutRewardsByStepPage",
   "ImagePart",
   "ImageSpec",
   "IngestBenchmarkResponse",
@@ -329,7 +344,10 @@ __all__ = [
   "PaginatedResponseBenchmarkListItem",
   "PaginatedResponseBenchmarkRuntime",
   "PaginatedResponseDatasetMetadata",
+  "PaginatedResponseEvalRun",
   "PaginatedResponseStep",
+  "PaginatedResponseTrainingCheckpointResponse",
+  "PaginatedResponseTrainingRunResponse",
   "PaginatedResponseTrajectoryEvent",
   "PaginatedResponseTrajectoryMetadata",
   "PromoteResponse",
@@ -354,7 +372,7 @@ __all__ = [
   "ToolResponseMetadata",
   "TracebackDiagnostic",
   "TrainerReward",
-  "TrainerRewardsByStepResponse",
+  "TrainerRewardsByStepPage",
   "TrainingCheckpointResponse",
   "ModelRunOptions",
   "TrainingOptionKey",
@@ -364,7 +382,9 @@ __all__ = [
   "TrainingProgressResponse",
   "TrainingRunLifecycleStatus",
   "TrainingRunResponse",
-  "TrainingTrajectoryRewardsResponse",
+  "TrainingStepSummariesPage",
+  "TrainingStepSummary",
+  "TrainingTrajectoryRewardsPage",
   "Trajectory",
   "TrajectoryEvent",
   "TrajectoryMetadata",

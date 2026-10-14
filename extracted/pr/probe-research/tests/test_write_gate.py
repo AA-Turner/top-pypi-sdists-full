@@ -404,6 +404,9 @@ NOT_RESEARCH = frozenset(
         "daemon",
         "deny",
         "doctor",
+        # `probe feedback send` holds feedback for the Probe team as a question
+        # for the researcher; the CLI refuses it under `off` itself.
+        "feedback",
         "flush",
         "install",
         "login",

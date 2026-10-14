@@ -46,6 +46,7 @@ __all__ = (
     "ManifestFormatType",
     "MtimeType",
     "NfsVersionType",
+    "ObjectMetadataType",
     "ObjectStorageServerProtocolType",
     "ObjectTagsType",
     "ObjectVersionIdsType",
@@ -99,7 +100,8 @@ LogLevelType = Literal["BASIC", "OFF", "TRANSFER"]
 ManifestActionType = Literal["TRANSFER"]
 ManifestFormatType = Literal["CSV"]
 MtimeType = Literal["NONE", "PRESERVE"]
-NfsVersionType = Literal["AUTOMATIC", "NFS3", "NFS4_0", "NFS4_1"]
+NfsVersionType = Literal["AUTOMATIC", "NFS3", "NFS4_0", "NFS4_1", "NFS4_2"]
+ObjectMetadataType = Literal["NONE", "PRESERVE"]
 ObjectStorageServerProtocolType = Literal["HTTP", "HTTPS"]
 ObjectTagsType = Literal["NONE", "PRESERVE"]
 ObjectVersionIdsType = Literal["INCLUDE", "NONE"]

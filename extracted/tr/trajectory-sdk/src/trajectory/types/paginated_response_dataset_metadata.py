@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.datasets.dataset_metadata import DatasetMetadata
 
 
-class PaginatedResponseDatasetMetadata(BaseModel):
+class PaginatedResponseDatasetMetadata(SyncPage[DatasetMetadata]):
   items: list[DatasetMetadata]
 
   next_cursor: str | None = None

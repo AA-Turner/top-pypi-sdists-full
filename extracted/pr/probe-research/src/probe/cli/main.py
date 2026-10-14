@@ -3423,19 +3423,16 @@ def _wizard_session(
                     fraction=1.0,
                 )
             ):
-                from probe.cli import cloud_agents
-
-                # A cloud agent's (Capy's) own settings steps: the one part of
-                # its install no command can do, so the last page keeps them.
-                cloud_steps = [
-                    line
-                    for source in agent_sources
-                    if source in wizard.CLOUD_AGENT_SOURCES and (shared_selection is None or shared_selection.tracking)
-                    for line in cloud_agents.module(source).setup_summary(base_url=base_now)
-                ]
+                cloud_steps, cloud_opens = _cloud_agent_finish(
+                    agent_sources,
+                    tracking=shared_selection is None or shared_selection.tracking,
+                    base_url=base_now,
+                )
                 try:
                     completion = onboarding_complete.show(
-                        base_now, **({"next_steps": cloud_steps} if cloud_steps else {})
+                        base_now,
+                        **({"next_steps": cloud_steps} if cloud_steps else {}),
+                        **({"open_apps": cloud_opens} if cloud_opens else {}),
                     )
                 except KeyboardInterrupt:
                     # Not "back", and not the wizard's Exit either: this is the
@@ -4680,6 +4677,29 @@ def _run_wizard_action(
     return []
 
 
+def _cloud_agent_finish(agent_sources, *, tracking: bool, base_url: str | None):
+    """The last page's part for each cloud agent (Capy) being installed: its
+    own settings step, the one part of its install no command can do, and the
+    apps this machine can open on that step's screen, as (name, opener) for
+    the page to offer. Opening is the researcher's choice, made after reading
+    the step, never automatic."""
+    from probe.cli import cloud_agents
+    from probe.cli import setup as wizard
+
+    if not tracking:
+        return [], []
+    lines: list[str] = []
+    opens = []
+    for source in agent_sources:
+        if source not in wizard.CLOUD_AGENT_SOURCES:
+            continue
+        agent = cloud_agents.module(source)
+        lines.extend(agent.setup_summary(base_url=base_url))
+        if agent.can_open_add_plugin(base_url=base_url):
+            opens.append((agent.label(), agent.open_add_plugin))
+    return lines, opens
+
+
 def _finish_cloud_configure(
     agent,
     *,
@@ -5479,6 +5499,11 @@ app.add_typer(companion_app, name="companion")
 from .daemon_cli import approvals_cmd, ask_cmd, daemon_app, deny_cmd  # noqa: E402 -- registration, not use
 
 app.add_typer(daemon_app, name="daemon")
+
+# -- feedback about Probe, sent with the person's yes ----------------------------
+from .feedback_cli import feedback_app  # noqa: E402 -- registration, not use
+
+app.add_typer(feedback_app, name="feedback")
 
 # -- Capy (capy.ai), a cloud agent: its sessions are pulled, not watched -------
 from .capy_cli import SOURCE as CAPY_SOURCE  # noqa: E402 -- registration, not use

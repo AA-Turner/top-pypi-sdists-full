@@ -14,7 +14,8 @@ stage of the ETG scripts.
 
 import enum
 import etgtools as extractors
-from .generators import textfile_open
+from .generators import textfile_open, currentEtgScriptId
+from . import typeinfo
 import keyword
 import re
 import sys, os
@@ -22,6 +23,8 @@ import copy
 import textwrap
 from typing import NamedTuple, Optional, Tuple, Union
 
+
+isWindows = sys.platform.startswith('win')
 
 magicMethods = {
     'operator!='    : '__ne__',
@@ -66,13 +69,14 @@ class Signature:
     """
 
     class Parameter:
-        __slots__ = ('name', 'type_hint', 'default', 'position_type', )
+        __slots__ = ('name', 'type_hint', 'default', 'position_type', 'is_fake', )
         name: str
         type_hint: Optional[str]
         default: Optional[str]
         position_type: ParameterType
+        is_fake: bool
 
-        def __init__(self, name: str, type_hint: Optional[str] = None, default: Optional[str] = None, position_type: ParameterType = ParameterType.DEFAULT) -> None:
+        def __init__(self, name: str, type_hint: Optional[str] = None, default: Optional[str] = None, position_type: ParameterType = ParameterType.DEFAULT, is_fake: bool = False) -> None:
             if name.startswith('**'):
                 name = name[2:]
                 position_type = ParameterType.KWARGS
@@ -85,6 +89,7 @@ class Signature:
             self.type_hint = type_hint
             self.default = default
             self.position_type = position_type
+            self.is_fake = is_fake
 
         @property
         def _position_marking(self) -> str:
@@ -165,8 +170,14 @@ class Signature:
         else:
             parameters = self._parameters.values()
         stringizer = str if typed else type(self).Parameter.untyped
+        args = [stringizer(p) for p in parameters]
+        if typed:
+            positionalOnly = [i for i, p in enumerate(parameters)
+                              if p.position_type is ParameterType.POSITIONAL_ONLY]
+            if positionalOnly:
+                args.insert(positionalOnly[-1] + 1, '/')
         return_type = f' -> {self.return_type}' if self.return_type else ''
-        return f"({', '.join(map(stringizer, parameters))}){return_type}"
+        return f"({', '.join(args)}){return_type}"
     
     def signature(self, typed: bool = True) -> str:
         """Get the full signature for the function/method, including method and
@@ -251,7 +262,6 @@ class FixWxPrefix(object):
     in to a "wx.Name" depending on where it is being used from.
     """
 
-    _coreTopLevelNames = None
     _auto_conversions: dict[str, Tuple[str, ...]] = {}
 
     @classmethod
@@ -261,56 +271,24 @@ class FixWxPrefix(object):
     def fixWxPrefix(self, name, checkIsCore=False):
         # By default remove the wx prefix like normal
         name = removeWxPrefix(name)
-        if not checkIsCore or self.isCore:
+        if not checkIsCore or self.isCore or name.startswith('wx.'):
             return name
 
-        # Otherwise, if we're not processing the core module currently then check
-        # if the name is local or if it resides in core. If it does then return
-        # the name as 'wx.Name'
-        if FixWxPrefix._coreTopLevelNames is None:
-            self._getCoreTopLevelNames()
-
+        # Otherwise, if we're not processing the core module currently then
+        # find which module the name comes from. Names from core are returned
+        # as 'wx.Name' and names from other modules as 'wx.module.Name'.
         testName = name
         if '(' in name:
             testName = name[:name.find('(')]
         testName = testName.split('.')[0]
 
-        if testName in FixWxPrefix._coreTopLevelNames:
-            return 'wx.'+name
-        else:
-            return name
-
-    def _getCoreTopLevelNames(self):
-        # Since the real wx.core module may not exist yet, and since actually
-        # executing code at this point is probably a bad idea, try parsing the
-        # core.pyi file and pulling the top level names from it.
-        import ast
-
-        def _processItem(item, names):
-            if isinstance(item, ast.Assign):
-                for t in item.targets:
-                    _processItem(t, names)
-            elif isinstance(item, ast.Name):
-                names.append(item.id)
-            elif isinstance(item, ast.ClassDef):
-                names.append(item.name)
-            elif isinstance(item, ast.FunctionDef):
-                names.append(item.name)
-            elif isinstance(item, ast.AnnAssign):
-                if isinstance(item.target, ast.Name):
-                    # Exclude typing TypeAlias's from detection
-                    if not (item.annotation == 'TypeAlias' and item.target.id.startswith('_')):
-                        names.append(item.target.id)
-
-        names = list()
-        filename = 'wx/core.pyi'
-        with open(filename, 'rt', encoding='utf-8') as f:
-            text = f.read()
-        parseTree = ast.parse(text, filename)
-        for item in parseTree.body:
-            _processItem(item, names)
-
-        FixWxPrefix._coreTopLevelNames = names
+        thisModule = getattr(self, 'pyModule', None)
+        module = typeinfo.moduleOf(testName, thisModule)
+        if module == 'core':
+            return 'wx.' + name
+        if module and module != thisModule:
+            return 'wx.%s.%s' % (module, name)
+        return name
 
     def cleanName(self, name: str, is_expression: bool = False, fix_wx: bool = True) -> str:
         """Process a C++ name for use in Python code. In all cases, this means
@@ -324,6 +302,7 @@ class FixWxPrefix(object):
 
         Finally, the 'wx.' prefix is added if needed.
         """
+        name = re.sub(r'\bconstexpr\b', '', name)
         name = re.sub(r'(const(?![\w\d]))', '', name) # remove 'const', but not 'const'raints
         replacements = [' ', '*']
         if not is_expression:
@@ -333,6 +312,9 @@ class FixWxPrefix(object):
         name = name.replace('::', '.')
         if not is_expression:
             name = re.sub(r'[^a-zA-Z0-9_\.]', '', name)
+            # nested names like wxGridCellAttr::wxAttrKind
+            head, *rest = name.split('.')
+            name = '.'.join([head] + [removeWxPrefix(part) for part in rest])
         if not (is_expression and name in ['True', 'False', 'None']) and keyword.iskeyword(name):
             name = f'_{name}' # Python keyword name collision
         name = name.strip()
@@ -358,6 +340,9 @@ class FixWxPrefix(object):
             'Char': 'str',
             'char': 'str',
             'FileName': 'str', # TODO: check conversion
+            'wchar_t': 'str',
+            'ArtID': 'str',
+            'ArtClient': 'str',
             # --Int types
             'byte': 'int',
             'short': 'int',
@@ -369,6 +354,22 @@ class FixWxPrefix(object):
             'time_t': 'int',
             'size_t': 'int',
             'Int32': 'int',
+            'Int64': 'int',
+            'Uint16': 'int',
+            'Uint32': 'int',
+            'Uint64': 'int',
+            'Byte': 'int',
+            'IntPtr': 'int',
+            'UIntPtr': 'int',
+            'Py_ssize_t': 'int',
+            'FileOffset': 'int',
+            'LongLong_t': 'int',
+            'ULongLong_t': 'int',
+            'ULongLong': 'int',
+            'TextPos': 'int',
+            'TextCoord': 'int',
+            'LogLevel': 'int',
+            'EventType': 'int',
             'long': long_type,
             'unsignedlong': long_type,
             'ulong': long_type,
@@ -381,23 +382,69 @@ class FixWxPrefix(object):
             'PyObject': 'Any',
             'WindowID': 'int', # defined in wx/defs.h
             'Coord': 'int', # defined in wx/types.h
+            # --SIP %MappedTypes, see the matching src/*.sip files
+            'PyBuffer': 'Buffer',
+            'MemoryBuffer': 'memoryview',
+            'CharBuffer': 'bytes',
+            'ClientData': 'Any',
+            'PyUserData': 'Any',
+            'Variant': 'Any',
+            'PGVariant': 'Any',
+            'DVCVariant': 'Any',
+            'VariantVector': 'List[Any]',
+            'MessageDialogButtonLabel': 'Union[str, int]',
+            'TreeItemIdValue': 'Any',
         }
+        input_type_map = {
+            'MemoryBuffer': 'Buffer',
+            # The ART_* constants are bytes, but str works too
+            'ArtID': 'Union[str, bytes]',
+            'ArtClient': 'Union[str, bytes]',
+        }
+        # The template brackets would be lost in cleanName, so deal with these first
+        m = re.match(r'^(?:const\s+)?(?:std::vector|wxVector)\s*<\s*(.+?)\s*>[\s&*]*$', type_name.strip())
+        if m:
+            return f'List[{self.cleanType(m.group(1), is_input)}]'
         type_name = self.cleanName(type_name)
-        # Special handling of Vector<type> types -
-        if type_name.startswith('Vector<') and type_name.endswith('>'):
-            # Special handling for 'Vector<type>' types
-            type_name = self.cleanType(type_name[7:-1])
-            return f'List[{type_name}]'
+        head, sep, rest = type_name.partition('.')
+        if head in typeinfo.load()['renames']:
+            type_name = self.fixWxPrefix(typeinfo.load()['renames'][head] + sep + rest, True)
+        typedef = typeinfo.load()['typedefs'].get(type_name)
+        if (typedef and type_name not in type_map and removeWxPrefix(typedef) != type_name
+                and typeinfo.moduleOf(type_name, getattr(self, 'pyModule', None)) is None):
+            return self.cleanType(typedef, is_input)
         if type_name.startswith('Array'):
             type_name = self.cleanType(type_name[5:])
             if type_name:
                 return f'List[{type_name}]'
             else:
                 return 'list'
-        allowed_types = self._auto_conversions.get(type_name, ())
+        lookupName = type_name[3:] if type_name.startswith('wx.') else type_name
+        if is_input and typeinfo.isEnum(lookupName):
+            # Plain ints and combinations of flags work too
+            return f'Union[{type_name}, int]'
+        allowed_types = (self._auto_conversions.get(lookupName) or
+                         typeinfo.load()['autoConversions'].get(lookupName, ()))
         if allowed_types and is_input:
-            allowed_types = (type_name, *(self.cleanType(t) for t in allowed_types))
-            type_name = f"Union[{', '.join(allowed_types)}]"
+            # These are already Python type-hints, so they only need the
+            # wx prefix normalized for the current module.
+            union = [type_name]
+            for t in allowed_types:
+                m = re.match(r'^Sequence\[(.+)\]$', t)
+                if m:
+                    # A sequence of a C++ type, which accepts what that type does
+                    t = 'Sequence[%s]' % self.cleanType(m.group(1), is_input)
+                    if t not in union:
+                        union.append(t)
+                    continue
+                if t.startswith('wx.'):
+                    t = t[3:]
+                t = self.fixWxPrefix(t, True)
+                if t not in union:
+                    union.append(t)
+            type_name = f"Union[{', '.join(union)}]"
+        if is_input and type_name in input_type_map:
+            return input_type_map[type_name]
         return type_map.get(type_name, type_name)
     
     def parseNameAndType(self, name_string: str, type_string: Optional[str], is_input: bool = False) -> Tuple[str, Optional[str]]:
@@ -769,6 +816,9 @@ def addWindowVirtuals(klass):
         #void UpdateWindowUI(long flags = wxUPDATE_UI_NONE);
         #void DoUpdateWindowUI(wxUpdateUIEvent& event) ;
     ]
+    if isWindows:
+        # does not compile on GTK and macOS.
+        publicWindowVirtuals.append( ('CreateAccessible', 'wxAccessible* CreateAccessible()') )
 
     protectedWindowVirtuals = [
         ('ProcessEvent',              'bool ProcessEvent(wxEvent & event)'),
@@ -796,8 +846,27 @@ def addWindowVirtuals(klass):
         #('DoGetVirtualSize',    'wxSize DoGetVirtualSize() const'),
     ]
 
+    # How the virtuals that are only declared for SIP look in Python, for the
+    # wx.Window type stub. Its subclasses inherit them there.
+    piSignatures = {
+        'GetMainWindowOfCompositeControl': '(self) -> Optional[Window]',
+        'DoEnable':           '(self, enable: bool) -> None',
+        'DoGetPosition':      '(self) -> Tuple[int, int]',
+        'DoGetSize':          '(self) -> Tuple[int, int]',
+        'DoGetClientSize':    '(self) -> Tuple[int, int]',
+        'DoSetSize':          '(self, x: int, y: int, width: int, height: int, sizeFlags: int) -> None',
+        'DoSetClientSize':    '(self, width: int, height: int) -> None',
+        'DoSetSizeHints':     '(self, minW: int, minH: int, maxW: int, maxH: int, incW: int, incH: int) -> None',
+        'DoMoveWindow':       '(self, x: int, y: int, width: int, height: int) -> None',
+        'DoSetWindowVariant': '(self, variant: WindowVariant) -> None',
+        'GetDefaultBorder':   '(self) -> Border',
+        'DoFreeze':           '(self) -> None',
+        'DoThaw':             '(self) -> None',
+    }
+
     def _processItems(klass, prot, virtuals):
         txt = ''
+        piCode = ''
         for name, decl in virtuals:
             m = klass.findItem(name)
             if m:
@@ -805,25 +874,17 @@ def addWindowVirtuals(klass):
                 m.isVirtual = True
             else:
                 txt += 'virtual %s;\n' % decl
+                if klass.name == 'wxWindow' and name in piSignatures:
+                    piCode += 'def %s%s: ...\n' % (name, piSignatures[name])
         if txt:
             txt = prot + txt
-        return txt
+        wig = extractors.WigCode(txt)
+        wig.piCode = piCode
+        return wig
 
-    txt = _processItems(klass, 'public:\n', publicWindowVirtuals)
-    klass.addItem(extractors.WigCode(txt))
-    txt = _processItems(klass, 'protected:\n', protectedWindowVirtuals)
-    klass.addItem(extractors.WigCode(txt))
+    klass.addItem(_processItems(klass, 'public:\n', publicWindowVirtuals))
+    klass.addItem(_processItems(klass, 'protected:\n', protectedWindowVirtuals))
     klass.addPublic()
-
-    if klass.name not in ['wxWindow', 'wxProgressDialog', 'wxRichTextCtrl']:
-        klass.addCppMethod('wxAccessible*', 'CreateAccessible', '()', """\
-            #if wxUSE_ACCESSIBILITY
-                return self->CreateAccessible();
-            #else
-                wxPyRaiseNotImplemented();
-                return NULL;
-            #endif
-            """, factory=True)
 
 
 def addSipConvertToSubClassCode(klass):
@@ -951,6 +1012,11 @@ def getDocsGenerator():
 
 
 def runGenerators(module):
+    module.updateModuleInfo()
+    if '--typeinfo' in sys.argv:
+        # The first pass of build.py's etg command only needs this
+        typeinfo.writeScriptInfo(module, currentEtgScriptId())
+        return
     checkForUnitTestModule(module)
 
     generators = list()
@@ -1041,18 +1107,6 @@ def addGetIMMethodTemplate(module, klass, fields):
         )
 
 #---------------------------------------------------------------------------
-
-
-def addAccessibilityHeaderCode(module):
-    # This is needed in any module that has wxWindow subclasses so that the
-    # CreateAccessible methods can be compiled correctly.
-    module.addHeaderCode('#include <wx/access.h>')
-    module.addHeaderCode([
-        '#if !wxUSE_ACCESSIBILITY',
-        'class wxAccessible;',
-        '#endif',
-    ])
-
 
 def convertTwoIntegersTemplate(CLASS):
     # Note: The GIL is already acquired where this code is used.
@@ -1393,7 +1447,11 @@ del _{ListClass_pyName}___repr__
         klassCode = klassCode.replace('@ConvertToTypeCode@', convertToTypeCode)
     else:
         klassCode = klassCode.replace('@ConvertToTypeCode@', '')
-    return extractors.WigCode(klassCode.format(**locals()))
+    wig = extractors.WigCode(klassCode.format(**locals()))
+    wig.piSequence = dict(name=ListClass_pyName, item=ItemClass, isList=True)
+    if includeConvertToType:
+        FixWxPrefix.register_autoconversion(ListClass_pyName, ('Sequence[%s]' % ItemClass, ))
+    return wig
 
 
 
@@ -1441,7 +1499,7 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module, itemIsPtr=False, getIt
         '''.format(**locals())
 
 
-    return extractors.WigCode('''\
+    wig = extractors.WigCode('''\
 class {ArrayClass}
 {{
 public:
@@ -1483,6 +1541,8 @@ def _{ArrayClass_pyName}___repr__(self):
 del _{ArrayClass_pyName}___repr__
 %End
 '''.format(**locals()))
+    wig.piSequence = dict(name=ArrayClass_pyName, item=ItemClass, isList=False)
+    return wig
 
 
 
@@ -1530,7 +1590,7 @@ def stdVectorWrapperTemplate(VectorClass, ItemClass, module, itemIsPtr=False, ge
         '''.format(**locals())
 
 
-    return extractors.WigCode('''\
+    wig = extractors.WigCode('''\
 class {VectorClass}
 {{
 %TypeHeaderCode
@@ -1581,6 +1641,8 @@ def _{VectorClass_pyName}___repr__(self):
 del _{VectorClass_pyName}___repr__
 %End
 '''.format(**locals()))
+    wig.piSequence = dict(name=VectorClass_pyName, item=ItemClass, isList=False)
+    return wig
 
 
 
@@ -1593,7 +1655,7 @@ def wxArrayPtrWrapperTemplate(ArrayClass, ItemClass, module):
     # Try creating extractor objects from scratch and attach cppMethods to
     # them as needed, etc..
 
-    return extractors.WigCode('''\
+    wig = extractors.WigCode('''\
 class {ArrayClass}
 {{
 public:
@@ -1647,6 +1709,8 @@ def _{ArrayClass_pyName}___repr__(self):
 del _{ArrayClass_pyName}___repr__
 %End
 '''.format(**locals()))
+    wig.piSequence = dict(name=ArrayClass_pyName, item=ItemClass, isList=False)
+    return wig
 
 
 
@@ -1746,6 +1810,11 @@ def guessTypeFloat(v):
     if type in ['float', 'double', 'wxDouble']:
         return True
     return False
+
+
+def isCharString(typeName):
+    """Narrow C strings, which SIP converts to bytes"""
+    return re.match(r'^(const)?(unsigned)?char(const)?(\*|\[\d*\])$', typeName.replace(' ', '')) is not None
 
 
 def guessTypeStr(v):

@@ -1,16 +1,16 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Tools for making simulated images for documentation examples and tests.
+Tools for making simulated images from astropy models.
 """
 
 import astropy.units as u
 import numpy as np
 from astropy.convolution import discretize_model
 from astropy.modeling import Model
-from astropy.nddata import NoOverlapError, overlap_slices
+from astropy.nddata import NoOverlapError
 from astropy.table import Table
 
-from photutils.utils._deprecation import deprecated_positional_kwargs
+from photutils.utils._overlap import overlap_slices
 from photutils.utils._parameters import as_pair
 from photutils.utils._progress_bars import add_progress_bar
 
@@ -34,16 +34,17 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
 
     Parameters
     ----------
-    shape : 2-tuple of int
-        The shape of the output image.
+    shape : 2-tuple of int or int
+        The shape of the output image. If a single integer is provided,
+        it will be used for both dimensions.
 
     model : 2D `astropy.modeling.Model`
         The 2D model to be used to render the sources. The model must
-        be two-dimensional where it accepts 2 inputs (i.e., (x, y)) and
-        has 1 output. The model must have parameters for the x and y
-        positions of the sources. Typically, these parameters are named
-        'x_0' and 'y_0', but the parameter names can be specified using
-        the ``x_name`` and ``y_name`` keywords.
+        be two-dimensional, meaning that it accepts 2 inputs (i.e.,
+        (x, y)) and has 1 output. The model must have parameters for
+        the x and y positions of the sources. Typically, these
+        parameters are named 'x_0' and 'y_0', but the parameter names
+        can be specified using the ``x_name`` and ``y_name`` keywords.
 
     params_table : `~astropy.table.Table`
         A table containing the model parameters for each source. Each
@@ -53,40 +54,43 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         and y positions of the sources. The column names for the x
         and y positions can be specified using the ``x_name`` and
         ``y_name`` keywords. Model parameters not defined in the table
-        or ``params_map`` will be set to the ``model`` default value. To
+        or ``params_map`` keep the values of the input ``model``. To
         attach units to model parameters, ``params_table`` must be input
-        as a `~astropy.table.QTable`. Rows that contain any non-finite
-        model parameters will be skipped.
+        as a `~astropy.table.QTable`. Rows that contain any nonfinite
+        model parameters or a nonfinite ``'local_bkg'`` value will be
+        skipped.
 
-        If the table contains a column named 'model_shape', then
+        If the table contains a column named ``'model_shape'``, then
         the values in that column will be used to override the
         ``model_shape`` keyword and model ``bounding_box`` for each
         source. This can be used to render each source with a different
         shape.
 
-        If the table contains a column named 'local_bkg', then the
-        per-pixel local background values in that column will be to
+        If the table contains a column named ``'local_bkg'``, then the
+        per-pixel local background values in that column will be
         added to each model source over the region defined by its
-        ``model_shape``. The 'local_bkg' column must have the same
+        ``model_shape``. The ``'local_bkg'`` column must have the same
         flux units as the output image (e.g., if the input ``model``
         has 'amplitude' or 'flux' parameters with units). Including
-        'local_bkg' should be used with care, especially in crowded
+        ``'local_bkg'`` should be used with care, especially in crowded
         fields where the ``model_shape`` of sources overlap (see Notes
         below).
 
-        Except for ``model_shape`` and ``local_bkg`` column names,
-        column names that do not match model parameters will be ignored
-        unless ``params_map`` is input.
+        Except for the ``'model_shape'`` and ``'local_bkg'`` columns,
+        columns whose names do not match a model parameter name are
+        ignored unless they are mapped to a model parameter by
+        ``params_map``.
 
     model_shape : 2-tuple of int, int, or `None`, optional
-        The shape around the (x, y) center of each source that will
+        The shape around the (x, y) center of each source that will be
         used to evaluate the ``model``. If ``model_shape`` is a scalar
         integer, then a square shape of size ``model_shape`` will be
         used. If `None`, then the bounding box of the model will be
         used (which can optionally be scaled using the ``bbox_factor``
-        keyword if the model supports it). This keyword must be
-        specified if the model does not have a ``bounding_box``
-        attribute. If specified, this keyword overrides the model
+        keyword if the model supports it). If the model does not have
+        a ``bounding_box`` attribute, then either this keyword or a
+        ``'model_shape'`` column in ``params_table`` must be
+        specified. If specified, this keyword overrides the model
         ``bounding_box`` attribute. To use a different shape for
         each source, include a column named ``'model_shape'`` in the
         ``params_table``. For that case, this keyword is ignored.
@@ -104,13 +108,15 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
 
     x_name : str, optional
         The name of the ``model`` parameter that corresponds to the x
-        position of the sources. If ``param_map`` is not input, then
-        this value must also be a column name in ``params_table``.
+        position of the sources. This value must also be a column name
+        in ``params_table`` unless ``params_map`` maps this parameter
+        to a different column.
 
     y_name : str, optional
         The name of the ``model`` parameter that corresponds to the y
-        position of the sources. If ``param_map`` is not input, then
-        this value must also be a column name in ``params_table``.
+        position of the sources. This value must also be a column name
+        in ``params_table`` unless ``params_map`` maps this parameter
+        to a different column.
 
     params_map : dict or None, optional
         A dictionary mapping the model parameter names to the column
@@ -120,10 +126,12 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         names to model parameter names that are different. For example,
         if the input column name is 'flux_f200w' and the model parameter
         name is 'flux', then use ``params_map={'flux': 'flux_f200w'}``.
-        This table may also be used if you want to map the model x and y
-        parameters to different columns than ``x_name`` and ``y_name``,
-        but the ``x_name`` and ``y_name`` keys must be included in the
-        dictionary.
+        This dictionary may also be used to map the model x and y
+        parameters to columns with names other than ``x_name`` and
+        ``y_name``. In that case, the dictionary keys for the positions
+        must be the ``x_name`` and ``y_name`` parameter names. If
+        those keys are not in the dictionary, the ``x_name`` and
+        ``y_name`` columns are used.
 
     discretize_method : {'center', 'interp', 'oversample', 'integrate'}, \
             optional
@@ -133,7 +141,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         * ``'center'`` (default)
           Discretize model by taking the value at the center of the
           pixel bins. This method should be used for ePSF/PRF single or
-          gridded models.
+          gridded models, which are already integrated over the pixels.
 
         * ``'interp'``
           Discretize model by bilinearly interpolating between the
@@ -147,12 +155,18 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
 
         * ``'integrate'``
           Discretize model by integrating the model over the pixel bins
-          using `scipy.integrate.quad`. This mode conserves the model
+          using `scipy.integrate.dblquad`. This mode conserves the model
           integral on a subpixel scale, but it is *extremely* slow.
+
+        The ``'oversample'`` or ``'integrate'`` method should be used
+        for a model that is not integrated over the pixels, such as the
+        `photutils.psf` analytic models whose names end in ``PSF``.
+        Neither should be used for an ePSF/PRF model, which would then
+        be integrated over the pixels twice.
 
     discretize_oversample : int, optional
         The integer oversampling factor used when
-        ``descretize_method='oversample'``. This keyword is ignored
+        ``discretize_method='oversample'``. This keyword is ignored
         otherwise.
 
     progress_bar : bool, optional
@@ -162,13 +176,32 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
 
     Returns
     -------
-    array : 2D `~numpy.ndarray`
-        The rendered image containing the model sources.
+    array : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
+        The rendered image containing the model sources. The image is
+        a `~astropy.units.Quantity` if the model output has units
+        (e.g., if ``params_table`` is a `~astropy.table.QTable` with a
+        flux column that has units).
+
+    Raises
+    ------
+    TypeError
+        If ``model`` is not an `astropy.modeling.Model` instance or if
+        ``params_table`` is not an `~astropy.table.Table`.
+
+    ValueError
+        If ``model`` does not have 2 inputs and 1 output, if
+        ``discretize_method`` is invalid, if a ``params_map`` key is
+        not a model parameter name, if a required column is not in
+        ``params_table``, if the model has no ``bounding_box``
+        attribute and no model shape is specified, if the
+        ``'local_bkg'`` column does not have the same flux units as
+        the output image, or if a ``params_table`` column has units
+        and ``params_table`` is not a `~astropy.table.QTable`.
 
     Notes
     -----
     The local background value around each source is optionally included
-    using the ``local_bkg`` column in the input ``params_table``. This
+    using the ``'local_bkg'`` column in the input ``params_table``. This
     local background is added to each source over its ``model_shape``
     region. In regions where the ``model_shape`` of sources overlap,
     the local background will be added multiple times. This is not an
@@ -225,9 +258,7 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
         ax.imshow(data, origin='lower')
         fig.tight_layout()
     """
-    if not isinstance(shape, tuple) or len(shape) != 2:
-        msg = 'shape must be a 2-tuple'
-        raise ValueError(msg)
+    shape = as_pair('shape', shape, lower_bound=(0, 0))
 
     if not isinstance(model, Model):
         msg = 'model must be a Model instance'
@@ -238,6 +269,14 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
     if not isinstance(params_table, Table):
         msg = 'params_table must be an astropy Table'
         raise TypeError(msg)
+
+    valid_methods = ('center', 'interp', 'oversample', 'integrate')
+    if discretize_method not in valid_methods:
+        msg = (f'Invalid discretize_method: {discretize_method!r}. '
+               f'discretize_method must be one of {valid_methods}')
+        raise ValueError(msg)
+    if discretize_method == 'interp':
+        discretize_method = 'linear_interp'
 
     xypos_map = {x_name: x_name, y_name: y_name}
 
@@ -265,10 +304,9 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
 
     variable_shape = False
     if 'model_shape' in params_table.colnames:
-        model_shape = np.array(params_table['model_shape'])
-        if model_shape.ndim == 1:
-            model_shape = np.array([as_pair('model_shape', shape)
-                                    for shape in model_shape])
+        model_shape = np.array([as_pair('model_shape', mshape,
+                                        lower_bound=(0, 0))
+                                for mshape in params_table['model_shape']])
         variable_shape = True
 
     if model_shape is None:
@@ -287,81 +325,85 @@ def make_model_image(shape, model, params_table, *, model_shape=None,
     # Copy the input model to leave it unchanged
     model = model.copy()
 
+    image = np.zeros(shape, dtype=float)
+
+    # Determine the output image units, if any, by evaluating the model
+    # with unit scalars derived from the mapped table columns. Unmapped
+    # model parameters keep their default values (and units). This is
+    # done up front so that the output units do not depend on whether
+    # any sources are actually rendered (e.g., a zero-row table or
+    # sources that do not overlap the image).
+    for key, param in params_map.items():
+        unit = getattr(params_table[param], 'unit', None)
+        setattr(model, key, 1 if unit is None else 1 * unit)
+    result = model(0, 0)
+    if isinstance(result, u.Quantity):
+        image <<= result.unit
+
     if progress_bar:
         desc = 'Add model sources'
         params_table = add_progress_bar(params_table, desc=desc)
 
-    image = np.zeros(shape, dtype=float)
-    apply_units = True
     for i, source in enumerate(params_table):
-        for key, param in params_map.items():
-            value = source[param]
-            # Skip if any parameter value is not finite
-            if not np.isfinite(value):
-                break
-            setattr(model, key, value)
+        params = {key: source[param] for key, param in params_map.items()}
 
-        else:  # All parameters are finite for the source
-            # This assumes that if the user also uses params_table to
-            # override the (x/y)_name mapping that the x_name and y_name
-            # values are correct (i.e., the mapping keys include x_name
-            # and y_name). There is no good way to check/enforce this.
-            x0 = getattr(model, x_name).value
-            y0 = getattr(model, y_name).value
+        # Skip sources that have any nonfinite parameter or local
+        # background value
+        if (not all(np.isfinite(value) for value in params.values())
+                or not np.isfinite(local_bkg[i])):
+            continue
 
-            if variable_shape:
-                mod_shape = model_shape[i]
-            elif model_shape is None:
-                # The bounding box size generally depends on model
-                # parameters, so needs to be calculated for each source
-                mod_shape = _model_shape_from_bbox(model,
-                                                   bbox_factor=bbox_factor)
-            else:
-                mod_shape = model_shape
+        try:
+            for key, value in params.items():
+                setattr(model, key, value)
+        except u.UnitsError as exc:
+            msg = ('params_table must be a QTable when its columns have '
+                   'units')
+            raise ValueError(msg) from exc
 
-            try:
-                slc_lg, _ = overlap_slices(shape, mod_shape, (y0, x0),
-                                           mode='trim')
+        # This assumes that if the user also uses params_table to
+        # override the (x/y)_name mapping that the x_name and y_name
+        # values are correct (i.e., the mapping keys include x_name and
+        # y_name). There is no good way to check/enforce this.
+        x0 = getattr(model, x_name).value
+        y0 = getattr(model, y_name).value
 
-                if discretize_method == 'center':
-                    yy, xx = np.mgrid[slc_lg]
-                    subimg = model(xx, yy)
-                else:
-                    if discretize_method == 'interp':
-                        discretize_method = 'linear_interp'
-                    x_range = (slc_lg[1].start, slc_lg[1].stop)
-                    y_range = (slc_lg[0].start, slc_lg[0].stop)
-                    subimg = discretize_model(model, x_range=x_range,
-                                              y_range=y_range,
-                                              mode=discretize_method,
-                                              factor=discretize_oversample)
+        if variable_shape:
+            mod_shape = model_shape[i]
+        elif model_shape is None:
+            # The bounding box size generally depends on model
+            # parameters, so needs to be calculated for each source
+            mod_shape = _model_shape_from_bbox(model, bbox_factor=bbox_factor)
+        else:
+            mod_shape = model_shape
 
-                # If the model is a Quantity, then the output image
-                # should also be a Quantity with the same units;
-                # but apply the units only once
-                if apply_units and isinstance(subimg, u.Quantity):
-                    apply_units = False
-                    image <<= subimg.unit
+        try:
+            slc_lg, _ = overlap_slices(shape, mod_shape, (y0, x0), mode='trim')
+        except NoOverlapError:
+            continue
 
-                try:
-                    image[slc_lg] += subimg + local_bkg[i]
-                except u.UnitConversionError as exc:
-                    msg = ('The local_bkg column must have the same flux '
-                           'units as the output image')
-                    raise ValueError(msg) from exc
+        if discretize_method == 'center':
+            yy, xx = np.mgrid[slc_lg]
+            subimg = model(xx, yy)
+        else:
+            x_range = (slc_lg[1].start, slc_lg[1].stop)
+            y_range = (slc_lg[0].start, slc_lg[0].stop)
+            subimg = discretize_model(model, x_range=x_range,
+                                      y_range=y_range,
+                                      mode=discretize_method,
+                                      factor=discretize_oversample)
 
-            except NoOverlapError:
-                # Evaluate the model to get the model output units
-                result = model(0, 0)
-                if isinstance(result, u.Quantity):
-                    image <<= result.unit
-                continue
+        try:
+            image[slc_lg] += subimg + local_bkg[i]
+        except u.UnitConversionError as exc:
+            msg = ('The local_bkg column must have the same flux units as '
+                   'the output image')
+            raise ValueError(msg) from exc
 
     return image
 
 
-@deprecated_positional_kwargs(since='3.0', until='4.0')
-def _model_shape_from_bbox(model, bbox_factor=None):
+def _model_shape_from_bbox(model, *, bbox_factor=None):
     """
     Calculate the model shape from the model bounding box.
 
@@ -380,8 +422,8 @@ def _model_shape_from_bbox(model, bbox_factor=None):
     Returns
     -------
     model_shape : 2-tuple of int
-        The shape around the (x, y) center of the model that will used
-        to evaluate the model.
+        The shape around the (x, y) center of the model that will be
+        used to evaluate the model.
 
     Raises
     ------

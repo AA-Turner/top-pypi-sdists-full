@@ -5,23 +5,29 @@ coordinates.
 """
 
 import math
+from functools import cached_property
 
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import Angle
-from astropy.utils import lazyproperty
 
+from photutils.aperture._batch_photometry import (SHAPE_RECTANGLE,
+                                                  SHAPE_RECTANGULAR_ANNULUS)
 from photutils.aperture.attributes import (PixelPositions, PositiveScalar,
                                            PositiveScalarAngle, ScalarAngle,
                                            ScalarAngleOrValue,
                                            SkyCoordPositions)
-from photutils.aperture.core import PixelAperture, SkyAperture
+from photutils.aperture.core import (PixelAperture, SkyAperture,
+                                     _enable_batch_photometry,
+                                     _RotatableApertureMixin,
+                                     _update_method_subpixels_docstring)
 from photutils.aperture.mask import ApertureMask
+from photutils.aperture.polygon import PolygonAperture, SkyPolygonAperture
 from photutils.geometry import rectangular_overlap_grid
 from photutils.utils._deprecation import (deprecated,
                                           deprecated_positional_kwargs)
-from photutils.utils._wcs_helpers import (pixel_to_sky_scales,
-                                          sky_to_pixel_scales)
+from photutils.utils._wcs_helpers import (pixel_shape_to_sky_svd,
+                                          sky_shape_to_pixel_svd)
 
 __all__ = [
     'RectangularAnnulus',
@@ -32,51 +38,56 @@ __all__ = [
 ]
 
 
-@deprecated('3.0', until='4.0')
+def _rectangular_polygon_offsets(half_x, half_y, theta):
+    """
+    Compute the four corner offsets of a rectangle with half-extents
+    ``half_x`` and ``half_y`` along the unrotated first and second
+    coordinate axes, rotated by ``theta`` (in radians).
+
+    The corners are ordered counterclockwise in the unrotated frame.
+
+    Parameters
+    ----------
+    half_x : float
+        Half of the rectangle width along the unrotated first coordinate
+        axis.
+
+    half_y : float
+        Half of the rectangle height along the unrotated second
+        coordinate axis.
+
+    theta : float
+        The rotation angle in radians from the unrotated first
+        coordinate axis.
+
+    Returns
+    -------
+    offsets : 2D `~numpy.ndarray`
+        The four corner offsets of the rectangle, shape (4, 2).
+    """
+    corners = np.array([[-half_x, -half_y], [half_x, -half_y],
+                        [half_x, half_y], [-half_x, half_y]])
+    cos_t = np.cos(theta)
+    sin_t = np.sin(theta)
+    rot_mat = np.array([[cos_t, -sin_t], [sin_t, cos_t]])
+    return corners @ rot_mat.T
+
+
+@deprecated('3.0', until='3.2')
 class RectangularMaskMixin:  # pragma: no cover
     """
     Mixin class to create masks for rectangular or rectangular-annulus
     aperture objects.
-
-    .. deprecated:: 3.0
     """
 
+    @_update_method_subpixels_docstring
     def to_mask(self, method='exact', subpixels=5):
         """
         Return a mask for the aperture.
 
         Parameters
         ----------
-        method : {'exact', 'center', 'subpixel'}, optional
-            The method used to determine the overlap of the aperture
-            on the pixel grid. Not all options are available for all
-            aperture types. Note that the more precise methods are
-            generally slower. The following methods are available:
-
-            * ``'exact'`` (default):
-              The exact fractional overlap of the aperture and each
-              pixel is calculated. The aperture weights will contain
-              values between 0 and 1.
-
-            * ``'center'``:
-              A pixel is considered to be entirely in or out of the
-              aperture depending on whether its center is in or out of
-              the aperture. The aperture weights will contain values
-              only of 0 (out) and 1 (in).
-
-            * ``'subpixel'``:
-              A pixel is divided into subpixels (see the ``subpixels``
-              keyword), each of which are considered to be entirely in
-              or out of the aperture depending on whether its center is
-              in or out of the aperture. If ``subpixels=1``, this method
-              is equivalent to ``'center'``. The aperture weights will
-              contain values between 0 and 1.
-
-        subpixels : int, optional
-            For the ``'subpixel'`` method, resample pixels by this
-            factor in each dimension. That is, each pixel is divided
-            into ``subpixels**2`` subpixels. This keyword is ignored
-            unless ``method='subpixel'``.
+        <method_subpixels_descriptions>
 
         Returns
         -------
@@ -87,8 +98,7 @@ class RectangularMaskMixin:  # pragma: no cover
             otherwise a list of `~photutils.aperture.ApertureMask` is
             returned.
         """
-        _, subpixels = self._translate_mask_method(method, subpixels,
-                                                   rectangle=True)
+        use_exact, subpixels = self._translate_mask_method(method, subpixels)
 
         if hasattr(self, 'w'):
             w = self.w
@@ -97,23 +107,23 @@ class RectangularMaskMixin:  # pragma: no cover
             w = self.w_out
             h = self.h_out
         else:
-            msg = 'Cannot determine the aperture radius'
+            msg = 'Cannot determine the aperture width and height'
             raise ValueError(msg)
 
         masks = []
         for bbox, edges in zip(self._bbox, self._centered_edges, strict=True):
             ny, nx = bbox.shape
-            theta_rad = self.theta.to(u.radian).value
             mask = rectangular_overlap_grid(edges[0], edges[1], edges[2],
                                             edges[3], nx, ny, w, h,
-                                            theta_rad, 0, subpixels)
+                                            self._theta_rad, use_exact,
+                                            subpixels)
 
             # Subtract the inner rectangle for an annulus
             if hasattr(self, 'w_in'):
                 mask -= rectangular_overlap_grid(edges[0], edges[1], edges[2],
                                                  edges[3], nx, ny, self.w_in,
-                                                 self.h_in, theta_rad,
-                                                 0, subpixels)
+                                                 self.h_in, self._theta_rad,
+                                                 use_exact, subpixels)
 
             masks.append(ApertureMask(mask, bbox))
 
@@ -123,28 +133,27 @@ class RectangularMaskMixin:  # pragma: no cover
         return masks
 
     @staticmethod
-    def _calc_extents(width, height, theta):
+    def _calc_extents(width, height, theta_rad):
         """
         Calculate half of the bounding box extents of a rectangle.
         """
-        return _calc_rectangle_extents(width, height, theta)
+        return _calc_rectangle_extents(width, height, theta_rad)
 
     @staticmethod
-    def _lower_left_positions(positions, width, height, theta):
+    def _lower_left_positions(positions, width, height, theta_rad):
         """
         Calculate lower-left positions from the input center positions.
 
-        Used for creating `~matplotlib.patches.Rectangle` patch for the
-        aperture.
+        Used for creating a `~matplotlib.patches.Rectangle` patch for
+        the aperture.
         """
-        return _calc_lower_left_positions(positions, width, height, theta)
+        return _calc_lower_left_positions(positions, width, height, theta_rad)
 
 
-def _calc_rectangle_extents(width, height, theta):
+def _calc_rectangle_extents(width, height, theta_rad):
     """
     Calculate half of the bounding box extents of a rectangle.
     """
-    theta_rad = theta.to(u.radian).value
     half_width = width / 2.0
     half_height = height / 2.0
     sin_theta = math.sin(theta_rad)
@@ -159,14 +168,13 @@ def _calc_rectangle_extents(width, height, theta):
     return x_extent, y_extent
 
 
-def _calc_lower_left_positions(positions, width, height, theta):
+def _calc_lower_left_positions(positions, width, height, theta_rad):
     """
     Calculate lower-left positions from the input center positions.
 
-    Used for creating `~matplotlib.patches.Rectangle` patch for the
+    Used for creating a `~matplotlib.patches.Rectangle` patch for the
     aperture.
     """
-    theta_rad = theta.to(u.radian).value
     half_width = width / 2.0
     half_height = height / 2.0
     sin_theta = math.sin(theta_rad)
@@ -177,7 +185,8 @@ def _calc_lower_left_positions(positions, width, height, theta):
     return np.atleast_2d(positions) + np.array([xshift, yshift])
 
 
-class RectangularAperture(PixelAperture):
+@_enable_batch_photometry
+class RectangularAperture(_RotatableApertureMixin, PixelAperture):
     """
     A rectangular aperture defined in pixel coordinates.
 
@@ -195,22 +204,22 @@ class RectangularAperture(PixelAperture):
 
     w : float
         The full width of the rectangle in pixels. For ``theta=0`` the
-        width side is along the ``x`` axis.
+        width side is along the x-axis.
 
     h : float
         The full height of the rectangle in pixels. For ``theta=0`` the
-        height side is along the ``y`` axis.
+        height side is along the y-axis.
 
     theta : float or `~astropy.units.Quantity`, optional
         The rotation angle as an angular quantity
         (`~astropy.units.Quantity` or `~astropy.coordinates.Angle`) or
-        value in radians (as a float) from the positive ``x`` axis. The
+        value in radians (as a float) from the positive x-axis. The
         rotation angle increases counterclockwise.
 
     Raises
     ------
     ValueError : `ValueError`
-        If either width (``w``) or height (``h``) is negative.
+        If either width (``w``) or height (``h``) is not positive.
 
     Examples
     --------
@@ -234,8 +243,7 @@ class RectangularAperture(PixelAperture):
     h = PositiveScalar('The full height in pixels.')
     theta = ScalarAngleOrValue('The counterclockwise rotation angle as an '
                                'angular Quantity or a value in radians from '
-                               'the positive x axis.')
-    _is_rectangle = True  # remove when rectangles support "exact" method
+                               'the positive x-axis.')
 
     @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, w, h, theta=0.0):
@@ -244,15 +252,18 @@ class RectangularAperture(PixelAperture):
         self.h = h
         self.theta = theta
 
-    @lazyproperty
+    @cached_property
     def _xy_extents(self):
         """
         The half-width and half-height of the bounding box of the
         rectangle.
         """
-        return _calc_rectangle_extents(self.w, self.h, self.theta)
+        return _calc_rectangle_extents(self.w, self.h, self._theta_rad)
 
-    @lazyproperty
+    def _batch_shape_params(self):
+        return SHAPE_RECTANGLE, (self.w, self.h, self._theta_rad)
+
+    @cached_property
     def area(self):
         """
         The exact geometric area of the aperture shape.
@@ -286,9 +297,9 @@ class RectangularAperture(PixelAperture):
         xy_positions, patch_kwargs = self._define_patch_params(origin=origin,
                                                                **kwargs)
         xy_positions = _calc_lower_left_positions(xy_positions, self.w,
-                                                  self.h, self.theta)
+                                                  self.h, self._theta_rad)
 
-        angle = self.theta.to(u.deg).value
+        angle = self.theta.to_value(u.deg)
         patches = [mpatches.Rectangle(xy_position, self.w, self.h,
                                       angle=angle, **patch_kwargs)
                    for xy_position in xy_positions]
@@ -298,37 +309,16 @@ class RectangularAperture(PixelAperture):
 
         return patches
 
+    @_update_method_subpixels_docstring
     def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
         """
         Compute the overlap of the aperture on the pixel grid.
 
-        Parameters
-        ----------
-        edges : list of 4 1D `~numpy.ndarray`
-            The edges of the pixel grid in the form of
-            ``[x_edges, y_edges, x_centers, y_centers]``.
-
-        nx, ny : int
-            The number of pixels in the x and y directions.
-
-        use_exact : bool
-            Whether to use the exact method for calculating the overlap.
-
-        subpixels : int
-            The number of subpixels to use in each dimension for the
-            subpixel method.
-
-        Returns
-        -------
-        overlap : 2D `~numpy.ndarray`
-            The overlap of the aperture on the pixel grid. The values
-            will be between 0 and 1, where 0 means no overlap and 1
-            means full overlap.
+        <compute_overlap_docs>
         """
-        theta_rad = self.theta.to(u.radian).value
         return rectangular_overlap_grid(edges[0], edges[1], edges[2],
                                         edges[3], nx, ny, self.w,
-                                        self.h, theta_rad,
+                                        self.h, self._theta_rad,
                                         use_exact, subpixels)
 
     def to_sky(self, wcs):
@@ -364,16 +354,31 @@ class RectangularAperture(PixelAperture):
 
         first_pos = np.atleast_2d(self.positions)[0]
         pixcoord = (float(first_pos[0]), float(first_pos[1]))
-        _, scale_w, scale_h, sky_angle = pixel_to_sky_scales(
-            pixcoord, wcs, self.theta.to(u.rad).value)
+        sky_w, sky_h, sky_angle = pixel_shape_to_sky_svd(
+            wcs, pixcoord, self.w, self.h, self._theta_rad)
 
-        w = Angle(self.w * scale_w, 'arcsec')
-        h = Angle(self.h * scale_h, 'arcsec')
-        return SkyRectangularAperture(positions=positions, w=w, h=h,
+        width = Angle(sky_w, 'arcsec')
+        height = Angle(sky_h, 'arcsec')
+        return SkyRectangularAperture(positions=positions, w=width, h=height,
                                       theta=sky_angle)
 
+    def to_polygon(self):
+        """
+        Return a `~photutils.aperture.PolygonAperture` with the four
+        corners of this rectangle as its vertices.
 
-class RectangularAnnulus(PixelAperture):
+        Returns
+        -------
+        aperture : `~photutils.aperture.PolygonAperture`
+            A polygon aperture exactly equivalent to the rectangle.
+        """
+        offsets = _rectangular_polygon_offsets(
+            0.5 * self.w, 0.5 * self.h, self.theta.to_value(u.radian))
+        return PolygonAperture._from_simple_offsets(self.positions, offsets)
+
+
+@_enable_batch_photometry
+class RectangularAnnulus(_RotatableApertureMixin, PixelAperture):
     r"""
     A rectangular annulus aperture defined in pixel coordinates.
 
@@ -391,16 +396,16 @@ class RectangularAnnulus(PixelAperture):
 
     w_in : float
         The inner full width of the rectangular annulus in pixels. For
-        ``theta=0`` the width side is along the ``x`` axis.
+        ``theta=0`` the width side is along the x-axis.
 
     w_out : float
         The outer full width of the rectangular annulus in pixels. For
-        ``theta=0`` the width side is along the ``x`` axis.
+        ``theta=0`` the width side is along the x-axis.
 
     h_out : float
         The outer full height of the rectangular annulus in pixels.
 
-    h_in : `None` or float
+    h_in : float or `None`, optional
         The inner full height of the rectangular annulus in pixels. If
         `None`, then the inner full height is calculated as:
 
@@ -408,23 +413,24 @@ class RectangularAnnulus(PixelAperture):
 
             h_{in} = h_{out} \left(\frac{w_{in}}{w_{out}}\right)
 
-        For ``theta=0`` the height side is along the ``y`` axis.
+        For ``theta=0`` the height side is along the y-axis.
 
     theta : float or `~astropy.units.Quantity`, optional
         The rotation angle as an angular quantity
         (`~astropy.units.Quantity` or `~astropy.coordinates.Angle`) or
-        value in radians (as a float) from the positive ``x`` axis. The
+        value in radians (as a float) from the positive x-axis. The
         rotation angle increases counterclockwise.
 
     Raises
     ------
     ValueError : `ValueError`
-        If inner width (``w_in``) is greater than outer width
-        (``w_out``).
+        If the inner width (``w_in``) is not less than the outer width
+        (``w_out``), or if the inner height (``h_in``), when given, is
+        not less than the outer height (``h_out``).
 
     ValueError : `ValueError`
-        If either the inner width (``w_in``) or the outer height
-        (``h_out``) is negative.
+        If any of the widths or heights (``w_in``, ``w_out``, ``h_in``,
+        or ``h_out``) is not positive.
 
     Examples
     --------
@@ -444,6 +450,7 @@ class RectangularAnnulus(PixelAperture):
     """
 
     _params = ('positions', 'w_in', 'w_out', 'h_in', 'h_out', 'theta')
+    _ordered_pairs = (('w_in', 'w_out'), ('h_in', 'h_out'))
     positions = PixelPositions('The center pixel position(s).')
     w_in = PositiveScalar('The inner full width in pixels.')
     w_out = PositiveScalar('The outer full width in pixels.')
@@ -451,15 +458,10 @@ class RectangularAnnulus(PixelAperture):
     h_out = PositiveScalar('The outer full height in pixels.')
     theta = ScalarAngleOrValue('The counterclockwise rotation angle as an '
                                'angular Quantity or a value in radians from '
-                               'the positive x axis.')
-    _is_rectangle = True  # remove when rectangles support "exact" method
+                               'the positive x-axis.')
 
     @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, w_in, w_out, h_out, h_in=None, theta=0.0):
-        if not w_out > w_in:
-            msg = "'w_out' must be greater than 'w_in'"
-            raise ValueError(msg)
-
         self.positions = positions
         self.w_in = w_in
         self.w_out = w_out
@@ -467,22 +469,23 @@ class RectangularAnnulus(PixelAperture):
 
         if h_in is None:
             h_in = self.w_in * self.h_out / self.w_out
-        elif not h_out > h_in:
-            msg = "'h_out' must be greater than 'h_in'"
-            raise ValueError(msg)
         self.h_in = h_in
 
         self.theta = theta
 
-    @lazyproperty
+    @cached_property
     def _xy_extents(self):
         """
-        The half-width and half-height of the bounding box of the
+        The half-width and half-height of the bounding box of the outer
         rectangle.
         """
-        return _calc_rectangle_extents(self.w_out, self.h_out, self.theta)
+        return _calc_rectangle_extents(self.w_out, self.h_out, self._theta_rad)
 
-    @lazyproperty
+    def _batch_shape_params(self):
+        return SHAPE_RECTANGULAR_ANNULUS, (self.w_in, self.h_in, self.w_out,
+                                           self.h_out, self._theta_rad)
+
+    @cached_property
     def area(self):
         """
         The exact geometric area of the aperture shape.
@@ -518,14 +521,14 @@ class RectangularAnnulus(PixelAperture):
         inner_xy_positions = _calc_lower_left_positions(xy_positions,
                                                         self.w_in,
                                                         self.h_in,
-                                                        self.theta)
+                                                        self._theta_rad)
         outer_xy_positions = _calc_lower_left_positions(xy_positions,
                                                         self.w_out,
                                                         self.h_out,
-                                                        self.theta)
+                                                        self._theta_rad)
 
         patches = []
-        angle = self.theta.to(u.deg).value
+        angle = self.theta.to_value(u.deg)
         for xy_in, xy_out in zip(inner_xy_positions, outer_xy_positions,
                                  strict=True):
             patch_inner = mpatches.Rectangle(xy_in, self.w_in, self.h_in,
@@ -540,42 +543,24 @@ class RectangularAnnulus(PixelAperture):
 
         return patches
 
+    @_update_method_subpixels_docstring
     def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
         """
         Compute the overlap of the aperture on the pixel grid.
 
-        Parameters
-        ----------
-        edges : list of 4 1D `~numpy.ndarray`
-            The edges of the pixel grid in the form of
-            ``[x_edges, y_edges, x_centers, y_centers]``.
-
-        nx, ny : int
-            The number of pixels in the x and y directions.
-
-        use_exact : bool
-            Whether to use the exact method for calculating the overlap.
-
-        subpixels : int
-            The number of subpixels to use in each dimension for the
-            subpixel method.
-
-        Returns
-        -------
-        overlap : 2D `~numpy.ndarray`
-            The overlap of the aperture on the pixel grid. The values
-            will be between 0 and 1, where 0 means no overlap and 1
-            means full overlap.
+        <compute_overlap_docs>
         """
-        theta_rad = self.theta.to(u.radian).value
         overlap = rectangular_overlap_grid(edges[0], edges[1], edges[2],
                                            edges[3], nx, ny, self.w_out,
-                                           self.h_out, theta_rad,
+                                           self.h_out, self._theta_rad,
                                            use_exact, subpixels)
         overlap -= rectangular_overlap_grid(edges[0], edges[1], edges[2],
                                             edges[3], nx, ny, self.w_in,
-                                            self.h_in, theta_rad,
+                                            self.h_in, self._theta_rad,
                                             use_exact, subpixels)
+        # Clip tiny negative values arising from floating-point noise in
+        # the subtraction.
+        np.maximum(overlap, 0.0, out=overlap)
         return overlap
 
     def to_sky(self, wcs):
@@ -605,25 +590,39 @@ class RectangularAnnulus(PixelAperture):
         conversion. For apertures with multiple positions used with a
         WCS that has spatially-varying distortions, this may produce
         inaccurate results for positions far from the first position.
+
+        Only the outer rectangle is converted with the WCS. The inner
+        sides are the converted outer sides scaled by the input ratios
+        ``w_in / w_out`` and ``h_in / h_out``, so the inner sides always
+        remain smaller than the outer sides and the inner shape is
+        recovered exactly by the inverse conversion. The annulus has a
+        single rotation angle, which is that of the converted outer
+        rectangle. If the WCS is sheared and the inner aspect ratio
+        differs from the outer one, the inner rectangle of the returned
+        annulus is an approximation of the converted inner rectangle,
+        which would have a different orientation.
         """
         xpos, ypos = np.transpose(self.positions)
         positions = wcs.pixel_to_world(xpos, ypos)
 
         first_pos = np.atleast_2d(self.positions)[0]
         pixcoord = (float(first_pos[0]), float(first_pos[1]))
-        _, scale_w, scale_h, sky_angle = pixel_to_sky_scales(
-            pixcoord, wcs, self.theta.to(u.rad).value)
+        # Convert the outer rectangle. The inner sides keep their input
+        # ratios to the outer sides, which keeps the annulus valid for
+        # any WCS.
+        sky_w, sky_h, sky_angle = pixel_shape_to_sky_svd(
+            wcs, pixcoord, self.w_out, self.h_out, self._theta_rad)
 
-        w_in = Angle(self.w_in * scale_w, 'arcsec')
-        w_out = Angle(self.w_out * scale_w, 'arcsec')
-        h_in = Angle(self.h_in * scale_h, 'arcsec')
-        h_out = Angle(self.h_out * scale_h, 'arcsec')
+        w_out = Angle(sky_w, 'arcsec')
+        h_out = Angle(sky_h, 'arcsec')
+        w_in = w_out * (self.w_in / self.w_out)
+        h_in = h_out * (self.h_in / self.h_out)
         return SkyRectangularAnnulus(positions=positions, w_in=w_in,
                                      w_out=w_out, h_out=h_out,
                                      h_in=h_in, theta=sky_angle)
 
 
-class SkyRectangularAperture(SkyAperture):
+class SkyRectangularAperture(_RotatableApertureMixin, SkyAperture):
     """
     A rectangular aperture defined in sky coordinates.
 
@@ -646,8 +645,18 @@ class SkyRectangularAperture(SkyAperture):
 
     theta : scalar `~astropy.units.Quantity`, optional
         The position angle (in angular units) of the rectangle "width"
-        side. For a right-handed world coordinate system, the position
-        angle increases counterclockwise from North (PA=0).
+        side, measured from North (PA=0) toward East. This is
+        counterclockwise on an image displayed with North up and East to
+        the left.
+
+    Raises
+    ------
+    TypeError : `TypeError`
+        If either width (``w``) or height (``h``) is not a
+        `~astropy.units.Quantity`.
+
+    ValueError : `ValueError`
+        If either width (``w``) or height (``h``) is not positive.
 
     Examples
     --------
@@ -704,17 +713,39 @@ class SkyRectangularAperture(SkyAperture):
         positions = np.transpose((xpos, ypos))
 
         skypos = self.positions if self.isscalar else self.positions[0]
-        sky_angle_rad = self.theta.to(u.rad).value
-        _, scale_w, scale_h, pixel_angle = sky_to_pixel_scales(
-            skypos, wcs, sky_angle_rad)
+        first_pixcoord = tuple(np.atleast_2d(positions)[0])
+        _, pix_w, pix_h, pix_angle = sky_shape_to_pixel_svd(
+            wcs, skypos,
+            self.w.to_value(u.arcsec),
+            self.h.to_value(u.arcsec),
+            self._theta_rad, pixcoord=first_pixcoord)
 
-        w = self.w.to(u.arcsec).value * scale_w
-        h = self.h.to(u.arcsec).value * scale_h
-        return RectangularAperture(positions=positions, w=w, h=h,
-                                   theta=pixel_angle)
+        return RectangularAperture(positions=positions, w=pix_w, h=pix_h,
+                                   theta=pix_angle)
+
+    def to_polygon(self):
+        """
+        Return a `~photutils.aperture.SkyPolygonAperture` with the four
+        corners of this rectangle as its vertices.
+
+        Returns
+        -------
+        aperture : `~photutils.aperture.SkyPolygonAperture`
+            A sky polygon aperture exactly equivalent to the rectangle.
+        """
+        unit = self.w.unit
+        # At theta=0, the width (w) is along +lat (North) and the height
+        # (h) is along +lon, so the unrotated first axis uses the
+        # half-height and the second axis uses the half-width. A
+        # counterclockwise rotation in the (lon, lat) plane moves North
+        # toward West, so the sign of the position angle is flipped.
+        offsets = _rectangular_polygon_offsets(
+            0.5 * self.h.to_value(unit), 0.5 * self.w.to_value(unit),
+            -self.theta.to_value(u.radian)) * unit
+        return SkyPolygonAperture._from_simple_offsets(self.positions, offsets)
 
 
-class SkyRectangularAnnulus(SkyAperture):
+class SkyRectangularAnnulus(_RotatableApertureMixin, SkyAperture):
     r"""
     A rectangular annulus aperture defined in sky coordinates.
 
@@ -741,7 +772,7 @@ class SkyRectangularAnnulus(SkyAperture):
         The outer full height of the rectangular annulus in angular
         units.
 
-    h_in : `None` or scalar `~astropy.units.Quantity`
+    h_in : scalar `~astropy.units.Quantity` or `None`, optional
         The inner full height of the rectangular annulus in angular
         units. If `None`, then the inner full height is calculated as:
 
@@ -753,8 +784,24 @@ class SkyRectangularAnnulus(SkyAperture):
 
     theta : scalar `~astropy.units.Quantity`, optional
         The position angle (in angular units) of the rectangle "width"
-        side. For a right-handed world coordinate system, the position
-        angle increases counterclockwise from North (PA=0).
+        side, measured from North (PA=0) toward East. This is
+        counterclockwise on an image displayed with North up and East to
+        the left.
+
+    Raises
+    ------
+    TypeError : `TypeError`
+        If any of the widths or heights (``w_in``, ``w_out``, ``h_in``,
+        or ``h_out``) is not a `~astropy.units.Quantity`.
+
+    ValueError : `ValueError`
+        If the inner width (``w_in``) is not less than the outer width
+        (``w_out``), or if the inner height (``h_in``), when given, is
+        not less than the outer height (``h_out``).
+
+    ValueError : `ValueError`
+        If any of the widths or heights (``w_in``, ``w_out``, ``h_in``,
+        or ``h_out``) is not positive.
 
     Examples
     --------
@@ -767,6 +814,7 @@ class SkyRectangularAnnulus(SkyAperture):
     """
 
     _params = ('positions', 'w_in', 'w_out', 'h_in', 'h_out', 'theta')
+    _ordered_pairs = (('w_in', 'w_out'), ('h_in', 'h_out'))
     positions = SkyCoordPositions('The center position(s) in sky coordinates.')
     w_in = PositiveScalarAngle('The inner full width in angular units.')
     w_out = PositiveScalarAngle('The outer full width in angular units.')
@@ -778,10 +826,6 @@ class SkyRectangularAnnulus(SkyAperture):
     @deprecated_positional_kwargs(since='3.0', until='4.0')
     def __init__(self, positions, w_in, w_out, h_out, h_in=None,
                  theta=0.0 * u.deg):
-        if not w_out > w_in:
-            msg = "'w_out' must be greater than 'w_in'"
-            raise ValueError(msg)
-
         self.positions = positions
         self.w_in = w_in
         self.w_out = w_out
@@ -789,9 +833,6 @@ class SkyRectangularAnnulus(SkyAperture):
 
         if h_in is None:
             h_in = self.w_in * self.h_out / self.w_out
-        elif not h_out > h_in:
-            msg = "'h_out' must be greater than 'h_in'"
-            raise ValueError(msg)
         self.h_in = h_in
 
         self.theta = theta
@@ -823,19 +864,34 @@ class SkyRectangularAnnulus(SkyAperture):
         conversion. For apertures with multiple positions used with a
         WCS that has spatially-varying distortions, this may produce
         inaccurate results for positions far from the first position.
+
+        Only the outer rectangle is converted with the WCS. The inner
+        sides are the converted outer sides scaled by the input ratios
+        ``w_in / w_out`` and ``h_in / h_out``, so the inner sides always
+        remain smaller than the outer sides and the inner shape is
+        recovered exactly by the inverse conversion. The annulus has a
+        single rotation angle, which is that of the converted outer
+        rectangle. If the WCS is sheared and the inner aspect ratio
+        differs from the outer one, the inner rectangle of the returned
+        annulus is an approximation of the converted inner rectangle,
+        which would have a different orientation.
         """
         xpos, ypos = wcs.world_to_pixel(self.positions)
         positions = np.transpose((xpos, ypos))
 
         skypos = self.positions if self.isscalar else self.positions[0]
-        sky_angle_rad = self.theta.to(u.rad).value
-        _, scale_w, scale_h, pixel_angle = sky_to_pixel_scales(
-            skypos, wcs, sky_angle_rad)
+        first_pixcoord = tuple(np.atleast_2d(positions)[0])
+        # Convert the outer rectangle. The inner sides keep their input
+        # ratios to the outer sides, which keeps the annulus valid for
+        # any WCS.
+        w_out_arcsec = self.w_out.to_value(u.arcsec)
+        h_out_arcsec = self.h_out.to_value(u.arcsec)
+        _, w_out, h_out, pix_angle = sky_shape_to_pixel_svd(
+            wcs, skypos, w_out_arcsec, h_out_arcsec, self._theta_rad,
+            pixcoord=first_pixcoord)
 
-        w_in = self.w_in.to(u.arcsec).value * scale_w
-        w_out = self.w_out.to(u.arcsec).value * scale_w
-        h_in = self.h_in.to(u.arcsec).value * scale_h
-        h_out = self.h_out.to(u.arcsec).value * scale_h
+        w_in = w_out * (self.w_in.to_value(u.arcsec) / w_out_arcsec)
+        h_in = h_out * (self.h_in.to_value(u.arcsec) / h_out_arcsec)
         return RectangularAnnulus(positions=positions, w_in=w_in,
                                   w_out=w_out, h_out=h_out,
-                                  h_in=h_in, theta=pixel_angle)
+                                  h_in=h_in, theta=pix_angle)

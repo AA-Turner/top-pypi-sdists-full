@@ -30,7 +30,7 @@ def set_trace(paused=True, frame=None, term_size=None):
                 term_size = (80, 24)
 
     Debugger(
-        stdin=open("/dev/stdin"),
-        stdout=open("/dev/stdout", "w"),
+        stdin=open("/dev/stdin"),  # ruff:ignore[open-file-with-context-handler]
+        stdout=open("/dev/stdout", "w"),  # ruff:ignore[open-file-with-context-handler]
         term_size=term_size,
     ).set_trace(frame, paused=paused)

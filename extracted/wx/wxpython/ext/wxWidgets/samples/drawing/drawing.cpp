@@ -992,7 +992,7 @@ void MyCanvas::DrawDefault(wxDC& dc)
     dc.DrawLine(dc.FromDIP(400), dc.FromDIP(170), dc.FromDIP(400), dc.FromDIP(210));
     dc.DrawLine(dc.FromDIP(300), dc.FromDIP(200), dc.FromDIP(410), dc.FromDIP(200));
 
-    // a few more tests of this kind
+    // Draw tiny rectangles, including MSW GDI edge cases.
     dc.SetPen(*wxRED_PEN);
     dc.SetBrush( *wxWHITE_BRUSH );
     dc.DrawRectangle(dc.FromDIP(300), dc.FromDIP(220), dc.FromDIP(1), dc.FromDIP(1));
@@ -1156,7 +1156,7 @@ void MyCanvas::DrawText(wxDC& dc)
 #ifdef __WXMSW__
                                    " (only when using Direct2D)"
 #endif
-                                   ": \U0001F60A"), dc.FromDIP(400), y);
+                                   ": \xF0\x9F\x98\x8A"), dc.FromDIP(400), y);
 }
 
 static const struct

@@ -1011,6 +1011,7 @@ class HttpClient:
         code_change_description: str | None = None,
         code_change_files: list[dict[str, str]] | None = None,
         experiment_group_id: str | None = None,
+        experiment_group_name: str | None = None,
         include_db_branch_lease: bool = False,
         include_original_metadata: bool = False,
         dataset_ids: list[str] | None = None,
@@ -1050,8 +1051,13 @@ class HttpClient:
                 Use empty strings for newly created (``before``) or deleted
                 (``after``) files.
             experiment_group_id: Optional UUID that groups multiple replay runs
-                into a single experiment batch. The experiments page can stream
+                into a single experiment batch. The run joins that group, and an
+                ID no group has yet creates it. The experiments page can stream
                 results live by filtering on this ID.
+            experiment_group_name: Optional name for the experiment group, sent
+                only when set. Applied when this replay creates the group or the
+                group has no name yet. A group that already has a name keeps it.
+                The server refuses it without ``experiment_group_id``.
             include_db_branch_lease: When True, the server resolves each root
                 span's ``db_snapshot_ref`` into a per-item ``dbBranchLease``
                 (Neon snapshot + restore) before returning. Set when the caller
@@ -1106,6 +1112,8 @@ class HttpClient:
             payload["codeChangeFiles"] = code_change_files
         if experiment_group_id is not None:
             payload["experimentGroupId"] = experiment_group_id
+        if experiment_group_name is not None:
+            payload["experimentGroupName"] = experiment_group_name
         if include_db_branch_lease:
             payload["includeDbBranchLease"] = True
             payload["lazyDbBranchLease"] = True

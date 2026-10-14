@@ -5,21 +5,31 @@ coordinates.
 """
 
 import math
+from functools import cached_property
 
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import Angle
-from astropy.utils import lazyproperty
 
+from photutils.aperture._batch_photometry import (SHAPE_CIRCLE,
+                                                  SHAPE_CIRCULAR_ANNULUS)
 from photutils.aperture.attributes import (PixelPositions, PositiveScalar,
                                            PositiveScalarAngle,
                                            SkyCoordPositions)
-from photutils.aperture.core import PixelAperture, SkyAperture
+from photutils.aperture.core import (PixelAperture, SkyAperture,
+                                     _enable_batch_photometry,
+                                     _update_method_subpixels_docstring)
+from photutils.aperture.ellipse import (EllipticalAnnulus, EllipticalAperture,
+                                        SkyEllipticalAnnulus,
+                                        SkyEllipticalAperture)
 from photutils.aperture.mask import ApertureMask
+from photutils.aperture.polygon import PolygonAperture, SkyPolygonAperture
 from photutils.geometry import circular_overlap_grid
 from photutils.utils._deprecation import deprecated
 from photutils.utils._wcs_helpers import (pixel_to_sky_mean_scale,
-                                          sky_to_pixel_mean_scale)
+                                          pixel_to_sky_svd_scales,
+                                          sky_to_pixel_mean_scale,
+                                          sky_to_pixel_svd_scales)
 
 __all__ = [
     'CircularAnnulus',
@@ -30,51 +40,55 @@ __all__ = [
 ]
 
 
-@deprecated('3.0')
+def _circular_polygon_offsets(r, n_vertices):
+    """
+    Compute the vertex offsets that approximate a circle of radius ``r``
+    using ``n_vertices`` equally spaced vertices.
+
+    ``r`` may be a plain number (pixel offsets) or a
+    `~astropy.units.Quantity` (angular offsets). The returned offsets
+    carry the same type.
+
+    Parameters
+    ----------
+    r : float or `~astropy.units.Quantity`
+        The radius of the circle.
+
+    n_vertices : int
+        The number of polygon vertices used to approximate the circle.
+
+    Returns
+    -------
+    offsets : 2D `~numpy.ndarray`
+        The vertex offsets that approximate the circle. The shape is
+        ``(n_vertices, 2)``, where the second axis corresponds to the
+        ``(x, y)`` offsets. The offsets are in the same units as the
+        input ``r``.
+    """
+    n_vertices = int(n_vertices)
+    if n_vertices < 3:
+        msg = f'n_vertices must be at least 3, got {n_vertices}'
+        raise ValueError(msg)
+
+    theta = np.linspace(0.0, 2.0 * np.pi, n_vertices, endpoint=False)
+    return np.column_stack([np.cos(theta), np.sin(theta)]) * r
+
+
+@deprecated('3.0', until='3.2')
 class CircularMaskMixin:  # pragma: no cover
     """
     Mixin class to create masks for circular and circular-annulus
     aperture objects.
-
-    .. deprecated:: 3.0
     """
 
+    @_update_method_subpixels_docstring
     def to_mask(self, method='exact', subpixels=5):
         """
         Return a mask for the aperture.
 
         Parameters
         ----------
-        method : {'exact', 'center', 'subpixel'}, optional
-            The method used to determine the overlap of the aperture
-            on the pixel grid. Not all options are available for all
-            aperture types. Note that the more precise methods are
-            generally slower. The following methods are available:
-
-            * ``'exact'`` (default):
-              The exact fractional overlap of the aperture and each
-              pixel is calculated. The aperture weights will contain
-              values between 0 and 1.
-
-            * ``'center'``:
-              A pixel is considered to be entirely in or out of the
-              aperture depending on whether its center is in or out of
-              the aperture. The aperture weights will contain values
-              only of 0 (out) and 1 (in).
-
-            * ``'subpixel'``:
-              A pixel is divided into subpixels (see the ``subpixels``
-              keyword), each of which are considered to be entirely in
-              or out of the aperture depending on whether its center is
-              in or out of the aperture. If ``subpixels=1``, this method
-              is equivalent to ``'center'``. The aperture weights will
-              contain values between 0 and 1.
-
-        subpixels : int, optional
-            For the ``'subpixel'`` method, resample pixels by this
-            factor in each dimension. That is, each pixel is divided
-            into ``subpixels**2`` subpixels. This keyword is ignored
-            unless ``method='subpixel'``.
+        <method_subpixels_descriptions>
 
         Returns
         -------
@@ -116,6 +130,7 @@ class CircularMaskMixin:  # pragma: no cover
         return masks
 
 
+@_enable_batch_photometry
 class CircularAperture(PixelAperture):
     """
     A circular aperture defined in pixel coordinates.
@@ -138,7 +153,7 @@ class CircularAperture(PixelAperture):
     Raises
     ------
     ValueError : `ValueError`
-        If the input radius, ``r``, is negative.
+        If the input radius, ``r``, is not positive.
 
     Examples
     --------
@@ -161,11 +176,14 @@ class CircularAperture(PixelAperture):
         self.positions = positions
         self.r = r
 
-    @lazyproperty
+    @cached_property
     def _xy_extents(self):
         return self.r, self.r
 
-    @lazyproperty
+    def _batch_shape_params(self):
+        return SHAPE_CIRCLE, (self.r,)
+
+    @cached_property
     def area(self):
         """
         The exact geometric area of the aperture shape.
@@ -207,38 +225,18 @@ class CircularAperture(PixelAperture):
 
         return patches
 
+    @_update_method_subpixels_docstring
     def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
         """
         Compute the overlap of the aperture on the pixel grid.
 
-        Parameters
-        ----------
-        edges : list of 4 1D `~numpy.ndarray`
-            The edges of the pixel grid in the form of
-            ``[x_edges, y_edges, x_centers, y_centers]``.
-
-        nx, ny : int
-            The number of pixels in the x and y directions.
-
-        use_exact : bool
-            Whether to use the exact method for calculating the overlap.
-
-        subpixels : int
-            The number of subpixels to use in each dimension for the
-            subpixel method.
-
-        Returns
-        -------
-        overlap : 2D `~numpy.ndarray`
-            The overlap of the aperture on the pixel grid. The values
-            will be between 0 and 1, where 0 means no overlap and 1
-            means full overlap.
+        <compute_overlap_docs>
         """
         return circular_overlap_grid(edges[0], edges[1], edges[2],
                                      edges[3], nx, ny, self.r,
                                      use_exact, subpixels)
 
-    def to_sky(self, wcs):
+    def to_sky(self, wcs, *, as_ellipse=False):
         """
         Convert the aperture to a `SkyCircularAperture` object defined
         in celestial coordinates.
@@ -251,10 +249,18 @@ class CircularAperture(PixelAperture):
             <https://docs.astropy.org/en/stable/wcs/wcsapi.html>`_
             (e.g., `astropy.wcs.WCS`, `gwcs.wcs.WCS`).
 
+        as_ellipse : bool, optional
+            If `True`, return the image of the circle under the local
+            linear WCS at the reference position, which is an ellipse
+            whenever the pixels are not square or the WCS is sheared.
+            If `False` (the default), return a circle whose radius is
+            scaled by the isotropic mean pixel scale.
+
         Returns
         -------
-        aperture : `SkyCircularAperture` object
-            A `SkyCircularAperture` object.
+        aperture : `SkyCircularAperture` or `SkyEllipticalAperture`
+            The sky aperture. A `SkyEllipticalAperture` is returned if
+            ``as_ellipse`` is `True`.
 
         Notes
         -----
@@ -270,13 +276,41 @@ class CircularAperture(PixelAperture):
         positions = wcs.pixel_to_world(xpos, ypos)
 
         first_pos = np.atleast_2d(self.positions)[0]
-        _, mean_scale = pixel_to_sky_mean_scale(
-            (float(first_pos[0]), float(first_pos[1])), wcs)
+        pixcoord = (float(first_pos[0]), float(first_pos[1]))
 
+        if as_ellipse:
+            scale_major, scale_minor, theta = pixel_to_sky_svd_scales(
+                wcs, pixcoord)
+            a = Angle(self.r * scale_major, 'arcsec')
+            b = Angle(self.r * scale_minor, 'arcsec')
+            return SkyEllipticalAperture(positions=positions, a=a, b=b,
+                                         theta=theta)
+
+        mean_scale = pixel_to_sky_mean_scale(wcs, pixcoord)
         r = Angle(self.r * mean_scale, 'arcsec')
         return SkyCircularAperture(positions=positions, r=r)
 
+    def to_polygon(self, *, n_vertices=100):
+        """
+        Return a `~photutils.aperture.PolygonAperture` that
+        approximates this circular aperture.
 
+        Parameters
+        ----------
+        n_vertices : int, optional
+            The number of polygon vertices used to approximate the
+            circle. Must be at least 3. Default is 100.
+
+        Returns
+        -------
+        aperture : `~photutils.aperture.PolygonAperture`
+            A polygon aperture that approximates the circle.
+        """
+        offsets = _circular_polygon_offsets(self.r, n_vertices)
+        return PolygonAperture._from_simple_offsets(self.positions, offsets)
+
+
+@_enable_batch_photometry
 class CircularAnnulus(PixelAperture):
     """
     A circular annulus aperture defined in pixel coordinates.
@@ -302,11 +336,11 @@ class CircularAnnulus(PixelAperture):
     Raises
     ------
     ValueError : `ValueError`
-        If inner radius (``r_in``) is greater than outer radius
+        If the inner radius (``r_in``) is not less than the outer radius
         (``r_out``).
 
     ValueError : `ValueError`
-        If inner radius (``r_in``) is negative.
+        If either radius (``r_in`` or ``r_out``) is not positive.
 
     Examples
     --------
@@ -322,24 +356,24 @@ class CircularAnnulus(PixelAperture):
     """
 
     _params = ('positions', 'r_in', 'r_out')
+    _ordered_pairs = (('r_in', 'r_out'),)
     positions = PixelPositions('The center pixel position(s).')
     r_in = PositiveScalar('The inner radius in pixels.')
     r_out = PositiveScalar('The outer radius in pixels.')
 
     def __init__(self, positions, r_in, r_out):
-        if not r_out > r_in:
-            msg = "'r_out' must be greater than 'r_in'"
-            raise ValueError(msg)
-
         self.positions = positions
         self.r_in = r_in
         self.r_out = r_out
 
-    @lazyproperty
+    @cached_property
     def _xy_extents(self):
         return self.r_out, self.r_out
 
-    @lazyproperty
+    def _batch_shape_params(self):
+        return SHAPE_CIRCULAR_ANNULUS, (self.r_in, self.r_out)
+
+    @cached_property
     def area(self):
         """
         The exact geometric area of the aperture shape.
@@ -385,32 +419,12 @@ class CircularAnnulus(PixelAperture):
 
         return patches
 
+    @_update_method_subpixels_docstring
     def _compute_overlap(self, edges, nx, ny, use_exact, subpixels):
         """
         Compute the overlap of the aperture on the pixel grid.
 
-        Parameters
-        ----------
-        edges : list of 4 1D `~numpy.ndarray`
-            The edges of the pixel grid in the form of
-            ``[x_edges, y_edges, x_centers, y_centers]``.
-
-        nx, ny : int
-            The number of pixels in the x and y directions.
-
-        use_exact : bool
-            Whether to use the exact method for calculating the overlap.
-
-        subpixels : int
-            The number of subpixels to use in each dimension for the
-            subpixel method.
-
-        Returns
-        -------
-        overlap : 2D `~numpy.ndarray`
-            The overlap of the aperture on the pixel grid. The values
-            will be between 0 and 1, where 0 means no overlap and 1
-            means full overlap.
+        <compute_overlap_docs>
         """
         overlap = circular_overlap_grid(edges[0], edges[1], edges[2],
                                         edges[3], nx, ny, self.r_out,
@@ -418,9 +432,12 @@ class CircularAnnulus(PixelAperture):
         overlap -= circular_overlap_grid(edges[0], edges[1], edges[2],
                                          edges[3], nx, ny, self.r_in,
                                          use_exact, subpixels)
+        # Clip tiny negative values arising from floating-point noise in
+        # the subtraction.
+        np.maximum(overlap, 0.0, out=overlap)
         return overlap
 
-    def to_sky(self, wcs):
+    def to_sky(self, wcs, *, as_ellipse=False):
         """
         Convert the aperture to a `SkyCircularAnnulus` object defined in
         celestial coordinates.
@@ -433,10 +450,19 @@ class CircularAnnulus(PixelAperture):
             <https://docs.astropy.org/en/stable/wcs/wcsapi.html>`_
             (e.g., `astropy.wcs.WCS`, `gwcs.wcs.WCS`).
 
+        as_ellipse : bool, optional
+            If `True`, return the image of the circular annulus under
+            the local linear WCS at the reference position, which is
+            an elliptical annulus whenever the pixels are not square
+            or the WCS is sheared. If `False` (the default), return a
+            circular annulus whose inner and outer radii are scaled by
+            the isotropic mean pixel scale.
+
         Returns
         -------
-        aperture : `SkyCircularAnnulus` object
-            A `SkyCircularAnnulus` object.
+        aperture : `SkyCircularAnnulus` or `SkyEllipticalAnnulus`
+            The sky aperture. A `SkyEllipticalAnnulus` is returned if
+            ``as_ellipse`` is `True`.
 
         Notes
         -----
@@ -452,9 +478,20 @@ class CircularAnnulus(PixelAperture):
         positions = wcs.pixel_to_world(xpos, ypos)
 
         first_pos = np.atleast_2d(self.positions)[0]
-        _, mean_scale = pixel_to_sky_mean_scale(
-            (float(first_pos[0]), float(first_pos[1])), wcs)
+        pixcoord = (float(first_pos[0]), float(first_pos[1]))
 
+        if as_ellipse:
+            scale_major, scale_minor, theta = pixel_to_sky_svd_scales(
+                wcs, pixcoord)
+            return SkyEllipticalAnnulus(
+                positions=positions,
+                a_in=Angle(self.r_in * scale_major, 'arcsec'),
+                a_out=Angle(self.r_out * scale_major, 'arcsec'),
+                b_out=Angle(self.r_out * scale_minor, 'arcsec'),
+                b_in=Angle(self.r_in * scale_minor, 'arcsec'),
+                theta=theta)
+
+        mean_scale = pixel_to_sky_mean_scale(wcs, pixcoord)
         r_in = Angle(self.r_in * mean_scale, 'arcsec')
         r_out = Angle(self.r_out * mean_scale, 'arcsec')
         return SkyCircularAnnulus(positions=positions, r_in=r_in, r_out=r_out)
@@ -476,6 +513,14 @@ class SkyCircularAperture(SkyAperture):
     r : scalar `~astropy.units.Quantity`
         The radius of the circle in angular units.
 
+    Raises
+    ------
+    TypeError : `TypeError`
+        If the input radius, ``r``, is not a `~astropy.units.Quantity`.
+
+    ValueError : `ValueError`
+        If the input radius, ``r``, is not positive.
+
     Examples
     --------
     >>> from astropy.coordinates import SkyCoord
@@ -493,7 +538,7 @@ class SkyCircularAperture(SkyAperture):
         self.positions = positions
         self.r = r
 
-    def to_pixel(self, wcs):
+    def to_pixel(self, wcs, *, as_ellipse=False):
         """
         Convert the aperture to a `CircularAperture` object defined in
         pixel coordinates.
@@ -506,10 +551,18 @@ class SkyCircularAperture(SkyAperture):
             <https://docs.astropy.org/en/stable/wcs/wcsapi.html>`_
             (e.g., `astropy.wcs.WCS`, `gwcs.wcs.WCS`).
 
+        as_ellipse : bool, optional
+            If `True`, return the image of the circle under the local
+            linear WCS at the reference position, which is an ellipse
+            whenever the pixels are not square or the WCS is sheared.
+            If `False` (the default), return a circle whose radius is
+            scaled by the isotropic mean pixel scale.
+
         Returns
         -------
-        aperture : `CircularAperture` object
-            A `CircularAperture` object.
+        aperture : `CircularAperture` or `EllipticalAperture`
+            The pixel aperture. An `EllipticalAperture` is returned if
+            ``as_ellipse`` is `True`.
 
         Notes
         -----
@@ -525,10 +578,39 @@ class SkyCircularAperture(SkyAperture):
         positions = np.transpose((xpos, ypos))
 
         skypos = self.positions if self.isscalar else self.positions[0]
-        _, mean_scale = sky_to_pixel_mean_scale(skypos, wcs)
+        first_pixcoord = tuple(np.atleast_2d(positions)[0])
+        r_arcsec = self.r.to_value(u.arcsec)
 
-        r = self.r.to(u.arcsec).value * mean_scale
-        return CircularAperture(positions=positions, r=r)
+        if as_ellipse:
+            _, scale_major, scale_minor, theta = sky_to_pixel_svd_scales(
+                wcs, skypos, pixcoord=first_pixcoord)
+            return EllipticalAperture(positions=positions,
+                                      a=r_arcsec * scale_major,
+                                      b=r_arcsec * scale_minor, theta=theta)
+
+        _, mean_scale = sky_to_pixel_mean_scale(wcs, skypos,
+                                                pixcoord=first_pixcoord)
+        return CircularAperture(positions=positions, r=r_arcsec * mean_scale)
+
+    def to_polygon(self, *, n_vertices=100):
+        """
+        Return a `~photutils.aperture.SkyPolygonAperture` that
+        approximates this circular aperture.
+
+        Parameters
+        ----------
+        n_vertices : int, optional
+            The number of polygon vertices used to approximate the
+            circle. Must be at least 3. Default is 100.
+
+        Returns
+        -------
+        aperture : `~photutils.aperture.SkyPolygonAperture`
+            A sky polygon aperture that approximates the circle.
+        """
+        offsets = _circular_polygon_offsets(self.r, n_vertices)
+        return SkyPolygonAperture._from_simple_offsets(self.positions,
+                                                       offsets)
 
 
 class SkyCircularAnnulus(SkyAperture):
@@ -550,6 +632,19 @@ class SkyCircularAnnulus(SkyAperture):
     r_out : scalar `~astropy.units.Quantity`
         The outer radius of the circular annulus in angular units.
 
+    Raises
+    ------
+    TypeError : `TypeError`
+        If either radius (``r_in`` or ``r_out``) is not a
+        `~astropy.units.Quantity`.
+
+    ValueError : `ValueError`
+        If the inner radius (``r_in``) is not less than the outer radius
+        (``r_out``).
+
+    ValueError : `ValueError`
+        If either radius (``r_in`` or ``r_out``) is not positive.
+
     Examples
     --------
     >>> from astropy.coordinates import SkyCoord
@@ -560,20 +655,17 @@ class SkyCircularAnnulus(SkyAperture):
     """
 
     _params = ('positions', 'r_in', 'r_out')
+    _ordered_pairs = (('r_in', 'r_out'),)
     positions = SkyCoordPositions('The center position(s) in sky coordinates.')
     r_in = PositiveScalarAngle('The inner radius in angular units.')
     r_out = PositiveScalarAngle('The outer radius in angular units.')
 
     def __init__(self, positions, r_in, r_out):
-        if not r_out > r_in:
-            msg = "'r_out' must be greater than 'r_in'"
-            raise ValueError(msg)
-
         self.positions = positions
         self.r_in = r_in
         self.r_out = r_out
 
-    def to_pixel(self, wcs):
+    def to_pixel(self, wcs, *, as_ellipse=False):
         """
         Convert the aperture to a `CircularAnnulus` object defined in
         pixel coordinates.
@@ -586,10 +678,19 @@ class SkyCircularAnnulus(SkyAperture):
             <https://docs.astropy.org/en/stable/wcs/wcsapi.html>`_
             (e.g., `astropy.wcs.WCS`, `gwcs.wcs.WCS`).
 
+        as_ellipse : bool, optional
+            If `True`, return the image of the circular annulus under
+            the local linear WCS at the reference position, which is
+            an elliptical annulus whenever the pixels are not square
+            or the WCS is sheared. If `False` (the default), return a
+            circular annulus whose inner and outer radii are scaled by
+            the isotropic mean pixel scale.
+
         Returns
         -------
-        aperture : `CircularAnnulus` object
-            A `CircularAnnulus` object.
+        aperture : `CircularAnnulus` or `EllipticalAnnulus`
+            The pixel aperture. An `EllipticalAnnulus` is returned if
+            ``as_ellipse`` is `True`.
 
         Notes
         -----
@@ -605,8 +706,22 @@ class SkyCircularAnnulus(SkyAperture):
         positions = np.transpose((xpos, ypos))
 
         skypos = self.positions if self.isscalar else self.positions[0]
-        _, mean_scale = sky_to_pixel_mean_scale(skypos, wcs)
+        first_pixcoord = tuple(np.atleast_2d(positions)[0])
+        r_in_arcsec = self.r_in.to_value(u.arcsec)
+        r_out_arcsec = self.r_out.to_value(u.arcsec)
 
-        r_in = self.r_in.to(u.arcsec).value * mean_scale
-        r_out = self.r_out.to(u.arcsec).value * mean_scale
+        if as_ellipse:
+            _, scale_major, scale_minor, theta = sky_to_pixel_svd_scales(
+                wcs, skypos, pixcoord=first_pixcoord)
+            return EllipticalAnnulus(positions=positions,
+                                     a_in=r_in_arcsec * scale_major,
+                                     a_out=r_out_arcsec * scale_major,
+                                     b_out=r_out_arcsec * scale_minor,
+                                     b_in=r_in_arcsec * scale_minor,
+                                     theta=theta)
+
+        _, mean_scale = sky_to_pixel_mean_scale(wcs, skypos,
+                                                pixcoord=first_pixcoord)
+        r_in = r_in_arcsec * mean_scale
+        r_out = r_out_arcsec * mean_scale
         return CircularAnnulus(positions=positions, r_in=r_in, r_out=r_out)

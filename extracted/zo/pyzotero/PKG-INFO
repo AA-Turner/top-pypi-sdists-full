@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyzotero
-Version: 1.15.2
+Version: 1.16.0
 Summary: Python wrapper for the Zotero API
 Keywords: Zotero,DH
 Author: Stephan Hügel
@@ -21,7 +21,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: feedparser>=6.0.12
 Requires-Dist: bibtexparser>=1.4.3,<2.0.0
-Requires-Dist: whenever>=0.8.8
+Requires-Dist: whenever>=0.10.0
 Requires-Dist: httpx2>=2.12.0
 Requires-Dist: click>=8.0.0 ; extra == 'cli'
 Requires-Dist: mcp[cli]>=2.0.0 ; python_full_version >= '3.10' and extra == 'mcp'
@@ -128,7 +128,7 @@ Add it to your Claude Desktop configuration:
 }
 ```
 
-The server is read-only by default. Starting it with `--enable-writes` registers tools that create and modify items and collections, and `--enable-deletes` additionally registers permanent deletion. See the [MCP server documentation][14] for the configuration, the full list of tools, and how the write tools behave.
+The server is read-only by default. Starting it with `--enable-writes` registers tools that create and modify items, notes and collections, add items by DOI, arXiv ID or ISBN (with open-access PDFs) or from BibTeX and CSL JSON, and merge duplicates; `--enable-deletes` additionally registers permanent deletion. `--group` selects a group library, and `--transport streamable-http` serves over HTTP. See the [MCP server documentation][14] for the configuration, the full list of tools, and how the write tools behave.
 
 # Development
 

@@ -17,8 +17,11 @@
 
 #ifndef WX_PRECOMP
     #include "wx/app.h"
+    #include "wx/timer.h"
 #endif // WX_PRECOMP
 
+#include "wx/html/helpctrl.h"
+#include "wx/html/helpdlg.h"
 #include "wx/html/htmlwin.h"
 #include "wx/uiaction.h"
 #include "testableframe.h"
@@ -27,53 +30,29 @@
 // test class
 // ----------------------------------------------------------------------------
 
-class HtmlWindowTestCase : public CppUnit::TestCase
+class HtmlWindowTestCase
 {
 public:
-    HtmlWindowTestCase() { }
+    HtmlWindowTestCase();
+    ~HtmlWindowTestCase();
 
-    virtual void setUp() override;
-    virtual void tearDown() override;
-
-private:
-    CPPUNIT_TEST_SUITE( HtmlWindowTestCase );
-        CPPUNIT_TEST( SelectionToText );
-        CPPUNIT_TEST( Title );
-#if wxUSE_UIACTIONSIMULATOR
-        WXUISIM_TEST( CellClick );
-        WXUISIM_TEST( LinkClick );
-#endif // wxUSE_UIACTIONSIMULATOR
-        CPPUNIT_TEST( AppendToPage );
-    CPPUNIT_TEST_SUITE_END();
-
-    void SelectionToText();
-    void Title();
-    void CellClick();
-    void LinkClick();
-    void AppendToPage();
-
+protected:
     wxHtmlWindow *m_win;
 
     wxDECLARE_NO_COPY_CLASS(HtmlWindowTestCase);
 };
 
-// register in the unnamed registry so that these tests are run by default
-CPPUNIT_TEST_SUITE_REGISTRATION( HtmlWindowTestCase );
-
-// also include in its own registry so that these tests can be run alone
-CPPUNIT_TEST_SUITE_NAMED_REGISTRATION( HtmlWindowTestCase, "HtmlWindowTestCase" );
-
 // ----------------------------------------------------------------------------
 // test initialization
 // ----------------------------------------------------------------------------
 
-void HtmlWindowTestCase::setUp()
+HtmlWindowTestCase::HtmlWindowTestCase()
 {
     m_win = new wxHtmlWindow(wxTheApp->GetTopWindow(), wxID_ANY,
                              wxDefaultPosition, wxSize(400, 200));
 }
 
-void HtmlWindowTestCase::tearDown()
+HtmlWindowTestCase::~HtmlWindowTestCase()
 {
     DeleteTestWindow(m_win);
     m_win = nullptr;
@@ -99,26 +78,161 @@ static const char *TEST_MARKUP_LINK =
 static const char *TEST_PLAIN_TEXT =
     "Title\nA longer line\nand the last line.";
 
-void HtmlWindowTestCase::SelectionToText()
+static const char *TEST_MARKUP_IMAGEMAP =
+    "<html><body>"
+    "Text<br>"
+    "<img src=\"missing.png\" width=\"100\" height=\"100\" usemap=\"#map\">"
+    "<map name=\"map\">"
+    "<area shape=\"rect\" coords=\"10,10,20,20\" href=\"hit\">"
+    "</map>"
+    "</body></html>";
+
+static const char *TEST_MARKUP_TABLE_PADDING =
+    "<html><body>"
+    "<table border=\"4\" cellpadding=\"0\" cellspacing=\"1\">"
+    "<tr><td id=\"cell\">Text</td></tr>"
+    "</table>"
+    "</body></html>";
+
+#if wxUSE_WXHTML_HELP
+
+class CloseModalHelpDialogTimer : public wxTimer
+{
+public:
+    CloseModalHelpDialogTimer(wxHtmlHelpController& controller)
+        : m_controller(controller),
+          m_modalShown(false)
+    {
+    }
+
+    bool WasModalShown() const { return m_modalShown; }
+
+private:
+    virtual void Notify() override
+    {
+        wxHtmlHelpDialog *dialog = m_controller.GetDialog();
+        if ( dialog && dialog->IsModal() )
+        {
+            m_modalShown = true;
+            dialog->EndModal(wxID_CANCEL);
+        }
+    }
+
+    wxHtmlHelpController& m_controller;
+    bool m_modalShown;
+};
+
+#endif // wxUSE_WXHTML_HELP
+
+static wxHtmlCell *FindCellWithLink(wxHtmlCell *cell, wxPoint *pos)
+{
+    if ( !cell->GetFirstChild() )
+    {
+        for ( int y = 0; y < cell->GetHeight(); y++ )
+        {
+            for ( int x = 0; x < cell->GetWidth(); x++ )
+            {
+                if ( cell->GetLink(x, y) )
+                {
+                    *pos = wxPoint(x, y);
+                    return cell;
+                }
+            }
+        }
+    }
+
+    for ( wxHtmlCell *child = cell->GetFirstChild();
+          child;
+          child = child->GetNext() )
+    {
+        wxHtmlCell *found = FindCellWithLink(child, pos);
+        if ( found )
+            return found;
+    }
+
+    return nullptr;
+}
+
+static wxHtmlCell *FindCellById(wxHtmlCell *cell, const wxString& id)
+{
+    if ( !cell )
+        return nullptr;
+
+    if ( cell->GetId() == id )
+        return cell;
+
+    for ( wxHtmlCell *child = cell->GetFirstChild(); child;
+          child = child->GetNext() )
+    {
+        wxHtmlCell *found = FindCellById(child, id);
+        if ( found )
+            return found;
+    }
+
+    return nullptr;
+}
+
+static wxHtmlCell *FindFirstTerminal(wxHtmlCell *cell)
+{
+    if ( !cell )
+        return nullptr;
+
+    if ( cell->IsTerminalCell() )
+        return cell;
+
+    for ( wxHtmlCell *child = cell->GetFirstChild(); child;
+          child = child->GetNext() )
+    {
+        wxHtmlCell *found = FindFirstTerminal(child);
+        if ( found )
+            return found;
+    }
+
+    return nullptr;
+}
+
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::SelectionToText", "[html][htmlwindow]")
 {
 #if wxUSE_CLIPBOARD
     m_win->SetPage(TEST_MARKUP);
     m_win->SelectAll();
 
-    CPPUNIT_ASSERT_EQUAL( TEST_PLAIN_TEXT, m_win->SelectionToText() );
+    CHECK( m_win->SelectionToText() == TEST_PLAIN_TEXT );
 #endif // wxUSE_CLIPBOARD
 }
 
-void HtmlWindowTestCase::Title()
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::Title", "[html][htmlwindow]")
 {
     m_win->SetPage(TEST_MARKUP);
 
-    CPPUNIT_ASSERT_EQUAL("Page", m_win->GetOpenedPageTitle());
+    CHECK(m_win->GetOpenedPageTitle() == "Page");
+}
+
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::InitialLineBreak", "[html][htmlwindow]")
+{
+    m_win->SetBorders(0);
+    m_win->SetPage("<html><body>TEXT</body></html>");
+
+    wxHtmlContainerCell *plainTextRoot = m_win->GetInternalRepresentation();
+
+    CHECK(plainTextRoot);
+
+    int plainTextHeight = plainTextRoot->GetHeight();
+
+    m_win->SetPage("<html><body><br>TEXT</body></html>");
+
+    wxHtmlContainerCell *rootWithBreak = m_win->GetInternalRepresentation();
+
+    CHECK(rootWithBreak);
+    CHECK(rootWithBreak->GetHeight() > plainTextHeight);
 }
 
 #if wxUSE_UIACTIONSIMULATOR
-void HtmlWindowTestCase::CellClick()
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::CellClick", "[html][htmlwindow]")
 {
+    if ( !EnableUITests() )
+        return;
+
     EventCounter clicked(m_win, wxEVT_HTML_CELL_CLICKED);
 
     wxUIActionSimulator sim;
@@ -133,11 +247,14 @@ void HtmlWindowTestCase::CellClick()
     sim.MouseClick();
     wxYield();
 
-    CPPUNIT_ASSERT_EQUAL(1, clicked.GetCount());
+    CHECK(clicked.GetCount() == 1);
 }
 
-void HtmlWindowTestCase::LinkClick()
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::LinkClick", "[html][htmlwindow]")
 {
+    if ( !EnableUITests() )
+        return;
+
     EventCounter clicked(m_win, wxEVT_HTML_LINK_CLICKED);
 
     wxUIActionSimulator sim;
@@ -152,18 +269,74 @@ void HtmlWindowTestCase::LinkClick()
     sim.MouseClick();
     wxYield();
 
-    CPPUNIT_ASSERT_EQUAL(1, clicked.GetCount());
+    CHECK(clicked.GetCount() == 1);
 }
 #endif // wxUSE_UIACTIONSIMULATOR
 
-void HtmlWindowTestCase::AppendToPage()
+#if wxUSE_WXHTML_HELP
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::DisplayMissingHelpTopic", "[html][htmlwindow]")
+{
+    wxHtmlHelpController controller(
+        wxHF_DEFAULT_STYLE | wxHF_DIALOG | wxHF_MODAL,
+        wxTheApp->GetTopWindow());
+    CloseModalHelpDialogTimer timer(controller);
+
+    timer.StartOnce(50);
+
+    CHECK(!controller.Display("missing topic"));
+
+    timer.Stop();
+
+    CHECK(!timer.WasModalShown());
+    controller.Quit();
+}
+#endif // wxUSE_WXHTML_HELP
+
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::ImageMapCoordinates", "[html][htmlwindow]")
+{
+    m_win->SetBorders(0);
+    m_win->SetPage(TEST_MARKUP_IMAGEMAP);
+
+    wxHtmlContainerCell *root = m_win->GetInternalRepresentation();
+    wxPoint hitpos;
+    wxHtmlCell *image = FindCellWithLink(root, &hitpos);
+
+    CHECK(image);
+
+    const wxPoint imgpos = image->GetAbsPos(root);
+    wxHtmlLinkInfo *link = root->GetLink(imgpos.x + hitpos.x,
+                                         imgpos.y + hitpos.y);
+
+    CHECK(link);
+    CHECK(link->GetHref() == "hit");
+    CHECK(!root->GetLink(imgpos.x, imgpos.y));
+}
+
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::AppendToPage", "[html][htmlwindow]")
 {
 #if wxUSE_CLIPBOARD
     m_win->SetPage(TEST_MARKUP_LINK);
     m_win->AppendToPage("A new paragraph");
 
-    CPPUNIT_ASSERT_EQUAL("link A new paragraph", m_win->ToText());
+    CHECK(m_win->ToText() == "link A new paragraph");
 #endif // wxUSE_CLIPBOARD
+}
+
+TEST_CASE_METHOD(HtmlWindowTestCase, "HtmlWindow::TableCellPadding", "[html][htmlwindow]")
+{
+    m_win->SetPage(TEST_MARKUP_TABLE_PADDING);
+
+    wxHtmlCell * const cell =
+        FindCellById(m_win->GetInternalRepresentation(), "cell");
+    REQUIRE(cell);
+
+    wxHtmlCell * const text = FindFirstTerminal(cell);
+    REQUIRE(text);
+
+    const wxPoint textPos = text->GetAbsPos(cell);
+
+    CHECK(textPos.x > 0);
+    CHECK(textPos.y > 0);
 }
 
 #endif //wxUSE_HTML

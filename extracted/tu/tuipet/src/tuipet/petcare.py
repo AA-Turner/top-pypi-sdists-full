@@ -13,6 +13,7 @@ from . import lines as lines_mod  # noqa: F401
 from . import shop  # noqa: F401
 from . import theme  # noqa: F401
 from .petbase import *  # noqa: F401,F403  (constants resolve HERE, per mixin)
+from .petbase import GCELL_PROTEIN
 
 
 def _live_memory(mem):
@@ -203,6 +204,7 @@ class CareMixin:
         self._set_energy(self.energy + PILL_ENERGY_GAIN)
         self._set_weight(self.weight + PILL_WEIGHT_GAIN)
         self._last_meal_starving = False     # a tonic is never wolfed down
+        self.gcell_add(GCELL_PROTEIN)        # G-Cells: the device's Protein (strength food) costs 4
         self._set_anim("eat", 1.4)
         return "Took the pill."
 
@@ -326,14 +328,13 @@ class CareMixin:
     # cheated to unwrap for free.  (Road items are already excluded by the
     # where=="home" test; listed here for intent.)
     _GIFT_BANNED = frozenset({"poison_mushroom", "digimemory", "revive_floppy",
-                              "town_transport", "disaster_transport",
+                              "shortcut", "rest_kit",
                               "life_recovery",
                               # the expansion (2026-07-26): traps and earned
                               # keys are never gift-wrapped -- the spirits
                               # are ENDGAME prizes (roads give Human, cups
                               # give Beast), the X-Program is an elite drop,
                               # and a gift is supposed to be NICE
-                              "zone_transport", "continent_transport",
                               "x_program", "burnt_food", "hedonism_101",
                               "prank_capsule_a", "prank_capsule_b",
                               "human_fire_spirit", "human_light_spirit",
@@ -495,11 +496,9 @@ class CareMixin:
             "television": lambda: self._toy(dp=2, weight=1,
                                             msg="Glued to the screen."),
             # ---- ADVENTURE (spent ON THE ROAD, not from the home bag) -------
-            "town_transport": lambda: _Refused("Save it for the road (press T)."),
-            "disaster_transport": lambda: _Refused("Save it for the road (press T)."),
-            "life_recovery": lambda: _Refused("Restores adventure lives — use it on the road."),
-            "zone_transport": lambda: _Refused("Save it for the road (press T)."),  # noqa: F405
-            "continent_transport": lambda: _Refused("Save it for the road (press T)."),  # noqa: F405
+            "shortcut": lambda: _Refused("Save it for the road (press T)."),  # noqa: F405
+            "rest_kit": lambda: _Refused("Save it for the road (press T)."),  # noqa: F405
+            "life_recovery": lambda: _Refused("Save it for the road (press T)."),  # noqa: F405
             # ---- THE EXPANSION's singular doors (2026-07-26) ----------------
             "med": self._med_item,
             "elixir": self._elixir,

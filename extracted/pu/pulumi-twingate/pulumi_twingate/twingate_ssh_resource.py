@@ -27,10 +27,12 @@ class TwingateSSHResourceArgs:
                  access_groups: Optional[pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessGroupArgs']]]] = None,
                  access_policies: Optional[pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessPolicyArgs']]]] = None,
                  alias: Optional[pulumi.Input[_builtins.str]] = None,
+                 downstream: Optional[pulumi.Input['TwingateSSHResourceDownstreamArgs']] = None,
                  is_visible: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  security_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 upstream: Optional[pulumi.Input['TwingateSSHResourceUpstreamArgs']] = None):
         """
         The set of arguments for constructing a TwingateSSHResource resource.
         :param pulumi.Input[_builtins.str] address: The address of the SSH Resource (IP or FQDN).
@@ -39,10 +41,12 @@ class TwingateSSHResourceArgs:
         :param pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessGroupArgs']]] access_groups: Restrict access to certain group
         :param pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessPolicyArgs']]] access_policies: Restrict access according to JIT access policy
         :param pulumi.Input[_builtins.str] alias: Set a DNS alias address for the Resource. Must be a DNS-valid name string.
+        :param pulumi.Input['TwingateSSHResourceDownstreamArgs'] downstream: The downstream configuration. The connection between the SSH client and the Gateway.
         :param pulumi.Input[_builtins.bool] is_visible: Controls whether this Resource will be visible in the main Resource list in the Twingate Client. Default is `true`.
         :param pulumi.Input[_builtins.str] name: The name of the SSH Resource.
         :param pulumi.Input[_builtins.str] security_policy_id: The ID of a `get_twingate_security_policy` to set as this Resource's Security Policy. Default is 'Null' which points to `Default Policy` on Admin console.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of key-value pair tags to set on this resource.
+        :param pulumi.Input['TwingateSSHResourceUpstreamArgs'] upstream: The upstream configuration. The connection between the Gateway and the SSH server.
         """
         pulumi.set(__self__, "address", address)
         pulumi.set(__self__, "gateway_id", gateway_id)
@@ -53,6 +57,8 @@ class TwingateSSHResourceArgs:
             pulumi.set(__self__, "access_policies", access_policies)
         if alias is not None:
             pulumi.set(__self__, "alias", alias)
+        if downstream is not None:
+            pulumi.set(__self__, "downstream", downstream)
         if is_visible is not None:
             pulumi.set(__self__, "is_visible", is_visible)
         if name is not None:
@@ -61,6 +67,8 @@ class TwingateSSHResourceArgs:
             pulumi.set(__self__, "security_policy_id", security_policy_id)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
+        if upstream is not None:
+            pulumi.set(__self__, "upstream", upstream)
 
     @_builtins.property
     @pulumi.getter
@@ -135,6 +143,18 @@ class TwingateSSHResourceArgs:
         pulumi.set(self, "alias", value)
 
     @_builtins.property
+    @pulumi.getter
+    def downstream(self) -> Optional[pulumi.Input['TwingateSSHResourceDownstreamArgs']]:
+        """
+        The downstream configuration. The connection between the SSH client and the Gateway.
+        """
+        return pulumi.get(self, "downstream")
+
+    @downstream.setter
+    def downstream(self, value: Optional[pulumi.Input['TwingateSSHResourceDownstreamArgs']]):
+        pulumi.set(self, "downstream", value)
+
+    @_builtins.property
     @pulumi.getter(name="isVisible")
     def is_visible(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -182,6 +202,18 @@ class TwingateSSHResourceArgs:
     def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
+    @_builtins.property
+    @pulumi.getter
+    def upstream(self) -> Optional[pulumi.Input['TwingateSSHResourceUpstreamArgs']]:
+        """
+        The upstream configuration. The connection between the Gateway and the SSH server.
+        """
+        return pulumi.get(self, "upstream")
+
+    @upstream.setter
+    def upstream(self, value: Optional[pulumi.Input['TwingateSSHResourceUpstreamArgs']]):
+        pulumi.set(self, "upstream", value)
+
 
 @pulumi.input_type
 class _TwingateSSHResourceState:
@@ -190,19 +222,22 @@ class _TwingateSSHResourceState:
                  access_policies: Optional[pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessPolicyArgs']]]] = None,
                  address: Optional[pulumi.Input[_builtins.str]] = None,
                  alias: Optional[pulumi.Input[_builtins.str]] = None,
+                 downstream: Optional[pulumi.Input['TwingateSSHResourceDownstreamArgs']] = None,
                  gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
                  is_visible: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  remote_network_id: Optional[pulumi.Input[_builtins.str]] = None,
                  security_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 upstream: Optional[pulumi.Input['TwingateSSHResourceUpstreamArgs']] = None):
         """
         Input properties used for looking up and filtering TwingateSSHResource resources.
         :param pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessGroupArgs']]] access_groups: Restrict access to certain group
         :param pulumi.Input[Sequence[pulumi.Input['TwingateSSHResourceAccessPolicyArgs']]] access_policies: Restrict access according to JIT access policy
         :param pulumi.Input[_builtins.str] address: The address of the SSH Resource (IP or FQDN).
         :param pulumi.Input[_builtins.str] alias: Set a DNS alias address for the Resource. Must be a DNS-valid name string.
+        :param pulumi.Input['TwingateSSHResourceDownstreamArgs'] downstream: The downstream configuration. The connection between the SSH client and the Gateway.
         :param pulumi.Input[_builtins.str] gateway_id: The ID of the Gateway used to access this SSH Resource.
         :param pulumi.Input[_builtins.bool] is_visible: Controls whether this Resource will be visible in the main Resource list in the Twingate Client. Default is `true`.
         :param pulumi.Input[_builtins.str] name: The name of the SSH Resource.
@@ -210,6 +245,7 @@ class _TwingateSSHResourceState:
         :param pulumi.Input[_builtins.str] security_policy_id: The ID of a `get_twingate_security_policy` to set as this Resource's Security Policy. Default is 'Null' which points to `Default Policy` on Admin console.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of key-value pair tags to set on this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of key-value pairs that represents all tags on this resource, including default tags from provider configuration.
+        :param pulumi.Input['TwingateSSHResourceUpstreamArgs'] upstream: The upstream configuration. The connection between the Gateway and the SSH server.
         """
         if access_groups is not None:
             pulumi.set(__self__, "access_groups", access_groups)
@@ -219,6 +255,8 @@ class _TwingateSSHResourceState:
             pulumi.set(__self__, "address", address)
         if alias is not None:
             pulumi.set(__self__, "alias", alias)
+        if downstream is not None:
+            pulumi.set(__self__, "downstream", downstream)
         if gateway_id is not None:
             pulumi.set(__self__, "gateway_id", gateway_id)
         if is_visible is not None:
@@ -233,6 +271,8 @@ class _TwingateSSHResourceState:
             pulumi.set(__self__, "tags", tags)
         if tags_all is not None:
             pulumi.set(__self__, "tags_all", tags_all)
+        if upstream is not None:
+            pulumi.set(__self__, "upstream", upstream)
 
     @_builtins.property
     @pulumi.getter(name="accessGroups")
@@ -281,6 +321,18 @@ class _TwingateSSHResourceState:
     @alias.setter
     def alias(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "alias", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def downstream(self) -> Optional[pulumi.Input['TwingateSSHResourceDownstreamArgs']]:
+        """
+        The downstream configuration. The connection between the SSH client and the Gateway.
+        """
+        return pulumi.get(self, "downstream")
+
+    @downstream.setter
+    def downstream(self, value: Optional[pulumi.Input['TwingateSSHResourceDownstreamArgs']]):
+        pulumi.set(self, "downstream", value)
 
     @_builtins.property
     @pulumi.getter(name="gatewayId")
@@ -366,6 +418,18 @@ class _TwingateSSHResourceState:
     def tags_all(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags_all", value)
 
+    @_builtins.property
+    @pulumi.getter
+    def upstream(self) -> Optional[pulumi.Input['TwingateSSHResourceUpstreamArgs']]:
+        """
+        The upstream configuration. The connection between the Gateway and the SSH server.
+        """
+        return pulumi.get(self, "upstream")
+
+    @upstream.setter
+    def upstream(self, value: Optional[pulumi.Input['TwingateSSHResourceUpstreamArgs']]):
+        pulumi.set(self, "upstream", value)
+
 
 @pulumi.type_token("twingate:index/twingateSSHResource:TwingateSSHResource")
 class TwingateSSHResource(pulumi.CustomResource):
@@ -377,12 +441,14 @@ class TwingateSSHResource(pulumi.CustomResource):
                  access_policies: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TwingateSSHResourceAccessPolicyArgs', 'TwingateSSHResourceAccessPolicyArgsDict']]]]] = None,
                  address: Optional[pulumi.Input[_builtins.str]] = None,
                  alias: Optional[pulumi.Input[_builtins.str]] = None,
+                 downstream: Optional[pulumi.Input[Union['TwingateSSHResourceDownstreamArgs', 'TwingateSSHResourceDownstreamArgsDict']]] = None,
                  gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
                  is_visible: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  remote_network_id: Optional[pulumi.Input[_builtins.str]] = None,
                  security_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 upstream: Optional[pulumi.Input[Union['TwingateSSHResourceUpstreamArgs', 'TwingateSSHResourceUpstreamArgsDict']]] = None,
                  __props__=None):
         """
         SSH Resources are Twingate resources accessed via a Gateway.
@@ -411,7 +477,13 @@ class TwingateSSHResource(pulumi.CustomResource):
             gateway_id=main.id,
             alias="test.int",
             remote_network_id=prod.id,
-            address="10.128.0.105")
+            address="10.128.0.105",
+            downstream={
+                "port": 2222,
+            },
+            upstream={
+                "port": 22,
+            })
         ```
 
         :param str resource_name: The name of the resource.
@@ -420,12 +492,14 @@ class TwingateSSHResource(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['TwingateSSHResourceAccessPolicyArgs', 'TwingateSSHResourceAccessPolicyArgsDict']]]] access_policies: Restrict access according to JIT access policy
         :param pulumi.Input[_builtins.str] address: The address of the SSH Resource (IP or FQDN).
         :param pulumi.Input[_builtins.str] alias: Set a DNS alias address for the Resource. Must be a DNS-valid name string.
+        :param pulumi.Input[Union['TwingateSSHResourceDownstreamArgs', 'TwingateSSHResourceDownstreamArgsDict']] downstream: The downstream configuration. The connection between the SSH client and the Gateway.
         :param pulumi.Input[_builtins.str] gateway_id: The ID of the Gateway used to access this SSH Resource.
         :param pulumi.Input[_builtins.bool] is_visible: Controls whether this Resource will be visible in the main Resource list in the Twingate Client. Default is `true`.
         :param pulumi.Input[_builtins.str] name: The name of the SSH Resource.
         :param pulumi.Input[_builtins.str] remote_network_id: The ID of the Remote Network the SSH Resource belongs to.
         :param pulumi.Input[_builtins.str] security_policy_id: The ID of a `get_twingate_security_policy` to set as this Resource's Security Policy. Default is 'Null' which points to `Default Policy` on Admin console.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of key-value pair tags to set on this resource.
+        :param pulumi.Input[Union['TwingateSSHResourceUpstreamArgs', 'TwingateSSHResourceUpstreamArgsDict']] upstream: The upstream configuration. The connection between the Gateway and the SSH server.
         """
         ...
     @overload
@@ -460,7 +534,13 @@ class TwingateSSHResource(pulumi.CustomResource):
             gateway_id=main.id,
             alias="test.int",
             remote_network_id=prod.id,
-            address="10.128.0.105")
+            address="10.128.0.105",
+            downstream={
+                "port": 2222,
+            },
+            upstream={
+                "port": 22,
+            })
         ```
 
         :param str resource_name: The name of the resource.
@@ -482,12 +562,14 @@ class TwingateSSHResource(pulumi.CustomResource):
                  access_policies: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TwingateSSHResourceAccessPolicyArgs', 'TwingateSSHResourceAccessPolicyArgsDict']]]]] = None,
                  address: Optional[pulumi.Input[_builtins.str]] = None,
                  alias: Optional[pulumi.Input[_builtins.str]] = None,
+                 downstream: Optional[pulumi.Input[Union['TwingateSSHResourceDownstreamArgs', 'TwingateSSHResourceDownstreamArgsDict']]] = None,
                  gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
                  is_visible: Optional[pulumi.Input[_builtins.bool]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  remote_network_id: Optional[pulumi.Input[_builtins.str]] = None,
                  security_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 upstream: Optional[pulumi.Input[Union['TwingateSSHResourceUpstreamArgs', 'TwingateSSHResourceUpstreamArgsDict']]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -503,6 +585,7 @@ class TwingateSSHResource(pulumi.CustomResource):
                 raise TypeError("Missing required property 'address'")
             __props__.__dict__["address"] = address
             __props__.__dict__["alias"] = alias
+            __props__.__dict__["downstream"] = downstream
             if gateway_id is None and not opts.urn:
                 raise TypeError("Missing required property 'gateway_id'")
             __props__.__dict__["gateway_id"] = gateway_id
@@ -513,6 +596,7 @@ class TwingateSSHResource(pulumi.CustomResource):
             __props__.__dict__["remote_network_id"] = remote_network_id
             __props__.__dict__["security_policy_id"] = security_policy_id
             __props__.__dict__["tags"] = tags
+            __props__.__dict__["upstream"] = upstream
             __props__.__dict__["tags_all"] = None
         super(TwingateSSHResource, __self__).__init__(
             'twingate:index/twingateSSHResource:TwingateSSHResource',
@@ -528,13 +612,15 @@ class TwingateSSHResource(pulumi.CustomResource):
             access_policies: Optional[pulumi.Input[Sequence[pulumi.Input[Union['TwingateSSHResourceAccessPolicyArgs', 'TwingateSSHResourceAccessPolicyArgsDict']]]]] = None,
             address: Optional[pulumi.Input[_builtins.str]] = None,
             alias: Optional[pulumi.Input[_builtins.str]] = None,
+            downstream: Optional[pulumi.Input[Union['TwingateSSHResourceDownstreamArgs', 'TwingateSSHResourceDownstreamArgsDict']]] = None,
             gateway_id: Optional[pulumi.Input[_builtins.str]] = None,
             is_visible: Optional[pulumi.Input[_builtins.bool]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             remote_network_id: Optional[pulumi.Input[_builtins.str]] = None,
             security_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'TwingateSSHResource':
+            tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            upstream: Optional[pulumi.Input[Union['TwingateSSHResourceUpstreamArgs', 'TwingateSSHResourceUpstreamArgsDict']]] = None) -> 'TwingateSSHResource':
         """
         Get an existing TwingateSSHResource resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -546,6 +632,7 @@ class TwingateSSHResource(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['TwingateSSHResourceAccessPolicyArgs', 'TwingateSSHResourceAccessPolicyArgsDict']]]] access_policies: Restrict access according to JIT access policy
         :param pulumi.Input[_builtins.str] address: The address of the SSH Resource (IP or FQDN).
         :param pulumi.Input[_builtins.str] alias: Set a DNS alias address for the Resource. Must be a DNS-valid name string.
+        :param pulumi.Input[Union['TwingateSSHResourceDownstreamArgs', 'TwingateSSHResourceDownstreamArgsDict']] downstream: The downstream configuration. The connection between the SSH client and the Gateway.
         :param pulumi.Input[_builtins.str] gateway_id: The ID of the Gateway used to access this SSH Resource.
         :param pulumi.Input[_builtins.bool] is_visible: Controls whether this Resource will be visible in the main Resource list in the Twingate Client. Default is `true`.
         :param pulumi.Input[_builtins.str] name: The name of the SSH Resource.
@@ -553,6 +640,7 @@ class TwingateSSHResource(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] security_policy_id: The ID of a `get_twingate_security_policy` to set as this Resource's Security Policy. Default is 'Null' which points to `Default Policy` on Admin console.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of key-value pair tags to set on this resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of key-value pairs that represents all tags on this resource, including default tags from provider configuration.
+        :param pulumi.Input[Union['TwingateSSHResourceUpstreamArgs', 'TwingateSSHResourceUpstreamArgsDict']] upstream: The upstream configuration. The connection between the Gateway and the SSH server.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -562,6 +650,7 @@ class TwingateSSHResource(pulumi.CustomResource):
         __props__.__dict__["access_policies"] = access_policies
         __props__.__dict__["address"] = address
         __props__.__dict__["alias"] = alias
+        __props__.__dict__["downstream"] = downstream
         __props__.__dict__["gateway_id"] = gateway_id
         __props__.__dict__["is_visible"] = is_visible
         __props__.__dict__["name"] = name
@@ -569,6 +658,7 @@ class TwingateSSHResource(pulumi.CustomResource):
         __props__.__dict__["security_policy_id"] = security_policy_id
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
+        __props__.__dict__["upstream"] = upstream
         return TwingateSSHResource(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -602,6 +692,14 @@ class TwingateSSHResource(pulumi.CustomResource):
         Set a DNS alias address for the Resource. Must be a DNS-valid name string.
         """
         return pulumi.get(self, "alias")
+
+    @_builtins.property
+    @pulumi.getter
+    def downstream(self) -> pulumi.Output['outputs.TwingateSSHResourceDownstream']:
+        """
+        The downstream configuration. The connection between the SSH client and the Gateway.
+        """
+        return pulumi.get(self, "downstream")
 
     @_builtins.property
     @pulumi.getter(name="gatewayId")
@@ -658,4 +756,12 @@ class TwingateSSHResource(pulumi.CustomResource):
         A map of key-value pairs that represents all tags on this resource, including default tags from provider configuration.
         """
         return pulumi.get(self, "tags_all")
+
+    @_builtins.property
+    @pulumi.getter
+    def upstream(self) -> pulumi.Output['outputs.TwingateSSHResourceUpstream']:
+        """
+        The upstream configuration. The connection between the Gateway and the SSH server.
+        """
+        return pulumi.get(self, "upstream")
 

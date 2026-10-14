@@ -74,7 +74,7 @@ class KindComponentContextSummary(KindSubModel):
             "label": "Invoice Summary",
             "authoring_owner": None,
             "version": 1,
-            "is_active": False,
+            "is_active": True,
             "published_to_web": False,
             "organization_id": None,
             "created_by": None,
@@ -95,7 +95,7 @@ class KindComponentContextSummary(KindSubModel):
             "kind": "invoice_summary",
             "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
             "kind_version": 1,
-            "is_active": False,
+            "is_active": True,
             "title_key": None,
             "has_canonical_example": True,
             "component_count": 0,
@@ -112,6 +112,10 @@ class KindComponentContext(KindModel):
     canonical_example: JsonValue | None = None
     canonical_example_status: str | None = None
     examples: list[KindExampleSummary] = []
+    #: Whole bodies of other passing examples (``{id, label, source, data}``),
+    #: newest first, so a component is built against varied real data rather
+    #: than one sample. Bounded by ``ALTERNATE_EXAMPLES_BUDGET_CHARS``.
+    alternate_examples: list[JsonValue] = []
     components: list[KindComponentSummary] = []
     component_ids: list[str] = []
     #: Editor-only: open incidents deduplicated by error signature.

@@ -1,11 +1,11 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.22
+Version: 5.0.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
 Author-email: support@tinybird.co
-Requires-Python: >=3.10, <3.14
+Requires-Python: >=3.11, <3.14
 Description-Content-Type: text/x-rst
 Requires-Dist: aiofiles==24.1.0
 Requires-Dist: boto3
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+5.0.0
+*******
+
+- `Removed` Python 3.10 support. The minimum supported Python version is now 3.11.
 
 4.6.22
 ********

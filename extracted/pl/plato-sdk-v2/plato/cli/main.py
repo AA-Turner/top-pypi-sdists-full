@@ -84,7 +84,12 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-app = typer.Typer(help="[bold blue]Plato CLI[/bold blue] - Manage Plato environments and simulators.")
+app = typer.Typer(
+    help="[bold blue]Plato CLI[/bold blue] - Manage Plato environments and simulators.",
+    # A crash traceback must not print each frame's local variables: they hold API
+    # keys, request headers and (plato vault) revealed credentials.
+    pretty_exceptions_show_locals=False,
+)
 
 
 @app.callback()

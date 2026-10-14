@@ -288,8 +288,7 @@ bool wxComboBox::MSWProcessEditMsg(WXUINT msg, WXWPARAM wParam, WXLPARAM lParam)
                          msg, wParam, lParam);
 
         // Send the event allowing completion code to do its thing.
-        wxKeyEvent event(CreateCharEvent(wxEVT_AFTER_CHAR, wParam, lParam));
-        HandleWindowEvent(event);
+        SendAfterCharEvent(wParam, lParam);
 
         // Default window proc was already called, don't call it again.
         processed = true;
@@ -378,12 +377,20 @@ bool wxComboBox::MSWCommand(WXUINT param, WXWORD id)
     return true;
 }
 
-bool wxComboBox::MSWShouldPreProcessMessage(WXMSG *pMsg)
+#if wxUSE_ACCEL
+
+bool
+wxComboBox::ClaimsKeyBeforeAccelerator(const wxKeyEvent& event,
+                                       int WXUNUSED(command)) const
 {
-    return (HasFlag(wxCB_READONLY) ||
-            wxTextEntry::MSWShouldPreProcessMessage(pMsg)) &&
-                wxChoice::MSWShouldPreProcessMessage(pMsg);
+    // We don't need any keys if we're not editing any text at all.
+    if ( HasFlag(wxCB_READONLY) )
+        return false;
+
+    return IsUsedForEditing(event);
 }
+
+#endif // wxUSE_ACCEL
 
 #if wxUSE_OLE
 
@@ -521,10 +528,6 @@ void wxComboBox::MSWRecreate()
         wxColour colBg = m_backgroundColour;
         m_backgroundColour = wxNullColour;
         SetBackgroundColour(colBg);
-    }
-    else
-    {
-        SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
     }
 
     // Revert the old string value

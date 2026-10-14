@@ -117,6 +117,34 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_unregistered_agent_discovery_sources_for_organization(self) -> None:
+        """Test case for list_unregistered_agent_discovery_sources_for_organization
+
+        List The Discovery Sources Behind The Organization'S Unregistered Agents
+        """
+        pass
+
+    def test_list_unregistered_agent_discovery_sources_for_workspace(self) -> None:
+        """Test case for list_unregistered_agent_discovery_sources_for_workspace
+
+        List The Discovery Sources Behind A Workspace'S Unregistered Agents.
+        """
+        pass
+
+    def test_list_unregistered_agent_engines_for_organization(self) -> None:
+        """Test case for list_unregistered_agent_engines_for_organization
+
+        List The Engines Behind The Organization'S Unregistered Agents
+        """
+        pass
+
+    def test_list_unregistered_agent_engines_for_workspace(self) -> None:
+        """Test case for list_unregistered_agent_engines_for_workspace
+
+        List The Engines Behind A Workspace'S Unregistered Agents.
+        """
+        pass
+
     def test_list_unregistered_agents_for_organization(self) -> None:
         """Test case for list_unregistered_agents_for_organization
 

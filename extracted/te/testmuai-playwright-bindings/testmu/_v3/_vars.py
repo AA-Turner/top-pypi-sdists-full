@@ -286,6 +286,10 @@ def _resolve_single(name):
     if parts[0] == "smart" and len(parts) == 2:
         return record_read(name, _resolve_smart(parts[1]))
 
+    # {{file.x}} → the path the session downloaded the File to
+    if parts[0] == "file" and name in _variable_store:
+        return _plain_lookup(name)
+
     # Plain variable — dot-path traversal for names like "response.data.name"
     if "." in name or "[" in name:
         root = parts[0]

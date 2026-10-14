@@ -202,7 +202,9 @@ mod test {
 
 			let value = serde_json::to_value(&nodes)
 				.unwrap_or_else(|err| panic!("unable to serialize {}: {err}", path.display()));
-			let owned: SpannedNodes<'static, ()> = serde_json::from_value(value)
+			// `from_value` deserializes owned whatever the lifetime, which must match `nodes`: a
+			// node is invariant in its lifetime
+			let owned: SpannedNodes<'_, ()> = serde_json::from_value(value)
 				.unwrap_or_else(|err| panic!("unable to deserialize {}: {err}", path.display()));
 
 			assert_eq!(owned, nodes, "{}", path.display());

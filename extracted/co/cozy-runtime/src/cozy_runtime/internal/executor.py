@@ -42,6 +42,7 @@ import argparse
 import contextlib
 import ctypes
 import dataclasses
+import faulthandler
 import functools
 import gc
 import hashlib
@@ -66,14 +67,14 @@ import msgspec
 from msgspec import UNSET, UnsetType
 
 from cozy_runtime import __version__ as RUNTIME_VERSION
-from cozy_runtime.author._activity import blocked, settles
+from cozy_runtime.author._activity import settles
 from cozy_runtime.author._assets import GrantedInput
+from cozy_runtime.author._calls import _Broker, _CallType
 from cozy_runtime.author._capture import ActivationCapture
 from cozy_runtime.author._context import AdapterRef, Device
 from cozy_runtime.author._demand import shape_cell
 from cozy_runtime.author._errors import (
     DEVICE_OOM,
-    Cancelled,
     CapabilityError,
     InvalidRequest,
     Outcome,
@@ -105,9 +106,6 @@ from cozy_runtime.author._executor_requests import (
     SharedRegion,
     SourceBytes,
     Staged,
-    StageEnter,
-    StageExit,
-    StageGo,
     Tier,
 )
 from cozy_runtime.author._executor_requests import encode as encode_request
@@ -148,10 +146,10 @@ from cozy_runtime.internal import (
     weight_policy,
     zygote,
 )
-from cozy_runtime.internal import weights as weight_stages
 from cozy_runtime.internal.config import restore_seal, seal_snapshot
 from cozy_runtime.internal.discovery import discover_distribution, discover_installed
 from cozy_runtime.internal.executor_commands import (
+    LOAD_ATTENTION_PIN,
     LOAD_PINNED,
     MAP,
     PROCESS_CAP,
@@ -215,7 +213,6 @@ from cozy_runtime.internal.seam import (
     SeamError,
     connect,
 )
-from cozy_runtime.internal.stages import STAGE_TURNS
 from cozy_runtime.internal.weights import (
     INDIVISIBLE,
     DeviceTiers,
@@ -247,6 +244,10 @@ PREPARED_HELD = 8
 _SEALED: dict[str, str] = {}
 
 
+#: Each callable an attempt may call, by (module, export).
+type CallBindings = dict[tuple[str, str], _CallType]
+
+
 def _capture_seal() -> None:
     """Snapshot the seal BEFORE anything that could initialize CUDA."""
     _SEALED.update(seal_snapshot())
@@ -261,8 +262,8 @@ def _env_changes() -> tuple[str, ...]:
     current = seal_snapshot()
     return tuple(
         name
-        for name in sorted(_SEALED)
-        if current.get(name, "") != _SEALED[name] and name not in ROUTED
+        for name in sorted(_SEALED.keys() | current.keys())
+        if current.get(name) != _SEALED.get(name) and name not in ROUTED
     )
 
 
@@ -329,8 +330,9 @@ def _restore_seal() -> tuple[str, ...]:
 
 
 def _env_document() -> dict[str, Any]:
-    """The seal holds for every reply; names package code changed are reported."""
-    return {"env_intact": True, "env_changed": list(_restore_seal())}
+    """The seal holds for every reply once re-imposed; names package code changed are reported."""
+    changed = _restore_seal()
+    return {"env_intact": not _env_changes(), "env_changed": list(changed)}
 
 
 def _cancelled(root: Path, request_id: str) -> bool:
@@ -514,15 +516,6 @@ _CONSTRUCTION_MODULES = (
 )
 
 
-def _local_attention_pin(pin: str, parameters: tuple[str, ...]) -> str:
-    scope, _ = attention._pin_parts(pin)
-    if "/" in scope and scope.split("/", 1)[0] not in parameters:
-        raise attention.AttentionRefusal(
-            "attention_kernel_unsupported", f"{pin} matches no model in {list(parameters)}"
-        )
-    return attention.for_model(pin, parameters)
-
-
 def _dense(kernels: Iterable[str]) -> str:
     """The dense reference the Sol kernels among `kernels` recompute rows with."""
     sparse = sorted(attention_sol.NAMES.intersection(kernels))
@@ -640,6 +633,9 @@ class Executor:
         self._group_attempts: dict[str, Path] = {}
         self.surface_names: dict[str, Any] = {}
         self.discovered: Any = None
+        #: HOST ONLY: what its attempts may call (`Start.call_interfaces`), and their bindings
+        self.call_interfaces: tuple[CallInterface, ...] = ()
+        self._bound_calls: tuple[tuple[CallInterface, ...], CallBindings] | None = None
         self.ready = False
         self.poisoned = ""
         #: the current attempt's handler outcome, the stage it last reported and its record:
@@ -664,8 +660,6 @@ class Executor:
         self.attempts = 0
         #: the DURABLE exchange counter (cr-009). Worker-answered, never sheddable.
         self._exchange = 0
-        #: HOST ONLY: the load in progress asks the worker for a turn per scope (`stage/1`)
-        self.stage_turns = False
         #: one exchange at a time: a publish from a joining thread and a child poll from the
         #: event loop share the seam, and each answer belongs to its own request.
         self._durable_lock = threading.Lock()
@@ -750,8 +744,9 @@ class Executor:
                 "import_only",
                 zygote.CAPABILITY,
                 "vacate_ranks",
+                LOAD_ATTENTION_PIN,
                 *(
-                    [plane.CAPABILITY, STAGE_TURNS, LOAD_PINNED, PROCESS_CAP, RANK_CELLS, MAP]
+                    [plane.CAPABILITY, LOAD_PINNED, PROCESS_CAP, RANK_CELLS, MAP]
                     if plane.available()
                     else []
                 ),
@@ -1552,8 +1547,11 @@ class Executor:
                         importlib.import_module(name)
                     stage("runtime_imports")
             if self.discovered is None:
+                self._install_call_proxies(command.call_interfaces)
                 self._discover_provisioned(command.release())
                 stage("package_import")
+            # A fork's own Start names them again; its import-only parent installed them.
+            self.call_interfaces = command.call_interfaces or self.call_interfaces
             compiles = (
                 self._expect_fusion(isolated=command.import_only)
                 if model_bearing and self.rank == 0 and not imported
@@ -1707,9 +1705,11 @@ class Executor:
         return {"ok": True, "ranks": [], "skipped": "compiles start with the process"}
 
     def _model_classes(self) -> list[type[Model[Any]]]:
-        module = getattr(self.discovered, "module", None)
-        values = vars(module).values() if module is not None else ()
-        return [v for v in values if isinstance(v, type) and issubclass(v, Model) and v != Model]
+        """The classes the package's Model slots declare, wherever they are defined (a
+        script's come from its libraries, not its entry module)."""
+        surfaces = getattr(self.discovered, "surfaces", ())
+        slots = [slot for surface in surfaces for slot in surface.model_bindings]
+        return list(dict.fromkeys(slot.model_class for slot in slots))
 
     def _expect_fusion(self, *, isolated: bool) -> str:
         """Start the fused glue's compile for each sealed card's architecture, read from the
@@ -1783,16 +1783,12 @@ class Executor:
             loaded._bind_parameters(command)
             return self._load_reply(key, loaded, reused=True)
         child = self._construction_child(key)
-        # `stage/1`: the construction's warm scopes ask the worker for their turns.
-        self.stage_turns = command.stages and self.world == 1
         try:
             reply = child._prepare_first(command)
         except Exception:
             self.poisoned = self.poisoned or child.poisoned or "load raised"
             self._close_after({})
             raise
-        finally:
-            self.stage_turns = False
         if not reply.get("ok"):
             if not child.poisoned:
                 # Refused before touching the process: its other constructions keep serving.
@@ -1878,7 +1874,7 @@ class Executor:
         member = container._construction_child(key)
         member._group_parent = container
         container.model_executors.append(member)
-        reply = member._prepare_first(command, optional_attention_scope=True)
+        reply = member._prepare_first(command)
         if not reply.get("ok"):
             self.poisoned = member.poisoned or f"load refused: {reply.get('code')}"
             return reply
@@ -1999,9 +1995,7 @@ class Executor:
         weights = self.host.weights
         return max(weights.facts().committed_bytes, 0) if weights is not None else 0
 
-    def _prepare_first(
-        self, command: Load, *, optional_attention_scope: bool = False
-    ) -> dict[str, Any]:
+    def _prepare_first(self, command: Load) -> dict[str, Any]:
         """Construct and fill one construction (or one model of a many-model one)."""
         if self.poisoned:
             return {
@@ -2096,24 +2090,8 @@ class Executor:
             _mark[0] = now
 
         self._stages = stages
-        pin = command.attention_pin
         if not binding.model_class:
-            if pin:
-                # A PIN IS NEVER SILENTLY IGNORED (cr-125). A weightless binding constructs
-                # nothing and therefore holds no attention site, so there is nowhere to put
-                # the kernel that was named — and a run that reported success while serving
-                # no pin at all is the same lie as one that quietly served another kernel.
-                return {
-                    "ok": False,
-                    "code": "attention_kernel_unsupported",
-                    "detail": f"{pin} was pinned on a binding that declares no model; a "
-                    "weightless package holds no attention site and a pin is never ignored",
-                }
             return self._prepare_weightless(binding, started)
-        try:
-            attention.admit(_local_attention_pin(pin, binding.parameter_names()), self.world)
-        except attention.AttentionRefusal as exc:
-            return {"ok": False, "code": exc.code, "detail": str(exc)}
         authorized = command.authorized_device_limit_bytes
         if authorized is UNSET:
             # NO SELF-DERIVED CEILING (cr-025/cr-066): the worker assigns one before every
@@ -2220,6 +2198,9 @@ class Executor:
         # lane's devices, so there is nothing to select here and no index to carry.
         device_index = self.rank if self.world > 1 else 0
         device_facts = measure_device(torch, device_index)
+        # The request this executor loads for pins a kernel: its build is imported first.
+        if command.attention_pin:
+            attention.reserve(command.attention_pin, device_facts)
         stage("measure_device")
         hardware_variant = binding.variant
         if not hardware_variant:
@@ -2281,7 +2262,11 @@ class Executor:
         qualified_pair = (qualification.capabilities, qualification.result)
         stage("qualify")
         objective = binding.objective or "latency"
-        model_cls = getattr(self.discovered.module, binding.model_class)
+        model_cls = next(
+            cls
+            for cls in self._model_classes()
+            if cls.__name__ == binding.model_class
+        )
         if callable(getattr(model_cls, "warm", None)) and model_cls not in _WARM_NOTED:
             _WARM_NOTED.add(model_cls)
             print(
@@ -2536,17 +2521,15 @@ class Executor:
             roots = backend.roots
             stage("execution_plan")
             # THE FASTEST KERNEL THIS DEVICE AND IMAGE SUPPORT, PINNED POST-FILL (cr-124),
-            # per attention site and before any warm step (see `_prepare_attention`).
+            # per attention site and before any warm step (`attention.select`).
             self._reselect = functools.partial(
-                self._prepare_attention,
-                binding,
-                roots,
-                pin,
+                attention.select,
                 device_facts,
+                roots,
+                degree=self.world,
                 choose=model.choose_attention
                 if type(model).choose_attention is not Model.choose_attention
                 else None,
-                optional_scope=optional_attention_scope,
             )
             applied = self._reselect()
             self.device_facts = device_facts
@@ -2738,21 +2721,6 @@ class Executor:
                 "detail": "the prepare carries no authorized_device_limit_bytes; the worker "
                 "assigns the residence ceiling and this executor derives none",
             }
-        aggregate_pin = command.attention_pin
-        try:
-            scope, _ = attention._pin_parts(aggregate_pin)
-            attention.admit(aggregate_pin, self.world)
-        except attention.AttentionRefusal as exc:
-            return {"ok": False, "code": exc.code, "detail": str(exc)}
-        declared_parameters = tuple(
-            dict.fromkeys(name for row in rows for name in row.binding.parameter_names())
-        )
-        if "/" in scope and scope.split("/", 1)[0] not in declared_parameters:
-            return {
-                "ok": False,
-                "code": "attention_kernel_unsupported",
-                "detail": f"{aggregate_pin} matches no model in {list(declared_parameters)}",
-            }
 
         # ONE authorization for the PROCESS: each model fits under what everything already
         # loaded left of it, measured by this process's own allocator before its fill.
@@ -2774,15 +2742,11 @@ class Executor:
                     budgets=row.budgets,
                     models=UNSET,
                     group=UNSET,
-                    attention_pin=aggregate_pin
-                    if attention.for_model(aggregate_pin, binding.parameter_names())
-                    else "",
                     model_key=f"{self.construction}#{binding.model_binding_path}"
                     if self.world > 1
                     else UNSET,
                     sequence_parallel_degree=max(self.world, 1),
                 ),
-                optional_attention_scope=True,
             )
             if not reply.get("ok"):
                 self.poisoned = child.poisoned or (
@@ -2798,15 +2762,6 @@ class Executor:
             name[0].startswith(self.construction + "#") for name in self.host.group_sharded
         ):
             return self._group_refusal(GroupRefusal("the model set contains no sharded component"))
-        if aggregate_pin and not any(
-            child.attention and child.attention.pin for _, child, _ in children
-        ):
-            self.poisoned = "attention override matches no component"
-            return {
-                "ok": False,
-                "code": "attention_kernel_unsupported",
-                "detail": f"{aggregate_pin} matches no attention component",
-            }
         self.model_executors = [child for _, child, _ in children]
         self.torch = children[-1][1].torch
         self.models = {}
@@ -3061,8 +3016,7 @@ class Executor:
             self.weights.seed_squeezed(command.squeezed_bytes)
             if not isinstance(command.device_weights, UnsetType):
                 self._device_weights(command.device_weights)
-        with self._turns(target.residency, command.stages and self.world == 1):
-            reply = target.invoke(command)
+        reply = target.invoke(command)
         self.attempts += 1
         self.poisoned = self.poisoned or target.poisoned
         reply["poisoned"] = self.poisoned
@@ -3285,11 +3239,15 @@ class Executor:
                             trees=_trees(command),
                             assets=_granted_inputs(command),
                             max_input_bytes=(
-                                None if command.max_input_bytes is None
+                                None
+                                if command.max_input_bytes is None
                                 else command.max_input_bytes or 64 << 20
                             ),
                             max_output_bytes=command.max_output_bytes,
                             publish=self._publish,
+                            calls=self.host._call_broker(
+                                command.request_id, self.host.call_interfaces
+                            ),
                         ),
                     )
                 if capture is not None and outcome.terminal == "succeeded":
@@ -3427,7 +3385,10 @@ class Executor:
             "position": record.position,
             "outcome": terminal,
             "execution_observation": self._execution_observation(served_attention),
-            "attention_applied": bool(pin),
+            # A pin is applied where its kernel served; one that fell back everywhere is not.
+            "attention_applied": bool(pin)
+            and attention._pin_parts(pin)[1]
+            in (served_attention.totals() if served_attention else {}),
             "execution": self._execution(
                 requested,
                 served_attention,
@@ -3479,32 +3440,6 @@ class Executor:
 
     # ------------------------------------------------------- the per-request attention pin
 
-    def _prepare_attention(
-        self,
-        binding: Binding,
-        roots: Mapping[str, Any],
-        pin: str,
-        device: Any,
-        *,
-        choose: Any = None,
-        optional_scope: bool = False,
-    ) -> attention.Applied:
-        """Select locally while preserving the caller's explicit qualified pin."""
-        local = _local_attention_pin(pin, binding.parameter_names())
-        scope, _ = attention._pin_parts(local)
-        if (
-            optional_scope
-            and "/" not in attention._pin_parts(pin)[0]
-            and scope
-            and not any(
-                attention._matches(component, scope)
-                for component, _, _, _ in attention._attention_records(roots)
-            )
-        ):
-            local = ""
-        applied = attention.select(device, roots, local, degree=self.world, choose=choose)
-        return replace(applied, pin=pin) if local else applied
-
     def _attention_snapshot(self) -> attention.Snapshot:
         return attention.Snapshot(
             tuple(
@@ -3548,7 +3483,7 @@ class Executor:
                     continue
                 if row["selected"] in observed.hosts.get(component, {}):
                     fallbacks.append({**row, "component": component})
-        return replace(observed, fallbacks=tuple(fallbacks))
+        return replace(observed, fallbacks=observed.fallbacks + tuple(fallbacks))
 
     def _attention_reaches(self, pin: str) -> bool:
         try:
@@ -4000,8 +3935,7 @@ class Executor:
                 trees=_trees(command),
                 assets=_granted_inputs(command),
                 max_input_bytes=(
-                    None if command.max_input_bytes is None
-                    else command.max_input_bytes or 64 << 20
+                    None if command.max_input_bytes is None else command.max_input_bytes or 64 << 20
                 ),
                 max_output_bytes=command.max_output_bytes,
                 scratch=scratch,
@@ -4051,6 +3985,7 @@ class Executor:
                 "code": outcome.code,
                 "message": outcome.message[:2048],
                 "fields": list(outcome.fields),
+                "traceback": outcome.traceback,
             },
             # A torch-free job holds no stream, so quiescence is a STRUCTURAL fact rather
             # than a device query: there is nothing that could still be moving.
@@ -4118,10 +4053,15 @@ class Executor:
                 imported.__dict__[export] = proxy
 
     def _call_broker(self, request_id: str, rows: tuple[CallInterface, ...]) -> Any:
-        from cozy_runtime.author._calls import _Broker, _CallType
-
+        """This attempt's broker over `rows`, bound once per executor (a served package's
+        attempts share its Start's rows)."""
         if not rows:
             return None
+        if self._bound_calls is None or self._bound_calls[0] is not rows:
+            self._bound_calls = (rows, self._call_bindings(rows))
+        return _Broker(request_id, self._bound_calls[1], self._durable, self._child_events)
+
+    def _call_bindings(self, rows: tuple[CallInterface, ...]) -> CallBindings:
         if len(rows) > 256:
             raise CapabilityError(
                 "call interface inventory exceeds its bound", code="child_interface"
@@ -4130,7 +4070,7 @@ class Executor:
         own = native_interfaces.bindings()
         for row in rows:
             interface, module, export = row.interface_digest, row.module, row.export
-            if row.native_source or row.native_effect:
+            if row.native_effect:
                 # Admission is per operation: the worker judged this one against what this
                 # Runtime stated at hello. One this Runtime lacks cannot be called from here.
                 native = own.get((module, export))
@@ -4230,7 +4170,7 @@ class Executor:
                 bindings[(module, export)] = binding
         for module, export in own.keys() - bindings.keys():
             bindings[(module, export)] = native_interfaces.unserved(module, export)
-        return _Broker(request_id, bindings, self._durable, self._child_events)
+        return bindings
 
     def _publish(self, request: Publish) -> Published:
         """One product onto the run's output log, durable before this returns."""
@@ -4432,56 +4372,6 @@ class Executor:
         answer = self._durable(ChildEvents(), Handoff)
         return answer.descriptor if answer.ok else None
 
-    @contextlib.contextmanager
-    def _turns(
-        self, residency: WeightResidency | _CompositeResidency | None, on: bool
-    ) -> Iterator[None]:
-        """`stage/1`: while on, each component-use scope of `residency` asks the worker for its
-        turn before it plans and reports what it measured at its exit."""
-        rows = (
-            []
-            if residency is None or not on
-            else list(residency.rows.values())
-            if isinstance(residency, _CompositeResidency)
-            else [residency]
-        )
-        for row in rows:
-            row.turn, row.exit = self._stage_enter, self._stage_exit
-        try:
-            yield
-        finally:
-            for row in rows:
-                row.turn = row.exit = None
-
-    def _stage_enter(self, method: str, components: tuple[str, ...]) -> int | None:
-        """Wait for this scope's turn: the plane budget the worker granted, or None to keep the
-        current one. A refusal is the scope's failure, with the worker's numbers."""
-        with blocked():
-            answer = self._durable(StageEnter(method=method, components=tuple(components)), StageGo)
-        if answer.ok:
-            return answer.budget_bytes if answer.budget_bytes >= 0 else None
-        if answer.code == "cancelled":
-            raise Cancelled(answer.detail or f"{method}() was cancelled waiting for its turn")
-        raise ResidencyRefusal(answer.code or "stage_refused", f"{method}(): {answer.detail}")
-
-    def _stage_exit(self, stage: weight_stages.StageExit) -> None:
-        """Report the scope's facts. A budget in the answer applies now: past its last stage,
-        with a call waiting that lacks room, this executor unmaps its weights (they stay
-        pinned) and says so; the worker keeps the turn until then, so the next one measures
-        the room it really has."""
-        left = StageExit(
-            method=stage.method,
-            components=stage.components,
-            passes=max(stage.passes.values(), default=1),
-            wall_ns=stage.wall_ns,
-            growth_bytes=stage.growth_bytes,
-            stall_ns=stage.stall_ns,
-        )
-        answer = self._durable(left, StageGo)
-        if answer.ok and answer.budget_bytes >= 0:
-            self.budget(Budget(vram_bytes=answer.budget_bytes))
-            self._durable(msgspec.structs.replace(left, yielded=True), StageGo)
-
     def _durable[A: Answer](self, request: Request, into: type[A]) -> A:
         """One DURABLE mid-attempt exchange. Blocks until the worker answers.
 
@@ -4501,14 +4391,16 @@ class Executor:
         body.pop("memfd", None)
         shared = request.fds if isinstance(request, DeviceTier) else ()
         body.pop("fds", None)
-        with self._durable_lock:
-            self._exchange += 1
-            exchange = f"{body['kind']}#{self._exchange}"
+        # One exchange at a time on the channel the host and its constructions share.
+        host = self.host
+        with host._durable_lock:
+            host._exchange += 1
+            exchange = f"{body['kind']}#{host._exchange}"
             if sending >= 0:
                 body["descriptor"] = True
             if shared:
                 body["descriptors"] = len(shared)
-            self.channel.send({"event": "request", "seq": self._exchange, **body})
+            self.channel.send({"event": "request", "seq": host._exchange, **body})
             if sending >= 0:
                 self.channel.send_memfd(sending)
             for fd in shared:
@@ -4516,7 +4408,7 @@ class Executor:
             frame = self.channel.recv()
             if frame is None:
                 raise SeamError("seam_closed", f"the worker closed during {exchange}")
-            if frame.get("event") != "answer" or frame.get("seq") != self._exchange:
+            if frame.get("event") != "answer" or frame.get("seq") != host._exchange:
                 raise SeamError(
                     "seam_out_of_order",
                     f"expected the answer to {exchange}, got {frame.get('event')!r}",
@@ -5272,6 +5164,7 @@ def _remember_distributions() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    faulthandler.enable(all_threads=True)
     parser = argparse.ArgumentParser(description="cozy-runtime device executor")
     parser.add_argument("--socket", default="")
     parser.add_argument("--root", required=True)

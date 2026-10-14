@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ansys-units
-Version: 0.13.0
+Version: 0.14.0
 Summary: Pythonic interface for units, unit systems, and unit conversions.
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -35,12 +35,12 @@ Requires-Dist: pint==0.24.4 ; extra == "ci-types"
 Requires-Dist: black==26.5.1 ; extra == "ci-types"
 Requires-Dist: ansys-sphinx-theme==1.9.0 ; extra == "doc"
 Requires-Dist: pdf2image==1.17.0 ; extra == "doc"
-Requires-Dist: quarto-cli==1.9.38 ; extra == "doc"
+Requires-Dist: quarto-cli==1.10.18 ; extra == "doc"
 Requires-Dist: matplotlib==3.10.9 ; extra == "doc"
-Requires-Dist: numpydoc==1.10.0 ; extra == "doc"
+Requires-Dist: numpydoc==1.11.0 ; extra == "doc"
 Requires-Dist: Sphinx==7.4.7 ; extra == "doc"
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "doc"
-Requires-Dist: sphinx-gallery==0.21.0 ; extra == "doc"
+Requires-Dist: sphinx-gallery==0.22.1 ; extra == "doc"
 Requires-Dist: sphinx-toggleprompt==0.6.0 ; extra == "doc"
 Requires-Dist: numpy>=1.24,<3 ; extra == "tests"
 Requires-Dist: pandas>=3.0.0 ; extra == "tests" and ( python_version >= '3.11')
@@ -58,6 +58,8 @@ Provides-Extra: additional
 Provides-Extra: ci-types
 Provides-Extra: doc
 Provides-Extra: tests
+Import-Name: ansys.units
+Import-Namespace: ansys
 
 PyAnsys Units
 =============

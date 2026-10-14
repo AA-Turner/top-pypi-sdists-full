@@ -1842,6 +1842,7 @@ class Bitfab:
             list[CodeChangeFile], _CodeChangeUnset, None
         ] = _CODE_CHANGE_UNSET,
         experiment_group_id: str | None = None,
+        experiment_group_name: str | None = None,
         dataset_id: str | None = None,
         dataset_ids: list[str] | None = None,
         grader_ids: list[str] | None = None,
@@ -1920,7 +1921,12 @@ class Bitfab:
                 this argument to capture automatically, or pass ``None`` to
                 suppress file capture for this replay.
             experiment_group_id: Optional UUID that groups multiple replay runs
-                into a single experiment batch.
+                into a single experiment batch. The run joins that group, and an
+                ID no group has yet creates it.
+            experiment_group_name: Optional name for the experiment group,
+                1 to 120 characters. Applied when this replay creates the group
+                or the group has no name yet. A group that already has a name
+                keeps it. Requires ``experiment_group_id``.
             dataset_id: Optional UUID of the dataset this replay runs against.
                 Mutually exclusive with ``dataset_ids``. Stored on the resulting
                 experiment for durable dataset attribution; validated
@@ -2071,6 +2077,7 @@ class Bitfab:
             code_change_description=code_change_description,
             code_change_files=code_change_files,
             experiment_group_id=experiment_group_id,
+            experiment_group_name=experiment_group_name,
             dataset_id=dataset_id,
             dataset_ids=dataset_ids,
             grader_ids=grader_ids,

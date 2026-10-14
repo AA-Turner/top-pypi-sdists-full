@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: logfire
-Version: 5.1.1
+Version: 5.2.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -33,10 +33,13 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: executing>=2.0.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.45.0,>=1.39.0
-Requires-Dist: opentelemetry-instrumentation>=0.41b0
-Requires-Dist: opentelemetry-sdk<1.45.0,>=1.39.0
+Requires-Dist: opentelemetry-api<1.46.0,>=1.39.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.46.0,>=1.39.0
+Requires-Dist: opentelemetry-instrumentation<0.67b0,>=0.41b0
+Requires-Dist: opentelemetry-sdk<1.46.0,>=1.39.0
+Requires-Dist: opentelemetry-semantic-conventions<0.67b0,>=0.60b0
 Requires-Dist: protobuf>=4.23.4
+Requires-Dist: requests>=2.31.0
 Requires-Dist: rich>=13.4.2
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.13.0
@@ -116,7 +119,6 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
-  <a href="https://codecov.io/gh/pydantic/logfire"><img src="https://codecov.io/gh/pydantic/logfire/graph/badge.svg?token=735CNGCGFD" alt="codecov" /></a>
   <a href="https://pypi.python.org/pypi/logfire"><img src="https://img.shields.io/pypi/v/logfire.svg" alt="pypi" /></a>
   <a href="https://github.com/pydantic/logfire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/pydantic/logfire.svg" alt="license" /></a>
   <a href="https://github.com/pydantic/logfire"><img src="https://img.shields.io/pypi/pyversions/logfire.svg" alt="versions" /></a>
@@ -151,7 +153,7 @@ This is a very brief overview of how to use Logfire, the [documentation](https:/
 pip install logfire
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/#sdk)
+[_(learn more)_](https://pydantic.dev/docs/logfire/get-started/first-trace)
 
 ## Authenticate
 

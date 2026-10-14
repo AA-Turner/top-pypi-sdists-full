@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.383
+Version: 0.3.390
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -27,6 +27,8 @@ Requires-Dist: playwright ; extra == 'report'
 Requires-Dist: fastapi ; extra == 'serve'
 Requires-Dist: uvicorn ; extra == 'serve'
 Requires-Dist: snowflake-sqlalchemy ; extra == 'snowflake'
+Requires-Dist: haybarn ; extra == 'vgi'
+Requires-Dist: vgi-python ; python_full_version >= '3.13' and extra == 'vgi'
 Provides-Extra: ai
 Provides-Extra: analysis
 Provides-Extra: bigquery
@@ -37,6 +39,7 @@ Provides-Extra: postgres
 Provides-Extra: report
 Provides-Extra: serve
 Provides-Extra: snowflake
+Provides-Extra: vgi
 License-File: LICENSE.md
 Summary: Declarative, typed query language that compiles to SQL.
 Description-Content-Type: text/markdown

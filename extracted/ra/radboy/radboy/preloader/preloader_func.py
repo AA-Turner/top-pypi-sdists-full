@@ -35,7 +35,7 @@ import plotext as plt
 from pint import Quantity
 plt.date_form('m/d/y-H:M:S')
 import re
-import time as TIME
+import time as TIMER
 from copy import deepcopy
 from sqlalchemy import column,text
 import radboy.TasksMode as TM
@@ -5071,10 +5071,13 @@ class ModelLogger(BTemplate):
         sleeper=''
         msg=''
         for num,i in enumerate(dotdot):
-            TIME.sleep(0.3)
-            sleeper=sleepers[num]
-            msg=f"{sleeper}Checking for stragglers{'.'*num}"
-            print(msg)
+            try:
+                TIMER.sleep(0.3)
+                sleeper=sleepers[num]
+                msg=f"{sleeper}Checking for stragglers{'.'*num}"
+                print(msg)
+            except Exception as e:
+                print(e)
         if num >= (len(dotdot)-1):
             print(f"{Fore.light_cyan}")
         with Session(ENGINE) as session:
@@ -12738,6 +12741,7 @@ def All_MarkUnPaid():
         print(e)
 
 def CostReport():
+    launch=0
     fields={
         'start':{
         'type':'datetime',
@@ -12814,7 +12818,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
         htext='\n'.join(htext)
 
         while True:
-            which=Control(ptext=f"{htext}\nRank by Which index",helpText=f"{htext}; select an integer",data="integer")
+            launch+=1
+            which=Control(ptext=f"Stage: {launch} {htext}\nRank by Which index",helpText=f"{htext}; select an integer",data="integer")
             if which in [None,'NAN','nan','NaN','nAn']:
                 return
             elif which in ['d',]:
@@ -12839,7 +12844,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
         else:
             direction='ascending'
             while True:
-                which=Control(ptext=f"{htext}\nWhich Order index",helpText=f"{htext}; select an integer",data="integer")
+                launch+=1
+                which=Control(ptext=f"Stage: {launch} {htext}\nWhich Order index",helpText=f"{htext}; select an integer",data="integer")
                 if which in [None,'NAN','nan','NaN','nAn']:
                     return
                 elif which in ['d',]:
@@ -12860,8 +12866,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
             else:
                 rank=func.rank().over(order_by=rankSpec.asc())
 
-
-        code=Control(ptext="Text in Code/BarCode/Name/Desc/Note?",helpText="Text in Code/BarCode/Name/Desc/Note?",data="string")
+        launch+=1
+        code=Control(ptext=f"Stage: {launch} Text in Code/BarCode/Name/Desc/Note?",helpText="Text in Code/BarCode/Name/Desc/Note?",data="string")
         if code in [None,'NAN','nan','NaN','nAn']:
             return
         elif code in ['d',]:
@@ -12869,7 +12875,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
         else:
             pass
         code=code.split(",")
-        exclude_code=Prompt.__init2__(None,func=FormBuilderMkText,ptext="exclude this code from results:",helpText="yes or no",data="boolean")
+        launch+=1
+        exclude_code=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"Stage: {launch} Exclude this code from results:",helpText="yes or no",data="boolean")
         if exclude_code in [None,]:
             return
         elif exclude_code in ['d',]:
@@ -12880,6 +12887,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
             filt=[]
             for q in code:
                 if code in excludes:
+                    continue
+                if q in excludes:
                     continue
                 filt.extend([
                 DayLog.Barcode.icontains(q),
@@ -12894,6 +12903,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
             filt=[]
             for q in code:
                 if code in excludes:
+                    continue
+                if q in excludes:
                     continue
                 filt.extend([or_(
                     not_(DayLog.Barcode.icontains(q)),
@@ -12914,6 +12925,44 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
                     not_(DayLog.Note.icontains(q))),
                 ])
             fff=and_(*filt)
+
+        launch+=1
+        ex_code=Control(ptext=f"Stage: {launch}\nText in Code/BarCode/Name/Desc/Note?[comma ',' separated] To Explicity {Fore.orange_red_1}Exclude!",helpText="Text in Code/BarCode/Name/Desc/Note?",data="string")
+        if ex_code in [None,'NAN','nan','NaN','nAn']:
+            return
+        elif ex_code in ['d',]:
+            ex_code=''
+        else:
+            pass
+        ex_code=ex_code.split(",")
+        if len(ex_code) > 0:
+            filt=[]
+            for q in ex_code:
+                if ex_code in excludes:
+                    continue
+                if q in excludes:
+                        continue
+                filt.extend([or_(
+                    not_(DayLog.Barcode.icontains(q)),
+                    not_(DayLog.Code.icontains(q)),
+                    not_(DayLog.Name.icontains(q)),
+                    not_(DayLog.Description.icontains(q)),
+                    not_(DayLog.Note.icontains(q))),
+                not_(DayLog.Barcode.icontains(q)),
+                not_(DayLog.Code.icontains(q)),
+                not_(DayLog.Name.icontains(q)),
+                not_(DayLog.Description.icontains(q)),
+                not_(DayLog.Note.icontains(q)),
+                and_(
+                    not_(DayLog.Barcode.icontains(q)),
+                    not_(DayLog.Code.icontains(q)),
+                    not_(DayLog.Name.icontains(q)),
+                    not_(DayLog.Description.icontains(q)),
+                    not_(DayLog.Note.icontains(q)))
+                ])
+            #print(len(filt))
+            if len(filt) > 0:
+                fff=and_(fff,*filt)
 
 
         roundTo=int(detectGetOrSet("TotalSpent ROUNDTO default",3,setValue=False,literal=True))
@@ -13163,12 +13212,16 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
         elif retailer in ['d',]:
             retailer=detectGetOrSet('list maker default retailer','home depot',setValue=False,literal=True)
 
+        
+
         #--------------
         excludes=['',None]
         if not exclude_code:
             filt=[]
             for q in code:
                 if code in excludes:
+                    continue
+                if q in excludes:
                     continue
                 filt.extend([
                 Entry.Barcode.icontains(q),
@@ -13183,6 +13236,8 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
             filt=[]
             for q in code:
                 if code in excludes:
+                    continue
+                if q in excludes:
                     continue
                 filt.extend([or_(
                     not_(Entry.Barcode.icontains(q)),
@@ -13203,6 +13258,44 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
                     not_(Entry.Note.icontains(q)))
                 ])
             fff=and_(*filt)
+
+        launch+=1
+        ex_code=Control(ptext=f"Stage: {launch}\nText in Code/BarCode/Name/Desc/Note?[comma ',' separated] To Explicity {Fore.orange_red_1}Exclude!",helpText="Text in Code/BarCode/Name/Desc/Note?",data="string")
+        if ex_code in [None,'NAN','nan','NaN','nAn']:
+            return
+        elif ex_code in ['d',]:
+            ex_code=''
+        else:
+            pass
+        ex_code=ex_code.split(",")
+        if len(ex_code) > 0:
+            filt=[]
+            for q in ex_code:
+                if ex_code in excludes:
+                    continue
+                if q in excludes:
+                        continue
+                filt.extend([or_(
+                    not_(Entry.Barcode.icontains(q)),
+                    not_(Entry.Code.icontains(q)),
+                    not_(Entry.Name.icontains(q)),
+                    not_(Entry.Description.icontains(q)),
+                    not_(Entry.Note.icontains(q))),
+                not_(Entry.Barcode.icontains(q)),
+                not_(Entry.Code.icontains(q)),
+                not_(Entry.Name.icontains(q)),
+                not_(Entry.Description.icontains(q)),
+                not_(Entry.Note.icontains(q)),
+                and_(
+                    not_(Entry.Barcode.icontains(q)),
+                    not_(Entry.Code.icontains(q)),
+                    not_(Entry.Name.icontains(q)),
+                    not_(Entry.Description.icontains(q)),
+                    not_(Entry.Note.icontains(q)))
+                ])
+            #print(len(filt))
+            if len(filt) > 0:
+                fff=and_(fff,*filt)
 
         roundTo=int(detectGetOrSet("TotalSpent ROUNDTO default",3,setValue=False,literal=True))
         total_e=decc(0,cf=roundTo)
@@ -21111,145 +21204,152 @@ def generate_formula_from_template(template=formulaZZZ,qnum=0,tqoof=0):
 
 
 def CashierQuizletAuto():
-    qs={}
-    l=Control(ptext="How many loops of questions?",helpText="an integer",data="integer")
-    if l in BooleanAnswers.NONE:
-        return
-    if l == ['d',]:
-        l=1
-    l=abs(l)
-    wrong=0
-    for num in range(0,l):
-        price=Decimal(random.randint(0,250))+Decimal(f"{random.random():.2}")
-        cash=Decimal(random.randint(0,250))+Decimal(f"{random.random():.2}")
-        taxRate=Decimal(f"{random.random():.2f}")
-        produceLb=Decimal(f"{random.random():.2f}")
-        change=price-cash
-        if change < 0:
-            state="give"
-        elif change > 0:
-            state="take"
-
-        qs[str(num)]={
-            'price':price,
-            'cash from customer':cash,
-            'change':change,
-            'give or take':state,
-            'taxRate':taxRate,
-            'produceLb':produceLb
-                }
-        x=qs[str(num)]
-        #print(f" Q#{num}) Price( {x['price']} ) - FromCustomer( {x['cash from customer']} ) = Change( {x['change']} )")
-    qsa=[]
-    As=[]
-    
-    qcount=0
-    for i in qs:
-        while True:
-            x=qs[i]
-            use=random.choice([True,False])
-            if use:
-                qcount+=1
-                q=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']:.2f} ) + ( Price( {x['price']:.2f} ) * TaxRate( {x['taxRate']:.2f} )) = Answer( ________ ) : \n"
-                a=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']:.2f} ) + ( Price( {x['price']:.2f} ) * TaxRate( {x['taxRate']:.2f} )) = Answer( {x['price']+(qs[i]['taxRate']*x['price']):.2f} ) : \n"
-                qsa.append(q)
-                As.append(a)
-
-
-            use=random.choice([True,False])
-            if use:
-                qcount+=1
-                q=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']} ) - FromCustomer( {x['cash from customer']} ) = Answer( ________ ) : \n"
-                a=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']} ) - FromCustomer( {x['cash from customer']} ) = Answer( {str(qs[i]['change'] )} : \n"
-                qsa.append(q)
-                As.append(a)
-
-                use=random.choice([True,False])
-                if use:
-                    qcount+=1
-                    q=f"{qcount}.) Answer_Is_Correct( Y / N ) | Using the previous question, do you '[g]ive' change or do you '[t]ake' more from the customer?\n"
-                    a=f"{qcount}.) Answer_Is_Correct( Y / N ) | Using the previous question, do you '[g]ive' change or do you '[t]ake' more from the customer? Answer( {x['give or take']} )\n"
-                    qsa.append(q)
-                    As.append(a)
-
-            use=random.choice([True,False])
-            if use:
-                qcount+=1
-                q=f"{qcount}.) Answer_Is_Correct( Y / N ) | You go to the store and go to the section where items are priced by the pound and select an item whose price is '{x['price']:.2f} per pound'. You plan to purchase {x['produceLb']} lbs of the item. What total price are you expecting to see at the register, given tax on the item is {x['taxRate']*100}% ?\n"
-                a=f"{qcount}.) Answer_Is_Correct( Y / N ) | You go to the store and go to the section where items are priced by the pound and select an item whose price is '{x['price']:.2f} per pound'. You plan to purchase {x['produceLb']} lbs of the item. What total price are you expecting to see at the register, given tax on the item is {x['taxRate']*100}% ? Answer( {(x['price']*x['produceLb'])+((x['price']*x['produceLb'])*x['taxRate']):.2f} )\n"
-                qsa.append(q)
-                As.append(a)
-
-            if len(qsa) > 0:
-                break
-
-        l=Control(ptext="How many questions to pull from the QuestionPool for this section?",helpText="an integer",data="integer")
-        if l in BooleanAnswers.NONE:
-            return
-        if l in ['d',]:
-            l=1
-        l=abs(l)
-        tsp=[]
-        qsp=[]
-        cta=0
-        with Session(ENGINE) as session:
-            count_statement=session.scalar(select(func.count(QuestionPool.emoid)))
-            if count_statement < 1:
-                msg=f"""
-Question Section {datetime.now().ctime()}")
-{'-'*os.get_terminal_size().columns}
-{'\n'.join(qsa)}
-
-Answer Section {datetime.now().ctime()}
-{'\n'.join(As)}
-            """
-                return msg
-
-            statement=select(QuestionPool).order_by(func.random()).limit(l)
-            a=session.execute(statement).scalars().all()
-            for i in a:
-                tsp.append(i)
-            tsp=random.choices(tsp,k=l)
-           
-            for num,i in enumerate(tsp):
-                cta=num
-                qsp.append(generate_formula_from_template(i.template,qnum=num,tqoof=len(tsp)))
-        
-        if len(qsp) > 0:
-            notes=qsp[0].notes
-        else:
-            notes=""
-        
+    while True:
         try:
-            msg=f"""
-Question Section {datetime.now().ctime()}")
-{'-'*os.get_terminal_size().columns}
-{'\n'.join(qsa)}
-{'-'*os.get_terminal_size().columns}
-Question Pool Questions {datetime.now().ctime()}")
-{"\n".join(i.just_question for i in qsp)}
-{'-'*os.get_terminal_size().columns}
-{'\n'*3}
-Answer Section {datetime.now().ctime()}
-{'\n'.join(As)}
-{'-'*os.get_terminal_size().columns}
-Question Pool Notes {datetime.now().ctime()}
-{'-'*os.get_terminal_size().columns}
-{notes}
-Question Pool Answers {datetime.now().ctime()}
-{'-'*os.get_terminal_size().columns}
-{"\n".join(i.question_answer for i in qsp)}
-        """
-        except Exception as e:
-            msg=f"""
-Question Section {datetime.now().ctime()}")
-{'-'*os.get_terminal_size().columns}
-{'\n'.join(qsa)}
+            qs={}
+            l=Control(ptext="How many loops of questions?",helpText="an integer",data="integer")
+            if l in BooleanAnswers.NONE:
+                return
+            if l in ['d','']:
+                l=1
+            try:
+                l=abs(l)
+            except Exception as e:
+                l=abs(float(l))
+            wrong=0
+            for num in range(0,l):
+                price=Decimal(random.randint(0,250))+Decimal(f"{random.random():.2}")
+                cash=Decimal(random.randint(0,250))+Decimal(f"{random.random():.2}")
+                taxRate=Decimal(f"{random.random():.2f}")
+                produceLb=Decimal(f"{random.random():.2f}")
+                change=price-cash
+                if change < 0:
+                    state="give"
+                elif change > 0:
+                    state="take"
 
-Answer Section {datetime.now().ctime()}
-{'\n'.join(As)}
-            """
-        return msg
+                qs[str(num)]={
+                    'price':price,
+                    'cash from customer':cash,
+                    'change':change,
+                    'give or take':state,
+                    'taxRate':taxRate,
+                    'produceLb':produceLb
+                        }
+                x=qs[str(num)]
+                #print(f" Q#{num}) Price( {x['price']} ) - FromCustomer( {x['cash from customer']} ) = Change( {x['change']} )")
+            qsa=[]
+            As=[]
+            
+            qcount=0
+            for i in qs:
+                while True:
+                    x=qs[i]
+                    use=random.choice([True,False])
+                    if use:
+                        qcount+=1
+                        q=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']:.2f} ) + ( Price( {x['price']:.2f} ) * TaxRate( {x['taxRate']:.2f} )) = Answer( ________ ) : \n"
+                        a=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']:.2f} ) + ( Price( {x['price']:.2f} ) * TaxRate( {x['taxRate']:.2f} )) = Answer( {x['price']+(qs[i]['taxRate']*x['price']):.2f} ) : \n"
+                        qsa.append(q)
+                        As.append(a)
+
+
+                    use=random.choice([True,False])
+                    if use:
+                        qcount+=1
+                        q=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']} ) - FromCustomer( {x['cash from customer']} ) = Answer( ________ ) : \n"
+                        a=f"{qcount}.) Answer_Is_Correct( Y / N ) | Price( {x['price']} ) - FromCustomer( {x['cash from customer']} ) = Answer( {str(qs[i]['change'] )} : \n"
+                        qsa.append(q)
+                        As.append(a)
+
+                        use=random.choice([True,False])
+                        if use:
+                            qcount+=1
+                            q=f"{qcount}.) Answer_Is_Correct( Y / N ) | Using the previous question, do you '[g]ive' change or do you '[t]ake' more from the customer?\n"
+                            a=f"{qcount}.) Answer_Is_Correct( Y / N ) | Using the previous question, do you '[g]ive' change or do you '[t]ake' more from the customer? Answer( {x['give or take']} )\n"
+                            qsa.append(q)
+                            As.append(a)
+
+                    use=random.choice([True,False])
+                    if use:
+                        qcount+=1
+                        q=f"{qcount}.) Answer_Is_Correct( Y / N ) | You go to the store and go to the section where items are priced by the pound and select an item whose price is '{x['price']:.2f} per pound'. You plan to purchase {x['produceLb']} lbs of the item. What total price are you expecting to see at the register, given tax on the item is {x['taxRate']*100}% ?\n"
+                        a=f"{qcount}.) Answer_Is_Correct( Y / N ) | You go to the store and go to the section where items are priced by the pound and select an item whose price is '{x['price']:.2f} per pound'. You plan to purchase {x['produceLb']} lbs of the item. What total price are you expecting to see at the register, given tax on the item is {x['taxRate']*100}% ? Answer( {(x['price']*x['produceLb'])+((x['price']*x['produceLb'])*x['taxRate']):.2f} )\n"
+                        qsa.append(q)
+                        As.append(a)
+
+                    if len(qsa) > 0:
+                        break
+
+                l=Control(ptext="How many questions to pull from the QuestionPool for this section?",helpText="an integer",data="integer")
+                if l in BooleanAnswers.NONE:
+                    return
+                if l in ['d',]:
+                    l=1
+                l=abs(l)
+                tsp=[]
+                qsp=[]
+                cta=0
+                with Session(ENGINE) as session:
+                    count_statement=session.scalar(select(func.count(QuestionPool.emoid)))
+                    if count_statement < 1:
+                        msg=f"""
+        Question Section {datetime.now().ctime()}")
+        {'-'*os.get_terminal_size().columns}
+        {'\n'.join(qsa)}
+
+        Answer Section {datetime.now().ctime()}
+        {'\n'.join(As)}
+                    """
+                        return msg
+
+                    statement=select(QuestionPool).order_by(func.random()).limit(l)
+                    a=session.execute(statement).scalars().all()
+                    for i in a:
+                        tsp.append(i)
+                    tsp=random.choices(tsp,k=l)
+                   
+                    for num,i in enumerate(tsp):
+                        cta=num
+                        qsp.append(generate_formula_from_template(i.template,qnum=num,tqoof=len(tsp)))
+                
+                if len(qsp) > 0:
+                    notes=qsp[0].notes
+                else:
+                    notes=""
+                
+                try:
+                    msg=f"""
+        Question Section {datetime.now().ctime()}")
+        {'-'*os.get_terminal_size().columns}
+        {'\n'.join(qsa)}
+        {'-'*os.get_terminal_size().columns}
+        Question Pool Questions {datetime.now().ctime()}")
+        {"\n".join(i.just_question for i in qsp)}
+        {'-'*os.get_terminal_size().columns}
+        {'\n'*3}
+        Answer Section {datetime.now().ctime()}
+        {'\n'.join(As)}
+        {'-'*os.get_terminal_size().columns}
+        Question Pool Notes {datetime.now().ctime()}
+        {'-'*os.get_terminal_size().columns}
+        {notes}
+        Question Pool Answers {datetime.now().ctime()}
+        {'-'*os.get_terminal_size().columns}
+        {"\n".join(i.question_answer for i in qsp)}
+                """
+                except Exception as e:
+                    msg=f"""
+        Question Section {datetime.now().ctime()}")
+        {'-'*os.get_terminal_size().columns}
+        {'\n'.join(qsa)}
+
+        Answer Section {datetime.now().ctime()}
+        {'\n'.join(As)}
+                    """
+                return msg
+        except Exception as e:
+            print(e)
     
 
 
@@ -21428,7 +21528,7 @@ def qp_test_file():
                 },
             'dir':{
                 'type':'rpath',
-                'default':Path("Math.d"),
+                'default':Path("math.d"),
                 'help':'directory of scripts to test',
                 'ptext':'Script Directory Name'
                 }
@@ -21465,7 +21565,7 @@ def qp_install_file():
                 },
             'dir':{
                 'type':'rpath',
-                'default':Path("Math.d"),
+                'default':Path("math.d"),
                 'help':'directory of scripts to test',
                 'ptext':'Script Directory Name'
                 }
@@ -21498,6 +21598,100 @@ def qp_install_file():
     except Exception as e:
         print(e)
 
+def qp_install_dirFiles():
+    try:
+        fields={
+            'dir':{
+                'type':'rpath',
+                'default':Path("math.d"),
+                'help':'directory of scripts to test',
+                'ptext':'Script Directory Name'
+                }
+            }
+        fb=FormBuilder(data=fields)
+        if fb in BooleanAnswers.NONE:
+            return
+        if not fb['dir'].exists():
+                fb['dir'].mkdir(parents=True)
+        print(fb)
+        if fb['dir'].exists():
+            for numT,file in enumerate(fb['dir'].iterdir()):
+                if not file.is_file():
+                    continue
+                with file.open("r") as ifile:
+                    data=ifile.read()
+                    cta=len(data.split("\n"))
+                    for num,line in enumerate(data.split("\n")):
+                        print(std_colorize(line,num,cta))
+                        
+                    lcl={}
+                    try:
+                        exec(data,lcl)
+                    except Exception as e:
+                        print(f"{Fore.light_magenta}Failed to install File {Fore.light_red}{numT}:{Fore.light_steel_blue}{file} {Fore.orange_red_1}{e}{Style.reset}")
+                        continue
+                    for i in lcl:
+                        print(f"{Fore.orange_red_1}{i}:{Fore.light_yellow}{type(lcl[i]).__name__}{Fore.cyan} = {Fore.light_steel_blue}{lcl[i]}{Style.reset}")
+
+                    with Session(ENGINE) as session:
+                        qp=QuestionPool(template=data)
+                        session.add(qp)
+                        session.commit()
+                        session.refresh(qp)
+                        print(qp)
+
+    except Exception as e:
+        print(e)
+
+def qfile():
+    mathdir=Path(".")/Path("math.d")
+    filename=Path(f"math_template_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.py")
+    if not mathdir.exists():
+        mathdir.mkdir(parents=True)
+
+    fullpath=mathdir/filename
+    with open(fullpath,"w+") as ofile:
+        t='{(n*multiplier):.{resolution}f}'
+        template=f"""
+import numpy as np 
+import pandas as pd 
+import sympy as sp 
+import os,sys 
+import random 
+from dateutil.relativedelta import relativedelta
+from datetime import datetime,timedelta,date
+from fractions import Fraction
+from pint import UnitRegistry
+import decimal
+from decimal import localcontext,Decimal
+import plotext as plt
+from pint import Quantity
+import calendar
+from copy import deepcopy
+import sys
+import holidays
+from pandas.tseries.offsets import BusinessDay,CustomBusinessDay
+from pandas.tseries.holiday import USFederalHolidayCalendar,Holiday
+
+#* use python code as normal, including imports
+#* include fmla_ or _fmla in variable name to include natext
+#* include "hide" in variable name to replace with boiler plate text to hide its value in natext
+#* use "answer", "answr", "result", "rslt", or "fnl" to store final answer which will be exclude in natext
+#* the strings in ['_hide_','_hide','hide_','fmla_','_fmla']  will be excluded in the final output
+
+
+def randomFloat():
+    n=random.random()
+    multiplier=random.randint(0,100)
+    resolution=random.randint(0,8)
+
+    r=float(f'{t}')
+    return r
+
+        """
+        ofile.write(template)
+    print(f"Math_template: '{fullpath}'")
+
 questionPool_menu={
     str(uuid1()):{
     "cmds":['questionPool custom',],
@@ -21513,6 +21707,16 @@ questionPool_menu={
     "cmds":['questionPool custom installfile','if'],
     "exec":lambda self:qp_install_file(),
     "desc":"test file and install file data in QuestionPool",
+    },
+    str(uuid1()):{
+    "cmds":['questionPool custom install directory file','idf'],
+    "exec":lambda self:qp_install_dirFiles(),
+    "desc":"test file and install file data in QuestionPool in directory",
+    },
+    str(uuid1()):{
+    "cmds":['qfile','question file'],
+    "exec":lambda self:qfile(),
+    "desc":"mkdir math.d if not exists, generate a template file for editing in math.d",
     }
 }
 

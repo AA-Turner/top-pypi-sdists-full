@@ -38,6 +38,8 @@ class UnregisteredAgentFilter(BaseModel):
     data_source_urls: Optional[List[StrictStr]] = None
     show_muted: Optional[StrictBool] = None
     source_ids: Optional[List[StrictStr]] = None
+    data_plane_ids: Optional[List[StrictStr]] = None
+    has_source: Optional[StrictBool] = None
     external_ids: Optional[List[StrictStr]] = None
     source_classes: Optional[List[SourceClass]] = None
     evidence_levels: Optional[List[EvidenceLevel]] = None
@@ -45,7 +47,7 @@ class UnregisteredAgentFilter(BaseModel):
     first_seen_before: Optional[datetime] = None
     created_after: Optional[datetime] = None
     created_before: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["name_filter", "agent_ids", "task_ids", "sub_agent_names", "tool_names", "llm_model_names", "data_source_urls", "show_muted", "source_ids", "external_ids", "source_classes", "evidence_levels", "first_seen_after", "first_seen_before", "created_after", "created_before"]
+    __properties: ClassVar[List[str]] = ["name_filter", "agent_ids", "task_ids", "sub_agent_names", "tool_names", "llm_model_names", "data_source_urls", "show_muted", "source_ids", "data_plane_ids", "has_source", "external_ids", "source_classes", "evidence_levels", "first_seen_after", "first_seen_before", "created_after", "created_before"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -131,6 +133,16 @@ class UnregisteredAgentFilter(BaseModel):
         if self.source_ids is None and "source_ids" in self.model_fields_set:
             _dict['source_ids'] = None
 
+        # set to None if data_plane_ids (nullable) is None
+        # and model_fields_set contains the field
+        if self.data_plane_ids is None and "data_plane_ids" in self.model_fields_set:
+            _dict['data_plane_ids'] = None
+
+        # set to None if has_source (nullable) is None
+        # and model_fields_set contains the field
+        if self.has_source is None and "has_source" in self.model_fields_set:
+            _dict['has_source'] = None
+
         # set to None if external_ids (nullable) is None
         # and model_fields_set contains the field
         if self.external_ids is None and "external_ids" in self.model_fields_set:
@@ -187,6 +199,8 @@ class UnregisteredAgentFilter(BaseModel):
             "data_source_urls": obj.get("data_source_urls"),
             "show_muted": obj.get("show_muted"),
             "source_ids": obj.get("source_ids"),
+            "data_plane_ids": obj.get("data_plane_ids"),
+            "has_source": obj.get("has_source"),
             "external_ids": obj.get("external_ids"),
             "source_classes": obj.get("source_classes"),
             "evidence_levels": obj.get("evidence_levels"),

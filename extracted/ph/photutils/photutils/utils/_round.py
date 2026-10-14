@@ -18,24 +18,25 @@ def round_half_away(a):
 
     Returns
     -------
-    result : int, float, or array_like
+    result : int, float, or `~numpy.ndarray`
         The rounded values. Finite inputs are returned as integers.
-        Non-finite inputs (NaN or infinity) are returned as floats,
-        preserving the NaN or infinity value.
+        Nonfinite inputs (NaN or infinity) are returned as floats,
+        preserving the NaN or infinity value. Scalar and 0-d array
+        inputs return a scalar.
 
     Notes
     -----
     NaN and infinity values are preserved in the output. Arrays
-    containing any non-finite value are returned as float arrays;
-    all-finite arrays are returned as integer arrays.
+    containing any nonfinite value are returned as float arrays.
+    All-finite arrays are returned as integer arrays.
     """
     data = np.atleast_1d(np.asarray(a, dtype=float))
     rounded = np.where(data >= 0, np.floor(data + 0.5),
                        np.ceil(data - 0.5))
 
-    if np.isscalar(a):
+    if np.ndim(a) == 0:
         val = rounded[0]
-        if not np.isfinite(a):
+        if not np.isfinite(val):
             return val
         return int(val)
 

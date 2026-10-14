@@ -17,11 +17,13 @@ class PosixIdPoolStats:
     Attributes:
         uid (Union['PosixIdPoolNamespaceStats', None]):
         gid (Union['PosixIdPoolNamespaceStats', None]):
+        group_gid (Union['PosixIdPoolNamespaceStats', None]): The range reserved for provider project groups, if any.
         utilization_threshold (int):
     """
 
     uid: Union["PosixIdPoolNamespaceStats", None]
     gid: Union["PosixIdPoolNamespaceStats", None]
+    group_gid: Union["PosixIdPoolNamespaceStats", None]
     utilization_threshold: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -40,6 +42,12 @@ class PosixIdPoolStats:
         else:
             gid = self.gid
 
+        group_gid: Union[None, dict[str, Any]]
+        if isinstance(self.group_gid, PosixIdPoolNamespaceStats):
+            group_gid = self.group_gid.to_dict()
+        else:
+            group_gid = self.group_gid
+
         utilization_threshold = self.utilization_threshold
 
         field_dict: dict[str, Any] = {}
@@ -48,6 +56,7 @@ class PosixIdPoolStats:
             {
                 "uid": uid,
                 "gid": gid,
+                "group_gid": group_gid,
                 "utilization_threshold": utilization_threshold,
             }
         )
@@ -90,11 +99,27 @@ class PosixIdPoolStats:
 
         gid = _parse_gid(d.pop("gid"))
 
+        def _parse_group_gid(data: object) -> Union["PosixIdPoolNamespaceStats", None]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                group_gid_type_1 = PosixIdPoolNamespaceStats.from_dict(data)
+
+                return group_gid_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union["PosixIdPoolNamespaceStats", None], data)
+
+        group_gid = _parse_group_gid(d.pop("group_gid"))
+
         utilization_threshold = d.pop("utilization_threshold")
 
         posix_id_pool_stats = cls(
             uid=uid,
             gid=gid,
+            group_gid=group_gid,
             utilization_threshold=utilization_threshold,
         )
 

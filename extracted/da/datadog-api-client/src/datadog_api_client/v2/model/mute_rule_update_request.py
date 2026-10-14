@@ -12,28 +12,28 @@ from datadog_api_client.model_utils import (
 
 
 if TYPE_CHECKING:
-    from datadog_api_client.v2.model.mute_rule_data_create import MuteRuleDataCreate
+    from datadog_api_client.v2.model.mute_rule_data_update import MuteRuleDataUpdate
 
 
 class MuteRuleUpdateRequest(ModelNormal):
     @cached_property
     def openapi_types(_):
-        from datadog_api_client.v2.model.mute_rule_data_create import MuteRuleDataCreate
+        from datadog_api_client.v2.model.mute_rule_data_update import MuteRuleDataUpdate
 
         return {
-            "data": (MuteRuleDataCreate,),
+            "data": (MuteRuleDataUpdate,),
         }
 
     attribute_map = {
         "data": "data",
     }
 
-    def __init__(self_, data: MuteRuleDataCreate, **kwargs):
+    def __init__(self_, data: MuteRuleDataUpdate, **kwargs):
         """
         The body of a mute rule update request.
 
-        :param data: The data object for a mute rule create or update request.
-        :type data: MuteRuleDataCreate
+        :param data: The data object for a mute rule update request. The ``id`` must match the ``rule_id`` path parameter.
+        :type data: MuteRuleDataUpdate
         """
         super().__init__(kwargs)
 

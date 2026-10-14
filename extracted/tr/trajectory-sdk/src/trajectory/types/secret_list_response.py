@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.secrets.secret import Secret
 
 
-class SecretListResponse(BaseModel):
+class SecretListResponse(SyncPage[Secret]):
   items: list[Secret]
   """Page of the organization's live secrets."""
 

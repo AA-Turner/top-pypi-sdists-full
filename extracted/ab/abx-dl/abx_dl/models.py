@@ -115,7 +115,6 @@ class PluginConfig(BaseModel):
     properties: dict[str, dict[str, Any]] = Field(default_factory=dict)  # JSONSchema format describing plugin config
     required_binaries: list[RequiredBinary] = Field(default_factory=list)  # e.g. [{'name': 'wget', 'binproviders': 'env,brew,apt'}]
     required_plugins: list[str] = Field(default_factory=list)  # e.g. ['chrome', 'pdf']
-    wait_for_plugins: list[str] = Field(default_factory=list)
     wait_for_background_cleanup: bool = False
     category: str = ""
     display_order: int = 1000
@@ -129,7 +128,7 @@ class Plugin(BaseModel):
     Plugins are discovered from the plugins directory (`ABX_PLUGINS_DIR` env var
     or the installed `abx_plugins` package). Each plugin directory may contain:
 
-    - `config.json`: schema with metadata, config properties, and plugin dependencies
+    - `config.json`: schema with metadata, config properties, and `required_plugins`
     - `on_*` scripts: hook executables matching the naming convention
     """
 
@@ -346,10 +345,26 @@ class ArchiveResult(BaseModel):
 
 
 def write_jsonl(path: Path, record: Any, also_print: bool = False):
-    """Append a record to a JSONL file."""
+    """Append a record to a JSONL file.
+
+    Open an existing index without O_CREAT. A creating open locks the parent
+    directory exclusively, and every hook's plugin dir is a sibling in that
+    parent: on a remote mount each in-flight sibling mkdir holds the lock for a
+    whole object-store round trip (B2 directory markers: ~350ms, up to 1.5s),
+    so appending a record waited behind them. Only a missing index is created.
+    """
     line = record.to_jsonl()
-    with open(path, "a") as f:
-        f.write(line + "\n")
+    data = (line + "\n").encode()
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CLOEXEC)
+    except FileNotFoundError:
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_CLOEXEC, 0o666)
+    try:
+        written = 0
+        while written < len(data):
+            written += os.write(fd, data[written:])
+    finally:
+        os.close(fd)
     if also_print:
         print(line, flush=True)
 

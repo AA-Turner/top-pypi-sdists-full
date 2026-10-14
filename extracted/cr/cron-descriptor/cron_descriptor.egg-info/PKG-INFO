@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cron_descriptor
-Version: 2.1.1
+Version: 2.2.1
 Summary: A Python library that converts cron expressions into human readable strings.
 Author-email: Adam Schubert <adam.schubert@sg1-game.net>
 License-Expression: MIT
@@ -13,14 +13,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing_extensions
@@ -48,7 +47,7 @@ A Python library that converts cron expressions into human readable strings. Por
  * Supports 5, 6 (w/ seconds or year), or 7 (w/ seconds and year) part cron expressions
  * Provides casing options (Sentence, Title, Lower, etc.)
  * Localization with support for ~31 languages
- * Supports Python 3.9 - 3.13
+ * Supports Python 3.10 - 3.13
 
 ## Installation
 Using PIP

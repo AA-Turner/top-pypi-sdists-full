@@ -218,6 +218,8 @@ class BiteResult(BaseModel):
     """Ends the bite."""
 
     summary: str = Field(description='ONE line - what you recorded, or "nothing new".')
+    reply: str = Field(default="", description="Your answer to the main agent's request: what you did, or why not. "
+                                               "Empty if there was none.")
 
 
 #: The output tool that ends a run (pydantic-ai's name for `BiteResult`'s tool).
@@ -714,9 +716,18 @@ READER_SESSION_DESCRIPTION = (
     "- `open` - one event in full (`event_id`), or a whole turn (`turn`); long text comes in pages (`page`).\n"
     "- `outline` - one line per turn (`page`).\n"
     "- `search` - words across the WHOLE session (`query`; narrow with `kind`, `turn_from`, `turn_to`).\n"
+    "- `logbook` - words across the writer's past writes and lookups (`query`).\n"
     "\n"
     "Each `op` takes only its own options."
 )
+
+READER_FEEDBACK_DESCRIPTION = (
+    "Send the Probe team feedback about Probe: what happened and what would have helped (at most 1,000 "
+    "characters). The researcher sees all of it and decides - nothing is sent without their yes."
+)
+#: What the reader's `feedback` tool answers once the question is held.
+READER_FEEDBACK_HELD = ("held as {header}: the main agent asks the researcher at their next prompt. Nothing is sent "
+                        "unless they say yes.")
 
 READER_SUMMARY_PROMPT = """\
 Summarize this conversation of the Probe reader - your summary REPLACES it, so it must let the reader carry on \
@@ -819,10 +830,12 @@ class ExcludeWatchedSession(AbstractCapability[tools.Deps]):
 
 def build_reader_agent(instructions: str, *, model, state: ReaderState, session_id: str,
                        agent: str):
-    """The reader: `read`, `session` (its three ops), the Probe MCP and
-    `final_result(message)`. No shell, no lease."""
+    """The reader: `read`, `session` (its three ops), `feedback` (for the Probe
+    team, asked of the researcher first), the Probe MCP and `final_result(message)`.
+    No shell, no lease."""
     from pydantic_ai import ModelRetry
 
+    harness = agent  # the watched session's harness; `agent` is the reader itself below
     capabilities: list = [ReaderLimits(state=state), ExcludeWatchedSession(session_id), state.detector]
     try:
         from pydantic_ai.capabilities.mcp import MCP
@@ -875,6 +888,21 @@ def build_reader_agent(instructions: str, *, model, state: ReaderState, session_
                                  turn_from=turn_from, turn_to=turn_to)
         except Exception as exc:  # noqa: BLE001
             return f"tool error ({type(exc).__name__}): {exc}"
+
+    @agent.tool(description=READER_FEEDBACK_DESCRIPTION)
+    async def feedback(ctx: RunContext[tools.Deps], text: str) -> str:
+        from probe import feedback as fb
+        from probe.daemon import approvals as appr
+
+        try:
+            req = fb.hold(text, session_id=session_id, source=fb.Source.DAEMON_READER, harness=harness)
+        except fb.Refused as exc:
+            return f"not sent: {exc}"
+        except Exception as exc:  # noqa: BLE001
+            return f"tool error ({type(exc).__name__}): {exc}"
+        if req.state == appr.DENIED:
+            return f"not sent: the researcher already said no to this feedback ({req.question.header})."
+        return READER_FEEDBACK_HELD.format(header=req.question.header)
 
     return agent
 

@@ -50,6 +50,7 @@ class Issue:
         resolved (Union[None, bool]):
         update_is_available (bool):
         destroy_is_available (bool):
+        available_statuses (list[str]):
         add_comment_is_available (bool):
         add_attachment_is_available (bool):
         order_uuid (Union[None, str]): Return order UUID if the issue's resource is an Order.
@@ -111,6 +112,7 @@ class Issue:
     resolved: Union[None, bool]
     update_is_available: bool
     destroy_is_available: bool
+    available_statuses: list[str]
     add_comment_is_available: bool
     add_attachment_is_available: bool
     order_uuid: Union[None, str]
@@ -234,6 +236,8 @@ class Issue:
         update_is_available = self.update_is_available
 
         destroy_is_available = self.destroy_is_available
+
+        available_statuses = self.available_statuses
 
         add_comment_is_available = self.add_comment_is_available
 
@@ -383,6 +387,7 @@ class Issue:
                 "resolved": resolved,
                 "update_is_available": update_is_available,
                 "destroy_is_available": destroy_is_available,
+                "available_statuses": available_statuses,
                 "add_comment_is_available": add_comment_is_available,
                 "add_attachment_is_available": add_attachment_is_available,
                 "order_uuid": order_uuid,
@@ -610,6 +615,8 @@ class Issue:
         update_is_available = d.pop("update_is_available")
 
         destroy_is_available = d.pop("destroy_is_available")
+
+        available_statuses = cast(list[str], d.pop("available_statuses"))
 
         add_comment_is_available = d.pop("add_comment_is_available")
 
@@ -847,6 +854,7 @@ class Issue:
             resolved=resolved,
             update_is_available=update_is_available,
             destroy_is_available=destroy_is_available,
+            available_statuses=available_statuses,
             add_comment_is_available=add_comment_is_available,
             add_attachment_is_available=add_attachment_is_available,
             order_uuid=order_uuid,

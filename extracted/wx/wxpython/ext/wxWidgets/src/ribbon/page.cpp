@@ -391,7 +391,7 @@ bool wxRibbonPage::ScrollSections(int sections)
         gap = m_art->GetMetric(wxRIBBON_ART_PANEL_Y_SEPARATION_SIZE);
         if (scrollForward)
         {
-            scrollpos = width - m_art->GetMetric(wxRIBBON_ART_PAGE_BORDER_BOTTOM_SIZE);
+            scrollpos = height - m_art->GetMetric(wxRIBBON_ART_PAGE_BORDER_BOTTOM_SIZE);
         }
         else
         {
@@ -574,33 +574,32 @@ void wxRibbonPage::OnDPIChanged(wxDPIChangedEvent& event)
 void wxRibbonPage::OnSysColourChanged(wxSysColourChangedEvent& event)
 {
     event.Skip();
-    m_art->UpdateColoursFromSystem();
+    if ( m_art )
+        m_art->UpdateColoursFromSystem();
 }
 
 void wxRibbonPage::RemoveChild(wxWindowBase *child)
 {
-    // Remove all references to the child from the collapse stack
+    // Remove all references to the child from the collapse stack. It can occur
+    // there any number of times, so keep only the entries which are not it.
     size_t count = m_collapse_stack.GetCount();
     size_t src, dst;
-    for(src = 0, dst = 0; src < count; ++src, ++dst)
+    for( src = 0, dst = 0; src < count; ++src )
     {
         wxRibbonControl *item = m_collapse_stack.Item(src);
         if(item == child)
         {
-            ++src;
-            if(src == count)
-            {
-                break;
-            }
+            continue;
         }
         if(src != dst)
         {
             m_collapse_stack.Item(dst) = item;
         }
+        ++dst;
     }
-    if(src > dst)
+    if( count > dst )
     {
-        m_collapse_stack.RemoveAt(dst, src - dst);
+        m_collapse_stack.RemoveAt(dst, count - dst);
     }
 
     // ... and then proceed as normal
@@ -1294,5 +1293,92 @@ void wxRibbonPage::HideIfExpanded()
     if (auto* const bar = wxCheckedStaticCast<wxRibbonBar>(GetParent()))
         bar->HideIfExpanded();
 }
+
+#if wxUSE_ACCESSIBILITY
+
+namespace
+{
+
+class wxRibbonPageAccessible : public wxWindowAccessible
+{
+public:
+    explicit wxRibbonPageAccessible(wxRibbonPage* page) : wxWindowAccessible(page) { }
+
+    wxAccStatus GetRole(int childId, wxAccRole* role) override
+    {
+        if ( childId != wxACC_SELF )
+            return wxACC_NOT_IMPLEMENTED;
+
+        *role = wxROLE_SYSTEM_PAGETAB;
+        return wxACC_OK;
+    }
+
+    wxAccStatus GetState(int childId, long* state) override
+    {
+        wxRibbonPage* page = wxDynamicCast(GetWindow(), wxRibbonPage);
+        if ( page == nullptr )
+            return wxACC_FAIL;
+
+        if ( childId != wxACC_SELF )
+            return wxACC_NOT_IMPLEMENTED;
+
+        wxRibbonBar* bar = page->GetAncestorRibbonBar();
+        if ( bar == nullptr )
+            return wxACC_FAIL;
+
+        long st{ wxACC_STATE_SYSTEM_SELECTABLE };
+        if ( !page->IsShown() )
+            st |= wxACC_STATE_SYSTEM_INVISIBLE;
+        if ( !bar->IsEnabled() )
+            st |= wxACC_STATE_SYSTEM_UNAVAILABLE;
+        if ( bar->IsFocusable() )
+            st |= wxACC_STATE_SYSTEM_FOCUSABLE;
+
+        if ( bar->GetPageNumber(page) == bar->GetActivePage() )
+        {
+            st |= wxACC_STATE_SYSTEM_SELECTED;
+            if ( bar->HasFocus() && bar->IsTabRowFocused() )
+                st |= wxACC_STATE_SYSTEM_FOCUSED;
+        }
+
+        *state = st;
+        return wxACC_OK;
+    }
+
+    // Let assistive technology select the tab, the same as clicking on it.
+    wxAccStatus GetDefaultAction(int childId, wxString* actionName) override
+    {
+        if ( childId != wxACC_SELF )
+            return wxACC_NOT_IMPLEMENTED;
+
+        *actionName = _("Switch");
+        return wxACC_OK;
+    }
+
+    wxAccStatus DoDefaultAction(int childId) override
+    {
+        if ( childId != wxACC_SELF )
+            return wxACC_NOT_IMPLEMENTED;
+
+        wxRibbonPage* page = wxDynamicCast(GetWindow(), wxRibbonPage);
+        if ( page == nullptr )
+            return wxACC_FAIL;
+
+        wxRibbonBar* bar = page->GetAncestorRibbonBar();
+        if ( bar == nullptr )
+            return wxACC_FAIL;
+
+        return bar->SetActivePage(page) ? wxACC_OK : wxACC_FAIL;
+    }
+};
+
+} // anonymous namespace
+
+wxAccessible* wxRibbonPage::CreateAccessible()
+{
+    return new wxRibbonPageAccessible(this);
+}
+
+#endif // wxUSE_ACCESSIBILITY
 
 #endif // wxUSE_RIBBON

@@ -4,14 +4,17 @@ Tests for the model module.
 """
 
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pytest
 from astropy.io import fits
 from astropy.modeling.models import Gaussian2D
 from astropy.utils.data import get_pkg_data_filename
+from numpy.testing import assert_array_equal
 
 from photutils.datasets.load import _get_path
+from photutils.isophote._ellipse_model import build_ellipse_model_c
 from photutils.isophote.ellipse import Ellipse
 from photutils.isophote.geometry import EllipseGeometry
 from photutils.isophote.isophote import IsophoteList
@@ -45,8 +48,14 @@ def test_model():
     assert np.abs(np.mean(residual)) <= 5.0
 
 
-@pytest.mark.parametrize('sma_interval', [0.05, 0.1])
-def test_model_simulated_data(sma_interval):
+@pytest.fixture(name='simulated_isolist', scope='module')
+def fixture_simulated_isolist():
+    """
+    Fit isophotes to a simulated galaxy image.
+
+    The fit does not depend on the model-building parameters, so it is
+    performed only once and shared across tests.
+    """
     data = make_test_image(nx=200, ny=200, i0=10.0, sma=5.0, eps=0.5,
                            pa=np.pi / 3.0, noise=0.05, seed=0)
 
@@ -59,6 +68,12 @@ def test_model_simulated_data(sma_interval):
         warnings.simplefilter('ignore', RuntimeWarning)
         isophote_list = ellipse.fit_image()
 
+    return data, isophote_list
+
+
+@pytest.mark.parametrize('sma_interval', [0.05, 0.1])
+def test_model_simulated_data(simulated_isolist, sma_interval):
+    data, isophote_list = simulated_isolist
     model = build_ellipse_model(data.shape, isophote_list,
                                 fill=np.mean(data[0:50, 0:50]),
                                 sma_interval=sma_interval)
@@ -153,3 +168,137 @@ def test_model_integration():
                                 fill=np.nanmean(data[105:, :5]),
                                 sma_interval=0.05)
     assert np.nanmean(np.abs(model[100:, 60:] - data[100:, 60:])) < 2
+
+
+def test_build_ellipse_model_c_threadsafe():
+    """
+    Test that build_ellipse_model_c is thread-safe by running it in
+    multiple threads and checking that the results are consistent.
+    """
+    n = 64
+    sma = np.linspace(0.5, 20.0, n)
+    intens = np.full(n, 1.0)
+    eps = np.full(n, 0.3)
+    pa = np.full(n, 0.5)
+    x0 = np.full(n, 50.0)
+    y0 = np.full(n, 50.0)
+
+    def fn():
+        return build_ellipse_model_c(100, 100, sma, intens, eps, pa, x0, y0)
+
+    expected = fn()
+    n_threads = 8
+    n_calls_per_thread = 4
+
+    with ThreadPoolExecutor(max_workers=n_threads) as executor:
+        futures = [executor.submit(fn)
+                   for _ in range(n_threads * n_calls_per_thread)]
+        for future in futures:
+            result = future.result()
+            assert_array_equal(result[0], expected[0])
+            assert_array_equal(result[1], expected[1])
+
+
+def test_build_ellipse_model_c_readonly_arrays():
+    """
+    Test that read-only (nonwritable) input arrays are accepted by
+    build_ellipse_model_c and give results identical to writable
+    arrays.
+    """
+    n = 16
+    sma = np.linspace(0.5, 20.0, n)
+    intens = np.full(n, 1.0)
+    eps = np.full(n, 0.3)
+    pa = np.full(n, 0.5)
+    x0 = np.full(n, 50.0)
+    y0 = np.full(n, 50.0)
+    arrays = (sma, intens, eps, pa, x0, y0)
+    expected = build_ellipse_model_c(100, 100, *arrays)
+
+    arrays_ro = []
+    for arr in arrays:
+        arr_ro = arr.copy()
+        arr_ro.setflags(write=False)
+        arrays_ro.append(arr_ro)
+    result = build_ellipse_model_c(100, 100, *arrays_ro)
+
+    assert_array_equal(result[0], expected[0])
+    assert_array_equal(result[1], expected[1])
+
+
+def test_build_ellipse_model_c_noncontiguous_arrays():
+    """
+    Test that noncontiguous (strided) input arrays are accepted by
+    build_ellipse_model_c and give results identical to contiguous
+    arrays.
+
+    The input arguments are declared as noncontiguous ``double[:]``
+    typed memoryviews. This test guards against a regression if they
+    were ever changed to C-contiguous ``double[::1]`` memoryviews, which
+    would reject strided arrays.
+    """
+    n = 16
+    sma = np.linspace(0.5, 20.0, n)
+    intens = np.full(n, 1.0)
+    eps = np.full(n, 0.3)
+    pa = np.full(n, 0.5)
+    x0 = np.full(n, 50.0)
+    y0 = np.full(n, 50.0)
+    arrays = (sma, intens, eps, pa, x0, y0)
+    expected = build_ellipse_model_c(100, 100, *arrays)
+
+    # Build strided (noncontiguous) views by interleaving and slicing
+    arrays_strided = []
+    for arr in arrays:
+        strided = np.repeat(arr, 2)[::2]
+        assert not strided.flags['C_CONTIGUOUS']
+        arrays_strided.append(strided)
+    result = build_ellipse_model_c(100, 100, *arrays_strided)
+
+    assert_array_equal(result[0], expected[0])
+    assert_array_equal(result[1], expected[1])
+
+
+@pytest.mark.parametrize('index', range(5))
+def test_build_ellipse_model_c_length_mismatch(index):
+    """
+    Test that a ValueError is raised if any of the main input arrays
+    does not have the same length as finely_spaced_sma.
+    """
+    n = 16
+    sma = np.linspace(0.5, 20.0, n)
+    arrays = [np.full(n, value) for value in (1.0, 0.3, 0.5, 50.0, 50.0)]
+    arrays[index] = arrays[index][:-1]
+    match = 'All input arrays must be same length'
+    with pytest.raises(ValueError, match=match):
+        build_ellipse_model_c(100, 100, sma, *arrays)
+
+
+@pytest.mark.parametrize('index', range(4))
+def test_build_ellipse_model_c_harmonic_length_mismatch(index):
+    """
+    Test that a ValueError is raised if any of the harmonic arrays
+    does not have the same length as finely_spaced_sma.
+    """
+    n = 16
+    sma = np.linspace(0.5, 20.0, n)
+    arrays = [np.full(n, value) for value in (1.0, 0.3, 0.5, 50.0, 50.0)]
+    harmonics = [np.full(n, 0.01) for _ in range(4)]
+    harmonics[index] = harmonics[index][:-1]
+    match = 'All input arrays must be same length'
+    with pytest.raises(ValueError, match=match):
+        build_ellipse_model_c(100, 100, sma, *arrays, *harmonics)
+
+
+def test_build_ellipse_model_c_partial_harmonics():
+    """
+    Test that a ValueError is raised if only some of the harmonic
+    arrays are input.
+    """
+    n = 16
+    sma = np.linspace(0.5, 20.0, n)
+    arrays = [np.full(n, value) for value in (1.0, 0.3, 0.5, 50.0, 50.0)]
+    match = 'Must supply all harmonic arrays if any is not None'
+    with pytest.raises(ValueError, match=match):
+        build_ellipse_model_c(100, 100, sma, *arrays,
+                              a3_array=np.full(n, 0.01))

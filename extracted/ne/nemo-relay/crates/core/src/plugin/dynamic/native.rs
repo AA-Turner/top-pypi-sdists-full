@@ -89,6 +89,7 @@ use tokio::runtime::Runtime;
 use tokio_stream::{Stream, StreamExt};
 use uuid::Uuid;
 
+use super::trust::DynamicPluginLoadTrust;
 use super::{
     DynamicPluginKind, DynamicPluginManifest, DynamicPluginManifestLoad,
     DynamicPluginTeardownOutcome, deregister_tracked_registrations_checked,
@@ -103,6 +104,54 @@ pub struct NativePluginLoadSpec {
     pub plugin_id: String,
     /// Path to the authored `relay-plugin.toml`.
     pub manifest_ref: String,
+}
+
+pub(super) struct PreparedNativePlugin {
+    pub(super) manifest: DynamicPluginManifest,
+    pub(super) manifest_ref: String,
+    pub(super) artifact_bytes: Option<Vec<u8>>,
+}
+
+impl PreparedNativePlugin {
+    pub(super) fn new(
+        manifest: DynamicPluginManifest,
+        manifest_ref: String,
+        artifact_bytes: Option<Vec<u8>>,
+    ) -> crate::plugin::Result<Self> {
+        if let (Some(bytes), DynamicPluginManifestLoad::RustDynamic(load)) =
+            (&artifact_bytes, &manifest.load)
+        {
+            let library = load
+                .library
+                .as_deref()
+                .expect("validated native load.library");
+            let source = manifest
+                .source
+                .as_ref()
+                .and_then(|source| source.artifact.as_deref())
+                .expect("integrity-checked source.artifact");
+            let library_path = super::resolve_dynamic_plugin_artifact_path(&manifest_ref, library);
+            let source_path = super::resolve_dynamic_plugin_artifact_path(&manifest_ref, source);
+            // Preserve the existing requirement that load.library also matches
+            // the artifact digest when the manifest names two distinct files.
+            if library_path != source_path {
+                let library_bytes =
+                    super::read_bounded_regular_file(&library_path, "native plugin library")
+                        .map_err(PluginError::InvalidConfig)?;
+                if library_bytes != *bytes {
+                    return Err(PluginError::InvalidConfig(format!(
+                        "native plugin library '{}' differs from the verified artifact",
+                        library_path.display()
+                    )));
+                }
+            }
+        }
+        Ok(Self {
+            manifest,
+            manifest_ref,
+            artifact_bytes,
+        })
+    }
 }
 
 /// Owns native dynamic libraries registered into the plugin registry.
@@ -153,12 +202,44 @@ pub fn load_native_plugins<I>(specs: I) -> crate::plugin::Result<NativePluginAct
 where
     I: IntoIterator<Item = NativePluginLoadSpec>,
 {
+    load_native_plugins_with_trust(specs, &HashMap::new(), &mut Vec::new(), Vec::new())
+}
+
+pub(super) fn load_native_plugins_with_trust<I>(
+    specs: I,
+    trust: &HashMap<String, DynamicPluginLoadTrust>,
+    skipped: &mut Vec<super::DynamicPluginValidationReport>,
+    artifacts: Vec<PreparedNativePlugin>,
+) -> crate::plugin::Result<NativePluginActivation>
+where
+    I: IntoIterator<Item = NativePluginLoadSpec>,
+{
+    let mut artifacts = artifacts
+        .into_iter()
+        .map(|artifact| (artifact.manifest.plugin.id.trim().to_owned(), artifact))
+        .collect::<HashMap<_, _>>();
     let mut activation = NativePluginActivation {
         plugins: Vec::new(),
         plugin_registrations: Vec::new(),
     };
     for spec in specs {
-        let instance = load_one_native_plugin(&spec)?;
+        // Core resolution supplies the already verified artifact. Do not
+        // re-check an authored path after successful verification.
+        let artifact = match artifacts.remove(&spec.plugin_id) {
+            Some(artifact) => Some(artifact),
+            None => match trust.get(&spec.plugin_id) {
+                Some(trust) => match trust.manifest_for_load(&spec.manifest_ref, skipped)? {
+                    Some(manifest) => Some(PreparedNativePlugin::new(
+                        manifest,
+                        spec.manifest_ref.clone(),
+                        None,
+                    )?),
+                    None => continue,
+                },
+                None => None,
+            },
+        };
+        let instance = load_one_native_plugin(&spec, artifact)?;
         let plugin_kind = instance.plugin_kind.clone();
         let registration_id = register_plugin_tracked(Arc::new(NativePluginAdapter {
             plugin_kind: plugin_kind.clone(),
@@ -298,6 +379,8 @@ struct NativePluginInstance {
     allows_multiple_components: bool,
     plugin: Mutex<NemoRelayNativePluginV1>,
     _library: Library,
+    // Declared after the library so the loader closes it before removing its copy.
+    _artifact_snapshot: Option<tempfile::TempDir>,
 }
 
 fn serialize_native_tool_result(result: ToolExecutionResult) -> serde_json::Result<Json> {
@@ -340,8 +423,21 @@ fn drop_native_plugin_descriptor(plugin: &mut NemoRelayNativePluginV1) {
 
 fn load_one_native_plugin(
     spec: &NativePluginLoadSpec,
+    artifact: Option<PreparedNativePlugin>,
 ) -> crate::plugin::Result<Arc<NativePluginInstance>> {
-    let (manifest, manifest_ref) = DynamicPluginManifest::load_from_path(&spec.manifest_ref)?;
+    let snapshot_required = artifact.is_some();
+    let (manifest, manifest_ref, artifact_bytes) = match artifact {
+        Some(artifact) => (
+            artifact.manifest,
+            artifact.manifest_ref,
+            artifact.artifact_bytes,
+        ),
+        None => {
+            let (manifest, manifest_ref) =
+                DynamicPluginManifest::load_from_path(&spec.manifest_ref)?;
+            (manifest, manifest_ref, None)
+        }
+    };
     if manifest.plugin.id.trim() != spec.plugin_id {
         return Err(PluginError::InvalidConfig(format!(
             "dynamic plugin manifest id '{}' does not match expected id '{}'",
@@ -382,19 +478,8 @@ fn load_one_native_plugin(
             .as_deref()
             .ok_or_else(|| PluginError::InvalidConfig("load.library is required".into()))?,
     );
-    if !library_path.exists() {
-        return Err(PluginError::NotFound(format!(
-            "native plugin library '{}' does not exist",
-            library_path.display()
-        )));
-    }
-    if let Some(expected_digest) = manifest
-        .integrity
-        .as_ref()
-        .and_then(|integrity| integrity.sha256.as_deref())
-    {
-        verify_sha256(&library_path, expected_digest)?;
-    }
+    let (library_path, artifact_snapshot) =
+        prepare_native_library(&manifest, library_path, artifact_bytes, snapshot_required)?;
     let symbol = load
         .symbol
         .as_deref()
@@ -450,7 +535,71 @@ fn load_one_native_plugin(
         allows_multiple_components: plugin.allows_multiple_components,
         plugin: Mutex::new(plugin),
         _library: library,
+        _artifact_snapshot: artifact_snapshot,
     }))
+}
+
+fn prepare_native_library(
+    manifest: &DynamicPluginManifest,
+    library_path: PathBuf,
+    artifact_bytes: Option<Vec<u8>>,
+    snapshot_required: bool,
+) -> crate::plugin::Result<(PathBuf, Option<tempfile::TempDir>)> {
+    if snapshot_required {
+        // Core trust verification supplies its exact bytes. Other internal
+        // verified load requests pin a bounded read and check it against the
+        // retained manifest's digest before staging.
+        let bytes = match artifact_bytes {
+            Some(bytes) => bytes,
+            None => super::read_bounded_regular_file(&library_path, "native plugin library")
+                .map_err(PluginError::InvalidConfig)?,
+        };
+        if let Some(expected) = manifest
+            .integrity
+            .as_ref()
+            .and_then(|integrity| integrity.sha256.as_deref())
+        {
+            verify_sha256_bytes(&library_path, &bytes, expected)?;
+        }
+        let mut builder = tempfile::Builder::new();
+        builder.prefix("nemo-relay-native-");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            builder.permissions(std::fs::Permissions::from_mode(0o700));
+        }
+        let snapshot = builder.tempdir().map_err(|error| {
+            PluginError::Internal(format!("failed to stage native plugin: {error}"))
+        })?;
+        // Create the private directory with restrictive permissions from the
+        // outset, independently of every attacker-controlled source path.
+        let staged_path = snapshot
+            .path()
+            .join(library_path.file_name().ok_or_else(|| {
+                PluginError::InvalidConfig("native plugin library must name a file".into())
+            })?);
+        std::fs::write(&staged_path, bytes).map_err(|error| {
+            PluginError::Internal(format!("failed to stage native plugin: {error}"))
+        })?;
+        Ok((staged_path, Some(snapshot)))
+    } else {
+        // The CLI supplies its own protected activation snapshot, including
+        // runtime dependencies. Keep that closure and its loading location.
+        if !library_path.exists() {
+            return Err(PluginError::NotFound(format!(
+                "native plugin library '{}' does not exist",
+                library_path.display()
+            )));
+        }
+        if let Some(expected) = manifest
+            .integrity
+            .as_ref()
+            .and_then(|integrity| integrity.sha256.as_deref())
+        {
+            verify_sha256(&library_path, expected)?;
+        }
+        Ok((library_path, None))
+    }
 }
 
 fn validate_relay_compatibility(relay: Option<&str>) -> crate::plugin::Result<()> {
@@ -493,13 +642,16 @@ fn resolve_manifest_relative_path(manifest_path: &Path, value: &str) -> PathBuf 
 }
 
 fn verify_sha256(path: &Path, expected: &str) -> crate::plugin::Result<()> {
+    let bytes = super::read_bounded_regular_file(path, "native plugin library")
+        .map_err(PluginError::InvalidConfig)?;
+    verify_sha256_bytes(path, &bytes, expected)
+}
+
+fn verify_sha256_bytes(path: &Path, bytes: &[u8], expected: &str) -> crate::plugin::Result<()> {
     let expected = expected
         .trim()
         .strip_prefix("sha256:")
         .unwrap_or(expected.trim());
-    let bytes = std::fs::read(path).map_err(|err| {
-        PluginError::Internal(format!("failed to read '{}': {err}", path.display()))
-    })?;
     let actual = hex_digest(Sha256::digest(bytes));
     if actual.eq_ignore_ascii_case(expected) {
         Ok(())
@@ -1719,7 +1871,7 @@ fn flow_error_from_status(status: NemoRelayStatus, fallback: &str) -> FlowError 
         NemoRelayStatus::ScopeStackEmpty => FlowError::ScopeStackEmpty,
         NemoRelayStatus::GuardrailRejected => FlowError::GuardrailRejected(message),
         NemoRelayStatus::InvalidArg => FlowError::InvalidArgument(message),
-        _ => FlowError::Internal(message),
+        _ => super::http_error::from_message(message),
     }
 }
 
@@ -1736,7 +1888,7 @@ fn status_from_plugin_error(err: PluginError) -> NemoRelayStatus {
 }
 
 fn status_from_flow_error(err: FlowError) -> NemoRelayStatus {
-    set_native_last_error(err.to_string());
+    set_native_last_error(super::http_error::to_message(&err));
     match err {
         FlowError::AlreadyExists(_) => NemoRelayStatus::AlreadyExists,
         FlowError::NotFound(_) => NemoRelayStatus::NotFound,
@@ -1787,6 +1939,25 @@ struct NativeCallbackUserData {
     ptr: *mut c_void,
     free_fn: NemoRelayNativeFreeFn,
     _instance: Option<Arc<NativePluginInstance>>,
+}
+
+fn report_native_http_error(
+    error: FlowError,
+    user_data: Option<&NativeCallbackUserData>,
+) -> FlowError {
+    if let Some(instance) = user_data.and_then(|user_data| user_data._instance.as_ref()) {
+        super::http_error::reported_by(error, &instance.plugin_kind, "native")
+    } else {
+        error
+    }
+}
+
+fn flow_error_from_plugin_status(
+    status: NemoRelayStatus,
+    fallback: &str,
+    user_data: &NativeCallbackUserData,
+) -> FlowError {
+    report_native_http_error(flow_error_from_status(status, fallback), Some(user_data))
 }
 
 struct NativeCallbackUserDataGuard {
@@ -2438,7 +2609,10 @@ unsafe extern "C" fn native_async_completion_reject(
         abort.abort();
     }
     abort_completion_continuations(completion);
-    let _ = sender.send(Err(FlowError::Internal(message)));
+    let _ = sender.send(Err(report_native_http_error(
+        super::http_error::from_message(message),
+        completion._callback_user_data.as_deref(),
+    )));
     NemoRelayStatus::Ok
 }
 
@@ -2740,7 +2914,10 @@ unsafe extern "C" fn native_async_stream_reject(
     let Some(sender) = sender_guard.as_ref() else {
         return NemoRelayStatus::InvalidArg;
     };
-    match sender.try_send(Err(FlowError::Internal(message))) {
+    match sender.try_send(Err(report_native_http_error(
+        super::http_error::from_message(message),
+        stream._callback_user_data.as_deref(),
+    ))) {
         Ok(()) => {
             sender_guard.take();
             stream.settled.store(true, Ordering::Release);
@@ -3000,7 +3177,7 @@ impl NativeAsyncResultCallbackGuard {
                     self.deliver_error("failed to allocate native async next result");
                 }
             }
-            Err(error) => self.deliver_error(&error.to_string()),
+            Err(error) => self.deliver_error(&super::http_error::to_message(&error)),
         }
     }
 
@@ -3459,7 +3636,7 @@ unsafe extern "C" fn native_async_next_open_llm_stream(
                 };
                 callback_guard.active = false;
             }
-            Ok(Err(error)) => callback_guard.fail(&error.to_string()),
+            Ok(Err(error)) => callback_guard.fail(&super::http_error::to_message(&error)),
             Err(payload) => callback_guard.fail(&format!(
                 "native async stream continuation panicked: {}",
                 panic_payload_message(payload.as_ref())
@@ -3603,7 +3780,7 @@ fn deliver_native_pull_result(
         }
         Ok(None) => unsafe { cb(user_data as *mut c_void, ptr::null(), ptr::null(), true) },
         Err(error) => {
-            if let Some(error) = native_string_from_str(&error.to_string()) {
+            if let Some(error) = native_string_from_str(&super::http_error::to_message(&error)) {
                 unsafe {
                     cb(user_data as *mut c_void, ptr::null(), error, true);
                     native_string_free(error);
@@ -3656,7 +3833,7 @@ async fn deliver_native_async_next_stream(
     let result = AssertUnwindSafe(async {
         match next_fn(request).await {
             Ok(stream) => forward_native_async_next_stream(stream, &mut callback_guard).await,
-            Err(error) => callback_guard.fail(&error.to_string()),
+            Err(error) => callback_guard.fail(&super::http_error::to_message(&error)),
         }
     })
     .catch_unwind()
@@ -3705,7 +3882,7 @@ async fn forward_native_async_next_stream_with(
                 }
             }
             Err(error) => {
-                callback_guard.fail(&error.to_string());
+                callback_guard.fail(&super::http_error::to_message(&error));
                 return;
             }
         }
@@ -5317,7 +5494,10 @@ fn wrap_event_sanitize_fn(
     let user_data = make_user_data(instance, user_data, free_fn);
     Arc::new(move |event, fields| {
         let user_data = user_data.clone();
-        Box::pin(async move { call_event_sanitize_callback(cb, user_data.ptr, &event, &fields) })
+        Box::pin(async move {
+            call_event_sanitize_callback(cb, user_data.ptr, &event, &fields)
+                .map_err(|error| report_native_http_error(error, Some(&user_data)))
+        })
     })
 }
 
@@ -5373,7 +5553,10 @@ fn wrap_tool_json_fn(
     let user_data = make_user_data(instance, user_data, free_fn);
     Arc::new(move |name, payload| {
         let user_data = user_data.clone();
-        Box::pin(async move { call_tool_json_callback(cb, user_data.ptr, &name, &payload) })
+        Box::pin(async move {
+            call_tool_json_callback(cb, user_data.ptr, &name, &payload)
+                .map_err(|error| report_native_http_error(error, Some(&user_data)))
+        })
     })
 }
 
@@ -5386,7 +5569,10 @@ fn wrap_tool_intercept_fn(
     let user_data = make_user_data(instance, user_data, free_fn);
     Arc::new(move |name, payload| {
         let user_data = user_data.clone();
-        Box::pin(async move { call_tool_json_callback(cb, user_data.ptr, &name, &payload) })
+        Box::pin(async move {
+            call_tool_json_callback(cb, user_data.ptr, &name, &payload)
+                .map_err(|error| report_native_http_error(error, Some(&user_data)))
+        })
     })
 }
 
@@ -5444,9 +5630,10 @@ fn wrap_tool_conditional_fn(
                 if !out.is_null() {
                     unsafe { native_string_free(out) };
                 }
-                return Err(flow_error_from_status(
+                return Err(flow_error_from_plugin_status(
                     status,
                     "native tool conditional failed",
+                    &user_data,
                 ));
             }
             if out.is_null() {
@@ -5497,9 +5684,10 @@ fn wrap_tool_execution_fn(
                 if !out_outcome.is_null() {
                     unsafe { native_string_free(out_outcome) };
                 }
-                return Err(flow_error_from_status(
+                return Err(flow_error_from_plugin_status(
                     status,
                     "native tool execution failed",
+                    &user_data,
                 ));
             }
             let outcome_json = take_json_from_native_string(
@@ -5550,9 +5738,10 @@ fn wrap_tool_execution_context_fn(
                 if !outcome.is_null() {
                     unsafe { native_string_free(outcome) };
                 }
-                return Err(flow_error_from_status(
+                return Err(flow_error_from_plugin_status(
                     status,
                     "native tool execution failed",
+                    &user_data,
                 ));
             }
             let outcome = take_json_from_native_string(
@@ -5607,9 +5796,10 @@ fn wrap_llm_sanitize_request_fn(
     let user_data = make_user_data(instance, user_data, free_fn);
     Arc::new(move |request, context| {
         let user_data = user_data.clone();
-        Box::pin(
-            async move { call_llm_sanitize_request_callback(cb, user_data.ptr, &request, context) },
-        )
+        Box::pin(async move {
+            call_llm_sanitize_request_callback(cb, user_data.ptr, &request, context)
+                .map_err(|error| report_native_http_error(error, Some(&user_data)))
+        })
     })
 }
 
@@ -5624,6 +5814,7 @@ fn wrap_llm_sanitize_response_fn(
         let user_data = user_data.clone();
         Box::pin(async move {
             call_llm_sanitize_response_callback(cb, user_data.ptr, &payload, context)
+                .map_err(|error| report_native_http_error(error, Some(&user_data)))
         })
     })
 }
@@ -5781,9 +5972,10 @@ fn wrap_llm_conditional_fn(
                 if !out.is_null() {
                     unsafe { native_string_free(out) };
                 }
-                return Err(flow_error_from_status(
+                return Err(flow_error_from_plugin_status(
                     status,
                     "native LLM conditional failed",
+                    &user_data,
                 ));
             }
             if out.is_null() {
@@ -5845,9 +6037,10 @@ fn wrap_llm_request_intercept_fn(
                 unsafe {
                     native_string_free(out_outcome);
                 }
-                return Err(flow_error_from_status(
+                return Err(flow_error_from_plugin_status(
                     status,
                     "native LLM request intercept failed",
+                    &user_data,
                 ));
             }
             let outcome_json = json_from_native_string(
@@ -5931,9 +6124,10 @@ fn call_llm_execution_callback(
         if !out.is_null() {
             unsafe { native_string_free(out) };
         }
-        return Err(flow_error_from_status(
+        return Err(flow_error_from_plugin_status(
             status,
             "native LLM execution failed",
+            user_data,
         ));
     }
     take_json_from_native_string(out, "native LLM execution returned null")
@@ -6022,9 +6216,10 @@ fn call_llm_stream_execution_callback(
     }
     if status != NemoRelayStatus::Ok {
         drop_native_stream(out);
-        return Err(flow_error_from_status(
+        return Err(flow_error_from_plugin_status(
             status,
             "native LLM stream execution failed",
+            &user_data,
         ));
     }
     native_stream_to_relay_stream(out, Some(next_ctx), Some(user_data), request_codec)
@@ -6130,10 +6325,12 @@ impl Stream for NativeRelayLlmStream {
         match status {
             NemoRelayStatus::Ok => {
                 if out.is_null() {
-                    let error = FlowError::Internal(
+                    let error = super::http_error::from_message(
                         native_last_error_message()
                             .unwrap_or_else(|| "native LLM stream returned null chunk".into()),
                     );
+                    let error =
+                        report_native_http_error(error, self._callback_user_data.as_deref());
                     self.finish();
                     return Poll::Ready(Some(Err(error)));
                 }
@@ -6155,7 +6352,10 @@ impl Stream for NativeRelayLlmStream {
                 if !out.is_null() {
                     unsafe { native_string_free(out) };
                 }
-                let error = flow_error_from_status(status, "native LLM stream poll failed");
+                let error = report_native_http_error(
+                    flow_error_from_status(status, "native LLM stream poll failed"),
+                    self._callback_user_data.as_deref(),
+                );
                 self.finish();
                 Poll::Ready(Some(Err(error)))
             }

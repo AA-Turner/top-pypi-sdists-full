@@ -1,13 +1,18 @@
 """Workflow runtime: the injected script primitives over an agent backend.
 
 The runtime owns the namespace a compiled workflow script executes against:
-``{"agent", "parallel", "pipeline", "phase", "log", "budget", "args"}``.
+``{"agent", "llm", "parallel", "pipeline", "phase", "log", "budget", "args"}``.
 
 Semantics (parity with the local Claude Code Workflow tool):
 
 * ``agent(prompt, **opts) -> str | dict | None`` — soft-fails to ``None`` for
   any agent-side problem; raises ONLY :class:`BudgetExceededError`,
   :class:`WorkflowCancelledError`, and :class:`WorkflowLimitError`.
+* ``llm(messages, **opts) -> str | dict`` — one direct model call through the
+  function the owner injected. It RAISES :class:`WorkflowError` when no
+  function is configured or when the call fails. It makes the same budget
+  check as ``agent()`` before the call (:class:`BudgetExceededError`). It is
+  not journaled and it does not count against ``max_total_calls``.
 * ``parallel(thunks)`` — barrier; a failed thunk yields ``None`` in its slot;
   agent failures never raise out of the call. Workflow-level stops DO propagate
   (cancellation, ``BudgetExceededError``, ``WorkflowLimitError``) and cancel
@@ -40,7 +45,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from contextvars import Token
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 from opentelemetry import context as otel_context
 from opentelemetry import trace
@@ -65,6 +70,8 @@ from plato.workflows.errors import (
 )
 from plato.workflows.journal import Journal, JournalRecord
 from plato.workflows.script import CompiledWorkflow, compile_workflow_script
+
+_T = TypeVar("_T")
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +131,7 @@ class WorkflowRuntime:
         cancel_event: asyncio.Event | None = None,
         checkpoint_requested: Callable[[str], None] | None = None,
         on_call_complete: Callable[[], Awaitable[Any]] | None = None,
+        llm: Callable[..., Awaitable[Any]] | None = None,
     ) -> None:
         self._backend = backend
         self._journal = journal
@@ -141,6 +149,8 @@ class WorkflowRuntime:
         # budget.check(). Public + settable: the service assigns it after its
         # runtime factory has built the runtime.
         self.on_call_complete = on_call_complete
+        # Injected by the owner: the runtime has no world handle to call a model.
+        self._llm_call = llm
         self._semaphore = asyncio.Semaphore(max(1, max_concurrent_envs))
         self._stats = WorkflowStats()
         self._tracer = get_tracer("plato.workflows")
@@ -165,6 +175,7 @@ class WorkflowRuntime:
         """The globals injected into the workflow script."""
         return {
             "agent": self._agent,
+            "llm": self._llm,
             "parallel": self._parallel,
             "pipeline": self._pipeline,
             "phase": self._phase,
@@ -414,6 +425,55 @@ class WorkflowRuntime:
                 logger.warning("on_call_complete hook failed for %s", call_id, exc_info=True)
         return result
 
+    async def _llm(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        system: str | None = None,
+        schema: dict[str, Any] | None = None,
+        profile: str = "default",
+        timeout_s: float | None = None,
+        label: str | None = None,
+    ) -> str | dict[str, Any]:
+        """One direct model call. Unlike ``agent()`` it RAISES :class:`WorkflowError` on failure."""
+        self._raise_if_cancelled()
+        if self._llm_call is None:
+            raise WorkflowError("llm() is not configured for this workflow")
+        self._budget.check()
+
+        with self._tracer.start_as_current_span("workflow.llm") as span:
+            span.set_attribute("plato.workflow.llm_profile", profile)
+            if label is not None:
+                span.set_attribute("plato.workflow.label", label)
+            if self._current_phase is not None:
+                span.set_attribute("plato.workflow.phase", self._current_phase)
+            try:
+                result = await self._race_cancel(
+                    self._llm_call(
+                        messages,
+                        system=system,
+                        schema=schema,
+                        profile=profile,
+                        timeout_s=timeout_s,
+                    ),
+                    "llm",
+                )
+            except WorkflowCancelledError:
+                span.set_attribute("plato.workflow.status", "cancelled")
+                raise
+            except Exception as exc:
+                span.set_attribute("plato.workflow.status", "error")
+                raise WorkflowError(f"llm() call failed: {type(exc).__name__}: {exc}") from exc
+            finally:
+                # Also after a failed call, so the next budget.check() reads this spend.
+                if self.on_call_complete is not None:
+                    try:
+                        await self.on_call_complete()
+                    except Exception:
+                        logger.warning("on_call_complete hook failed after llm()", exc_info=True)
+            span.set_attribute("plato.workflow.status", "ok")
+        return result
+
     async def _parallel(self, thunks: Iterable[Callable[[], Any] | Awaitable[Any]]) -> list[Any]:
         """Barrier over independent thunks; failed thunks yield None slots."""
         self._raise_if_cancelled()
@@ -470,22 +530,25 @@ class WorkflowRuntime:
             return repr(self._args)
 
     async def _run_backend_call(self, request: AgentCallRequest) -> AgentCallOutcome:
-        """Await the backend, racing the cancel event.
+        return await self._race_cancel(self._backend.run_call(request), "agent")
+
+    async def _race_cancel(self, call: Awaitable[_T], kind: str) -> _T:
+        """Await ``call``, racing the cancel event.
 
         ``call_task`` is torn down on EVERY exit path in the ``finally`` —
         including external cancellation of this coroutine (serve-loop shutdown,
         executor cancellation, sibling cancellation in ``_gather_or_cancel``):
         ``asyncio.wait`` never cancels its awaitables, so without the explicit
-        cancel+await the backend call (and its agent VM) would keep running
-        detached with no owner.
+        cancel+await the call (an agent VM or a paid model request) would keep
+        running detached with no owner.
         """
-        call_task = asyncio.ensure_future(self._backend.run_call(request))
+        call_task = asyncio.ensure_future(call)
         cancel_task = asyncio.ensure_future(self._cancel_event.wait())
         try:
             done, _ = await asyncio.wait({call_task, cancel_task}, return_when=asyncio.FIRST_COMPLETED)
             if call_task in done:
                 return call_task.result()
-            raise WorkflowCancelledError("workflow cancelled while agent call in flight")
+            raise WorkflowCancelledError(f"workflow cancelled while {kind} call in flight")
         finally:
             cancel_task.cancel()
             if not call_task.done():

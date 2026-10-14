@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlcipher3
-Version: 0.6.3
+Version: 0.6.4
 Summary: DB-API 2.0 interface for SQLCipher 4.x
 Author-email: Charles Leifer <coleifer@gmail.com>, laggykiller <chaudominic2@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/sqlcipher3

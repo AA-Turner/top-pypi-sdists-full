@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.missing_usage_policy_enum import MissingUsagePolicyEnum
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ComponentUsage")
@@ -24,7 +25,9 @@ class ComponentUsage:
         measured_unit (Union[Unset, str]): Unit of measurement, for example, GB.
         usage (Union[Unset, int]):
         date (Union[Unset, datetime.datetime]):
-        recurring (Union[Unset, bool]): Reported value is reused every month until changed.
+        missing_usage_policy (Union[Unset, MissingUsagePolicyEnum]):
+        recurring (Union[Unset, bool]): Deprecated, use missing_usage_policy instead. True when the reported value is
+            reused every month until changed.
         resource_name (Union[Unset, str]):
         resource_uuid (Union[Unset, UUID]):
         offering_name (Union[Unset, str]):
@@ -45,6 +48,7 @@ class ComponentUsage:
     measured_unit: Union[Unset, str] = UNSET
     usage: Union[Unset, int] = UNSET
     date: Union[Unset, datetime.datetime] = UNSET
+    missing_usage_policy: Union[Unset, MissingUsagePolicyEnum] = UNSET
     recurring: Union[Unset, bool] = UNSET
     resource_name: Union[Unset, str] = UNSET
     resource_uuid: Union[Unset, UUID] = UNSET
@@ -80,6 +84,10 @@ class ComponentUsage:
         date: Union[Unset, str] = UNSET
         if not isinstance(self.date, Unset):
             date = self.date.isoformat()
+
+        missing_usage_policy: Union[Unset, str] = UNSET
+        if not isinstance(self.missing_usage_policy, Unset):
+            missing_usage_policy = self.missing_usage_policy.value
 
         recurring = self.recurring
 
@@ -132,6 +140,8 @@ class ComponentUsage:
             field_dict["usage"] = usage
         if date is not UNSET:
             field_dict["date"] = date
+        if missing_usage_policy is not UNSET:
+            field_dict["missing_usage_policy"] = missing_usage_policy
         if recurring is not UNSET:
             field_dict["recurring"] = recurring
         if resource_name is not UNSET:
@@ -191,6 +201,13 @@ class ComponentUsage:
         else:
             date = isoparse(_date)
 
+        _missing_usage_policy = d.pop("missing_usage_policy", UNSET)
+        missing_usage_policy: Union[Unset, MissingUsagePolicyEnum]
+        if isinstance(_missing_usage_policy, Unset):
+            missing_usage_policy = UNSET
+        else:
+            missing_usage_policy = MissingUsagePolicyEnum(_missing_usage_policy)
+
         recurring = d.pop("recurring", UNSET)
 
         resource_name = d.pop("resource_name", UNSET)
@@ -244,6 +261,7 @@ class ComponentUsage:
             measured_unit=measured_unit,
             usage=usage,
             date=date,
+            missing_usage_policy=missing_usage_policy,
             recurring=recurring,
             resource_name=resource_name,
             resource_uuid=resource_uuid,

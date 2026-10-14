@@ -4,8 +4,8 @@
 # Hooks:
 #   - ruff format + lint (auto-fix)
 #   - Stub implementation detection (from omnibase_core)
-#   - TODO format enforcement (from onex_change_control)
-#   - Hardcoded topic string prevention (from onex_change_control)
+#   - TODO format enforcement (from omnibase_core)
+#   - Hardcoded topic string prevention (from omnibase_core)
 #
 # Usage:
 #   pre-commit install
@@ -112,10 +112,10 @@ repos:
   # contract/node/handler/models/protocols/tests/docs locations, new imperative
   # lines in a SKILL.md, and any new baseline, allowlist or suppression entry.
   # Shrink-only baseline at .onex_ratchets/canonical_file_shape_baseline.txt.
-  # The rev moved from 6363509770 to the OMN-20304 commit for both hooks; the
-  # lifecycle validator's source is identical at the two commits.
+  # OMN-21002: the historical rev refused the caller-owned guard allowlist.
+  # The pinned core revision reads the reusable caller's shrink-only declaration.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5 # pragma: allowlist secret
+    rev: 031148215620031436cba30619bbae67c0bb38ad # pragma: allowlist secret
     hooks:
       # Shape-gate independence (OMN-20298): a shape-gate detector job never waits
       # on the change-control preflight and never reads its result. BLOCKING, zero
@@ -242,9 +242,11 @@ repos:
         require_serial: true
         files: ^(\.duplicate-id-registries\.yaml|src/omnimarket/configs/(routing_tiers|bifrost_delegation)\.yaml|src/omnimarket/nodes/node_ab_compare_orchestrator/models_registry\.yaml)$
 
-  # Shared ONEX governance hooks (onex_change_control)
-  - repo: https://github.com/OmniNode-ai/onex_change_control
-    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
+  # Hardcoded topic string prevention (OMN-20074, OCC retirement S8): the hook of
+  # this id is no longer pulled from the change-control repository; omnibase_core
+  # exports it under the same id.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 4a4177335d11b138a29fe28e2f4c5575afa92b2b  # pragma: allowlist secret
     hooks:
       - id: no-hardcoded-topics
         require_serial: true
@@ -303,9 +305,11 @@ repos:
   # The private denylist is read from the file OMNI_HYGIENE_VOCAB_PATH names; a
   # commit made without it exits 2 ("THE GATE DID NOT RUN"), never a pass.
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 6e47aa311ac5d177d116d9597b07966a233d2463
+    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae
     hooks:
       - id: public-repo-hygiene
+        require_serial: true
+      - id: deployment-config
         require_serial: true
 
   # Essential file formatting
@@ -840,17 +844,29 @@ repos:
         files: ^(src/omnimarket/configs/(byok_provider_backends\.v1|bifrost_delegation)\.yaml|src/omnimarket/validators/byok_catalogue_no_house_entry\.py)$
         stages: [pre-commit]
 
+      # OMN-20844: bring-your-own-key customers choose their OpenRouter model;
+      # registration without a chosen model is refused and nothing is stored.
+      # Check-only; same command as the `BYOK Customer Chooses Model` CI job.
+      - id: byok-customer-chooses-model
+        name: BYOK customers choose their OpenRouter model
+        language: system
+        entry: uv run pytest tests/unit/cli/test_omn20844_openrouter_model_choice.py tests/test_omn20844_chosen_model_never_re_aimed.py tests/unit/nodes/node_delegate_skill_orchestrator/test_delegate_model_choice_omn20844.py -q -p no:randomly
+        pass_filenames: false
+        files: ^(src/omnimarket/(cli/cli_secret|routing/byok_model_discovery|projection/credential_publisher)\.py|src/omnimarket/configs/byok_provider_backends\.v1\.yaml|src/omnimarket/nodes/(node_llm_delegation_call_effect|node_delegate_skill_orchestrator)/.*|tests/test_omn20844_chosen_model_never_re_aimed\.py|tests/unit/cli/test_omn20844_openrouter_model_choice\.py|tests/unit/nodes/node_delegate_skill_orchestrator/test_delegate_model_choice_omn20844\.py)$
+        stages: [pre-commit]
+
       # OMN-20287: no new deployment fact (backend, endpoint, model name, secret
       # ref, provider, tier or per-class order) in the packaged routing configs.
-      # Routing decisions belong in a deployment overlay. Same entry point as
-      # the `Deployment Fact Gate` CI job; here the commit being made is judged
-      # against HEAD, which is the shrink-only baseline.
+      # OMN-20601: nor a new code path that chooses a route, so any python under
+      # src/omnimarket triggers it. Routing decisions belong in a deployment
+      # overlay. Same entry point as the `Deployment Fact Gate` CI job; here the
+      # commit being made is judged against HEAD, which is the shrink-only baseline.
       - id: deployment-fact-gate
         name: No new deployment fact in packaged routing configs
         language: system
         entry: uv run python -m omnimarket.nodes.node_deployment_fact_gate_effect
         pass_filenames: false
-        files: ^(src/omnimarket/configs/(bifrost_delegation|routing_tiers|task_class_contracts\.v1)\.yaml|src/omnimarket/models/delegation/(model_deployment_fact_marker|model_packaged_routing_tiers|wire/model_bifrost_delegation_config)\.py|src/omnimarket/inference/task_class_authority\.py|src/omnimarket/nodes/node_deployment_fact_gate_effect/.*)$
+        files: ^(src/omnimarket/configs/(bifrost_delegation|routing_tiers|task_class_contracts\.v1)\.yaml|src/omnimarket/models/delegation/(model_deployment_fact_marker|model_packaged_routing_tiers|wire/model_bifrost_delegation_config)\.py|src/omnimarket/inference/task_class_authority\.py|src/omnimarket/.*\.py)$
         stages: [pre-commit]
 
       # Require TODO/FIXME/HACK comments to carry a ticket reference (OMN-20068,
@@ -1151,6 +1167,19 @@ repos:
         pass_filenames: true
         stages: [pre-commit]
 
+      # OMN-20915: the source-control nodes (every node directory named
+      # *github*) reach GitHub through their transport, never the gh CLI or a
+      # hand-written api.github.com URL. The test plants a violation and
+      # requires the scan to refuse it. SYNC with the ci.yml lint step
+      # "Source-control nodes do not use the gh CLI (OMN-20915)".
+      - id: scm-nodes-no-gh-cli
+        name: Source-control nodes do not use the gh CLI (OMN-20915)
+        language: system
+        entry: uv run pytest tests/ci/test_scm_nodes_no_gh_cli_omn20915.py -q -n 0 -p no:randomly --no-cov
+        files: ^(src/omnimarket/nodes/[^/]*github[^/]*/.*\.py|tests/ci/test_scm_nodes_no_gh_cli_omn20915\.py|pyproject\.toml)$
+        pass_filenames: false
+        stages: [pre-commit]
+
       # OMN-17372: house inference-credential gate. Fails if a delegation
       # backend re-declares `api_key_env`, or if any omnimarket source reads a
       # house provider key (OPENROUTER/GLM/GEMINI/...) from the process
@@ -1395,6 +1424,48 @@ repos:
         files: ^(src/omnimarket/nodes/node_typed_decision_effect/|tests/unit/nodes/(node_typed_decision_effect/|test_golden_chain_typed_decision_effect\.py$)|src/omnimarket/configs/(task_class_contracts\.v1|bifrost_delegation)\.yaml$|pyproject\.toml$)
         pass_filenames: false
         stages: [pre-commit]
+      # OMN-21002: paired with the ci.yml lint-job regression step.
+      - id: imperative-contract-guard-caller
+        name: Caller-owned imperative guard allowlist (OMN-21002)
+        language: system
+        entry: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21002.py -q -n 0
+        files: ^(\.github/workflows/imperative-contract-guard\.yml|imperative-contract-allowlist\.yaml|tests/ci/test_imperative_contract_guard_caller_omn21002\.py|contracts/OMN-21002\.yaml)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20910: a review voter's model is declared only in the contract
+      # overlay. Refuses any vars.*MODEL* reference and any model id literal in
+      # a reviewer workflow. SYNC with the ci.yml lint step "Review voter model
+      # comes from the overlay (OMN-20910)".
+      - id: review-voter-model-from-overlay
+        name: Review voter model comes from the overlay (OMN-20910)
+        language: system
+        entry: uv run pytest tests/ci/test_hostile_reviewer_voters_overlay_omn20910.py -q -n 0 -p no:randomly --no-cov
+        files: ^(\.github/workflows/[^/]+\.ya?ml|tests/ci/test_hostile_reviewer_voters_overlay_omn20910\.py|\.pre-commit-config\.yaml)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20967: no Anthropic key value in a workflow. SYNC with the ci.yml
+      # lint step "No Anthropic key value in a workflow (OMN-20967)".
+      - id: anthropic-key-prefix-workflows
+        name: No Anthropic key value in a workflow (OMN-20967)
+        language: system
+        entry: uv run pytest tests/ci/test_anthropic_key_prefix_workflows_omn20967.py -q -n 0
+        files: ^(\.github/workflows/|tests/ci/test_anthropic_key_prefix_workflows_omn20967\.py$|\.pre-commit-config\.yaml$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20601: the house routing-overlay write command has a producer and
+      # the node contract declares its runtime profile. SYNC with the ci.yml
+      # lint step "House routing-overlay publisher (OMN-20601)".
+      - id: house-routing-overlay-publisher
+        name: House routing-overlay publisher (OMN-20601)
+        language: system
+        entry: uv run pytest tests/nodes/node_house_routing_overlay_effect/test_publish_house_overlay_command.py -q -n 0
+        files: ^(src/omnimarket/nodes/node_house_routing_overlay_effect/|tests/nodes/node_house_routing_overlay_effect/test_publish_house_overlay_command\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
       # OMN-20838: dod_verify's read layer reads the canonical clone and the
       # PR watcher's state; the guard fails when it spawns gh for a read a local
       # source holds. SYNC with the ci.yml lint step "dod_verify local reads
@@ -1404,6 +1475,142 @@ repos:
         language: system
         entry: uv run pytest tests/unit/nodes/node_dod_verify/test_omn_20838_dod_verify_reads_local.py -q -p no:randomly
         files: ^(src/omnimarket/nodes/node_dod_verify/|tests/unit/nodes/node_dod_verify/(conftest|test_omn_20838_dod_verify_reads_local)\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20890: no timed parks. A stuck cause stays live, is retried when
+      # the base head moves, and files one ticket on first stick. SYNC with
+      # the ci.yml lint step "Landing decision park ladder (OMN-20890)".
+      - id: landing-decision-park-ladder
+        name: Landing decision park ladder (OMN-20890)
+        language: system
+        entry: uv run pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_causes.py -q -n 0 -p no:randomly
+        files: ^(src/omnimarket/nodes/node_pr_landing_decision_compute/|tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_causes\.py$|\.pre-commit-config\.yaml$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20032: node_dod_verify refuses a contract whose acceptance criteria
+      # are only partly bound. Check-only. SYNC with the ci.yml lint step
+      # "dod_verify refuses partly bound criteria (OMN-20032)".
+      - id: dod-verify-every-criterion-bound
+        name: dod_verify refuses partly bound criteria (OMN-20032)
+        language: system
+        entry: uv run pytest tests/test_dod_verify_every_criterion_bound.py -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/nodes/node_dod_verify/|tests/test_dod_verify_every_criterion_bound\.py$|tests/unit/nodes/node_dod_verify/omn_20858_ticket_reader\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-21062: a binding is accepted by a second lane that reruns its check.
+      # Check-only; one run per selector so a renamed case selects nothing and
+      # fails. SYNC with the ci.yml lint step "dod_verify independent acceptance
+      # (OMN-21062)".
+      - id: dod-verify-independent-acceptance
+        name: dod_verify independent acceptance (OMN-21062)
+        language: system
+        entry: bash -c 'for selector in self_accepted_is_proposal acceptance_without_rerun_refused independent_rerun_accepted; do uv run pytest tests/unit/nodes/node_dod_verify/test_independent_acceptance.py -q -p no:randomly --no-cov -n 0 -k "$selector" || exit 1; done; uv run pytest tests/ci/test_dod_verify_independent_acceptance_wiring_omn21062.py -q -p no:randomly --no-cov -n 0'
+        files: ^(src/omnimarket/nodes/node_dod_verify/|tests/test_dod_verify_acceptance_basis\.py$|tests/ci/test_dod_verify_independent_acceptance_wiring_omn21062\.py$|tests/unit/nodes/node_dod_verify/(test_independent_acceptance|omn_19428_occ_tree|omn_20858_ticket_reader|conftest)\.py$|\.pre-commit-config\.yaml$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20780: a criterion binding is never accepted by the lane that authored
+      # it (ruling 2026-10-03T00:40:00Z); node_dod_verify demotes a self-accepted
+      # binding. Check-only. SYNC with the ci.yml lint step
+      # "dod_verify demotes self-accepted bindings (OMN-20780)".
+      - id: dod-verify-self-accepted-bindings
+        name: dod_verify demotes self-accepted bindings (OMN-20780)
+        language: system
+        entry: uv run pytest tests/test_occ_falsifier_checks.py tests/test_dod_verify_acceptance_basis.py tests/ci/test_dod_verify_self_accepted_wiring_omn20780.py -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/nodes/node_dod_verify/|tests/test_occ_falsifier_checks\.py$|tests/test_dod_verify_acceptance_basis\.py$|tests/ci/test_dod_verify_self_accepted_wiring_omn20780\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20912: the gh shim refuses a lane's gh write only while the write
+      # effect's operations block and SCM_VERBS name its onex scm replacement
+      # (ruling 2026-10-10T18:32:46Z). Check-only. SYNC with the ci.yml lint step
+      # "onex scm operation table names every lane gh write (OMN-20912)".
+      - id: scm-operation-table
+        name: onex scm operation table names every lane gh write (OMN-20912)
+        language: system
+        entry: uv run pytest tests/ci/test_scm_operation_table_omn20912.py -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/nodes/node_github_repo_write_effect/contract\.yaml$|src/omnimarket/handlers/scm/handler_scm_dispatch\.py$|tests/ci/test_scm_operation_table_omn20912\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20730: red CI emits ci-run-failed and the lifecycle orchestrator triages it on
+      # receipt (ruling 2026-10-08T14:27:26Z); the five contract legs of that chain stay
+      # connected. Check-only. SYNC with the ci.yml lint step
+      # "red CI bus chain stays connected (OMN-20730)".
+      - id: red-ci-event-chain
+        name: red CI bus chain stays connected (OMN-20730)
+        language: system
+        entry: uv run pytest tests/ci/test_red_ci_bus_chain_omn20730.py -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/nodes/(node_pr_state_emit_effect|node_pr_lifecycle_orchestrator|node_pr_lifecycle_state_reducer)/(contract\.yaml|handlers/)|src/omnimarket/events/topics\.py$|tests/ci/test_red_ci_bus_chain_omn20730\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20914: the gh shim refuses a lane's gh write only while the contract
+      # operations and the onex scm verb table it reads stay readable and served
+      # (ruling 2026-10-10T18:32:46Z). Check-only. SYNC with the ci.yml lint step
+      # "gh shim coverage table stays served (OMN-20914)".
+      - id: gh-shim-coverage-table
+        name: gh shim coverage table stays served (OMN-20914)
+        language: system
+        entry: uv run pytest tests/ci/test_gh_shim_coverage_table_omn20914.py tests/unit/handlers/scm/test_onex_scm_command.py::test_every_contract_operation_has_exactly_one_verb tests/unit/handlers/scm/test_onex_scm_command.py::test_no_refused_verb_is_also_served -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/nodes/node_github_repo_write_effect/contract\.yaml$|src/omnimarket/handlers/scm/|src/omnimarket/models/scm/|tests/ci/test_gh_shim_coverage_table_omn20914\.py$|tests/unit/handlers/scm/test_onex_scm_command\.py$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20001: the event registry drift check reads omniclaude at the pinned
+      # rev, a pin move needs the integration step, both drift directions stay
+      # strict, and the two OMN-13146 tests stay present and uninverted.
+      # Check-only. SYNC with the ci.yml lint step "Event registry drift reads the
+      # pinned omniclaude (OMN-20001)".
+      - id: omniclaude-pin-drift
+        name: Event registry drift reads the pinned omniclaude (OMN-20001)
+        language: system
+        entry: uv run pytest tests/ci/test_omniclaude_pin_drift_omn20001.py -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/validators/event_registry_drift\.py|tests/validators/test_event_registry_drift\.py|tests/ci/test_omniclaude_pin_drift_omn20001\.py|\.github/workflows/ci\.yml|scripts/ci/ci_summary_gate\.py)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20730: the red CI triage model passes its design config, each property
+      # fails on a one-knob mutation, the TLC results match the committed model,
+      # configs and outputs, and VERDICT.txt approves the model's digest.
+      # Check-only. SYNC with the ci.yml lint step "Red CI triage model and
+      # verdict (OMN-20730)".
+      - id: ci-red-triage-model
+        name: Red CI triage model and verdict (OMN-20730)
+        language: system
+        entry: uv run pytest tests/formal/test_ci_red_triage_model.py -q -n 0 -p no:randomly --no-cov
+        files: ^(formal/ci_red_triage/|tests/formal/(test_ci_red_triage_model\.py|ci_red_triage_tlc\.sh)$)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20601: routing decisions come from overlays, never from omnimarket code.
+      # Check-only. SYNC with the ci.yml lint step "Routing sources, overlay
+      # precedence and routing-in-code ratchet (OMN-20601)".
+      - id: routing-sources-omn20601
+        name: Routing sources, overlay precedence and routing-in-code ratchet (OMN-20601)
+        language: system
+        entry: uv run pytest tests/test_routing_sources_omn20601.py tests/unit/nodes/node_deployment_fact_gate_effect/test_routing_in_code_omn20601.py tests/unit/delegation/test_roi_overlay_routing_omn14001.py -q -p no:randomly --no-cov
+        files: ^(src/omnimarket/.*\.py|src/omnimarket/(configs/.*|model_policy\.yaml|data/model_registry/.*)|tests/test_routing_sources_omn20601\.py|tests/unit/nodes/node_deployment_fact_gate_effect/test_routing_in_code_omn20601\.py|tests/fixtures/routing_sources/.*)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: ticket-contract-prerequisite
+        name: Ticket contract at pushed head (OMN-20864)
+        language: system
+        entry: uv run --frozen python -m omnimarket.nodes.node_ticket_contract_prerequisite_effect
+        fail_fast: true
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: ticket-contract-prerequisite-regression
+        name: Ticket contract push and PR-create controls (OMN-20864)
+        language: system
+        entry: uv run pytest tests/ci/test_ticket_contract_prerequisite_omn20864.py tests/nodes/node_ticket_contract_prerequisite_effect tests/ci/test_pipeline_observability_export_closure_omn20864.py -q -n 0 -p no:randomly
+        files: ^(src/omnimarket/nodes/node_ticket_contract_prerequisite_effect/.*|src/omnimarket/nodes/(node_dod_verify/services/contract_prerequisite\.py|node_github_repo_write_effect/.*)|tests/ci/(test_ticket_contract_prerequisite_omn20864\.py|fixtures/ticket_contract_refusal_omn20864\.json)|\.github/workflows/ci\.yml|contracts/OMN-20864\.yaml|pyproject\.toml|tests/nodes/node_ticket_contract_prerequisite_effect/.*|tests/ci/test_pipeline_observability_export_closure_omn20864\.py|src/omnimarket/nodes/node_(emit_daemon|event_emit_effect)/contract\.yaml)$
         pass_filenames: false
         stages: [pre-commit]
 
@@ -1536,6 +1743,24 @@ repos:
         language: system
         entry: uv run pytest tests/unit/contracts/test_every_node_auto_wires_in_process_omn17427.py -q -p no:randomly
         files: ^(src/omnimarket/nodes/.*/(contract\.yaml|handlers/.*\.py)|tests/unit/contracts/test_every_node_auto_wires_in_process_omn17427\.py|uv\.lock)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20865: SYNC with the ci.yml landing decision scenario step.
+      - id: landing-decision-scenarios
+        name: Landing decision scenarios (OMN-20865)
+        language: system
+        entry: uv run --frozen pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_scenarios.py -q --no-cov
+        files: ^(src/omnimarket/nodes/node_pr_landing_decision_compute/|tests/unit/nodes/node_pr_landing_decision_compute/|tests/fixtures/pr_landing_decision/|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml)
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-20676: keep the scheduled-fire -> request -> completion bus cycle under both gates.
+      - id: merge-sweep-scheduled-bus-cycle
+        name: Scheduled merge sweep bus cycle (OMN-20676)
+        language: system
+        entry: uv run --frozen pytest tests/nodes/node_merge_sweep_orchestrator/test_bus_cycle_merge_sweep_orchestrator.py -q
+        files: ^(src/omnimarket/nodes/node_merge_sweep_(orchestrator|plan_compute|request_compute)/.*|src/omnimarket/models/merge_sweep/model_merge_sweep_(run|schedule_config)\.py|tests/nodes/node_merge_sweep_orchestrator/test_bus_cycle_merge_sweep_orchestrator\.py)$
         pass_filenames: false
         stages: [pre-commit]
 
@@ -1743,7 +1968,7 @@ repos:
 
       # Skip-token rejection gate (OMN-11412 / OMN-10414)
       # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
-      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      # There is no escape hatch (OMN-20074): a skip token is rejected whatever comment accompanies it.
       - id: reject-deploy-gate-skip-token
         require_serial: true
         name: Reject skip-gate bypass tokens (OMN-10414)

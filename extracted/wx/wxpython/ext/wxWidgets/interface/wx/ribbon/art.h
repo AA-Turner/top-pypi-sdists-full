@@ -725,6 +725,44 @@ public:
                                 const wxRect& rect) = 0;
 
     /**
+        Draw a KeyTip badge over a ribbon element in keyboard access mode.
+
+        This should draw a small labelled badge which stands out against the
+        element beneath it, similar to the ones commonly used in programs using
+        ribbon interface.
+
+        Unlike the other drawing functions, this one is not pure virtual, as it
+        was added after the other ones and so implementing it is optional: the
+        base class version simply returns @false and a default badge is drawn
+        instead.
+
+        @param dc
+            The device context to draw onto.
+        @param wnd
+            The window which is being drawn onto, which is the window owning
+            the element the badge belongs to.
+        @param rect
+            The rectangle of the element the badge is for. The badge itself is
+            usually smaller and positioned relative to it, rather than filling
+            it.
+        @param keytip
+            The characters to draw, which are the ones still to be typed, rather
+            than the whole KeyTip if the user has already typed a prefix.
+
+        @return
+            @true if the badge was drawn or @false to let the caller draw the
+            default badge instead.
+
+        @see wxRibbonBar::ShowKeyTips()
+
+        @since 3.3.4
+    */
+    virtual bool DrawKeyTip(wxDC& dc,
+                            wxWindow* wnd,
+                            const wxRect& rect,
+                            const wxString& keytip);
+
+    /**
         Calculate the ideal and minimum width (in pixels) of a tab in a ribbon
         bar.
 
@@ -1096,6 +1134,16 @@ public:
 class wxRibbonMSWArtProvider : public wxRibbonArtProvider
 {
 public:
+    /**
+        Constructor.
+
+        @param set_colour_scheme
+            If @true, the default colour scheme is set from the system colours.
+            Derived classes overriding SetColourScheme() should pass @false and
+            set their own colour scheme in their constructor, as the scheme set
+            from this constructor can't use the overridden version of
+            SetColourScheme().
+    */
     wxRibbonMSWArtProvider(bool set_colour_scheme = true);
 };
 

@@ -694,7 +694,7 @@ def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
                 yerr=[sorted_params - sorted_lo, sorted_hi - sorted_params],
                 fmt="none", color="black", capsize=5)
     ax.set_xticks(x)
-    ax.set_xticklabels(sorted_models, rotation=30, ha="right")
+    ax.set_xticklabels([_fmt(m) for m in sorted_models], rotation=30, ha="right")
     ax.set_ylabel("Log-strength score")
     ax.set_title(f"Bradley-Terry Model Strengths ± 95% CI ({metric.upper()})")
     ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
@@ -713,7 +713,7 @@ def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
     fig, ax = plt.subplots(figsize=(max(5, n * 1.1), max(4, n * 0.9)))
     sns.heatmap(
         win_rate, annot=True, fmt=".2f", cmap="RdYlGn",
-        xticklabels=models, yticklabels=models,
+        xticklabels=[_fmt(m) for m in models], yticklabels=[_fmt(m) for m in models],
         ax=ax, linewidths=0.5, vmin=0, vmax=1,
         cbar_kws={"label": "Win rate (row beats col)"},
     )
@@ -740,7 +740,7 @@ def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
         ax.bar(x - w / 2, bt_norm[order], w, label="Bradley-Terry", color="steelblue", alpha=0.8)
         ax.bar(x + w / 2, pl_norm[order], w, label="Plackett-Luce", color="coral", alpha=0.8)
         ax.set_xticks(x)
-        ax.set_xticklabels(sorted_models, rotation=30, ha="right")
+        ax.set_xticklabels([_fmt(m) for m in sorted_models], rotation=30, ha="right")
         ax.set_ylabel("Normalised strength score")
         ax.set_title(f"BT vs Plackett-Luce Scores ({metric.upper()})")
         ax.legend()

@@ -13,6 +13,8 @@
 
 #include "testprec.h"
 
+#include <memory>
+
 #if wxUSE_TREECTRL
 
 
@@ -22,8 +24,11 @@
 
 #include "wx/artprov.h"
 #include "wx/imaglist.h"
+#include "wx/panel.h"
+#include "wx/settings.h"
 #include "wx/treectrl.h"
 #include "wx/uiaction.h"
+#include "asserthelper.h"
 #include "testableframe.h"
 #include "waitfor.h"
 
@@ -36,11 +41,9 @@ class TreeCtrlTestCase
 public:
     explicit TreeCtrlTestCase(int exStyle = 0)
     {
-        m_tree = new wxTreeCtrl(wxTheApp->GetTopWindow(),
-                                wxID_ANY,
-                                wxDefaultPosition,
-                                wxSize(400, 200),
-                                wxTR_DEFAULT_STYLE | wxTR_EDIT_LABELS | exStyle);
+        m_tree = make_unique<wxTreeCtrl>(
+            wxTheApp->GetTopWindow(), wxID_ANY, wxDefaultPosition, wxSize(400,
+            200), wxTR_DEFAULT_STYLE | wxTR_EDIT_LABELS | exStyle);
 
         m_root = m_tree->AddRoot("root");
         m_child1 = m_tree->AppendItem(m_root, "child1");
@@ -53,15 +56,11 @@ public:
         m_tree->Update();
     }
 
-    ~TreeCtrlTestCase()
-    {
-        delete m_tree;
-    }
 
 protected:
 
     // the tree control itself
-    wxTreeCtrl *m_tree = nullptr;
+    std::unique_ptr<wxTreeCtrl> m_tree;
 
     // and some of its items
     wxTreeItemId m_root,
@@ -176,7 +175,7 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectItemMulti", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::DeleteItem", "[treectrl]")
 {
-    EventCounter deleteitem(m_tree, wxEVT_TREE_DELETE_ITEM);
+    EventCounter deleteitem(m_tree.get(), wxEVT_TREE_DELETE_ITEM);
 
     wxTreeItemId todelete = m_tree->AppendItem(m_root, "deleteme");
     m_tree->AppendItem(todelete, "deleteme2");
@@ -187,7 +186,7 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::DeleteItem", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::DeleteChildren", "[treectrl]")
 {
-    EventCounter deletechildren(m_tree, wxEVT_TREE_DELETE_ITEM);
+    EventCounter deletechildren(m_tree.get(), wxEVT_TREE_DELETE_ITEM);
 
     m_tree->AppendItem(m_child1, "another grandchild");
     m_tree->DeleteChildren(m_child1);
@@ -197,7 +196,7 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::DeleteChildren", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::DeleteAllItems", "[treectrl]")
 {
-    EventCounter deleteall(m_tree, wxEVT_TREE_DELETE_ITEM);
+    EventCounter deleteall(m_tree.get(), wxEVT_TREE_DELETE_ITEM);
 
     m_tree->DeleteAllItems();
 
@@ -208,8 +207,11 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::DeleteAllItems", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::ItemClick", "[treectrl]")
 {
-    EventCounter activated(m_tree, wxEVT_TREE_ITEM_ACTIVATED);
-    EventCounter rclick(m_tree, wxEVT_TREE_ITEM_RIGHT_CLICK);
+    if ( !EnableUITests() )
+        return;
+
+    EventCounter activated(m_tree.get(), wxEVT_TREE_ITEM_ACTIVATED);
+    EventCounter rclick(m_tree.get(), wxEVT_TREE_ITEM_RIGHT_CLICK);
 
     wxUIActionSimulator sim;
 
@@ -234,8 +236,11 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::ItemClick", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::LabelEdit", "[treectrl]")
 {
-    EventCounter beginedit(m_tree, wxEVT_TREE_BEGIN_LABEL_EDIT);
-    EventCounter endedit(m_tree, wxEVT_TREE_END_LABEL_EDIT);
+    if ( !EnableUITests() )
+        return;
+
+    EventCounter beginedit(m_tree.get(), wxEVT_TREE_BEGIN_LABEL_EDIT);
+    EventCounter endedit(m_tree.get(), wxEVT_TREE_END_LABEL_EDIT);
 
     wxUIActionSimulator sim;
 
@@ -260,7 +265,10 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::LabelEdit", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::KeyDown", "[treectrl]")
 {
-    EventCounter keydown(m_tree, wxEVT_TREE_KEY_DOWN);
+    if ( !EnableUITests() )
+        return;
+
+    EventCounter keydown(m_tree.get(), wxEVT_TREE_KEY_DOWN);
 
     wxUIActionSimulator sim;
 
@@ -274,6 +282,9 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::KeyDown", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::CollapseExpandEvents", "[treectrl]")
 {
+    if ( !EnableUITests() )
+        return;
+
 #ifdef __WXGTK__
     // Works locally, but not when run on Travis CI.
     if ( IsAutomaticTest() )
@@ -282,10 +293,10 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::CollapseExpandEvents", "[treectr
 
     m_tree->CollapseAll();
 
-    EventCounter collapsed(m_tree, wxEVT_TREE_ITEM_COLLAPSED);
-    EventCounter collapsing(m_tree, wxEVT_TREE_ITEM_COLLAPSING);
-    EventCounter expanded(m_tree, wxEVT_TREE_ITEM_EXPANDED);
-    EventCounter expanding(m_tree, wxEVT_TREE_ITEM_EXPANDING);
+    EventCounter collapsed(m_tree.get(), wxEVT_TREE_ITEM_COLLAPSED);
+    EventCounter collapsing(m_tree.get(), wxEVT_TREE_ITEM_COLLAPSING);
+    EventCounter expanded(m_tree.get(), wxEVT_TREE_ITEM_EXPANDED);
+    EventCounter expanding(m_tree.get(), wxEVT_TREE_ITEM_EXPANDING);
 
     wxUIActionSimulator sim;
 
@@ -319,6 +330,9 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::CollapseExpandEvents", "[treectr
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectionChange", "[treectrl]")
 {
+    if ( !EnableUITests() )
+        return;
+
     m_tree->ExpandAll();
 
     // This is currently needed to work around a problem under wxMSW: clicking
@@ -404,6 +418,9 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectionChange", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectItemMultiInteractive", "[treectrl]")
 {
+    if ( !EnableUITests() )
+        return;
+
 #if defined(__WXGTK__) && !defined(__WXGTK3__)
     // FIXME: This test fails on GitHub CI under wxGTK2 although works fine on
     //        development machine, no idea why though!
@@ -424,7 +441,7 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectItemMultiInteractive", "[t
     // problem in the test.
     m_tree->SetFocus();
 
-    EventCounter beginedit(m_tree, wxEVT_TREE_BEGIN_LABEL_EDIT);
+    EventCounter beginedit(m_tree.get(), wxEVT_TREE_BEGIN_LABEL_EDIT);
 
     wxUIActionSimulator sim;
 
@@ -457,7 +474,14 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectItemMultiInteractive", "[t
 
     // Time needed (in ms) for the editor to display. The test will not pass
     // if the value is less than 400, 510, 800 under wxQt, wxGTK, wxMSW resp.
-    const int BEGIN_EDIT_TIMEOUT = 800;
+    //
+    // Note that under MSW the native control doesn't start editing the label
+    // immediately but only from a timer with GetDoubleClickTime() delay and
+    // that the clicks below must also be separated by more than this interval
+    // to avoid being taken for a double click, so don't assume that the
+    // default value of this setting is in effect but use the real one.
+    const int BEGIN_EDIT_TIMEOUT =
+        wxMax(800, 2*wxSystemSettings::GetMetric(wxSYS_DCLICK_MSEC));
 
     YieldForAWhile(BEGIN_EDIT_TIMEOUT);
     sim.MouseClick();
@@ -469,9 +493,12 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectItemMultiInteractive", "[t
     CHECK( beginedit.GetCount() == 0 ); // No editing should take place in the event of deselection.
 
     sim.MouseClick();
-    YieldForAWhile(BEGIN_EDIT_TIMEOUT);
 
-    CHECK( beginedit.GetCount() == 1 ); // Start editing as usual.
+    // Editing should start as usual now, but don't just wait for a fixed
+    // amount of time for it: the editor may take much longer than usual to
+    // appear on a loaded machine, as it happens under CI, and failing the
+    // test in this case would be a false positive.
+    CHECK( beginedit.WaitEvent(5*BEGIN_EDIT_TIMEOUT) );
 
     sim.Char(WXK_RETURN); // End editing and close the editor.
     wxYield();
@@ -479,7 +506,10 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::SelectItemMultiInteractive", "[t
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::Menu", "[treectrl]")
 {
-    EventCounter menu(m_tree, wxEVT_TREE_ITEM_MENU);
+    if ( !EnableUITests() )
+        return;
+
+    EventCounter menu(m_tree.get(), wxEVT_TREE_ITEM_MENU);
     wxUIActionSimulator sim;
 
     wxRect pos;
@@ -499,6 +529,9 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::Menu", "[treectrl]")
 
 TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::KeyNavigation", "[treectrl]")
 {
+    if ( !EnableUITests() )
+        return;
+
     wxUIActionSimulator sim;
 
     m_tree->CollapseAll();
@@ -701,5 +734,67 @@ TEST_CASE_METHOD(TreeCtrlTestCase, "wxTreeCtrl::Sort", "[treectrl]")
     CHECK(m_tree->GetNextChild(m_root, cookie) == m_child2);
     CHECK(m_tree->GetNextChild(m_root, cookie) == zitem);
 }
+
+#ifdef wxHAS_GENERIC_TREECTRL
+
+// Check that the best size is sufficient for showing all the items without the
+// scrollbars and that the best width accounts for the vertical scrollbar when
+// the available height is too small: not doing this resulted in the useless
+// horizontal scrollbar appearing when the control was used as wxTreebook
+// controller, see #26097.
+//
+// Note that with wxGTK this test must pass not only by default, when overlay
+// scrollbars not taking any space in the window are used, but also with
+// GTK_OVERLAY_SCROLLING=0.
+TEST_CASE("wxTreeCtrl::BestSize", "[treectrl][best-size]")
+{
+    // Use an intermediate panel as the parent because the frame would resize
+    // the tree to fill it entirely if it were its only child.
+    auto panel = make_unique<wxPanel>(wxTheApp->GetTopWindow());
+    auto* const tree = new wxTreeCtrl(panel.get(), wxID_ANY);
+
+    const wxTreeItemId root = tree->AddRoot("Root");
+    for ( int n = 0; n < 10; ++n )
+        tree->AppendItem(root, wxString::Format("Child %d", n));
+
+    // The last item has to be the widest one because this is the only one
+    // taken into account by the default "quick" best size computation.
+    tree->AppendItem(root, "The last and by far the widest item of this tree");
+
+    tree->ExpandAll();
+
+    const wxSize sizeBest = tree->GetBestSize();
+
+    // Using the best size must be enough to show everything.
+    tree->SetSize(sizeBest);
+    wxYield();
+
+    INFO("Best size " << sizeBest
+         << ", client size " << tree->GetClientSize()
+         << ", virtual size " << tree->GetVirtualSize());
+
+    CHECK_FALSE( tree->HasScrollbar(wxHORIZONTAL) );
+    CHECK_FALSE( tree->HasScrollbar(wxVERTICAL) );
+
+    // Now check what happens when the height is not sufficient: the vertical
+    // scrollbar must appear, but the best width must grow by exactly its width
+    // to avoid the horizontal scrollbar, as there is nothing to scroll
+    // horizontally.
+    const int height = sizeBest.y / 2;
+    const int width = tree->GetBestWidth(height);
+
+    CHECK( width == sizeBest.x + tree->GetScrollbarSize(wxVERTICAL) );
+
+    tree->SetSize(width, height);
+    wxYield();
+
+    INFO("Best width " << width << " for height " << height
+         << " results in client size " << tree->GetClientSize());
+
+    CHECK( tree->HasScrollbar(wxVERTICAL) );
+    CHECK_FALSE( tree->HasScrollbar(wxHORIZONTAL) );
+}
+
+#endif // wxHAS_GENERIC_TREECTRL
 
 #endif //wxUSE_TREECTRL

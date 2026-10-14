@@ -57,8 +57,8 @@ def sync_detailed(
 ) -> Response[ResourceApiKeyStatus]:
     """Report a freshly-applied API key
 
-     Used by the site agent after it generated and applied a key to the backend. Stores the value
-    encrypted and marks the key OK.
+     Used by the site agent after it generated and applied a key to the backend at provisioning. Stores
+    the value encrypted and marks the key OK. A requested key is reported through set_key instead.
 
     Args:
         body (ResourceApiKeyReportCreatedRequest):
@@ -89,8 +89,8 @@ def sync(
 ) -> ResourceApiKeyStatus:
     """Report a freshly-applied API key
 
-     Used by the site agent after it generated and applied a key to the backend. Stores the value
-    encrypted and marks the key OK.
+     Used by the site agent after it generated and applied a key to the backend at provisioning. Stores
+    the value encrypted and marks the key OK. A requested key is reported through set_key instead.
 
     Args:
         body (ResourceApiKeyReportCreatedRequest):
@@ -116,8 +116,8 @@ async def asyncio_detailed(
 ) -> Response[ResourceApiKeyStatus]:
     """Report a freshly-applied API key
 
-     Used by the site agent after it generated and applied a key to the backend. Stores the value
-    encrypted and marks the key OK.
+     Used by the site agent after it generated and applied a key to the backend at provisioning. Stores
+    the value encrypted and marks the key OK. A requested key is reported through set_key instead.
 
     Args:
         body (ResourceApiKeyReportCreatedRequest):
@@ -146,8 +146,8 @@ async def asyncio(
 ) -> ResourceApiKeyStatus:
     """Report a freshly-applied API key
 
-     Used by the site agent after it generated and applied a key to the backend. Stores the value
-    encrypted and marks the key OK.
+     Used by the site agent after it generated and applied a key to the backend at provisioning. Stores
+    the value encrypted and marks the key OK. A requested key is reported through set_key instead.
 
     Args:
         body (ResourceApiKeyReportCreatedRequest):

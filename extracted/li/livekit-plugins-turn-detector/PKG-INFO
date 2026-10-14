@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-turn-detector
-Version: 1.8.6
+Version: 1.8.7
 Summary: End of utterance detection for LiveKit Agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -17,9 +17,9 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: jinja2
-Requires-Dist: livekit-agents>=1.8.6
+Requires-Dist: livekit-agents>=1.8.7
 Requires-Dist: numpy>=1.26
-Requires-Dist: onnxruntime<1.24,>=1.18; python_version < '3.11'
+Requires-Dist: onnxruntime<1.31,>=1.30; python_version < '3.11'
 Requires-Dist: onnxruntime>=1.18; python_version >= '3.11'
 Requires-Dist: transformers!=4.57.2,!=4.57.3,>=4.47.1
 Description-Content-Type: text/markdown

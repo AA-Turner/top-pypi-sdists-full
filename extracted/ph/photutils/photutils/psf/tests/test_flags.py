@@ -7,8 +7,10 @@ import numpy as np
 import pytest
 
 from photutils.psf import IterativePSFPhotometry, PSFPhotometry
-from photutils.psf.flags import (PSF_FLAGS, _PSFFlagDefinition, _PSFFlags,
+from photutils.psf.flags import (PSF_FLAGS, _PSFFlags,
                                  _update_decode_docstring, decode_psf_flags)
+from photutils.utils._flags import FlagDefinition
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 
 def test_decode_psf_flags():
@@ -25,10 +27,10 @@ def test_decode_psf_flags():
     assert decoded == ['n_pixels_fit_partial']
 
     decoded = decode_psf_flags(2)
-    assert decoded == ['outside_bounds']
+    assert decoded == ['position_outside_image']
 
     decoded = decode_psf_flags(4)
-    assert decoded == ['negative_flux']
+    assert decoded == ['non_positive_flux']
 
     decoded = decode_psf_flags(8)
     assert decoded == ['no_convergence']
@@ -37,7 +39,7 @@ def test_decode_psf_flags():
     assert decoded == ['no_covariance']
 
     decoded = decode_psf_flags(32)
-    assert decoded == ['near_bound']
+    assert decoded == ['parameter_near_bound']
 
     decoded = decode_psf_flags(64)
     assert decoded == ['no_overlap']
@@ -55,11 +57,14 @@ def test_decode_psf_flags():
     assert decoded == ['non_finite_flux']
 
     decoded = decode_psf_flags(2048)
-    assert decoded == ['non_finite_localbkg']
+    assert decoded == ['non_finite_local_bkg']
+
+    decoded = decode_psf_flags(4096)
+    assert decoded == ['position_outside_fit_region']
 
     # Test combination of flags
     decoded = decode_psf_flags(5)  # bits 1 and 4
-    assert set(decoded) == {'n_pixels_fit_partial', 'negative_flux'}
+    assert set(decoded) == {'n_pixels_fit_partial', 'non_positive_flux'}
     assert len(decoded) == 2
 
     decoded = decode_psf_flags(136)  # bits 8 and 128
@@ -68,15 +73,16 @@ def test_decode_psf_flags():
 
     # Test with all flags set
     all_flags = (1 + 2 + 4 + 8 + 16 + 32 + 64 + 128 + 256 + 512 + 1024
-                 + 2048)  # 4095
+                 + 2048 + 4096)  # 8191
     decoded = decode_psf_flags(all_flags)
-    expected_all = ['n_pixels_fit_partial', 'outside_bounds', 'negative_flux',
-                    'no_convergence', 'no_covariance', 'near_bound',
+    expected_all = ['n_pixels_fit_partial', 'position_outside_image',
+                    'non_positive_flux', 'no_convergence', 'no_covariance',
+                    'parameter_near_bound',
                     'no_overlap', 'fully_masked', 'too_few_pixels',
                     'non_finite_position', 'non_finite_flux',
-                    'non_finite_localbkg']
+                    'non_finite_local_bkg', 'position_outside_fit_region']
     assert set(decoded) == set(expected_all)
-    assert len(decoded) == 12
+    assert len(decoded) == 13
 
     # Test with array input
     flags_array = [0, 1, 2, 5]
@@ -87,8 +93,9 @@ def test_decode_psf_flags():
     # Check individual results
     assert decoded_list[0] == []
     assert decoded_list[1] == ['n_pixels_fit_partial']
-    assert decoded_list[2] == ['outside_bounds']
-    assert set(decoded_list[3]) == {'n_pixels_fit_partial', 'negative_flux'}
+    assert decoded_list[2] == ['position_outside_image']
+    assert set(decoded_list[3]) == {'n_pixels_fit_partial',
+                                    'non_positive_flux'}
 
     # Test with numpy array
     flags_np = np.array([8, 16, 32])
@@ -96,7 +103,7 @@ def test_decode_psf_flags():
     assert len(decoded_list) == 3
     assert decoded_list[0] == ['no_convergence']
     assert decoded_list[1] == ['no_covariance']
-    assert decoded_list[2] == ['near_bound']
+    assert decoded_list[2] == ['parameter_near_bound']
 
     # Test with 0-d numpy array (scalar array)
     flag_scalar = np.array(64)
@@ -108,7 +115,7 @@ def test_decode_psf_flags():
     issues = decode_psf_flags(136)
     assert 'no_convergence' in issues
     assert 'fully_masked' in issues
-    assert 'negative_flux' not in issues
+    assert 'non_positive_flux' not in issues
 
     # Test error conditions
     match = 'Flag value must be an integer'
@@ -167,14 +174,15 @@ def test_decode_psf_flags_edge_cases():
     # Test with very large flag value (all bits set + extra)
     large_flag = 2**16 - 1  # Much larger than our defined flags
     decoded = decode_psf_flags(large_flag)
-    expected_all = ['n_pixels_fit_partial', 'outside_bounds', 'negative_flux',
-                    'no_convergence', 'no_covariance', 'near_bound',
+    expected_all = ['n_pixels_fit_partial', 'position_outside_image',
+                    'non_positive_flux', 'no_convergence', 'no_covariance',
+                    'parameter_near_bound',
                     'no_overlap', 'fully_masked', 'too_few_pixels',
                     'non_finite_position', 'non_finite_flux',
-                    'non_finite_localbkg']
+                    'non_finite_local_bkg', 'position_outside_fit_region']
     assert set(decoded) == set(expected_all)
 
-    match = 'Flag value must be a non-negative integer'
+    match = 'Flag value must be a nonnegative integer'
     with pytest.raises(ValueError, match=match):
         decode_psf_flags(-2)
 
@@ -183,14 +191,14 @@ def test_decode_psf_flags_edge_cases():
     decoded = decode_psf_flags(empty_array)
     assert decoded == []
 
-    # Test with 2D array (should flatten)
+    # Test with 2D array (shape preserved as nested lists)
     flag_2d = np.array([[0, 1], [8, 136]])
     decoded = decode_psf_flags(flag_2d)
-    assert len(decoded) == 4  # Flattened to 4 elements
-    assert decoded[0] == []
-    assert decoded[1] == ['n_pixels_fit_partial']
-    assert decoded[2] == ['no_convergence']
-    assert set(decoded[3]) == {'no_convergence', 'fully_masked'}
+    assert len(decoded) == 2  # Shape preserved
+    assert decoded[0][0] == []
+    assert decoded[0][1] == ['n_pixels_fit_partial']
+    assert decoded[1][0] == ['no_convergence']
+    assert set(decoded[1][1]) == {'no_convergence', 'fully_masked'}
 
 
 def test_psf_flags_singleton():
@@ -218,17 +226,18 @@ def test_psf_flags_constants():
     # Test all flag constants exist and have correct values
     expected_constants = {
         'N_PIXELS_FIT_PARTIAL': 1,
-        'OUTSIDE_BOUNDS': 2,
-        'NEGATIVE_FLUX': 4,
+        'POSITION_OUTSIDE_IMAGE': 2,
+        'NON_POSITIVE_FLUX': 4,
         'NO_CONVERGENCE': 8,
         'NO_COVARIANCE': 16,
-        'NEAR_BOUND': 32,
+        'PARAMETER_NEAR_BOUND': 32,
         'NO_OVERLAP': 64,
         'FULLY_MASKED': 128,
         'TOO_FEW_PIXELS': 256,
         'NON_FINITE_POSITION': 512,
         'NON_FINITE_FLUX': 1024,
-        'NON_FINITE_LOCALBKG': 2048,
+        'NON_FINITE_LOCAL_BKG': 2048,
+        'POSITION_OUTSIDE_FIT_REGION': 4096,
     }
 
     for const_name, expected_value in expected_constants.items():
@@ -244,25 +253,27 @@ def test_psf_flags_properties():
     """
     # Test bit_values property
     bit_values = PSF_FLAGS.bit_values
-    expected_bits = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    expected_bits = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048,
+                     4096]
     assert set(bit_values) == set(expected_bits)
-    assert len(bit_values) == 12
+    assert len(bit_values) == 13
 
     # Test names property
     names = PSF_FLAGS.names
     expected_names = [
-        'n_pixels_fit_partial', 'outside_bounds', 'negative_flux',
-        'no_convergence', 'no_covariance', 'near_bound',
+        'n_pixels_fit_partial', 'position_outside_image', 'non_positive_flux',
+        'no_convergence', 'no_covariance', 'parameter_near_bound',
         'no_overlap', 'fully_masked', 'too_few_pixels',
-        'non_finite_position', 'non_finite_flux', 'non_finite_localbkg',
+        'non_finite_position', 'non_finite_flux', 'non_finite_local_bkg',
+        'position_outside_fit_region',
     ]
     assert set(names) == set(expected_names)
-    assert len(names) == 12
+    assert len(names) == 13
 
     # Test flag_dict property
     flag_dict = PSF_FLAGS.flag_dict
     assert isinstance(flag_dict, dict)
-    assert len(flag_dict) == 12
+    assert len(flag_dict) == 13
     for bit_val, name in flag_dict.items():
         assert bit_val in expected_bits
         assert name in expected_names
@@ -270,9 +281,9 @@ def test_psf_flags_properties():
     # Test all_flags property
     all_flags = PSF_FLAGS.all_flags
     assert isinstance(all_flags, list)
-    assert len(all_flags) == 12
+    assert len(all_flags) == 13
     for flag_def in all_flags:
-        assert isinstance(flag_def, _PSFFlagDefinition)
+        assert isinstance(flag_def, FlagDefinition)
 
 
 def test_psf_flags_get_methods():
@@ -285,7 +296,8 @@ def test_psf_flags_get_methods():
     assert PSF_FLAGS.get_name(256) == 'too_few_pixels'
     assert PSF_FLAGS.get_name(512) == 'non_finite_position'
     assert PSF_FLAGS.get_name(1024) == 'non_finite_flux'
-    assert PSF_FLAGS.get_name(2048) == 'non_finite_localbkg'
+    assert PSF_FLAGS.get_name(2048) == 'non_finite_local_bkg'
+    assert PSF_FLAGS.get_name(4096) == 'position_outside_fit_region'
 
     # Test get_bit_value
     assert PSF_FLAGS.get_bit_value('n_pixels_fit_partial') == 1
@@ -294,10 +306,12 @@ def test_psf_flags_get_methods():
 
     # Test get_description
     desc1 = PSF_FLAGS.get_description(1)
-    assert 'n_pixels_fit smaller than full fit_shape region' in desc1
+    assert 'n_pixels_fit' in desc1
+    assert 'smaller than full' in desc1
+    assert 'fit_shape' in desc1
 
     desc8 = PSF_FLAGS.get_description(8)
-    assert 'possible non-convergence' in desc8
+    assert 'possible nonconvergence' in desc8
 
     # Test get_detailed_description
     detailed1 = PSF_FLAGS.get_detailed_description(1)
@@ -314,13 +328,13 @@ def test_psf_flags_get_definition():
     """
     # Test get_definition by bit value
     def_by_bit = PSF_FLAGS.get_definition(1)
-    assert isinstance(def_by_bit, _PSFFlagDefinition)
+    assert isinstance(def_by_bit, FlagDefinition)
     assert def_by_bit.bit_value == 1
     assert def_by_bit.name == 'n_pixels_fit_partial'
 
     # Test get_definition by name
     def_by_name = PSF_FLAGS.get_definition('n_pixels_fit_partial')
-    assert isinstance(def_by_name, _PSFFlagDefinition)
+    assert isinstance(def_by_name, FlagDefinition)
     assert def_by_name.bit_value == 1
     assert def_by_name.name == 'n_pixels_fit_partial'
 
@@ -341,12 +355,39 @@ def test_psf_flags_get_definition():
         PSF_FLAGS.get_definition(3.14)
 
 
+@pytest.mark.parametrize(('old_name', 'new_name', 'since'), [
+    ('npixfit_partial', 'n_pixels_fit_partial', '3.0'),
+    ('outside_bounds', 'position_outside_image', '3.1'),
+    ('non_finite_localbkg', 'non_finite_local_bkg', '3.1'),
+    ('negative_flux', 'non_positive_flux', '3.1'),
+    ('near_bound', 'parameter_near_bound', '3.1'),
+])
+def test_psf_flags_deprecated_names(old_name, new_name, since):
+    """
+    Test that deprecated flag and constant names resolve to the new
+    names and warn with the version in which each was deprecated.
+    """
+    match = (f"The flag name '{old_name}' is deprecated in version "
+             f"{since}. Use '{new_name}' instead. It will be removed in "
+             'version 4.0')
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        deprecated_def = PSF_FLAGS.get_definition(old_name)
+    assert deprecated_def is PSF_FLAGS.get_definition(new_name)
+
+    match = (f"'{old_name.upper()}' attribute was deprecated in version "
+             f"{since}. Use '{new_name.upper()}' instead. It will be "
+             'removed in version 4.0')
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
+        value = getattr(PSF_FLAGS, old_name.upper())
+    assert value == getattr(PSF_FLAGS, new_name.upper())
+
+
 def test_psf_flag_definition():
     """
-    Test _PSFFlagDefinition dataclass.
+    Test FlagDefinition dataclass.
     """
     # Create a flag definition
-    flag_def = _PSFFlagDefinition(
+    flag_def = FlagDefinition(
         bit_value=1,
         name='test_flag',
         description='test description',
@@ -364,7 +405,7 @@ def test_psf_flag_definition():
         flag_def.bit_value = 2
 
     # Test equality
-    flag_def2 = _PSFFlagDefinition(
+    flag_def2 = FlagDefinition(
         bit_value=1,
         name='test_flag',
         description='test description',
@@ -373,7 +414,7 @@ def test_psf_flag_definition():
     assert flag_def == flag_def2
 
     # Test inequality
-    flag_def3 = _PSFFlagDefinition(
+    flag_def3 = FlagDefinition(
         bit_value=2,
         name='test_flag',
         description='test description',
@@ -402,17 +443,13 @@ def test_psf_flags_integration_with_decode():
     assert set(decoded_combined) == {'no_convergence', 'fully_masked'}
 
     # Test all constants work with decode
-    for const_name in ['N_PIXELS_FIT_PARTIAL', 'OUTSIDE_BOUNDS',
-                       'NEGATIVE_FLUX',
-                       'NO_CONVERGENCE', 'NO_COVARIANCE', 'NEAR_BOUND',
-                       'NO_OVERLAP', 'FULLY_MASKED', 'TOO_FEW_PIXELS']:
-        const_value = getattr(PSF_FLAGS, const_name)
+    for flag_name in PSF_FLAGS.names:
+        const_value = getattr(PSF_FLAGS, flag_name.upper())
         decoded_const = decode_psf_flags(const_value)
         assert len(decoded_const) == 1
 
         # The decoded name should match the constant name (lowercase)
-        expected_name = const_name.lower()
-        assert decoded_const[0] == expected_name
+        assert decoded_const[0] == flag_name
 
 
 def test_psf_flags_completeness():
@@ -420,7 +457,7 @@ def test_psf_flags_completeness():
     Test that _PSFFlags covers all expected flag scenarios.
     """
     # Test that we have the expected number of flags
-    assert len(PSF_FLAGS.all_flags) == 12
+    assert len(PSF_FLAGS.all_flags) == 13
 
     # Test that bit values are powers of 2
     for bit_val in PSF_FLAGS.bit_values:
@@ -446,7 +483,7 @@ def test_psf_flags_completeness():
         all_combined |= bit_val
 
     decoded_all = decode_psf_flags(all_combined)
-    assert len(decoded_all) == 12
+    assert len(decoded_all) == 13
     assert set(decoded_all) == set(PSF_FLAGS.names)
 
 
@@ -460,19 +497,20 @@ def test_psf_classes_docstrings():
         docstring = cls.__call__.__doc__
 
         # Should have flags section
-        assert '* ``flags`` : bitwise flag values' in docstring
+        assert "* ``'flags'`` : The bitwise quality flags" in docstring
 
         # Should have all dynamic flag descriptions
         dynamic_flags = [
-            'n_pixels_fit smaller than full fit_shape region',
-            'fitted position outside input image bounds',
-            'non-positive flux',
-            'possible non-convergence',
-            'missing parameter covariance',
-            'fitted parameter near a bound',
-            'no overlap with data',
-            'fully masked source',
-            'too few pixels for fitting',
+            'indicating partial PSF fitting',
+            'outside the bounds of the input image',
+            'negative or zero, which is nonphysical',
+            'may not have converged to a stable solution',
+            'covariance matrix is not available',
+            'very close to their imposed bounds',
+            'no overlap with the input image',
+            'All pixels in the source fitting region are masked',
+            'Insufficient unmasked pixels available for reliable PSF fitting',
+            'outside the region of fitted data',
         ]
 
         for flag_desc in dynamic_flags:
@@ -488,19 +526,19 @@ def test_decode_psf_flags_docstring():
     docstring = decode_psf_flags.__doc__
 
     # Should not have placeholder
-    assert '<flag descriptions>' not in docstring
+    assert '<flag_descriptions>' not in docstring
 
     # Should have all expected flag names in the expected format
     expected_flags = [
-        "``'n_pixels_fit_partial'`` : bit 1",
-        "``'outside_bounds'`` : bit 2",
-        "``'negative_flux'`` : bit 4",
-        "``'no_convergence'`` : bit 8",
-        "``'no_covariance'`` : bit 16",
-        "``'near_bound'`` : bit 32",
-        "``'no_overlap'`` : bit 64",
-        "``'fully_masked'`` : bit 128",
-        "``'too_few_pixels'`` : bit 256",
+        "``'n_pixels_fit_partial'``",
+        "``'position_outside_image'``",
+        "``'non_positive_flux'``",
+        "``'no_convergence'``",
+        "``'no_covariance'``",
+        "``'parameter_near_bound'``",
+        "``'no_overlap'``",
+        "``'fully_masked'``",
+        "``'too_few_pixels'``",
     ]
 
     for flag_desc in expected_flags:
@@ -509,15 +547,15 @@ def test_decode_psf_flags_docstring():
 
     # Should have flag descriptions
     expected_descriptions = [
-        'n_pixels_fit smaller than full fit_shape region',
-        'fitted position outside input image bounds',
-        'non-positive flux',
-        'possible non-convergence',
-        'missing parameter covariance',
-        'fitted parameter near a bound',
-        'no overlap with data',
-        'fully masked source',
-        'too few pixels for fitting',
+        'indicating partial PSF fitting',
+        'outside the bounds of the input image',
+        'negative or zero, which is nonphysical',
+        'may not have converged to a stable solution',
+        'covariance matrix is not available',
+        'very close to their imposed bounds',
+        'no overlap with the input image',
+        'All pixels in the source fitting region are masked',
+        'Insufficient unmasked pixels available for reliable PSF fitting',
     ]
 
     for desc in expected_descriptions:
@@ -564,11 +602,12 @@ def test_decode_psf_flags_return_bit_values():
 
     # Test with all flags set
     all_flags = (1 + 2 + 4 + 8 + 16 + 32 + 64 + 128 + 256 + 512 + 1024
-                 + 2048)  # 4095
+                 + 2048 + 4096)  # 8191
     decoded = decode_psf_flags(all_flags, return_bit_values=True)
-    expected_all = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    expected_all = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048,
+                    4096]
     assert set(decoded) == set(expected_all)
-    assert len(decoded) == 12
+    assert len(decoded) == 13
 
     # Test with array input
     flags_array = [0, 1, 2, 5]

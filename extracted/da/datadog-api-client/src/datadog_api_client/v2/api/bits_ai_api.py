@@ -206,8 +206,9 @@ class BitsAIApi:
     ) -> TriggerInvestigationResponse:
         """Trigger a Bits AI investigation.
 
-        Trigger a new Bits AI investigation based on a monitor alert.
-        The ``monitors_read`` permission is required when the trigger type is ``monitor_alert_trigger``.
+        Trigger a Bits AI investigation from a monitor alert or a general investigation.
+        This endpoint requires the ``bits_investigations_write`` permission. When the trigger type is
+        ``monitor_alert_trigger`` , the ``monitors_read`` permission is also required.
 
         :param body: Trigger investigation request body.
         :type body: TriggerInvestigationRequest

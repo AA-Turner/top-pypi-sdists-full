@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx2
 
-from trajectory._base_client import make_request_options, path_template
+from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
@@ -15,6 +15,7 @@ from trajectory._utils import maybe_transform
 from trajectory.types.delete_training_run_response import DeleteTrainingRunResponse
 from trajectory.types.training.training_run_response import TrainingRunResponse
 from trajectory.types.training_progress_response import TrainingProgressResponse
+from trajectory.types.training_step_summaries_page import TrainingStepSummariesPage
 
 
 class Runs(APIResource):
@@ -135,12 +136,15 @@ class Runs(APIResource):
     bench_id: str,
     *,
     has_training_execution: bool | None | Omit = omit,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> list[TrainingRunResponse]:
-    """List training runs for a benchmark.
+  ) -> SyncPage[TrainingRunResponse]:
+    """List training runs by creation time and ID, newest first. Cursors do not hold a
+    snapshot.
 
     Args:
       extra_headers: Send extra headers
@@ -158,11 +162,13 @@ class Runs(APIResource):
         "/api/v1/train/{bench_id}/runs",
         bench_id=bench_id,
       ),
-      cast_to=list[TrainingRunResponse],
+      cast_to=SyncPage[TrainingRunResponse],
       options=make_request_options(
         params=maybe_transform(
           {
             "has_training_execution": has_training_execution,
+            "limit": limit,
+            "cursor": cursor,
           }
         ),
         extra_headers=extra_headers,
@@ -208,6 +214,51 @@ class Runs(APIResource):
       ),
     )
 
+  def list_step_summaries(
+    self,
+    run_id: str,
+    *,
+    limit: int | Omit = omit,
+    cursor: str | None | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> TrainingStepSummariesPage:
+    """Per-training-step rollout, group, and termination aggregates over the caller's own
+    trajectories, in ascending training-step order.
+
+    Args:
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(run_id, str) and not run_id:
+      raise ValueError(f"Expected a non-empty value for `run_id` but received {run_id!r}")
+    return self._get(
+      path_template(
+        "/api/v1/train/{run_id}/step-summaries",
+        run_id=run_id,
+      ),
+      cast_to=TrainingStepSummariesPage,
+      options=make_request_options(
+        params=maybe_transform(
+          {
+            "limit": limit,
+            "cursor": cursor,
+          }
+        ),
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
 
 class RunsWithRawResponse:
   def __init__(self, resource: Runs) -> None:
@@ -217,3 +268,4 @@ class RunsWithRawResponse:
     self.cancel = to_raw_response_wrapper(resource.cancel)
     self.list = to_raw_response_wrapper(resource.list)
     self.progress = to_raw_response_wrapper(resource.progress)
+    self.list_step_summaries = to_raw_response_wrapper(resource.list_step_summaries)

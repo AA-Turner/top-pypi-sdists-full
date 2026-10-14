@@ -3,10 +3,13 @@
 Tests for the detect module.
 """
 
+import warnings
+
 import astropy.units as u
 import numpy as np
 import pytest
 from astropy.stats import SigmaClip
+from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose, assert_equal
 
 from photutils.segmentation.detect import detect_sources, detect_threshold
@@ -100,6 +103,17 @@ class TestDetectThreshold:
         with pytest.raises(ValueError, match=match):
             detect_threshold(DATA, n_sigma=2.0, error=wrong_shape)
 
+    def test_zero_dimensional_background_error(self):
+        """
+        Test that 0-d array background and error values are treated as
+        scalars.
+        """
+        ref = detect_threshold(DATA, n_sigma=2.0, background=1.0, error=0.5)
+        threshold = detect_threshold(DATA, n_sigma=2.0,
+                                     background=np.array(1.0),
+                                     error=np.array(0.5))
+        assert_allclose(threshold, ref)
+
     def test_background_error(self):
         """
         Test background error.
@@ -148,6 +162,47 @@ class TestDetectThreshold:
         ref = (1.0 / 8.0) * np.ones((3, 3))
         assert_equal(threshold, ref)
 
+    def test_sigma_clip_none(self):
+        """
+        Test that sigma_clip=None turns off the sigma clipping.
+        """
+        rng = np.random.default_rng(0)
+        data = rng.normal(5.0, 1.0, (50, 50))
+        data[10, 10] = 1000.0
+        threshold = detect_threshold(data, n_sigma=2.0, sigma_clip=None)
+        assert_allclose(threshold, np.mean(data) + 2.0 * np.std(data))
+        clipped = detect_threshold(data, n_sigma=2.0)
+        assert np.all(clipped < threshold)
+
+        # Masked pixels are still excluded
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[10, 10] = True
+        threshold = detect_threshold(data, n_sigma=2.0, mask=mask,
+                                     sigma_clip=None)
+        expected = np.mean(data[~mask]) + 2.0 * np.std(data[~mask])
+        assert_allclose(threshold, expected)
+
+    @pytest.mark.parametrize('value', [np.nan, np.inf, -np.inf])
+    def test_sigma_clip_none_nonfinite(self, value):
+        """
+        Test that sigma_clip=None warns about the unmasked nonfinite
+        values and excludes them from the statistics.
+        """
+        rng = np.random.default_rng(0)
+        data = rng.normal(5.0, 1.0, (50, 50))
+        data[10, 10] = value
+        good = np.isfinite(data)
+        expected = np.mean(data[good]) + 2.0 * np.std(data[good])
+        match = 'Input data contains nonfinite values'
+        with pytest.warns(AstropyUserWarning, match=match):
+            threshold = detect_threshold(data, n_sigma=2.0, sigma_clip=None)
+        assert_allclose(threshold, expected)
+
+        # No warning is emitted if the nonfinite value is masked
+        threshold = detect_threshold(data, n_sigma=2.0, mask=~good,
+                                     sigma_clip=None)
+        assert_allclose(threshold, expected)
+
     def test_invalid_sigma_clip(self):
         """
         Test invalid sigma clip.
@@ -155,6 +210,43 @@ class TestDetectThreshold:
         match = 'sigma_clip must be a SigmaClip object'
         with pytest.raises(TypeError, match=match):
             detect_threshold(DATA, 1.0, sigma_clip=10)
+
+
+def test_detect_sources_seeds_areas():
+    """
+    Test that detect_sources returns a SegmentationImage with the
+    areas already cached and correct.
+    """
+    data = np.zeros((10, 10))
+    data[2:5, 2:5] = 10.0
+    data[6:8, 6:9] = 10.0
+
+    segm = detect_sources(data, 1.0, 4)
+    assert 'areas' in segm.__dict__
+
+    expected = np.unique(segm.data[segm.data != 0],
+                         return_counts=True)[1]
+    assert_equal(segm.areas, expected)
+
+
+def test_detect_sources_seeded_areas_after_relabel():
+    """
+    Test that the seeded areas stay aligned with the labels when the
+    n_pixels cut removes sources and the remaining ones are relabeled.
+    """
+    data = np.zeros((20, 20))
+    data[1:2, 1:2] = 10.0  # 1 pixel, removed
+    data[4:7, 4:7] = 10.0  # 9 pixels, kept
+    data[9:10, 9:11] = 10.0  # 2 pixels, removed
+    data[12:16, 12:17] = 10.0  # 20 pixels, kept
+
+    segm = detect_sources(data, 1.0, 4)
+    assert_equal(segm.labels, [1, 2])
+    assert_equal(segm.areas, [9, 20])
+
+    expected = np.unique(segm.data[segm.data != 0],
+                         return_counts=True)[1]
+    assert_equal(segm.areas, expected)
 
 
 class TestDetectSources:
@@ -188,6 +280,75 @@ class TestDetectSources:
         with pytest.raises(ValueError, match=match):
             detect_sources(self.data << u.uJy, threshold=0.9 * u.m, n_pixels=2)
 
+    @pytest.mark.parametrize('threshold', [-1.0, -1e-6])
+    def test_negative_scalar_threshold(self, threshold):
+        """
+        Test that a negative scalar threshold emits a warning and that
+        the detection still proceeds.
+        """
+        match = f'threshold is negative \\({threshold}\\)'
+        with pytest.warns(AstropyUserWarning, match=match):
+            segm = detect_sources(self.data, threshold=threshold,
+                                  n_pixels=2)
+        assert segm is not None
+        assert segm.n_labels == 1
+
+    def test_negative_quantity_threshold(self):
+        """
+        Test that the warning is emitted for a Quantity threshold.
+        """
+        match = 'threshold is negative'
+        with pytest.warns(AstropyUserWarning, match=match):
+            detect_sources(self.data << u.uJy, threshold=-1.0 * u.uJy,
+                           n_pixels=2)
+
+        threshold = np.full(self.data.shape, 0.9) << u.uJy
+        threshold[0, 0] = -1.0 * u.uJy
+        match = r'threshold has 1 negative value\(s\)'
+        with pytest.warns(AstropyUserWarning, match=match):
+            detect_sources(self.data << u.uJy, threshold=threshold,
+                           n_pixels=2)
+
+    def test_negative_array_threshold(self):
+        """
+        Test that a threshold array with negative values emits a
+        warning that counts only the negative values and that the
+        detection still proceeds.
+        """
+        threshold = np.full(self.data.shape, 0.9)
+        threshold[0, 0] = 0.0
+        threshold[2, 2] = -1.0
+        match = r'threshold has 1 negative value\(s\)'
+        with pytest.warns(AstropyUserWarning, match=match):
+            segm = detect_sources(self.data, threshold=threshold,
+                                  n_pixels=2)
+        # The zero-valued pixel above the negative threshold joins the
+        # source through its corner
+        expected = self.refdata.copy()
+        expected[2, 2] = 1
+        assert_equal(segm.data, expected)
+
+    def test_nonnegative_threshold_no_warning(self):
+        """
+        Test that zero and positive thresholds, including an array with
+        zero and NaN values, do not emit the warning.
+
+        Pixels must be strictly greater than the threshold, so a zero
+        threshold cannot include pixels with zero or negative values.
+        """
+        threshold = np.full(self.data.shape, 0.9)
+        threshold[0, 0] = np.nan
+        threshold[1, 1] = 0.0
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            segm = detect_sources(self.data, threshold=threshold,
+                                  n_pixels=2)
+            assert_equal(segm.data, self.refdata)
+            segm = detect_sources(self.data, threshold=0.0, n_pixels=2)
+            assert_equal(segm.data, self.refdata)
+            segm = detect_sources(self.data, threshold=1e-6, n_pixels=2)
+            assert_equal(segm.data, self.refdata)
+
     def test_small_sources(self):
         """
         Test detection where sources are smaller than n_pixels size.
@@ -195,6 +356,19 @@ class TestDetectSources:
         match = 'No sources were found'
         with pytest.warns(NoDetectionsWarning, match=match):
             detect_sources(self.data, threshold=0.9, n_pixels=5)
+
+    def test_nan_data(self):
+        """
+        Test that NaN pixels are excluded from sources and that the
+        threshold comparison with NaN values does not emit warnings.
+        """
+        data = np.ones((5, 5))
+        data[2, 2] = np.nan
+        segm = detect_sources(data, threshold=0.5, n_pixels=5)
+        assert segm.n_labels == 1
+        expected = np.ones((5, 5), dtype=np.int32)
+        expected[2, 2] = 0
+        assert_equal(segm.data, expected)
 
     def test_n_pixels(self):
         """

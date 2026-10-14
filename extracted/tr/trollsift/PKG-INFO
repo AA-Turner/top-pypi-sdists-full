@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: trollsift
-Version: 1.0.1
+Version: 1.0.2
 Summary: String parser/formatter
 Author-email: The Pytroll Team <pytroll@googlegroups.com>
 License-Expression: Apache-2.0

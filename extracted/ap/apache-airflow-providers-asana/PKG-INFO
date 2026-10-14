@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-asana
-Version: 2.12.0
+Version: 2.12.1
 Summary: Provider package apache-airflow-providers-asana for Apache Airflow
 Keywords: airflow-provider,asana,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -27,8 +26,8 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.8.0
 Requires-Dist: asana>=5.0.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -62,7 +61,7 @@ Import-Namespace: airflow.providers
 
 Package ``apache-airflow-providers-asana``
 
-Release: ``2.12.0``
+Release: ``2.12.1``
 
 
 `Asana <https://asana.com/>`__
@@ -75,7 +74,7 @@ This is a provider package for ``asana`` provider. All classes for this provider
 are in ``airflow.providers.asana`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.1/>`_.
 
 Installation
 ------------
@@ -84,7 +83,7 @@ You can install this package on top of an existing Airflow installation (see ``R
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-asana``
 
-The package supports the following python versions: 3.10,3.11,3.12,3.13,3.14
+The package supports the following python versions: 3.11,3.12,3.13,3.14
 
 Requirements
 ------------
@@ -98,5 +97,5 @@ PIP package                                 Version required
 ==========================================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-asana/2.12.1/changelog.html>`_.
 

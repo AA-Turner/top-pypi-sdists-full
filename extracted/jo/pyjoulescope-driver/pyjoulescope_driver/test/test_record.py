@@ -193,6 +193,67 @@ class TestRecordClose(unittest.TestCase):
             r.open('/nonexistent_dir_zzz/out.jls')
         r.close()  # must not raise
 
+    def test_close_after_unplug(self):
+        driver = FakeDriver()
+        r = Record(driver, 'u/js320/000001', signals=['current'])
+        f = tempfile.NamedTemporaryFile(suffix='.jls', delete=False)
+        f.close()
+        self.addCleanup(os.remove, f.name)
+        r.open(f.name)
+
+        def publish(topic, value, timeout=None):
+            raise RuntimeError(f'jsdrv_publish failed 16 NOT_FOUND | {topic}')
+
+        driver.publish = publish
+        with self.assertLogs('pyjoulescope_driver.record', level='WARNING') as cm:
+            r.close()  # the file still closes
+        self.assertTrue(any('Could not publish' in x for x in cm.output), cm.output)
+        self.assertFalse(any('Traceback' in x for x in cm.output), cm.output)
+        with Reader(f.name):
+            pass
+
+class _FailingWriter:
+    """Wrap a pyjls Writer whose writes fail like a latched disk-full error."""
+
+    def __init__(self, wr):
+        self._wr = wr
+        self.writes = 0
+
+    def __getattr__(self, name):
+        return getattr(self._wr, name)
+
+    def fsr_f32(self, *args):
+        self.writes += 1
+        raise RuntimeError('fsr IO[4]: Input/output error')
+
+    def close(self):
+        self._wr.close()
+        raise RuntimeError('close IO[4]: Input/output error')
+
+
+@unittest.skipIf(Reader is None, 'pyjls not available')
+class TestRecordWriteError(unittest.TestCase):
+
+    def test_write_error_stops_and_close_raises(self):
+        driver = FakeDriver()
+        r = Record(driver, 'u/js220/000001', signals=['current'])
+        f = tempfile.NamedTemporaryFile(suffix='.jls', delete=False)
+        f.close()
+        self.addCleanup(os.remove, f.name)
+        r.open(f.name)
+        wr = _FailingWriter(r._wr)
+        r._wr = wr
+        x = np.zeros(100, dtype=np.float32)
+        with self.assertLogs('pyjoulescope_driver.record', level='ERROR') as cm:
+            driver.inject('u/js220/000001/s/i/!data', _stream_value(0, x))
+            driver.inject('u/js220/000001/s/i/!data', _stream_value(100, x))
+        self.assertEqual(1, wr.writes)  # stops writing after the first error
+        self.assertEqual(1, len(cm.output), cm.output)  # logged once
+        with self.assertRaises(RuntimeError):
+            r.close()
+        r.close()  # already closed: must not raise
+        self.assertEqual(0, len(driver.subscriptions['u/js220/000001/s/i/!data']))
+
 
 if __name__ == '__main__':
     unittest.main()

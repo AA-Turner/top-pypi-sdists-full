@@ -2,7 +2,8 @@
 
 The source owns collection ordering. This module owns delivery of a source page:
 request -> authenticated read -> useful page or exact fragment -> final text cap.
-Cursors carry positions and fingerprints, never source contents or credentials.
+Cursors carry positions, fingerprints and the request's own arguments, never
+source contents or credentials.
 """
 
 from __future__ import annotations
@@ -11,7 +12,9 @@ import base64
 import hashlib
 import json
 import zlib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Any
 
 from .budget import Budget, serialize
 from .contract import EntityType, EnvelopeState, MissingMarker
@@ -30,35 +33,129 @@ def _digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+#: What a cursor is NOT bound to: the cursor itself, and the delivery budget,
+#: which may change mid-walk.
+_UNBOUND = frozenset({"cursor", "token_budget"})
+
+_INVALID = "Invalid continuation; restart the read."
+_MISMATCH = (
+    "Invalid continuation or changed request/scope: send the same arguments as the "
+    "call that returned this cursor, or repeat that read without cursor."
+)
+
+
 def binding(tool: str, arguments: dict, scope: str) -> str:
-    args = {k: v for k, v in arguments.items() if k not in {"cursor", "token_budget"}}
+    args = {k: v for k, v in arguments.items() if k not in _UNBOUND}
     return _digest(serialize([tool, args, scope]))[:32]
 
 
-def encode(state: dict, request_id: str) -> str:
-    packed = serialize({"b": request_id, "s": state}).encode()
+#: The most canonical-JSON bytes of arguments a cursor carries. A cursor rides
+#: every page and is counted against `token_budget` like the content: 54 bytes
+#: (a transcript view and its grep) cost ~47 o200k tokens, 425 bytes (a ten-run
+#: series) ~260, and a fifty-run series ~1,050 -- half a default page, on every
+#: page. At this cap the worst case is ~150. Past it the cursor is hash-only, as
+#: every cursor was before.
+_MAX_CARRIED = 160
+
+
+@dataclass(frozen=True)
+class Request:
+    """What a cursor is bound to (`id`, the `binding` hash) and the arguments it
+    CARRIES, so a continuation may leave them out.
+
+    A cursor used to carry the hash alone, so a continuation that dropped one
+    argument -- `view_options={"grep": ...}` on page two of a transcript read --
+    was refused as a changed request, and the refusal told the reader to start
+    the read over. It did, and spent the steps again.
+
+    Only OPTIONAL arguments that differ from the tool's declared default are
+    carried. An omitted one is the default, so carrying it says nothing; a
+    required one (`refs`, `query`) is in every call, so carrying it -- a
+    session ref is ~55 more tokens -- could never fill anything in.
+    """
+
+    id: str
+    arguments: dict
+
+
+def bind(tool: str, arguments: dict, scope: str, defaults: Mapping[str, Any]) -> str | Request:
+    """The request a read's cursors are bound to: a `Request` that carries its
+    optional non-default arguments, or the bare hash when they pass
+    `_MAX_CARRIED`."""
+    request_id = binding(tool, arguments, scope)
+    carried = {
+        k: v
+        for k, v in arguments.items()
+        if k in defaults and k not in _UNBOUND and not _same(v, defaults[k])
+    }
+    try:
+        size = len(serialize(carried).encode())
+    except ValueError:
+        return request_id
+    return Request(request_id, carried) if size <= _MAX_CARRIED else request_id
+
+
+def _same(a: Any, b: Any) -> bool:
+    # Canonical JSON: an enum and its string, or a tuple and a list, are one value.
+    try:
+        return serialize(a) == serialize(b)
+    except ValueError:
+        return a == b
+
+
+def _is_default(key: str, value: Any, defaults: Mapping[str, Any]) -> bool:
+    return key in defaults and _same(value, defaults[key])
+
+
+def _pack(value: dict) -> str | None:
+    packed = serialize(value).encode()
     if len(packed) > _MAX_STATE:
-        raise ContinuationError("Continuation request is too large; narrow the request.")
-    value = PREFIX + base64.urlsafe_b64encode(zlib.compress(packed)).decode().rstrip("=")
-    if len(value) > _MAX_CURSOR:
+        return None
+    cursor = PREFIX + base64.urlsafe_b64encode(zlib.compress(packed)).decode().rstrip("=")
+    return cursor if len(cursor) <= _MAX_CURSOR else None
+
+
+def encode(state: dict, request: str | Request) -> str:
+    """A cursor for `state`. A `Request` also carries its arguments unless that
+    would pass the size caps; then the cursor is hash-only, as every cursor was
+    before, and continues only a call that repeats the arguments."""
+    if isinstance(request, Request):
+        value = _pack({"a": request.arguments, "b": request.id, "s": state})
+        if value is not None:
+            return value
+        request = request.id
+    value = _pack({"b": request, "s": state})
+    if value is None:
         raise ContinuationError("Continuation request is too large; narrow the request.")
     return value
 
 
-def decode(cursor: str | None, request_id: str) -> dict:
+def _unpack(cursor: str) -> dict:
+    """The cursor's JSON object. ValueError (or KeyError/TypeError/zlib.error)
+    on anything malformed; checks nothing about which request it belongs to."""
+    raw = cursor[len(PREFIX) :]
+    compressed = base64.b64decode(raw + "=" * (-len(raw) % 4), altchars=b"-_", validate=True)
+    inflater = zlib.decompressobj()
+    unpacked = inflater.decompress(compressed, _MAX_STATE + 1)
+    if len(unpacked) > _MAX_STATE or not inflater.eof or inflater.unused_data:
+        raise ValueError
+    value = json.loads(unpacked)
+    if not isinstance(value, dict) or not isinstance(value.get("s"), dict):
+        raise ValueError
+    if "a" in value and not isinstance(value["a"], dict):
+        raise ValueError
+    return value
+
+
+def decode(cursor: str | None, request: str | Request) -> dict:
     if not cursor or not isinstance(cursor, str) or not cursor.startswith(PREFIX):
         return {"native": cursor}
     if len(cursor) > _MAX_CURSOR:
-        raise ContinuationError("Invalid continuation; restart the read.")
+        raise ContinuationError(_INVALID)
+    request_id = request.id if isinstance(request, Request) else request
     try:
-        raw = cursor[len(PREFIX) :]
-        compressed = base64.b64decode(raw + "=" * (-len(raw) % 4), altchars=b"-_", validate=True)
-        inflater = zlib.decompressobj()
-        unpacked = inflater.decompress(compressed, _MAX_STATE + 1)
-        if len(unpacked) > _MAX_STATE or not inflater.eof or inflater.unused_data:
-            raise ValueError
-        value = json.loads(unpacked)
-        if value["b"] != request_id or not isinstance(value["s"], dict):
+        value = _unpack(cursor)
+        if value["b"] != request_id:
             raise ValueError
         state = value["s"]
         for key in ("offset", "length", "index"):
@@ -72,9 +169,61 @@ def decode(cursor: str | None, request_id: str) -> dict:
             Budget(state["source_budget"])
         return state
     except (ValueError, KeyError, TypeError, zlib.error):
+        raise ContinuationError(_MISMATCH) from None
+
+
+def resume(
+    arguments: dict,
+    defaults: Mapping[str, Any],
+    validate: Callable[[dict], dict] | None = None,
+) -> dict:
+    """`arguments` with every optional one the caller left out taken from its cursor.
+
+    Left out means absent or equal to the tool's declared default: FastMCP
+    fills defaults in before a tool runs, so an omitted `view_options` and an
+    explicit null are the same call. A non-default value that differs from
+    the cursor's -- or one the cursor's call left at the default -- is
+    refused, naming the argument, before anything is read. Required arguments
+    are never carried or filled; the binding hash still refuses a changed one.
+    `token_budget` is not bound and may change. A cursor that carries no
+    arguments (hash-only: made before cursors carried them, or too big to) and
+    a non-Probe cursor are returned untouched, for `decode` to judge as before.
+
+    `validate` re-checks the merged arguments with the tool's own schema: a
+    carried value is JSON, and the source expects what FastMCP would have
+    built from it (an enum, not its string).
+    """
+    cursor = arguments.get("cursor")
+    if not isinstance(cursor, str) or not cursor.startswith(PREFIX) or len(cursor) > _MAX_CURSOR:
+        return arguments
+    try:
+        carried = _unpack(cursor).get("a")
+    except (ValueError, KeyError, TypeError, zlib.error):
+        return arguments
+    if carried is None:
+        return arguments
+    merged, filled, differs = dict(arguments), False, []
+    optional = set(defaults) - _UNBOUND
+    for key in sorted((set(carried) | set(arguments)) & optional):
+        omitted = key not in arguments or _is_default(key, arguments[key], defaults)
+        if omitted:
+            if key in carried:
+                merged[key], filled = carried[key], True
+        elif key not in carried or not _same(arguments[key], carried[key]):
+            differs.append(key)
+    if differs:
+        names = ", ".join(f"`{key}`" for key in differs)
         raise ContinuationError(
-            "Invalid continuation or changed request/scope; repeat the original read without cursor."
-        ) from None
+            "send the same arguments as the call that returned this cursor, with the "
+            f"cursor; {names} {'differs' if len(differs) == 1 else 'differ'} (an argument "
+            "you leave out is taken from the cursor)."
+        )
+    if not filled or validate is None:
+        return merged
+    try:
+        return validate(merged)
+    except ValueError:
+        raise ContinuationError(_INVALID) from None
 
 
 def _next(payload: dict) -> str | None:
@@ -162,8 +311,12 @@ def _advance_state(state: dict, native: str) -> dict:
     return advanced
 
 
-def _read(call: Callable[[dict], dict], arguments: dict, state: dict) -> dict:
-    with delivery_context(state.get("source_snapshot")) as delivery:
+def _read(
+    call: Callable[[dict], dict], arguments: dict, state: dict, request: str | Request
+) -> dict:
+    # `request` rides along so a source that sizes its page around a stand-in
+    # cursor encodes that stand-in exactly as delivery will encode the real one.
+    with delivery_context(state.get("source_snapshot"), request) as delivery:
         payload = call(arguments)
     if delivery.snapshot is not None:
         state["source_snapshot"] = delivery.snapshot
@@ -248,7 +401,7 @@ def page(
     tool: str,
     args: dict,
     state: dict,
-    request_id: str,
+    request: str | Request,
     budget: Budget,
     *,
     finish: Callable[[dict], dict] | None = None,
@@ -262,7 +415,7 @@ def page(
     wrap = finish or (lambda value: value)
     next_native = state.get("after") if "after" in state else _next(payload)
     if next_native:
-        next_cursor = encode(_advance_state(state, next_native), request_id)
+        next_cursor = encode(_advance_state(state, next_native), request)
     else:
         next_cursor = None
     whole = dict(payload)
@@ -331,7 +484,7 @@ def page(
             "hash": fingerprint,
             "after": next_native,
         }
-        cursor = encode(fragment_state, request_id) if more else next_cursor
+        cursor = encode(fragment_state, request) if more else next_cursor
         result = {
             "data": {
                 "format": "text_fragment" if path else "json_fragment",
@@ -402,7 +555,8 @@ def _sql_page(arguments: dict, call: Callable[[dict], dict]) -> dict:
 
         fits the budget ──────────────────────────> returned as-is
         has rows ── keep the longest prefix that fits, truncated=True,
-                    truncated_reason="byte_limit", row_count = rows kept
+                    truncated_reason="byte_limit", row_count = rows kept,
+                    rows_fetched = rows the server returned
         discovery ── truncated=True, and first drop `column_names` from the
                      END: every table stays named, and one listed without its
                      names is one to ask for with `tables=[...]`. Only then
@@ -416,11 +570,14 @@ def _sql_page(arguments: dict, call: Callable[[dict], dict]) -> dict:
     rows = payload.get("rows")
     if isinstance(rows, list):
 
+        # `rows_fetched` says how much was cut: 40 of 534 reads very unlike 40
+        # of 41, and without it a reader could not tell which it was handed.
         def cut(n: int) -> dict:
             return {
                 **payload,
                 "rows": rows[:n],
                 "row_count": n,
+                "rows_fetched": len(rows),
                 "truncated": True,
                 "truncated_reason": "byte_limit",
             }
@@ -480,8 +637,21 @@ def _sql_page(arguments: dict, call: Callable[[dict], dict]) -> dict:
     )
 
 
-def invoke(tool: str, arguments: dict, call: Callable[[dict], dict], scope: str) -> dict:
-    """Run an authenticated tool read and budget the complete emitted result."""
+def invoke(
+    tool: str,
+    arguments: dict,
+    call: Callable[[dict], dict],
+    scope: str,
+    *,
+    defaults: Mapping[str, Any] | None = None,
+) -> dict:
+    """Run an authenticated tool read and budget the complete emitted result.
+
+    With `defaults` (the tool's declared argument defaults) every cursor this
+    read emits also carries the request's optional non-default arguments
+    (`bind`), for `resume` to fill back in; the MCP tool layer passes them and
+    resumes first. Without, cursors are hash-only.
+    """
     if tool == "browse":
         from .browse_delivery import invoke as browse_invoke
 
@@ -489,8 +659,12 @@ def invoke(tool: str, arguments: dict, call: Callable[[dict], dict], scope: str)
     if tool == "query_sql":
         return _sql_page(arguments, call)
     budget = Budget(arguments.get("token_budget", 2000))
-    request_id = binding(tool, arguments, scope)
-    state = decode(arguments.get("cursor"), request_id)
+    request: str | Request = (
+        binding(tool, arguments, scope)
+        if defaults is None
+        else bind(tool, arguments, scope, defaults)
+    )
+    state = decode(arguments.get("cursor"), request)
     native_args = dict(arguments)
     native_args["cursor"] = state.get("native")
     # A fragment resumes the same source page even if the caller changes the
@@ -498,9 +672,9 @@ def invoke(tool: str, arguments: dict, call: Callable[[dict], dict], scope: str)
     native_args["token_budget"] = state.get("source_budget", budget.token_limit)
     state["source_budget"] = native_args["token_budget"]
     if tool == "entity" and len(arguments.get("refs", [])) > 1:
-        return _batch(arguments, native_args, call, state, request_id, budget)
-    payload = _read(call, native_args, state)
-    return page(payload, tool, arguments, state, request_id, budget)
+        return _batch(arguments, native_args, call, state, request, budget)
+    payload = _read(call, native_args, state, request)
+    return page(payload, tool, arguments, state, request, budget)
 
 
 def _batch(
@@ -508,7 +682,7 @@ def _batch(
     native_args: dict,
     call: Callable[[dict], dict],
     state: dict,
-    request_id: str,
+    request: str | Request,
     budget: Budget,
 ) -> dict:
     refs = args["refs"]
@@ -521,7 +695,7 @@ def _batch(
     while index < len(refs):
         one = refs[index]
         one_args = {**native_args, "refs": [one]}
-        result = _read(call, one_args, state)
+        result = _read(call, one_args, state, request)
         is_missing = isinstance(result.get("missing"), list) and not result.get("rows")
         item_state = {**state, "index": index}
 
@@ -530,7 +704,7 @@ def _batch(
             if item_cursor:
                 cursor = item_cursor
             elif index + 1 < len(refs):
-                cursor = encode({"index": index + 1, "native": None}, request_id)
+                cursor = encode({"index": index + 1, "native": None}, request)
             else:
                 cursor = None
             if is_missing and not isinstance(item.get("data"), dict):
@@ -556,7 +730,7 @@ def _batch(
         if "completeness" in whole:
             whole["completeness"] = _source_state(result)
         if _next(result):
-            whole["next_cursor"] = encode(_advance_state(item_state, _next(result)), request_id)
+            whole["next_cursor"] = encode(_advance_state(item_state, _next(result)), request)
         combined = wrap(_compact_unless_verbose(whole, args))
         if budget.fits(combined) and "offset" not in item_state:
             rows, missing = combined["rows"], combined.get("missing", [])
@@ -578,5 +752,5 @@ def _batch(
             # budget, was refused at the boundary, and retried into the same
             # page. Nothing of this ref was sent, so it owes no pinned snapshot.
             return fitted
-        return page(result, "entity", one_args, item_state, request_id, budget, finish=wrap)
+        return page(result, "entity", one_args, item_state, request, budget, finish=wrap)
     raise AssertionError("batch must return or advance")

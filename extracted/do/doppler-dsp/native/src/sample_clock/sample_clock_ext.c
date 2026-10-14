@@ -89,7 +89,7 @@ static int
 SampleClock_init (SampleClockObject *self, PyObject *args, PyObject *kwds)
 {
   static char *kwlist[] = { "fs", "resync", NULL };
-  double       fs       = 0;
+  double       fs       = 0.0;
   int          resync   = 0;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "d|i", kwlist, &fs, &resync))
     {
@@ -117,10 +117,31 @@ SampleClock_init (SampleClockObject *self, PyObject *args, PyObject *kwds)
 static PyObject *
 SampleClock_pace (SampleClockObject *self, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = { "count", NULL };
-  size_t       count;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "K", kwlist, &count))
+  static char       *kwlist[]  = { "count", NULL };
+  PyObject          *count_obj = NULL;
+  unsigned long long count_raw = 0ULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O", kwlist, &count_obj))
     return NULL;
+  if (count_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (count_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      count_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((count_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || count_raw > (unsigned long long)SIZE_MAX)
+        {
+          PyErr_Format (PyExc_OverflowError,
+                        "count: %S is out of range for size_t [0, %llu]", _ix,
+                        (unsigned long long)SIZE_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
+  size_t count = (size_t)count_raw;
   if (self->closed)
     {
       PyErr_SetString (PyExc_RuntimeError, "SampleClock is closed");
@@ -150,10 +171,31 @@ SampleClock_stamp (SampleClockObject *self, PyObject *args)
 static PyObject *
 SampleClock_stamp_at (SampleClockObject *self, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = { "n", NULL };
-  uint64_t     n;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "K", kwlist, &n))
+  static char       *kwlist[] = { "n", NULL };
+  PyObject          *n_obj    = NULL;
+  unsigned long long n_raw    = 0ULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O", kwlist, &n_obj))
     return NULL;
+  if (n_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (n_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      n_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((n_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || n_raw > (unsigned long long)UINT64_MAX)
+        {
+          PyErr_Format (PyExc_OverflowError,
+                        "n: %S is out of range for uint64_t [0, %llu]", _ix,
+                        (unsigned long long)UINT64_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
+  uint64_t n = (uint64_t)n_raw;
   if (self->closed)
     {
       PyErr_SetString (PyExc_RuntimeError, "SampleClock is closed");
@@ -169,13 +211,80 @@ SampleClock_track (SampleClockObject *self, PyObject *args, PyObject *kwds)
 {
   static char *kwlist[]
       = { "observed_timestamp_ns", "n_at_observation", "tolerance_ns", NULL };
-  uint64_t observed_timestamp_ns;
-  uint64_t n_at_observation;
-  uint64_t tolerance_ns;
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "KKK", kwlist,
-                                    &observed_timestamp_ns, &n_at_observation,
-                                    &tolerance_ns))
+  PyObject          *observed_timestamp_ns_obj = NULL;
+  unsigned long long observed_timestamp_ns_raw = 0ULL;
+  PyObject          *n_at_observation_obj      = NULL;
+  unsigned long long n_at_observation_raw      = 0ULL;
+  PyObject          *tolerance_ns_obj          = NULL;
+  unsigned long long tolerance_ns_raw          = 0ULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "OOO", kwlist,
+                                    &observed_timestamp_ns_obj,
+                                    &n_at_observation_obj, &tolerance_ns_obj))
     return NULL;
+  if (observed_timestamp_ns_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (observed_timestamp_ns_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      observed_timestamp_ns_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((observed_timestamp_ns_raw == (unsigned long long)-1
+           && PyErr_Occurred ())
+          || observed_timestamp_ns_raw > (unsigned long long)UINT64_MAX)
+        {
+          PyErr_Format (PyExc_OverflowError,
+                        "observed_timestamp_ns: %S is out of range for "
+                        "uint64_t [0, %llu]",
+                        _ix, (unsigned long long)UINT64_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
+  uint64_t observed_timestamp_ns = (uint64_t)observed_timestamp_ns_raw;
+  if (n_at_observation_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (n_at_observation_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      n_at_observation_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((n_at_observation_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || n_at_observation_raw > (unsigned long long)UINT64_MAX)
+        {
+          PyErr_Format (
+              PyExc_OverflowError,
+              "n_at_observation: %S is out of range for uint64_t [0, %llu]",
+              _ix, (unsigned long long)UINT64_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
+  uint64_t n_at_observation = (uint64_t)n_at_observation_raw;
+  if (tolerance_ns_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (tolerance_ns_obj);
+      if (_ix == NULL)
+        {
+          return NULL;
+        }
+      tolerance_ns_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((tolerance_ns_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || tolerance_ns_raw > (unsigned long long)UINT64_MAX)
+        {
+          PyErr_Format (
+              PyExc_OverflowError,
+              "tolerance_ns: %S is out of range for uint64_t [0, %llu]", _ix,
+              (unsigned long long)UINT64_MAX);
+          Py_DECREF (_ix);
+          return NULL;
+        }
+      Py_DECREF (_ix);
+    }
+  uint64_t tolerance_ns = (uint64_t)tolerance_ns_raw;
   if (self->closed)
     {
       PyErr_SetString (PyExc_RuntimeError, "SampleClock is closed");

@@ -10,6 +10,7 @@ from dateutil.parser import isoparse
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.agent_compatibility import AgentCompatibility
     from ..models.agent_dependency import AgentDependency
     from ..models.nested_agent_service import NestedAgentService
 
@@ -29,6 +30,7 @@ class AgentIdentity:
         created (datetime.datetime):
         modified (datetime.datetime):
         services (list['NestedAgentService']):
+        compatibility (AgentCompatibility):
         version (Union[None, Unset, str]):
         dependencies (Union[Unset, list['AgentDependency']]):
         config_file_path (Union[None, Unset, str]): Example: '/etc/waldur/agent.yaml'
@@ -44,6 +46,7 @@ class AgentIdentity:
     created: datetime.datetime
     modified: datetime.datetime
     services: list["NestedAgentService"]
+    compatibility: "AgentCompatibility"
     version: Union[None, Unset, str] = UNSET
     dependencies: Union[Unset, list["AgentDependency"]] = UNSET
     config_file_path: Union[None, Unset, str] = UNSET
@@ -74,6 +77,8 @@ class AgentIdentity:
         for services_item_data in self.services:
             services_item = services_item_data.to_dict()
             services.append(services_item)
+
+        compatibility = self.compatibility.to_dict()
 
         version: Union[None, Unset, str]
         if isinstance(self.version, Unset):
@@ -116,6 +121,7 @@ class AgentIdentity:
                 "created": created,
                 "modified": modified,
                 "services": services,
+                "compatibility": compatibility,
             }
         )
         if version is not UNSET:
@@ -133,6 +139,7 @@ class AgentIdentity:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.agent_compatibility import AgentCompatibility
         from ..models.agent_dependency import AgentDependency
         from ..models.nested_agent_service import NestedAgentService
 
@@ -170,6 +177,8 @@ class AgentIdentity:
             services_item = NestedAgentService.from_dict(services_item_data)
 
             services.append(services_item)
+
+        compatibility = AgentCompatibility.from_dict(d.pop("compatibility"))
 
         def _parse_version(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -221,6 +230,7 @@ class AgentIdentity:
             created=created,
             modified=modified,
             services=services,
+            compatibility=compatibility,
             version=version,
             dependencies=dependencies,
             config_file_path=config_file_path,

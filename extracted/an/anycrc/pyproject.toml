@@ -1,11 +1,13 @@
 [project]
 name = "anycrc"
-version = "2.0.0"
+version = "2.1.0"
 description = "The fastest general Python CRC Library"
 readme = "README.md"
-license = {text = "Zlib"}
-requires-python = ">=3.8"
-dependencies = ["bitarray==3.8.0"]
+license = "Zlib"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+bits = ["bitarray"]
 
 [project.urls]
 "Homepage" = "https://github.com/marzooqy/anycrc"
@@ -15,4 +17,4 @@ requires = ["setuptools", "cython"]
 build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
-skip = ["cp31[!01]-*"] #skip versions above 3.11
+build = ["cp39-*", "cp310-*", "cp311-*", "cp314t-*", "cp315t*"]

@@ -31,6 +31,17 @@ def test_gini_1d():
     assert gini(data_1d) == 1.0
 
 
+def test_gini_nd():
+    """
+    Test that arrays of any dimensionality are accepted and treated as
+    a flattened set of values.
+    """
+    data_3d = np.zeros((3, 3, 3))
+    data_3d[1, 1, 1] = 1.0
+    assert gini(data_3d) == 1.0
+    assert gini(data_3d) == gini(data_3d.ravel())
+
+
 def test_gini_mask():
     """
     Test Gini coefficient calculation with a mask.
@@ -49,6 +60,29 @@ def test_gini_mask():
 
     assert gini(data1, mask=mask1) == 0.0
     assert gini(data2, mask=mask2) == 1.0
+
+
+def test_gini_masked_array():
+    """
+    Test that the mask of a masked array is used and is combined with
+    the ``mask`` keyword.
+    """
+    rng = np.random.default_rng(0)
+    data = rng.random((20, 20))
+    data[0, 0] = 1000.0
+    data[5, 5] = 500.0
+    mask1 = np.zeros(data.shape, dtype=bool)
+    mask1[0, 0] = True
+    mask2 = np.zeros(data.shape, dtype=bool)
+    mask2[5, 5] = True
+    data_ma = np.ma.MaskedArray(data, mask=mask1)
+
+    assert gini(data_ma) == gini(data, mask=mask1)
+    assert gini(data_ma) != gini(data)
+    assert gini(data_ma, mask=mask2) == gini(data, mask=mask1 | mask2)
+
+    data_ma = np.ma.MaskedArray(data, mask=True)
+    assert np.isnan(gini(data_ma))
 
 
 def test_gini_mask_invalid_shape():
@@ -89,7 +123,7 @@ def test_gini_invalid_values_filtered():
     # All inf returns nan (no finite values)
     assert np.isnan(gini(np.full((5, 5), np.inf)))
 
-    # Mix: one valid pixel, rest NaN - Gini of single value is 0
+    # Mix: one valid pixel, rest NaN. Gini of a single value is 0
     data_one = np.full((5, 5), np.nan)
     data_one[2, 2] = 1.0
     assert gini(data_one) == 0.0
@@ -110,7 +144,8 @@ def test_gini_bounded():
     """
     rng = np.random.default_rng(seed=0)
 
-    # Uniform random values in (0, 1) — strictly between extremes
+    # Uniform random values in (0, 1) give a result strictly between the
+    # extremes
     result = gini(rng.random((50, 50)))
     assert 0.0 < result < 1.0
 
@@ -119,7 +154,7 @@ def test_gini_bounded():
     result_mixed = gini(data_mixed_sign)
     assert 0.0 <= result_mixed <= 1.0
 
-    # Gradient array — monotonically increasing, result in (0, 1)
+    # A monotonically increasing gradient array gives a result in (0, 1)
     result_grad = gini(np.arange(1.0, 101.0))
     assert 0.0 < result_grad < 1.0
 

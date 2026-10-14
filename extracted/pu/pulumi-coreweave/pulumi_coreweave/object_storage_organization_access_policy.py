@@ -106,7 +106,7 @@ class ObjectStorageOrganizationAccessPolicy(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 statements: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict']]]]] = None,
+                 statements: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict', 'outputs.ObjectStorageOrganizationAccessPolicyStatement']]]]] = None,
                  __props__=None):
         """
         [Organization access policies](https://docs.coreweave.com/products/storage/object-storage/auth-access/organization-policies/about) enforce permissions for AI Object Storage across your entire CoreWeave organization, automatically covering every resource, bucket, and user in your account. At least one organization access policy must be in place before you can create a bucket.
@@ -141,7 +141,7 @@ class ObjectStorageOrganizationAccessPolicy(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] name: The name of the organization access policy, must be unique.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict']]]] statements: The list of access policy statements associated with this policy. At least one statement is required.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict', 'outputs.ObjectStorageOrganizationAccessPolicyStatement']]]] statements: The list of access policy statements associated with this policy. At least one statement is required.
         """
         ...
     @overload
@@ -195,7 +195,7 @@ class ObjectStorageOrganizationAccessPolicy(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
-                 statements: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict']]]]] = None,
+                 statements: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict', 'outputs.ObjectStorageOrganizationAccessPolicyStatement']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -220,7 +220,7 @@ class ObjectStorageOrganizationAccessPolicy(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
-            statements: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict']]]]] = None) -> 'ObjectStorageOrganizationAccessPolicy':
+            statements: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict', 'outputs.ObjectStorageOrganizationAccessPolicyStatement']]]]] = None) -> 'ObjectStorageOrganizationAccessPolicy':
         """
         Get an existing ObjectStorageOrganizationAccessPolicy resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -229,7 +229,7 @@ class ObjectStorageOrganizationAccessPolicy(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] name: The name of the organization access policy, must be unique.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict']]]] statements: The list of access policy statements associated with this policy. At least one statement is required.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ObjectStorageOrganizationAccessPolicyStatementArgs', 'ObjectStorageOrganizationAccessPolicyStatementArgsDict', 'outputs.ObjectStorageOrganizationAccessPolicyStatement']]]] statements: The list of access policy statements associated with this policy. At least one statement is required.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 

@@ -47,7 +47,7 @@ def test_every_approved_file_is_used_here():
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 22
+    assert len(used) == 23
 
 
 # ---------------------------------------------------------------------------
@@ -108,10 +108,13 @@ def test_the_tool_descriptions_are_the_approved_text(monkeypatch):
     for name in ("shell", "read", "session"):
         props = tools[name].parameters_json_schema["properties"]
         assert all("description" not in p for p in props.values()), f"{name}: no text but the approved"
-    ends, summary = body("tools/final_result.PROPOSED.md").split("\n\nsummary: ")
+    ends, fields = body("tools/final_result.PROPOSED.md").split("\n\nsummary: ")
+    summary, reply = fields.split("\n\nreply: ")
     (final,) = output
     assert final.name == "final_result" and final.description == ends
     assert final.parameters_json_schema["properties"]["summary"]["description"] == summary
+    assert final.parameters_json_schema["properties"]["reply"]["description"] == reply
+    assert final.parameters_json_schema["required"] == ["summary"], "a run with no request needs no reply"
 
 
 def test_the_compaction_prompt_and_the_loop_stop_are_the_approved_text():

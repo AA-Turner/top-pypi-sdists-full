@@ -9,22 +9,57 @@ from ..core.serialization import FieldMetadata
 
 
 class Graph(UniversalBaseModel):
-    canonical_graph_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    created_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    CanonicalGraphUUID is graphs.uuid, the v4 graph address (spec-3 §13.5).
-    Omitted when the graphs row does not yet exist. Distinct from UUID,
-    which is the group-row identifier.
+    The time the graph was created.
     """
 
-    created_at: typing.Optional[str] = None
-    description: typing.Optional[str] = None
-    graph_id: typing.Optional[str] = None
-    id: typing.Optional[int] = None
-    name: typing.Optional[str] = None
-    project_uuid: typing.Optional[str] = None
-    time_zone: typing.Optional[str] = None
-    updated_at: typing.Optional[str] = None
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = None
+    description: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A description of the graph.
+    """
+
+    graph_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The developer-assigned identifier of the graph, present only for standard
+    graphs.
+    """
+
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The display name of the graph.
+    """
+
+    time_zone: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The graph's IANA time zone.
+    """
+
+    type: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The kind of graph: user for a user's personal graph, or standard for a
+    named graph created directly.
+    """
+
+    updated_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The time the graph was last updated.
+    """
+
+    user_uuid: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique identifier of the user this graph belongs to, present only for
+    a user graph.
+    """
+
+    uuid_: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="uuid"),
+        pydantic.Field(alias="uuid", description="The unique identifier of the graph."),
+    ] = None
+    """
+    The unique identifier of the graph.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

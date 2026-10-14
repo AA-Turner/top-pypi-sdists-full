@@ -487,7 +487,7 @@ def replacements_to_tuples(replacements: dict) -> dict:
     return parsed_replacements
 
 
-@lru_cache(maxsize=2**15)
+@lru_cache(maxsize=2**13)
 def replace_tables_chquery_cached(
     sql: str,
     sorted_replacements: Optional[tuple] = None,

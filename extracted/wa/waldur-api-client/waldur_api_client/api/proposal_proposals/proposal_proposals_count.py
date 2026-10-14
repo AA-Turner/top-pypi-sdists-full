@@ -8,11 +8,13 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.proposal_o_enum import ProposalOEnum
 from ...models.proposal_states import ProposalStates
+from ...models.responsible_role_enum import ResponsibleRoleEnum
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
+    as_role: Union[Unset, ResponsibleRoleEnum] = UNSET,
     call_uuid: Union[Unset, UUID] = UNSET,
     created_by_uuid: Union[Unset, UUID] = UNSET,
     my_proposals: Union[Unset, bool] = UNSET,
@@ -27,6 +29,12 @@ def _get_kwargs(
     state: Union[Unset, list[ProposalStates]] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_as_role: Union[Unset, str] = UNSET
+    if not isinstance(as_role, Unset):
+        json_as_role = as_role.value
+
+    params["as_role"] = json_as_role
 
     json_call_uuid: Union[Unset, str] = UNSET
     if not isinstance(call_uuid, Unset):
@@ -121,6 +129,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    as_role: Union[Unset, ResponsibleRoleEnum] = UNSET,
     call_uuid: Union[Unset, UUID] = UNSET,
     created_by_uuid: Union[Unset, UUID] = UNSET,
     my_proposals: Union[Unset, bool] = UNSET,
@@ -137,6 +146,7 @@ def sync_detailed(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        as_role (Union[Unset, ResponsibleRoleEnum]):
         call_uuid (Union[Unset, UUID]):
         created_by_uuid (Union[Unset, UUID]):
         my_proposals (Union[Unset, bool]):
@@ -159,6 +169,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        as_role=as_role,
         call_uuid=call_uuid,
         created_by_uuid=created_by_uuid,
         my_proposals=my_proposals,
@@ -183,6 +194,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    as_role: Union[Unset, ResponsibleRoleEnum] = UNSET,
     call_uuid: Union[Unset, UUID] = UNSET,
     created_by_uuid: Union[Unset, UUID] = UNSET,
     my_proposals: Union[Unset, bool] = UNSET,
@@ -199,6 +211,7 @@ def sync(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        as_role (Union[Unset, ResponsibleRoleEnum]):
         call_uuid (Union[Unset, UUID]):
         created_by_uuid (Union[Unset, UUID]):
         my_proposals (Union[Unset, bool]):
@@ -222,6 +235,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        as_role=as_role,
         call_uuid=call_uuid,
         created_by_uuid=created_by_uuid,
         my_proposals=my_proposals,
@@ -240,6 +254,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    as_role: Union[Unset, ResponsibleRoleEnum] = UNSET,
     call_uuid: Union[Unset, UUID] = UNSET,
     created_by_uuid: Union[Unset, UUID] = UNSET,
     my_proposals: Union[Unset, bool] = UNSET,
@@ -256,6 +271,7 @@ async def asyncio_detailed(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        as_role (Union[Unset, ResponsibleRoleEnum]):
         call_uuid (Union[Unset, UUID]):
         created_by_uuid (Union[Unset, UUID]):
         my_proposals (Union[Unset, bool]):
@@ -278,6 +294,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        as_role=as_role,
         call_uuid=call_uuid,
         created_by_uuid=created_by_uuid,
         my_proposals=my_proposals,
@@ -300,6 +317,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    as_role: Union[Unset, ResponsibleRoleEnum] = UNSET,
     call_uuid: Union[Unset, UUID] = UNSET,
     created_by_uuid: Union[Unset, UUID] = UNSET,
     my_proposals: Union[Unset, bool] = UNSET,
@@ -316,6 +334,7 @@ async def asyncio(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        as_role (Union[Unset, ResponsibleRoleEnum]):
         call_uuid (Union[Unset, UUID]):
         created_by_uuid (Union[Unset, UUID]):
         my_proposals (Union[Unset, bool]):
@@ -340,6 +359,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            as_role=as_role,
             call_uuid=call_uuid,
             created_by_uuid=created_by_uuid,
             my_proposals=my_proposals,

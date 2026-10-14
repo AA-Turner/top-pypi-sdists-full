@@ -131,6 +131,7 @@ __all__ = (
     "ListBotsPaginatorName",
     "ListChildHoursOfOperationsPaginatorName",
     "ListContactEvaluationsPaginatorName",
+    "ListContactFlowAliasesPaginatorName",
     "ListContactFlowModuleAliasesPaginatorName",
     "ListContactFlowModuleVersionsPaginatorName",
     "ListContactFlowModulesPaginatorName",
@@ -663,6 +664,7 @@ ListAuthenticationProfilesPaginatorName = Literal["list_authentication_profiles"
 ListBotsPaginatorName = Literal["list_bots"]
 ListChildHoursOfOperationsPaginatorName = Literal["list_child_hours_of_operations"]
 ListContactEvaluationsPaginatorName = Literal["list_contact_evaluations"]
+ListContactFlowAliasesPaginatorName = Literal["list_contact_flow_aliases"]
 ListContactFlowModuleAliasesPaginatorName = Literal["list_contact_flow_module_aliases"]
 ListContactFlowModuleVersionsPaginatorName = Literal["list_contact_flow_module_versions"]
 ListContactFlowModulesPaginatorName = Literal["list_contact_flow_modules"]
@@ -1391,6 +1393,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -1465,6 +1468,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1599,6 +1603,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1685,6 +1690,7 @@ PaginatorName = Literal[
     "list_bots",
     "list_child_hours_of_operations",
     "list_contact_evaluations",
+    "list_contact_flow_aliases",
     "list_contact_flow_module_aliases",
     "list_contact_flow_module_versions",
     "list_contact_flow_modules",

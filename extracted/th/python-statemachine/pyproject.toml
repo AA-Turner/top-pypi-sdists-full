@@ -1,6 +1,6 @@
 [project]
 name = "python-statemachine"
-version = "3.2.1"
+version = "3.2.2"
 description = "Python Finite State Machines made easy."
 authors = [{ name = "Fernando Macedo", email = "fgmacedo@gmail.com" }]
 maintainers = [{ name = "Fernando Macedo", email = "fgmacedo@gmail.com" }]
@@ -18,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Home Automation",
     "Topic :: Software Development :: Libraries",
 ]
@@ -34,32 +35,32 @@ io = ["PyYAML >= 6.0", "jsonschema >= 4.18"]
 
 [dependency-groups]
 dev = [
-    "ruff >=0.15.17",
+    "ruff >=0.16.10",
     "pre-commit",
     "mypy",
-    "pytest >=9.1.0",
+    "pytest >=9.1.1",
     "pytest-cov >=7.1.0",
     "pytest-sugar >=1.1.1",
-    "pytest-mock >=3.15.1",
-    "pytest-benchmark >=5.2.3",
+    "pytest-mock >=3.16.0",
+    "pytest-benchmark >=5.3.0",
     "pytest-asyncio >=1.4.0",
     "pydot",
-    "django >=6.0.3; python_version >='3.12'",
-    "django >=5.2.14; python_version <'3.12'",
-    "pytest-django >=4.12.0",
+    "django >=6.1.2; python_version >='3.12'",
+    "django >=5.2.18; python_version <'3.12'",
+    "pytest-django >=4.14.0",
     "Sphinx",
     "sphinx-gallery",
     "myst-parser",
-    "pillow >=12.2.0",
+    "pillow >=12.3.0",
     "sphinx-autobuild",
     "furo >=2025.12.19",
     "sphinx-copybutton >=0.5.2",
     "sphinxcontrib-mermaid",
-    "pdbr>=0.9.7",
+    "pdbr >=0.9.8",
     "babel >=2.18.0",
-    "pytest-xdist>=3.8.0",
-    "pytest-timeout>=2.4.0",
-    "pyright>=1.1.410",
+    "pytest-xdist >=3.8.0",
+    "pytest-timeout >=2.4.0",
+    "pyright >=1.1.414",
     "PyYAML >=6.0",
     "jsonschema >=4.18",
 ]
@@ -85,7 +86,7 @@ addopts = [
     "--benchmark-group-by=name",
     "--pdbcls=pdbr:RichPdb",
 ]
-doctest_optionflags = "ELLIPSIS IGNORE_EXCEPTION_DETAIL NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL"
+doctest_optionflags = "ELLIPSIS IGNORE_EXCEPTION_DETAIL NORMALIZE_WHITESPACE"
 asyncio_mode = "auto"
 markers = [
     """slow: marks tests as slow (deselect with '-m "not slow"')""",
@@ -133,7 +134,7 @@ directory = "tmp/htmlcov"
 show_contexts = true
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.15"
 warn_return_any = true
 warn_unused_configs = true
 disable_error_code = "annotation-unchecked"

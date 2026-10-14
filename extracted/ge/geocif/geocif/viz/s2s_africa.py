@@ -230,8 +230,12 @@ def charts(out):
             ax.axhline(null_mean, color="#c0392b", lw=1.3, ls="--",
                        label=f"permutation null ({null_mean:.3f})")
         ax.axhline(0.5, color="0.6", lw=0.8, ls=":", label="AUC 0.5")
+        if piv.index.min() < 1:
+            # offset 1 = issued the month before planting, 0 = in it
+            ax.axvline(0.5, color="0.45", lw=0.8, ls="-.", label="planting")
         ax.set_xticks(sorted(piv.index))
-        ax.set_xlabel("Months before planting (forecast issue)")
+        ax.set_xlabel("Months before planting at issue (0 or less: in or "
+                      "after the planting month)")
         ax.set_ylabel("Hindcast AUC")
         ax.set_title("Bad-year discrimination by lead time", loc="left")
         ax.legend(loc="lower left", fontsize=7, frameon=False)
@@ -1043,13 +1047,16 @@ def readme(out, version=None):
     auc_mean = pd.to_numeric(fcc.get("skill_auc"), errors="coerce").mean()
     ver = f" · geocif {version}" if version else ""
 
-    txt = f"""# Africa-wide pre-season S2S forecasts — maize & beans
+    txt = f"""# Africa-wide S2S forecasts — maize & beans
 
 Run: `{out.parents[1].name}`{ver} · module `geocif/experiments/s2s_africa.py`
 
-Forecasts the **next season that has not started yet** for every country x
-crop x season in HarvestStat Africa. Extended-term only: once planting has
-passed, a combination belongs to the in-season CID system and is excluded.
+Forecasts the current or next season for every country x crop x season in
+HarvestStat Africa, from 4 months before planting until the end of the
+harvest month or the end of S2S coverage of the season, whichever is
+earlier. After planting (`phase` = `in_season`) the forecast comes from an
+init issued after planting, which sees only the season months still ahead
+of it; `init_used` in `forecasts.csv` names the init.
 
 ## Read this first
 

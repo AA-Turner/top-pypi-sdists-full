@@ -24,7 +24,7 @@ PROJECT_NAME     = 'wxPython'
 # version numbers.
 VER_MAJOR        = 4
 VER_MINOR        = 3
-VER_RELEASE      = 1
+VER_RELEASE      = 2
 
 VER_FLAGS        = ""     # wxPython release flags
 
@@ -62,5 +62,5 @@ VER_FLAGS        = ""     # wxPython release flags
 # The version numbers of wxWidgets to be used in the build
 wxVER_MAJOR        = 3
 wxVER_MINOR        = 3
-wxVER_RELEASE      = 3  # only used when wxVER_MINOR is an odd value
+wxVER_RELEASE      = 4  # only used when wxVER_MINOR is an odd value
 

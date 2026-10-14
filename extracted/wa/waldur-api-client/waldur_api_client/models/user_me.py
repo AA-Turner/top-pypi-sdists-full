@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ..models.me_permission import MePermission
     from ..models.profile_completeness import ProfileCompleteness
     from ..models.user_me_attribute_sources import UserMeAttributeSources
+    from ..models.user_me_details import UserMeDetails
 
 
 T = TypeVar("T", bound="UserMe")
@@ -65,6 +66,8 @@ class UserMe:
         should_protect_user_details (Union[Unset, bool]):
         has_active_session (Union[Unset, bool]):
         has_usable_password (Union[Unset, bool]):
+        has_passkey (Union[Unset, bool]):
+        passkey_count (Union[Unset, int]):
         ip_address (Union[Unset, str]):
         gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
@@ -94,6 +97,7 @@ class UserMe:
         deactivation_reason (Union[Unset, str]): Reason why the user was deactivated. Visible to staff and support.
         is_admin_deactivated (Union[Unset, bool]): Designates that the user was deactivated by an administrator and must
             not be reactivated automatically by the role-sync task. Visible to staff and support.
+        details (Union[Unset, UserMeDetails]): Extra details from authentication backend.
         profile_completeness (Union[Unset, ProfileCompleteness]):
     """
 
@@ -135,6 +139,8 @@ class UserMe:
     should_protect_user_details: Union[Unset, bool] = UNSET
     has_active_session: Union[Unset, bool] = UNSET
     has_usable_password: Union[Unset, bool] = UNSET
+    has_passkey: Union[Unset, bool] = UNSET
+    passkey_count: Union[Unset, int] = UNSET
     ip_address: Union[Unset, str] = UNSET
     gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
@@ -158,6 +164,7 @@ class UserMe:
     active_isds: Union[Unset, list[str]] = UNSET
     deactivation_reason: Union[Unset, str] = UNSET
     is_admin_deactivated: Union[Unset, bool] = UNSET
+    details: Union[Unset, "UserMeDetails"] = UNSET
     profile_completeness: Union[Unset, "ProfileCompleteness"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -285,6 +292,10 @@ class UserMe:
 
         has_usable_password = self.has_usable_password
 
+        has_passkey = self.has_passkey
+
+        passkey_count = self.passkey_count
+
         ip_address = self.ip_address
 
         gender: Union[None, Unset, str]
@@ -356,6 +367,10 @@ class UserMe:
         deactivation_reason = self.deactivation_reason
 
         is_admin_deactivated = self.is_admin_deactivated
+
+        details: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.details, Unset):
+            details = self.details.to_dict()
 
         profile_completeness: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.profile_completeness, Unset):
@@ -440,6 +455,10 @@ class UserMe:
             field_dict["has_active_session"] = has_active_session
         if has_usable_password is not UNSET:
             field_dict["has_usable_password"] = has_usable_password
+        if has_passkey is not UNSET:
+            field_dict["has_passkey"] = has_passkey
+        if passkey_count is not UNSET:
+            field_dict["passkey_count"] = passkey_count
         if ip_address is not UNSET:
             field_dict["ip_address"] = ip_address
         if gender is not UNSET:
@@ -486,6 +505,8 @@ class UserMe:
             field_dict["deactivation_reason"] = deactivation_reason
         if is_admin_deactivated is not UNSET:
             field_dict["is_admin_deactivated"] = is_admin_deactivated
+        if details is not UNSET:
+            field_dict["details"] = details
         if profile_completeness is not UNSET:
             field_dict["profile_completeness"] = profile_completeness
 
@@ -496,6 +517,7 @@ class UserMe:
         from ..models.me_permission import MePermission
         from ..models.profile_completeness import ProfileCompleteness
         from ..models.user_me_attribute_sources import UserMeAttributeSources
+        from ..models.user_me_details import UserMeDetails
 
         d = dict(src_dict)
         url = d.pop("url", UNSET)
@@ -662,6 +684,10 @@ class UserMe:
 
         has_usable_password = d.pop("has_usable_password", UNSET)
 
+        has_passkey = d.pop("has_passkey", UNSET)
+
+        passkey_count = d.pop("passkey_count", UNSET)
+
         ip_address = d.pop("ip_address", UNSET)
 
         def _parse_gender(data: object) -> Union[BlankEnum, GenderEnum, None, Unset]:
@@ -750,6 +776,13 @@ class UserMe:
 
         is_admin_deactivated = d.pop("is_admin_deactivated", UNSET)
 
+        _details = d.pop("details", UNSET)
+        details: Union[Unset, UserMeDetails]
+        if isinstance(_details, Unset):
+            details = UNSET
+        else:
+            details = UserMeDetails.from_dict(_details)
+
         _profile_completeness = d.pop("profile_completeness", UNSET)
         profile_completeness: Union[Unset, ProfileCompleteness]
         if isinstance(_profile_completeness, Unset):
@@ -796,6 +829,8 @@ class UserMe:
             should_protect_user_details=should_protect_user_details,
             has_active_session=has_active_session,
             has_usable_password=has_usable_password,
+            has_passkey=has_passkey,
+            passkey_count=passkey_count,
             ip_address=ip_address,
             gender=gender,
             personal_title=personal_title,
@@ -819,6 +854,7 @@ class UserMe:
             active_isds=active_isds,
             deactivation_reason=deactivation_reason,
             is_admin_deactivated=is_admin_deactivated,
+            details=details,
             profile_completeness=profile_completeness,
         )
 

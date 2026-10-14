@@ -15,7 +15,6 @@ from cognite_toolkit._cdf_tk.client.resource_classes.ruleset_version import (
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.feature_flags import v09_gate
 from cognite_toolkit._cdf_tk.resource_ios._auth import GroupAllScopedIO
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import FailedReadExtra, ReadExtra, ResourceIO, SuccessExtra
 from cognite_toolkit._cdf_tk.utils import (
@@ -52,7 +51,9 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
         return "rule sets"
 
     @classmethod
-    def get_id(cls, item: RuleSetRequest | RuleSetResponse | dict) -> ExternalId:
+    def get_id(cls, item: RuleSetRequest | RuleSetResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return item.as_id()
@@ -89,14 +90,15 @@ class RuleSetIO(ResourceIO[ExternalId, RuleSetRequest, RuleSetResponse, RuleSetY
     def retrieve(self, ids: Sequence[ExternalId]) -> list[RuleSetResponse]:
         return self.client.tool.rulesets.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RuleSetRequest]) -> list[RuleSetResponse]:
+    def update(self, items: Sequence[RuleSetRequest]) -> list[ExternalId]:
         raise NotImplementedError("Rule sets do not support updates.")
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.rulesets.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.rulesets.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -129,7 +131,9 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         return "rule set versions"
 
     @classmethod
-    def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | dict) -> RuleSetVersionId:
+    def get_id(cls, item: RuleSetVersionRequest | RuleSetVersionResponse | RuleSetVersionId | dict) -> RuleSetVersionId:
+        if isinstance(item, RuleSetVersionId):
+            return item
         if isinstance(item, dict):
             ext_id = item.get("ruleSetExternalId") or item.get("rule_set_external_id")
             version = item.get("version")
@@ -202,7 +206,7 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
         if ttl_path is None:
             yield FailedReadExtra(
                 source_path=filepath,
-                code=v09_gate("MISSING-REFERENCED-FILE", "MISSING"),
+                code="MISSING-REFERENCED-FILE",
                 error=f"Missing rules for {rule_set_id!r} in {filepath.as_posix()}. No 'rules' field found and no .ttl file found. Expected one of: {humanize_collection(ttl_candidates)}",
             )
             return
@@ -277,14 +281,15 @@ class RuleSetVersionIO(ResourceIO[RuleSetVersionId, RuleSetVersionRequest, RuleS
             return []
         return self.client.tool.rulesets.versions.retrieve(list(ids), ignore_unknown_ids=True)
 
-    def update(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionResponse]:
+    def update(self, items: Sequence[RuleSetVersionRequest]) -> list[RuleSetVersionId]:
         raise NotImplementedError("Rule set versions are immutable and do not support updates.")
 
-    def delete(self, ids: Sequence[RuleSetVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.rulesets.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[RuleSetVersionId]) -> list[RuleSetVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.rulesets.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,

@@ -46,11 +46,15 @@ public:
     unsigned int GetCount() const;
     wxRibbonGalleryItem* GetItem(unsigned int n);
     wxRibbonGalleryItem* Append(const wxBitmapBundle& bitmap, int id);
+    wxRibbonGalleryItem* Append(const wxBitmapBundle& bitmap, int id, const wxString& label);
     wxRibbonGalleryItem* Append(const wxBitmapBundle& bitmap, int id, void* clientData);
     wxRibbonGalleryItem* Append(const wxBitmapBundle& bitmap, int id, wxClientData* clientData);
 
     void SetItemClientObject(wxRibbonGalleryItem* item, wxClientData* data);
     wxClientData* GetItemClientObject(const wxRibbonGalleryItem* item) const;
+    void SetItemLabel(wxRibbonGalleryItem* item, const wxString& label);
+    wxString GetItemLabel(const wxRibbonGalleryItem* item) const;
+
     void SetItemClientData(wxRibbonGalleryItem* item, void* data);
     void* GetItemClientData(const wxRibbonGalleryItem* item) const;
 
@@ -71,8 +75,29 @@ public:
     bool ScrollPixels(int pixels);
     void EnsureVisible(const wxRibbonGalleryItem* item);
 
+    // KeyTips (keyboard access mode).
+    void SetKeyTip(const wxString& keytip) { m_keyTip = keytip.Upper(); }
+    wxString GetKeyTip() const { return m_keyTip; }
+
+    // Keyboard navigation
+    bool HasFocusableItems() const override;
+    bool FocusFirstItem() override;
+    bool FocusLastItem() override;
+    bool FocusNextItem(bool forward) override;
+    bool FocusItemInDirection(wxDirection direction) override;
+    void ClearFocusedItem() override;
+    void ActivateFocusedItem(bool dropdown = false) override;
+
+#if wxUSE_ACCESSIBILITY
+    virtual wxAccessible* CreateAccessible() override;
+#endif // wxUSE_ACCESSIBILITY
+
 protected:
+#if wxUSE_ACCESSIBILITY
+    friend class wxRibbonGalleryAccessible;
+#endif // wxUSE_ACCESSIBILITY
     wxBorder GetDefaultBorder() const override { return wxBORDER_NONE; }
+    void DoNotifySelectionChanged();
     void CommonInit(long style);
     void CalculateMinSize();
     bool TestButtonHover(const wxRect& rect, wxPoint pos,
@@ -91,6 +116,13 @@ protected:
     void OnSysColourChanged(wxSysColourChangedEvent& evt);
     int GetScrollLineSize() const;
 
+    void DoActivateItem(wxRibbonGalleryItem* item);
+    bool DoFocusItemFrom(int pos, int step);
+    int DoGetFocusedItemIndex() const;
+    bool DoFocusExtensionButton();
+    void DoClearExtensionFocus();
+    void DoActivateExtensionButton();
+
     virtual wxSize DoGetBestSize() const override;
     virtual wxSize DoGetNextSmallerSize(wxOrientation direction,
                                         wxSize relative_to) const override;
@@ -98,9 +130,10 @@ protected:
                                        wxSize relative_to) const override;
 
     wxArrayRibbonGalleryItem m_items;
-    wxRibbonGalleryItem* m_selected_item;
-    wxRibbonGalleryItem* m_hovered_item;
-    wxRibbonGalleryItem* m_active_item;
+    wxRibbonGalleryItem* m_selected_item = nullptr;
+    wxRibbonGalleryItem* m_hovered_item = nullptr;
+    wxRibbonGalleryItem* m_active_item = nullptr;
+    wxRibbonGalleryItem* m_focused_item = nullptr;
     wxSize m_bitmap_size;
     wxSize m_bitmap_padded_size;
     wxSize m_best_size;
@@ -109,14 +142,19 @@ protected:
     wxRect m_scroll_down_button_rect;
     wxRect m_extension_button_rect;
     const wxRect* m_mouse_active_rect = nullptr;
-    int m_item_separation_x;
-    int m_item_separation_y;
-    int m_scroll_amount;
-    int m_scroll_limit;
-    wxRibbonGalleryButtonState m_up_button_state;
-    wxRibbonGalleryButtonState m_down_button_state;
-    wxRibbonGalleryButtonState m_extension_button_state;
-    bool m_hovered;
+    int m_item_separation_x = 0;
+    int m_item_separation_y = 0;
+    int m_scroll_amount = 0;
+    int m_scroll_limit = 0;
+    wxRibbonGalleryButtonState m_up_button_state = wxRIBBON_GALLERY_BUTTON_DISABLED;
+    wxRibbonGalleryButtonState m_down_button_state = wxRIBBON_GALLERY_BUTTON_NORMAL;
+    wxRibbonGalleryButtonState m_extension_button_state = wxRIBBON_GALLERY_BUTTON_NORMAL;
+    bool m_hovered = false;
+    // True if the keyboard focus is on the extension button, not on an item.
+    bool m_extension_focused = false;
+
+    // Always stored in upper case, to allow case-insensitive matching.
+    wxString m_keyTip;
 
 #ifndef SWIG
     wxDECLARE_CLASS(wxRibbonGallery);

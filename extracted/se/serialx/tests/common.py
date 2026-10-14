@@ -175,6 +175,9 @@ class UnresolvedSerialPair:
     # Largest payload a close()-time drain can carry through this pair, in bytes
     max_drain_payload: int = 4096
 
+    # Interchangeable adapter pairs that tests are dealt across, see `--adapter-pair`
+    pool: tuple[tuple[str, str], ...] = ()
+
     def chain(self, *backends: SerialBackend) -> Self:
         """Chain another backend layer on top of this one, accumulating quirks."""
         result = self
@@ -454,10 +457,7 @@ def create_pyodide_pair() -> Iterator[tuple[str, str]]:
     """Create a fake Web Serial pair and register each side at a unique URL."""
     import js  # type: ignore[import-not-found]  # noqa: PLC0415
 
-    from serialx.platforms.serial_pyodide import (  # noqa: PLC0415
-        register_js_port,
-        unregister_js_port,
-    )
+    from serialx.platforms.serial_pyodide import register_js_port, unregister_js_port  # noqa: PLC0415
 
     global _PYODIDE_PAIR_COUNTER  # noqa: PLW0603
     _PYODIDE_PAIR_COUNTER += 1
@@ -504,6 +504,14 @@ def create_ser2net_pair(
     left_adapter: str, right_adapter: str
 ) -> Iterator[tuple[str, str, Callable[[], None] | None, Callable[[], None] | None]]:
     """Create a pair of independent RFC2217 sockets using ser2net."""
+
+    # On close, ser2net restores the termios it found on open with TCSANOW once TIOCOUTQ
+    # is empty. USB adapters still hold bytes in their own TX FIFO then, and those go
+    # out at the restored baudrate. Earlier tests can leave a persistent device at any
+    # rate, so pin it to the one ser2net uses.
+    for adapter in (left_adapter, right_adapter):
+        with serialx.Serial.from_url(adapter, baudrate=115200):
+            pass
 
     # fmt: off
     proc = subprocess.Popen(

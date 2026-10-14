@@ -12,6 +12,7 @@ export declare abstract class CSSGridBoxView extends LayoutDOMView {
     protected abstract get _children(): [UIElement, number, number, number?, number?][];
     protected abstract get _rows(): TracksSizing | null;
     protected abstract get _cols(): TracksSizing | null;
+    measure_layout(): void;
     _update_layout(): void;
 }
 export declare namespace CSSGridBox {

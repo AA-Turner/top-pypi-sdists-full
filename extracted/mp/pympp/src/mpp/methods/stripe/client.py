@@ -9,7 +9,9 @@ import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from functools import wraps
+from typing import TYPE_CHECKING, Any, ParamSpec
+from warnings import warn
 
 from mpp import Challenge, Credential
 from mpp.methods import CanOfferFn, PaymentSuccessHandler
@@ -70,11 +72,25 @@ class StripeMethod:
     _intents: dict[str, Intent | VerifiableIntent] = field(default_factory=dict)
     can_offer: CanOfferFn | None = field(default=None, kw_only=True)
     on_payment_success: PaymentSuccessHandler | None = field(default=None, kw_only=True)
+    metadata: dict[str, str] | None = field(default=None, kw_only=True)
 
     @property
     def intents(self) -> dict[str, Intent | VerifiableIntent]:
         """Available intents for this method."""
         return self._intents
+
+    def prepare_intent(
+        self, intent: Intent | VerifiableIntent, input: dict[str, Any]
+    ) -> tuple[Intent | VerifiableIntent, dict[str, Any]]:
+        from mpp.methods.stripe.intents import ChargeIntent
+        from mpp.methods.stripe.payment_intent_options import prepare_options
+
+        if "payment_intent_options" not in input:
+            return intent, input
+        if not isinstance(intent, ChargeIntent):
+            raise TypeError("payment_intent_options requires Stripe ChargeIntent")
+        options = prepare_options(input.pop("payment_intent_options"))
+        return intent.with_payment_intent_options(options), input
 
     def transform_request(
         self, request: dict[str, Any], credential: CredentialType | None
@@ -87,16 +103,18 @@ class StripeMethod:
         method_details = dict(request.get("methodDetails", {}))
         if self.network_id and "networkId" in method_details:
             if method_details["networkId"] != self.network_id:
-                raise ValueError("networkId does not match configured stripe() network_id")
+                raise ValueError("networkId does not match configured spt() network_id")
         if self.network_id:
             method_details["networkId"] = self.network_id
         if self.payment_method_types and "paymentMethodTypes" in method_details:
             if method_details["paymentMethodTypes"] != self.payment_method_types:
                 raise ValueError(
-                    "paymentMethodTypes does not match configured stripe() payment_method_types"
+                    "paymentMethodTypes does not match configured spt() payment_method_types"
                 )
         if self.payment_method_types:
             method_details["paymentMethodTypes"] = self.payment_method_types
+        if self.metadata is not None:
+            method_details["metadata"] = self.metadata
         request = {**request, "methodDetails": method_details}
         if self.external_id and "externalId" not in request:
             request["externalId"] = self.external_id
@@ -125,7 +143,7 @@ class StripeMethod:
 
         payment_method = self.payment_method
         if not payment_method:
-            raise ValueError("payment_method is required (pass to stripe() or via context)")
+            raise ValueError("payment_method is required (pass to spt() or via context)")
 
         amount = str(request.get("amount", ""))
         currency = str(request.get("currency", ""))
@@ -187,7 +205,7 @@ def _parse_iso_timestamp(iso_str: str) -> float:
 # ──────────────────────────────────────────────────────────────────
 
 
-def stripe(
+def spt(
     intents: Mapping[str, Intent | VerifiableIntent],
     create_token: CreateTokenFn | None = None,
     payment_method: str | None = None,
@@ -199,6 +217,7 @@ def stripe(
     payment_method_types: list[str] | None = None,
     can_offer: CanOfferFn | None = None,
     on_payment_success: PaymentSuccessHandler | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> StripeMethod:
     """Create a Stripe payment method.
 
@@ -219,15 +238,16 @@ def stripe(
             Included in challenge ``methodDetails.paymentMethodTypes``.
         can_offer: Optional callback that filters this method's composed offers.
         on_payment_success: Optional callback invoked after successful verification.
+        metadata: Optional Stripe metadata included in the challenge request.
 
     Returns:
         A configured :class:`StripeMethod` instance.
 
     Example:
-        from mpp.methods.stripe import stripe, ChargeIntent
+        from mpp.methods.stripe import spt, ChargeIntent
 
         # Server
-        method = stripe(
+        method = spt(
             network_id="bn_...",
             payment_method_types=["card"],
             currency="usd",
@@ -236,7 +256,7 @@ def stripe(
         )
 
         # Client
-        method = stripe(
+        method = spt(
             create_token=my_spt_proxy,
             payment_method="pm_card_visa",
             intents={"charge": ChargeIntent(secret_key="sk_...")},
@@ -253,6 +273,22 @@ def stripe(
         payment_method_types=payment_method_types or ["card"],
         can_offer=can_offer,
         on_payment_success=on_payment_success,
+        metadata=metadata,
     )
     method._intents = dict(intents)
     return method
+
+
+_P = ParamSpec("_P")
+
+
+def _deprecated_alias(func: Callable[_P, StripeMethod]) -> Callable[_P, StripeMethod]:
+    @wraps(func)
+    def alias(*args: _P.args, **kwargs: _P.kwargs) -> StripeMethod:
+        warn("stripe() is deprecated; use spt()", DeprecationWarning, stacklevel=2)
+        return func(*args, **kwargs)
+
+    return alias
+
+
+stripe = _deprecated_alias(spt)

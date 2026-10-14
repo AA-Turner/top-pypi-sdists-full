@@ -9,9 +9,12 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.cascade_config import CascadeConfig
+    from ..models.component_formula_config import ComponentFormulaConfig
     from ..models.component_multiplier_config import ComponentMultiplierConfig
+    from ..models.component_sum_config import ComponentSumConfig
     from ..models.k8s_default_configuration import K8SDefaultConfiguration
     from ..models.option_validator import OptionValidator
+    from ..models.option_visible_if import OptionVisibleIf
     from ..models.storage_folder_config import StorageFolderConfig
 
 
@@ -20,7 +23,7 @@ T = TypeVar("T", bound="OptionField")
 
 @_attrs_define
 class OptionField:
-    """
+    r"""
     Attributes:
         type_ (OptionFieldTypeEnum):
         label (str):
@@ -32,9 +35,18 @@ class OptionField:
         max_ (Union[Unset, int]):
         cascade_config (Union[Unset, CascadeConfig]):
         component_multiplier_config (Union[Unset, ComponentMultiplierConfig]):
+        component_formula_config (Union[Unset, ComponentFormulaConfig]):
+        component_sum_config (Union[Unset, ComponentSumConfig]):
         storage_folder_config (Union[Unset, StorageFolderConfig]):
         default_configs (Union[Unset, K8SDefaultConfiguration]):
         validators (Union[Unset, list['OptionValidator']]):
+        visible_if (Union[Unset, OptionVisibleIf]):
+        unique (Union[Unset, bool]): The value must not be used by another non-terminated resource of this offering.
+            Only for string, text, integer and select_string options.
+        pattern (Union[Unset, str]): Regular expression the whole value must match. Only for string and text options.
+            Use syntax common to Python and JavaScript, so the order form can check it too; \w, \d, \s and \b match ASCII
+            characters only. Blank means no pattern.
+        pattern_error (Union[Unset, str]): Error shown when the value does not match the pattern.
     """
 
     type_: OptionFieldTypeEnum
@@ -47,9 +59,15 @@ class OptionField:
     max_: Union[Unset, int] = UNSET
     cascade_config: Union[Unset, "CascadeConfig"] = UNSET
     component_multiplier_config: Union[Unset, "ComponentMultiplierConfig"] = UNSET
+    component_formula_config: Union[Unset, "ComponentFormulaConfig"] = UNSET
+    component_sum_config: Union[Unset, "ComponentSumConfig"] = UNSET
     storage_folder_config: Union[Unset, "StorageFolderConfig"] = UNSET
     default_configs: Union[Unset, "K8SDefaultConfiguration"] = UNSET
     validators: Union[Unset, list["OptionValidator"]] = UNSET
+    visible_if: Union[Unset, "OptionVisibleIf"] = UNSET
+    unique: Union[Unset, bool] = UNSET
+    pattern: Union[Unset, str] = UNSET
+    pattern_error: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -79,6 +97,14 @@ class OptionField:
         if not isinstance(self.component_multiplier_config, Unset):
             component_multiplier_config = self.component_multiplier_config.to_dict()
 
+        component_formula_config: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.component_formula_config, Unset):
+            component_formula_config = self.component_formula_config.to_dict()
+
+        component_sum_config: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.component_sum_config, Unset):
+            component_sum_config = self.component_sum_config.to_dict()
+
         storage_folder_config: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.storage_folder_config, Unset):
             storage_folder_config = self.storage_folder_config.to_dict()
@@ -93,6 +119,16 @@ class OptionField:
             for validators_item_data in self.validators:
                 validators_item = validators_item_data.to_dict()
                 validators.append(validators_item)
+
+        visible_if: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.visible_if, Unset):
+            visible_if = self.visible_if.to_dict()
+
+        unique = self.unique
+
+        pattern = self.pattern
+
+        pattern_error = self.pattern_error
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -118,21 +154,36 @@ class OptionField:
             field_dict["cascade_config"] = cascade_config
         if component_multiplier_config is not UNSET:
             field_dict["component_multiplier_config"] = component_multiplier_config
+        if component_formula_config is not UNSET:
+            field_dict["component_formula_config"] = component_formula_config
+        if component_sum_config is not UNSET:
+            field_dict["component_sum_config"] = component_sum_config
         if storage_folder_config is not UNSET:
             field_dict["storage_folder_config"] = storage_folder_config
         if default_configs is not UNSET:
             field_dict["default_configs"] = default_configs
         if validators is not UNSET:
             field_dict["validators"] = validators
+        if visible_if is not UNSET:
+            field_dict["visible_if"] = visible_if
+        if unique is not UNSET:
+            field_dict["unique"] = unique
+        if pattern is not UNSET:
+            field_dict["pattern"] = pattern
+        if pattern_error is not UNSET:
+            field_dict["pattern_error"] = pattern_error
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.cascade_config import CascadeConfig
+        from ..models.component_formula_config import ComponentFormulaConfig
         from ..models.component_multiplier_config import ComponentMultiplierConfig
+        from ..models.component_sum_config import ComponentSumConfig
         from ..models.k8s_default_configuration import K8SDefaultConfiguration
         from ..models.option_validator import OptionValidator
+        from ..models.option_visible_if import OptionVisibleIf
         from ..models.storage_folder_config import StorageFolderConfig
 
         d = dict(src_dict)
@@ -166,6 +217,20 @@ class OptionField:
         else:
             component_multiplier_config = ComponentMultiplierConfig.from_dict(_component_multiplier_config)
 
+        _component_formula_config = d.pop("component_formula_config", UNSET)
+        component_formula_config: Union[Unset, ComponentFormulaConfig]
+        if isinstance(_component_formula_config, Unset):
+            component_formula_config = UNSET
+        else:
+            component_formula_config = ComponentFormulaConfig.from_dict(_component_formula_config)
+
+        _component_sum_config = d.pop("component_sum_config", UNSET)
+        component_sum_config: Union[Unset, ComponentSumConfig]
+        if isinstance(_component_sum_config, Unset):
+            component_sum_config = UNSET
+        else:
+            component_sum_config = ComponentSumConfig.from_dict(_component_sum_config)
+
         _storage_folder_config = d.pop("storage_folder_config", UNSET)
         storage_folder_config: Union[Unset, StorageFolderConfig]
         if isinstance(_storage_folder_config, Unset):
@@ -187,6 +252,19 @@ class OptionField:
 
             validators.append(validators_item)
 
+        _visible_if = d.pop("visible_if", UNSET)
+        visible_if: Union[Unset, OptionVisibleIf]
+        if isinstance(_visible_if, Unset):
+            visible_if = UNSET
+        else:
+            visible_if = OptionVisibleIf.from_dict(_visible_if)
+
+        unique = d.pop("unique", UNSET)
+
+        pattern = d.pop("pattern", UNSET)
+
+        pattern_error = d.pop("pattern_error", UNSET)
+
         option_field = cls(
             type_=type_,
             label=label,
@@ -198,9 +276,15 @@ class OptionField:
             max_=max_,
             cascade_config=cascade_config,
             component_multiplier_config=component_multiplier_config,
+            component_formula_config=component_formula_config,
+            component_sum_config=component_sum_config,
             storage_folder_config=storage_folder_config,
             default_configs=default_configs,
             validators=validators,
+            visible_if=visible_if,
+            unique=unique,
+            pattern=pattern,
+            pattern_error=pattern_error,
         )
 
         option_field.additional_properties = d

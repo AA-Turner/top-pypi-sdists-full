@@ -2173,9 +2173,14 @@ def parse(
             line = lines[lineno - 1]
             # shlex.shlex(line) removes comments that start with #. This doesn't affect multiline commands
             try:
-                sa = shlex.shlex(line)
-                sa.whitespace_split = True
-                lexer = list(sa)
+                # Without quotes, escapes, or comment characters, str.split tokenizes
+                # the same as shlex with whitespace_split=True, at a fraction of the cost.
+                if '"' in line or "'" in line or "\\" in line or "#" in line:
+                    sa = shlex.shlex(line)
+                    sa.whitespace_split = True
+                    lexer = list(sa)
+                else:
+                    lexer = line.split()
             except ValueError:
                 sa = shlex.shlex(shlex.quote(line))
                 sa.whitespace_split = True

@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -60,7 +63,7 @@ class RibbonControl(wx.Control):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=wx.ControlNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, validator: wx.Validator=wx.DefaultValidator, name: str=...) -> None:
         ...
 
     @overload
@@ -94,11 +97,11 @@ class RibbonControl(wx.Control):
         """
 
     @overload
-    def GetNextSmallerSize(self, direction: wx.Orientation, relative_to: wx.Size) -> wx.Size:
+    def GetNextSmallerSize(self, direction: Union[wx.Orientation, int], relative_to: Union[wx.Size, _TwoInts]) -> wx.Size:
         ...
 
     @overload
-    def GetNextSmallerSize(self, direction: wx.Orientation) -> wx.Size:
+    def GetNextSmallerSize(self, direction: Union[wx.Orientation, int]) -> wx.Size:
         """
         GetNextSmallerSize(direction) -> wx.Size
         GetNextSmallerSize(direction, relative_to) -> wx.Size
@@ -108,11 +111,11 @@ class RibbonControl(wx.Control):
         """
 
     @overload
-    def GetNextLargerSize(self, direction: wx.Orientation, relative_to: wx.Size) -> wx.Size:
+    def GetNextLargerSize(self, direction: Union[wx.Orientation, int], relative_to: Union[wx.Size, _TwoInts]) -> wx.Size:
         ...
 
     @overload
-    def GetNextLargerSize(self, direction: wx.Orientation) -> wx.Size:
+    def GetNextLargerSize(self, direction: Union[wx.Orientation, int]) -> wx.Size:
         """
         GetNextLargerSize(direction) -> wx.Size
         GetNextLargerSize(direction, relative_to) -> wx.Size
@@ -144,20 +147,23 @@ class RibbonControl(wx.Control):
         if not having such parent.
         """
 
-    def GetBestSizeForParentSize(self, parentSize: wx.Size) -> wx.Size:
+    def GetBestSizeForParentSize(self, parentSize: Union[wx.Size, _TwoInts]) -> wx.Size:
         """
         GetBestSizeForParentSize(parentSize) -> wx.Size
         
         Finds the best width and height given the parent's width and height.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
+    def DismissKeyTips(self) -> None:
         """
-        CreateAccessible() -> wx.Accessible
+        DismissKeyTips() -> None
+        
+        Leaves the ancestor ribbon bar's keyboard access mode (if it is in
+        it).
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -168,14 +174,14 @@ class RibbonControl(wx.Control):
     @ArtProvider.setter
     def ArtProvider(self, value: RibbonArtProvider, /) -> None: ...
 
-    def DoGetNextSmallerSize(self, direction: wx.Orientation, relative_to: wx.Size) -> wx.Size:
+    def DoGetNextSmallerSize(self, direction: Union[wx.Orientation, int], relative_to: Union[wx.Size, _TwoInts]) -> wx.Size:
         """
         DoGetNextSmallerSize(direction, relative_to) -> wx.Size
         
         Implementation of GetNextSmallerSize().
         """
 
-    def DoGetNextLargerSize(self, direction: wx.Orientation, relative_to: wx.Size) -> wx.Size:
+    def DoGetNextLargerSize(self, direction: Union[wx.Orientation, int], relative_to: Union[wx.Size, _TwoInts]) -> wx.Size:
         """
         DoGetNextLargerSize(direction, relative_to) -> wx.Size
         
@@ -195,7 +201,7 @@ class RibbonPage(RibbonControl):
     """
 
     @overload
-    def __init__(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: wx.BitmapBundle=wx.BitmapBundle(), style: int=0) -> None:
+    def __init__(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), style: int=0) -> None:
         ...
 
     @overload
@@ -207,7 +213,7 @@ class RibbonPage(RibbonControl):
         Container for related ribbon panels, and a tab within a ribbon bar.
         """
 
-    def Create(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: wx.BitmapBundle=wx.BitmapBundle(), style: int=0) -> bool:
+    def Create(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: Union[wx.BitmapBundle, wx.Bitmap, wx.Icon, wx.Image]=wx.BitmapBundle(), style: int=0) -> bool:
         """
         Create(parent, id=wx.ID_ANY, label='', icon=wx.BitmapBundle(), style=0) -> bool
         
@@ -244,7 +250,7 @@ class RibbonPage(RibbonControl):
         Set the size of the page and the external scroll buttons (if any).
         """
 
-    def AdjustRectToIncludeScrollButtons(self, rect: wx.Rect) -> None:
+    def AdjustRectToIncludeScrollButtons(self, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         AdjustRectToIncludeScrollButtons(rect) -> None
         
@@ -315,13 +321,8 @@ class RibbonPage(RibbonControl):
         Get the number of panels in this page.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
-        """
-        CreateAccessible() -> wx.Accessible
-        """
-
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -337,21 +338,22 @@ class RibbonPage(RibbonControl):
 
 #-- end-ribbon_page --#
 #-- begin-ribbon_panel --#
+import wx.siplib
 
-class _RibbonPanelOption(IntEnum):
-    RIBBON_PANEL_NO_AUTO_MINIMISE = auto()
-    RIBBON_PANEL_EXT_BUTTON = auto()
-    RIBBON_PANEL_MINIMISE_BUTTON = auto()
-    RIBBON_PANEL_STRETCH = auto()
-    RIBBON_PANEL_FLEXIBLE = auto()
-    RIBBON_PANEL_DEFAULT_STYLE = auto()
-RibbonPanelOption: TypeAlias = Union[_RibbonPanelOption, int]
-RIBBON_PANEL_NO_AUTO_MINIMISE = _RibbonPanelOption.RIBBON_PANEL_NO_AUTO_MINIMISE
-RIBBON_PANEL_EXT_BUTTON = _RibbonPanelOption.RIBBON_PANEL_EXT_BUTTON
-RIBBON_PANEL_MINIMISE_BUTTON = _RibbonPanelOption.RIBBON_PANEL_MINIMISE_BUTTON
-RIBBON_PANEL_STRETCH = _RibbonPanelOption.RIBBON_PANEL_STRETCH
-RIBBON_PANEL_FLEXIBLE = _RibbonPanelOption.RIBBON_PANEL_FLEXIBLE
-RIBBON_PANEL_DEFAULT_STYLE = _RibbonPanelOption.RIBBON_PANEL_DEFAULT_STYLE
+@final
+class RibbonPanelOption(int, metaclass=wx.siplib.enumtype):
+    RIBBON_PANEL_NO_AUTO_MINIMISE: ClassVar[RibbonPanelOption]
+    RIBBON_PANEL_EXT_BUTTON: ClassVar[RibbonPanelOption]
+    RIBBON_PANEL_MINIMISE_BUTTON: ClassVar[RibbonPanelOption]
+    RIBBON_PANEL_STRETCH: ClassVar[RibbonPanelOption]
+    RIBBON_PANEL_FLEXIBLE: ClassVar[RibbonPanelOption]
+    RIBBON_PANEL_DEFAULT_STYLE: ClassVar[RibbonPanelOption]
+RIBBON_PANEL_NO_AUTO_MINIMISE: RibbonPanelOption
+RIBBON_PANEL_EXT_BUTTON: RibbonPanelOption
+RIBBON_PANEL_MINIMISE_BUTTON: RibbonPanelOption
+RIBBON_PANEL_STRETCH: RibbonPanelOption
+RIBBON_PANEL_FLEXIBLE: RibbonPanelOption
+RIBBON_PANEL_DEFAULT_STYLE: RibbonPanelOption
 wxEVT_RIBBONPANEL_EXTBUTTON_ACTIVATED: int
 
 class RibbonPanel(RibbonControl):
@@ -363,7 +365,7 @@ class RibbonPanel(RibbonControl):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', minimised_icon: wx.Bitmap=wx.NullBitmap, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=RIBBON_PANEL_DEFAULT_STYLE) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', minimised_icon: wx.Bitmap=wx.NullBitmap, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=RIBBON_PANEL_DEFAULT_STYLE) -> None:
         ...
 
     @overload
@@ -375,7 +377,7 @@ class RibbonPanel(RibbonControl):
         Serves as a container for a group of (ribbon) controls.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', icon: wx.Bitmap=wx.NullBitmap, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=RIBBON_PANEL_DEFAULT_STYLE) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, label: str='', icon: wx.Bitmap=wx.NullBitmap, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=RIBBON_PANEL_DEFAULT_STYLE) -> bool:
         """
         Create(parent, id=wx.ID_ANY, label='', icon=wx.NullBitmap, pos=wx.DefaultPosition, size=wx.DefaultSize, style=RIBBON_PANEL_DEFAULT_STYLE) -> bool
         
@@ -406,7 +408,7 @@ class RibbonPanel(RibbonControl):
         """
 
     @overload
-    def IsMinimised(self, at_size: wx.Size) -> bool:
+    def IsMinimised(self, at_size: Union[wx.Size, _TwoInts]) -> bool:
         ...
 
     @overload
@@ -481,13 +483,36 @@ class RibbonPanel(RibbonControl):
         Get the expanded panel of a dummy panel.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
+    def SetExtButtonKeyTip(self, keytip: str) -> None:
         """
-        CreateAccessible() -> wx.Accessible
+        SetExtButtonKeyTip(keytip) -> None
+        
+        Assigns the KeyTip used to click this panel's extension button.
+        """
+
+    def GetExtButtonKeyTip(self) -> str:
+        """
+        GetExtButtonKeyTip() -> str
+        
+        Returns the extension button's KeyTip, or an empty string.
+        """
+
+    def SetKeyTip(self, keytip: str) -> None:
+        """
+        SetKeyTip(keytip) -> None
+        
+        Assigns the KeyTip used to expand this panel while it is minimised.
+        """
+
+    def GetKeyTip(self) -> str:
+        """
+        GetKeyTip() -> str
+        
+        Returns the panel's own KeyTip, or an empty string.
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -495,6 +520,14 @@ class RibbonPanel(RibbonControl):
     def ExpandedDummy(self) -> RibbonPanel: ...
     @property
     def ExpandedPanel(self) -> RibbonPanel: ...
+    @property
+    def ExtButtonKeyTip(self) -> str: ...
+    @ExtButtonKeyTip.setter
+    def ExtButtonKeyTip(self, value: str, /) -> None: ...
+    @property
+    def KeyTip(self) -> str: ...
+    @KeyTip.setter
+    def KeyTip(self, value: str, /) -> None: ...
     @property
     def MinimisedIcon(self) -> wx.Bitmap: ...
     @property
@@ -504,14 +537,14 @@ class RibbonPanel(RibbonControl):
 
 class RibbonPanelEvent(wx.CommandEvent):
     """
-    RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=nullptr) -> None
+    RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=None) -> None
     
     Event used to indicate various actions relating to a wxRibbonPanel.
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, panel: RibbonPanel=nullptr) -> None:
+    def __init__(self, command_type: int=wx.wxEVT_NULL, win_id: int=0, panel: Optional[RibbonPanel]=None) -> None:
         """
-        RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=nullptr) -> None
+        RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=None) -> None
         
         Event used to indicate various actions relating to a wxRibbonPanel.
         """
@@ -536,43 +569,44 @@ class RibbonPanelEvent(wx.CommandEvent):
 # end of class RibbonPanelEvent
 
 
-EVT_RIBBONPANEL_EXTBUTTON_ACTIVATED = wx.PyEventBinder(wxEVT_RIBBONPANEL_EXTBUTTON_ACTIVATED, 1)
+EVT_RIBBONPANEL_EXTBUTTON_ACTIVATED: wx.PyEventBinder[RibbonPanelEvent]
 #-- end-ribbon_panel --#
 #-- begin-ribbon_bar --#
+import wx.siplib
 
-class _RibbonBarOption(IntEnum):
-    RIBBON_BAR_SHOW_PAGE_LABELS = auto()
-    RIBBON_BAR_SHOW_PAGE_ICONS = auto()
-    RIBBON_BAR_FLOW_HORIZONTAL = auto()
-    RIBBON_BAR_FLOW_VERTICAL = auto()
-    RIBBON_BAR_SHOW_PANEL_EXT_BUTTONS = auto()
-    RIBBON_BAR_SHOW_PANEL_MINIMISE_BUTTONS = auto()
-    RIBBON_BAR_ALWAYS_SHOW_TABS = auto()
-    RIBBON_BAR_SHOW_TOGGLE_BUTTON = auto()
-    RIBBON_BAR_SHOW_HELP_BUTTON = auto()
-    RIBBON_BAR_DEFAULT_STYLE = auto()
-    RIBBON_BAR_FOLDBAR_STYLE = auto()
-RibbonBarOption: TypeAlias = Union[_RibbonBarOption, int]
-RIBBON_BAR_SHOW_PAGE_LABELS = _RibbonBarOption.RIBBON_BAR_SHOW_PAGE_LABELS
-RIBBON_BAR_SHOW_PAGE_ICONS = _RibbonBarOption.RIBBON_BAR_SHOW_PAGE_ICONS
-RIBBON_BAR_FLOW_HORIZONTAL = _RibbonBarOption.RIBBON_BAR_FLOW_HORIZONTAL
-RIBBON_BAR_FLOW_VERTICAL = _RibbonBarOption.RIBBON_BAR_FLOW_VERTICAL
-RIBBON_BAR_SHOW_PANEL_EXT_BUTTONS = _RibbonBarOption.RIBBON_BAR_SHOW_PANEL_EXT_BUTTONS
-RIBBON_BAR_SHOW_PANEL_MINIMISE_BUTTONS = _RibbonBarOption.RIBBON_BAR_SHOW_PANEL_MINIMISE_BUTTONS
-RIBBON_BAR_ALWAYS_SHOW_TABS = _RibbonBarOption.RIBBON_BAR_ALWAYS_SHOW_TABS
-RIBBON_BAR_SHOW_TOGGLE_BUTTON = _RibbonBarOption.RIBBON_BAR_SHOW_TOGGLE_BUTTON
-RIBBON_BAR_SHOW_HELP_BUTTON = _RibbonBarOption.RIBBON_BAR_SHOW_HELP_BUTTON
-RIBBON_BAR_DEFAULT_STYLE = _RibbonBarOption.RIBBON_BAR_DEFAULT_STYLE
-RIBBON_BAR_FOLDBAR_STYLE = _RibbonBarOption.RIBBON_BAR_FOLDBAR_STYLE
+@final
+class RibbonBarOption(int, metaclass=wx.siplib.enumtype):
+    RIBBON_BAR_SHOW_PAGE_LABELS: ClassVar[RibbonBarOption]
+    RIBBON_BAR_SHOW_PAGE_ICONS: ClassVar[RibbonBarOption]
+    RIBBON_BAR_FLOW_HORIZONTAL: ClassVar[RibbonBarOption]
+    RIBBON_BAR_FLOW_VERTICAL: ClassVar[RibbonBarOption]
+    RIBBON_BAR_SHOW_PANEL_EXT_BUTTONS: ClassVar[RibbonBarOption]
+    RIBBON_BAR_SHOW_PANEL_MINIMISE_BUTTONS: ClassVar[RibbonBarOption]
+    RIBBON_BAR_ALWAYS_SHOW_TABS: ClassVar[RibbonBarOption]
+    RIBBON_BAR_SHOW_TOGGLE_BUTTON: ClassVar[RibbonBarOption]
+    RIBBON_BAR_SHOW_HELP_BUTTON: ClassVar[RibbonBarOption]
+    RIBBON_BAR_DEFAULT_STYLE: ClassVar[RibbonBarOption]
+    RIBBON_BAR_FOLDBAR_STYLE: ClassVar[RibbonBarOption]
+RIBBON_BAR_SHOW_PAGE_LABELS: RibbonBarOption
+RIBBON_BAR_SHOW_PAGE_ICONS: RibbonBarOption
+RIBBON_BAR_FLOW_HORIZONTAL: RibbonBarOption
+RIBBON_BAR_FLOW_VERTICAL: RibbonBarOption
+RIBBON_BAR_SHOW_PANEL_EXT_BUTTONS: RibbonBarOption
+RIBBON_BAR_SHOW_PANEL_MINIMISE_BUTTONS: RibbonBarOption
+RIBBON_BAR_ALWAYS_SHOW_TABS: RibbonBarOption
+RIBBON_BAR_SHOW_TOGGLE_BUTTON: RibbonBarOption
+RIBBON_BAR_SHOW_HELP_BUTTON: RibbonBarOption
+RIBBON_BAR_DEFAULT_STYLE: RibbonBarOption
+RIBBON_BAR_FOLDBAR_STYLE: RibbonBarOption
 
-class _RibbonDisplayMode(IntEnum):
-    RIBBON_BAR_PINNED = auto()
-    RIBBON_BAR_MINIMIZED = auto()
-    RIBBON_BAR_EXPANDED = auto()
-RibbonDisplayMode: TypeAlias = Union[_RibbonDisplayMode, int]
-RIBBON_BAR_PINNED = _RibbonDisplayMode.RIBBON_BAR_PINNED
-RIBBON_BAR_MINIMIZED = _RibbonDisplayMode.RIBBON_BAR_MINIMIZED
-RIBBON_BAR_EXPANDED = _RibbonDisplayMode.RIBBON_BAR_EXPANDED
+@final
+class RibbonDisplayMode(int, metaclass=wx.siplib.enumtype):
+    RIBBON_BAR_PINNED: ClassVar[RibbonDisplayMode]
+    RIBBON_BAR_MINIMIZED: ClassVar[RibbonDisplayMode]
+    RIBBON_BAR_EXPANDED: ClassVar[RibbonDisplayMode]
+RIBBON_BAR_PINNED: RibbonDisplayMode
+RIBBON_BAR_MINIMIZED: RibbonDisplayMode
+RIBBON_BAR_EXPANDED: RibbonDisplayMode
 wxEVT_RIBBONBAR_PAGE_CHANGED: int
 wxEVT_RIBBONBAR_PAGE_CHANGING: int
 wxEVT_RIBBONBAR_TAB_MIDDLE_DOWN: int
@@ -585,14 +619,14 @@ wxEVT_RIBBONBAR_HELP_CLICK: int
 
 class RibbonBarEvent(wx.NotifyEvent):
     """
-    RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=nullptr) -> None
+    RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=None) -> None
     
     Event used to indicate various actions relating to a wxRibbonBar.
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, page: RibbonPage=nullptr) -> None:
+    def __init__(self, command_type: int=wx.wxEVT_NULL, win_id: int=0, page: Optional[RibbonPage]=None) -> None:
         """
-        RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=nullptr) -> None
+        RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=None) -> None
         
         Event used to indicate various actions relating to a wxRibbonBar.
         """
@@ -617,7 +651,7 @@ class RibbonBarEvent(wx.NotifyEvent):
 # end of class RibbonBarEvent
 
 
-class RibbonPageTabInfo:
+class RibbonPageTabInfo(wx.siplib.wrapper):
     """
     
     """
@@ -631,6 +665,7 @@ class RibbonPageTabInfo:
     hovered: bool
     highlight: bool
     shown: bool
+    keytip: str
 # end of class RibbonPageTabInfo
 
 
@@ -642,8 +677,17 @@ class RibbonBar(RibbonControl):
     Top-level control in a ribbon user interface.
     """
 
+    class TriggerKey(wx.siplib.wrapper):
+        """
+        A key combination which shows the KeyTips.
+        """
+        keyCode: int
+        modifiers: int
+    # end of class TriggerKey
+
+
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=RIBBON_BAR_DEFAULT_STYLE) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=RIBBON_BAR_DEFAULT_STYLE) -> None:
         ...
 
     @overload
@@ -655,7 +699,7 @@ class RibbonBar(RibbonControl):
         Top-level control in a ribbon user interface.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=RIBBON_BAR_DEFAULT_STYLE) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=RIBBON_BAR_DEFAULT_STYLE) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=RIBBON_BAR_DEFAULT_STYLE) -> bool
         
@@ -794,7 +838,7 @@ class RibbonBar(RibbonControl):
         ...
 
     @overload
-    def ShowPanels(self, mode: RibbonDisplayMode) -> None:
+    def ShowPanels(self, mode: Union[RibbonDisplayMode, int]) -> None:
         """
         ShowPanels(mode) -> None
         ShowPanels(show=True) -> None
@@ -824,6 +868,70 @@ class RibbonBar(RibbonControl):
         Returns the current display mode of the panel area.
         """
 
+    def SetBackstagePage(self, page: RibbonPage) -> None:
+        """
+        SetBackstagePage(page) -> None
+        
+        Sets the page that acts as the "File" tab of the backstage.
+        """
+
+    def GetBackstagePage(self) -> RibbonPage:
+        """
+        GetBackstagePage() -> RibbonPage
+        
+        Returns the page that acts as the File tab, or nullptr if there is
+        none.
+        """
+
+    def ShowBackstage(self, show: bool=True) -> None:
+        """
+        ShowBackstage(show=True) -> None
+        
+        Shows or hides the backstage.
+        """
+
+    def IsBackstageShown(self) -> bool:
+        """
+        IsBackstageShown() -> bool
+        
+        Returns true if the backstage is currently shown.
+        """
+
+    def StyleBackstageTab(self, style: bool=True) -> None:
+        """
+        StyleBackstageTab(style=True) -> None
+        
+        Sets whether the File tab is drawn in an accent colour.
+        """
+
+    def IsBackstageTabStyled(self) -> bool:
+        """
+        IsBackstageTabStyled() -> bool
+        
+        Returns true if the File tab is drawn in an accent colour.
+        """
+
+    def SetBackstageTabColour(self, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
+        """
+        SetBackstageTabColour(colour) -> None
+        
+        Sets the colour of the File tab when it is styled.
+        """
+
+    def GetBackstageTabColour(self) -> wx.Colour:
+        """
+        GetBackstageTabColour() -> wx.Colour
+        
+        Returns the colour of the File tab when it is styled.
+        """
+
+    def UpdateBackstageColours(self) -> None:
+        """
+        UpdateBackstageColours() -> None
+        
+        Applies the art provider's colours to the backstage.
+        """
+
     def HasMultiplePages(self) -> bool:
         """
         HasMultiplePages() -> bool
@@ -838,7 +946,7 @@ class RibbonBar(RibbonControl):
         Hide the panels if its display mode is wxRIBBON_BAR_EXPANDED.
         """
 
-    def GetButtonImageList(self, size: wx.Size, initialCount: int=1) -> wx.ImageList:
+    def GetButtonImageList(self, size: Union[wx.Size, _TwoInts], initialCount: int=1) -> wx.ImageList:
         """
         GetButtonImageList(size, initialCount=1) -> wx.ImageList
         
@@ -854,297 +962,387 @@ class RibbonBar(RibbonControl):
         children.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
+    @overload
+    def SetPageKeyTip(self, page: RibbonPage, keytip: str) -> None:
+        ...
+
+    @overload
+    def SetPageKeyTip(self, page: int, keytip: str) -> None:
         """
-        CreateAccessible() -> wx.Accessible
+        SetPageKeyTip(page, keytip) -> None
+        SetPageKeyTip(page, keytip) -> None
+        
+        Assigns the KeyTip used to switch to the given page.
+        """
+
+    def SetToggleButtonKeyTip(self, keytip: str) -> None:
+        """
+        SetToggleButtonKeyTip(keytip) -> None
+        
+        Assigns the KeyTip used to activate the panel toggle button.
+        """
+
+    def SetHelpButtonKeyTip(self, keytip: str) -> None:
+        """
+        SetHelpButtonKeyTip(keytip) -> None
+        
+        Assigns the KeyTip used to activate the help button.
+        """
+
+    def ShowKeyTips(self) -> bool:
+        """
+        ShowKeyTips() -> bool
+        
+        Enters keyboard access mode and shows the KeyTip badges.
+        """
+
+    def HideKeyTips(self) -> None:
+        """
+        HideKeyTips() -> None
+        
+        Leaves keyboard access mode and hides the KeyTip badges.
+        """
+
+    def AreKeyTipsShown(self) -> bool:
+        """
+        AreKeyTipsShown() -> bool
+        
+        Returns true if keyboard access mode is currently active.
+        """
+
+    def SetKeyTipsTriggerKey(self, keyCode: int, modifiers: int=wx.MOD_NONE) -> None:
+        """
+        SetKeyTipsTriggerKey(keyCode, modifiers=wx.MOD_NONE) -> None
+        
+        Makes keyCode with modifiers the only key which shows KeyTips.
+        """
+
+    def AddKeyTipsTriggerKey(self, keyCode: int, modifiers: int=wx.MOD_NONE) -> None:
+        """
+        AddKeyTipsTriggerKey(keyCode, modifiers=wx.MOD_NONE) -> None
+        
+        Adds another key which shows KeyTips, keeping the existing ones.
+        """
+
+    def ClearKeyTipsTriggerKeys(self) -> None:
+        """
+        ClearKeyTipsTriggerKeys() -> None
+        
+        Removes all trigger keys, disabling keyboard access mode.
+        """
+
+    def GetKeyTipsTriggerKeys(self) -> List[RibbonBar.TriggerKey]:
+        """
+        GetKeyTipsTriggerKeys() -> List[RibbonBar.TriggerKey]
+        
+        Returns the keys which show KeyTips.
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
     def ActivePage(self) -> int: ...
     @ActivePage.setter
-    def ActivePage(self, value: int, /) -> None: ...
+    def ActivePage(self, value: Union[int, RibbonPage], /) -> None: ...
+    @property
+    def BackstagePage(self) -> RibbonPage: ...
+    @BackstagePage.setter
+    def BackstagePage(self, value: RibbonPage, /) -> None: ...
+    @property
+    def BackstageTabColour(self) -> wx.Colour: ...
+    @BackstageTabColour.setter
+    def BackstageTabColour(self, value: Union[wx.Colour, _ThreeInts, _FourInts, str, None], /) -> None: ...
     @property
     def DisplayMode(self) -> RibbonDisplayMode: ...
+    @property
+    def KeyTipsTriggerKeys(self) -> List[RibbonBar.TriggerKey]: ...
     @property
     def PageCount(self) -> int: ...
 # end of class RibbonBar
 
 
-EVT_RIBBONBAR_PAGE_CHANGED    = wx.PyEventBinder(wxEVT_RIBBONBAR_PAGE_CHANGED, 1)
-EVT_RIBBONBAR_PAGE_CHANGING   = wx.PyEventBinder(wxEVT_RIBBONBAR_PAGE_CHANGING,1)
-EVT_RIBBONBAR_TAB_MIDDLE_DOWN = wx.PyEventBinder(wxEVT_RIBBONBAR_TAB_MIDDLE_DOWN, 1)
-EVT_RIBBONBAR_TAB_MIDDLE_UP   = wx.PyEventBinder(wxEVT_RIBBONBAR_TAB_MIDDLE_UP, 1)
-EVT_RIBBONBAR_TAB_RIGHT_DOWN  = wx.PyEventBinder(wxEVT_RIBBONBAR_TAB_RIGHT_DOWN, 1)
-EVT_RIBBONBAR_TAB_RIGHT_UP    = wx.PyEventBinder(wxEVT_RIBBONBAR_TAB_RIGHT_UP, 1)
-EVT_RIBBONBAR_TAB_LEFT_DCLICK = wx.PyEventBinder(wxEVT_RIBBONBAR_TAB_LEFT_DCLICK, 1)
-EVT_RIBBONBAR_TOGGLED         = wx.PyEventBinder(wxEVT_RIBBONBAR_TOGGLED, 1)
-EVT_RIBBONBAR_HELP_CLICK      = wx.PyEventBinder(wxEVT_RIBBONBAR_HELP_CLICK, 1)
+EVT_RIBBONBAR_PAGE_CHANGED: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_PAGE_CHANGING: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_TAB_MIDDLE_DOWN: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_TAB_MIDDLE_UP: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_TAB_RIGHT_DOWN: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_TAB_RIGHT_UP: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_TAB_LEFT_DCLICK: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_TOGGLED: wx.PyEventBinder[RibbonBarEvent]
+EVT_RIBBONBAR_HELP_CLICK: wx.PyEventBinder[RibbonBarEvent]
+
+class RibbonPageTabInfoArray(wx.siplib.wrapper):
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int, /) -> RibbonPageTabInfo: ...
+    def __contains__(self, obj: RibbonPageTabInfo, /) -> bool: ...
+    def __iter__(self) -> Iterator[RibbonPageTabInfo]: ...
+    def index(self, obj: RibbonPageTabInfo) -> int: ...
+    def append(self, obj: RibbonPageTabInfo) -> None: ...
 #-- end-ribbon_bar --#
 #-- begin-ribbon_art --#
+import wx.siplib
 
-class _RibbonArtSetting(IntEnum):
-    RIBBON_ART_TAB_SEPARATION_SIZE = auto()
-    RIBBON_ART_PAGE_BORDER_LEFT_SIZE = auto()
-    RIBBON_ART_PAGE_BORDER_TOP_SIZE = auto()
-    RIBBON_ART_PAGE_BORDER_RIGHT_SIZE = auto()
-    RIBBON_ART_PAGE_BORDER_BOTTOM_SIZE = auto()
-    RIBBON_ART_PANEL_X_SEPARATION_SIZE = auto()
-    RIBBON_ART_PANEL_Y_SEPARATION_SIZE = auto()
-    RIBBON_ART_TOOL_GROUP_SEPARATION_SIZE = auto()
-    RIBBON_ART_GALLERY_BITMAP_PADDING_LEFT_SIZE = auto()
-    RIBBON_ART_GALLERY_BITMAP_PADDING_RIGHT_SIZE = auto()
-    RIBBON_ART_GALLERY_BITMAP_PADDING_TOP_SIZE = auto()
-    RIBBON_ART_GALLERY_BITMAP_PADDING_BOTTOM_SIZE = auto()
-    RIBBON_ART_PANEL_LABEL_FONT = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_FONT = auto()
-    RIBBON_ART_TAB_LABEL_FONT = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_DISABLED_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_HOVER_BORDER_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_ACTIVE_BORDER_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_GALLERY_BORDER_COLOUR = auto()
-    RIBBON_ART_GALLERY_HOVER_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_FACE_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_HOVER_FACE_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_ACTIVE_FACE_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_GALLERY_BUTTON_DISABLED_FACE_COLOUR = auto()
-    RIBBON_ART_GALLERY_ITEM_BORDER_COLOUR = auto()
-    RIBBON_ART_TAB_LABEL_COLOUR = auto()
-    RIBBON_ART_TAB_ACTIVE_LABEL_COLOUR = auto()
-    RIBBON_ART_TAB_HOVER_LABEL_COLOUR = auto()
-    RIBBON_ART_TAB_SEPARATOR_COLOUR = auto()
-    RIBBON_ART_TAB_SEPARATOR_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TAB_CTRL_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_TAB_CTRL_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TAB_HOVER_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_TAB_HOVER_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TAB_ACTIVE_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_TAB_ACTIVE_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TAB_BORDER_COLOUR = auto()
-    RIBBON_ART_PANEL_BORDER_COLOUR = auto()
-    RIBBON_ART_PANEL_BORDER_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PANEL_HOVER_BORDER_COLOUR = auto()
-    RIBBON_ART_PANEL_HOVER_BORDER_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PANEL_MINIMISED_BORDER_COLOUR = auto()
-    RIBBON_ART_PANEL_MINIMISED_BORDER_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PANEL_LABEL_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_PANEL_LABEL_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PANEL_LABEL_COLOUR = auto()
-    RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PANEL_HOVER_LABEL_COLOUR = auto()
-    RIBBON_ART_PANEL_MINIMISED_LABEL_COLOUR = auto()
-    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PAGE_BORDER_COLOUR = auto()
-    RIBBON_ART_PAGE_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_PAGE_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PAGE_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_PAGE_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_PAGE_HOVER_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_PAGE_HOVER_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TOOLBAR_BORDER_COLOUR = auto()
-    RIBBON_ART_TOOLBAR_HOVER_BORDER_COLOUR = auto()
-    RIBBON_ART_TOOLBAR_FACE_COLOUR = auto()
-    RIBBON_ART_TOOL_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_TOOL_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TOOL_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_TOOL_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TOOL_HOVER_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_TOOL_HOVER_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_COLOUR = auto()
-    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = auto()
-    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_COLOUR = auto()
-    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_GRADIENT_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_TOP_COLOUR = auto()
-    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_TOP_COLOUR = auto()
-RibbonArtSetting: TypeAlias = Union[_RibbonArtSetting, int]
-RIBBON_ART_TAB_SEPARATION_SIZE = _RibbonArtSetting.RIBBON_ART_TAB_SEPARATION_SIZE
-RIBBON_ART_PAGE_BORDER_LEFT_SIZE = _RibbonArtSetting.RIBBON_ART_PAGE_BORDER_LEFT_SIZE
-RIBBON_ART_PAGE_BORDER_TOP_SIZE = _RibbonArtSetting.RIBBON_ART_PAGE_BORDER_TOP_SIZE
-RIBBON_ART_PAGE_BORDER_RIGHT_SIZE = _RibbonArtSetting.RIBBON_ART_PAGE_BORDER_RIGHT_SIZE
-RIBBON_ART_PAGE_BORDER_BOTTOM_SIZE = _RibbonArtSetting.RIBBON_ART_PAGE_BORDER_BOTTOM_SIZE
-RIBBON_ART_PANEL_X_SEPARATION_SIZE = _RibbonArtSetting.RIBBON_ART_PANEL_X_SEPARATION_SIZE
-RIBBON_ART_PANEL_Y_SEPARATION_SIZE = _RibbonArtSetting.RIBBON_ART_PANEL_Y_SEPARATION_SIZE
-RIBBON_ART_TOOL_GROUP_SEPARATION_SIZE = _RibbonArtSetting.RIBBON_ART_TOOL_GROUP_SEPARATION_SIZE
-RIBBON_ART_GALLERY_BITMAP_PADDING_LEFT_SIZE = _RibbonArtSetting.RIBBON_ART_GALLERY_BITMAP_PADDING_LEFT_SIZE
-RIBBON_ART_GALLERY_BITMAP_PADDING_RIGHT_SIZE = _RibbonArtSetting.RIBBON_ART_GALLERY_BITMAP_PADDING_RIGHT_SIZE
-RIBBON_ART_GALLERY_BITMAP_PADDING_TOP_SIZE = _RibbonArtSetting.RIBBON_ART_GALLERY_BITMAP_PADDING_TOP_SIZE
-RIBBON_ART_GALLERY_BITMAP_PADDING_BOTTOM_SIZE = _RibbonArtSetting.RIBBON_ART_GALLERY_BITMAP_PADDING_BOTTOM_SIZE
-RIBBON_ART_PANEL_LABEL_FONT = _RibbonArtSetting.RIBBON_ART_PANEL_LABEL_FONT
-RIBBON_ART_BUTTON_BAR_LABEL_FONT = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_FONT
-RIBBON_ART_TAB_LABEL_FONT = _RibbonArtSetting.RIBBON_ART_TAB_LABEL_FONT
-RIBBON_ART_BUTTON_BAR_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_COLOUR
-RIBBON_ART_BUTTON_BAR_LABEL_DISABLED_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_DISABLED_COLOUR
-RIBBON_ART_BUTTON_BAR_HOVER_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_HOVER_BORDER_COLOUR
-RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_COLOUR
-RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_COLOUR
-RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_BUTTON_BAR_ACTIVE_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_ACTIVE_BORDER_COLOUR
-RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_COLOUR
-RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_COLOUR
-RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_GALLERY_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BORDER_COLOUR
-RIBBON_ART_GALLERY_HOVER_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_HOVER_BACKGROUND_COLOUR
-RIBBON_ART_GALLERY_BUTTON_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_BACKGROUND_COLOUR
-RIBBON_ART_GALLERY_BUTTON_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_GALLERY_BUTTON_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_BACKGROUND_TOP_COLOUR
-RIBBON_ART_GALLERY_BUTTON_FACE_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_FACE_COLOUR
-RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_COLOUR
-RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_TOP_COLOUR
-RIBBON_ART_GALLERY_BUTTON_HOVER_FACE_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_HOVER_FACE_COLOUR
-RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_COLOUR
-RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_TOP_COLOUR
-RIBBON_ART_GALLERY_BUTTON_ACTIVE_FACE_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_ACTIVE_FACE_COLOUR
-RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_COLOUR
-RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_TOP_COLOUR
-RIBBON_ART_GALLERY_BUTTON_DISABLED_FACE_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_BUTTON_DISABLED_FACE_COLOUR
-RIBBON_ART_GALLERY_ITEM_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_GALLERY_ITEM_BORDER_COLOUR
-RIBBON_ART_TAB_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_LABEL_COLOUR
-RIBBON_ART_TAB_ACTIVE_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_ACTIVE_LABEL_COLOUR
-RIBBON_ART_TAB_HOVER_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_HOVER_LABEL_COLOUR
-RIBBON_ART_TAB_SEPARATOR_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_SEPARATOR_COLOUR
-RIBBON_ART_TAB_SEPARATOR_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_SEPARATOR_GRADIENT_COLOUR
-RIBBON_ART_TAB_CTRL_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_CTRL_BACKGROUND_COLOUR
-RIBBON_ART_TAB_CTRL_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_CTRL_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_COLOUR
-RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_TAB_HOVER_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_HOVER_BACKGROUND_COLOUR
-RIBBON_ART_TAB_HOVER_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_HOVER_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_COLOUR
-RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_TAB_ACTIVE_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_ACTIVE_BACKGROUND_COLOUR
-RIBBON_ART_TAB_ACTIVE_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_ACTIVE_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_TAB_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_TAB_BORDER_COLOUR
-RIBBON_ART_PANEL_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_BORDER_COLOUR
-RIBBON_ART_PANEL_BORDER_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_BORDER_GRADIENT_COLOUR
-RIBBON_ART_PANEL_HOVER_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_HOVER_BORDER_COLOUR
-RIBBON_ART_PANEL_HOVER_BORDER_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_HOVER_BORDER_GRADIENT_COLOUR
-RIBBON_ART_PANEL_MINIMISED_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_MINIMISED_BORDER_COLOUR
-RIBBON_ART_PANEL_MINIMISED_BORDER_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_MINIMISED_BORDER_GRADIENT_COLOUR
-RIBBON_ART_PANEL_LABEL_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_LABEL_BACKGROUND_COLOUR
-RIBBON_ART_PANEL_LABEL_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_LABEL_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_PANEL_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_LABEL_COLOUR
-RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_COLOUR
-RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_PANEL_HOVER_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_HOVER_LABEL_COLOUR
-RIBBON_ART_PANEL_MINIMISED_LABEL_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_MINIMISED_LABEL_COLOUR
-RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_COLOUR
-RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_PANEL_ACTIVE_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_ACTIVE_BACKGROUND_COLOUR
-RIBBON_ART_PANEL_ACTIVE_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PANEL_ACTIVE_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_PAGE_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_BORDER_COLOUR
-RIBBON_ART_PAGE_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_BACKGROUND_TOP_COLOUR
-RIBBON_ART_PAGE_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_PAGE_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_BACKGROUND_COLOUR
-RIBBON_ART_PAGE_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_COLOUR
-RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_PAGE_HOVER_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_HOVER_BACKGROUND_COLOUR
-RIBBON_ART_PAGE_HOVER_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_PAGE_HOVER_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_TOOLBAR_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOLBAR_BORDER_COLOUR
-RIBBON_ART_TOOLBAR_HOVER_BORDER_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOLBAR_HOVER_BORDER_COLOUR
-RIBBON_ART_TOOLBAR_FACE_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOLBAR_FACE_COLOUR
-RIBBON_ART_TOOL_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_BACKGROUND_TOP_COLOUR
-RIBBON_ART_TOOL_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_TOOL_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_BACKGROUND_COLOUR
-RIBBON_ART_TOOL_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_COLOUR
-RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_TOOL_HOVER_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_HOVER_BACKGROUND_COLOUR
-RIBBON_ART_TOOL_HOVER_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_HOVER_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_COLOUR
-RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR
-RIBBON_ART_TOOL_ACTIVE_BACKGROUND_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_ACTIVE_BACKGROUND_COLOUR
-RIBBON_ART_TOOL_ACTIVE_BACKGROUND_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_TOOL_ACTIVE_BACKGROUND_GRADIENT_COLOUR
-RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_COLOUR
-RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_COLOUR
-RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_TOP_COLOUR
-RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_TOP_COLOUR = _RibbonArtSetting.RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_TOP_COLOUR
+@final
+class RibbonArtSetting(int, metaclass=wx.siplib.enumtype):
+    RIBBON_ART_TAB_SEPARATION_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BORDER_LEFT_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BORDER_TOP_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BORDER_RIGHT_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BORDER_BOTTOM_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_X_SEPARATION_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_Y_SEPARATION_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_GROUP_SEPARATION_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BITMAP_PADDING_LEFT_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BITMAP_PADDING_RIGHT_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BITMAP_PADDING_TOP_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BITMAP_PADDING_BOTTOM_SIZE: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_LABEL_FONT: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_FONT: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_LABEL_FONT: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_DISABLED_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_HOVER_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_ACTIVE_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_HOVER_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_FACE_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_HOVER_FACE_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_ACTIVE_FACE_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_BUTTON_DISABLED_FACE_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_GALLERY_ITEM_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_ACTIVE_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_HOVER_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_SEPARATOR_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_SEPARATOR_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_CTRL_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_CTRL_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_HOVER_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_HOVER_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_ACTIVE_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_ACTIVE_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TAB_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_BORDER_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_HOVER_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_HOVER_BORDER_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_MINIMISED_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_MINIMISED_BORDER_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_LABEL_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_LABEL_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_HOVER_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_MINIMISED_LABEL_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PANEL_ACTIVE_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_HOVER_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_PAGE_HOVER_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOLBAR_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOLBAR_HOVER_BORDER_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOLBAR_FACE_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_HOVER_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_HOVER_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_TOOL_ACTIVE_BACKGROUND_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_TOP_COLOUR: ClassVar[RibbonArtSetting]
+    RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_TOP_COLOUR: ClassVar[RibbonArtSetting]
+RIBBON_ART_TAB_SEPARATION_SIZE: RibbonArtSetting
+RIBBON_ART_PAGE_BORDER_LEFT_SIZE: RibbonArtSetting
+RIBBON_ART_PAGE_BORDER_TOP_SIZE: RibbonArtSetting
+RIBBON_ART_PAGE_BORDER_RIGHT_SIZE: RibbonArtSetting
+RIBBON_ART_PAGE_BORDER_BOTTOM_SIZE: RibbonArtSetting
+RIBBON_ART_PANEL_X_SEPARATION_SIZE: RibbonArtSetting
+RIBBON_ART_PANEL_Y_SEPARATION_SIZE: RibbonArtSetting
+RIBBON_ART_TOOL_GROUP_SEPARATION_SIZE: RibbonArtSetting
+RIBBON_ART_GALLERY_BITMAP_PADDING_LEFT_SIZE: RibbonArtSetting
+RIBBON_ART_GALLERY_BITMAP_PADDING_RIGHT_SIZE: RibbonArtSetting
+RIBBON_ART_GALLERY_BITMAP_PADDING_TOP_SIZE: RibbonArtSetting
+RIBBON_ART_GALLERY_BITMAP_PADDING_BOTTOM_SIZE: RibbonArtSetting
+RIBBON_ART_PANEL_LABEL_FONT: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_FONT: RibbonArtSetting
+RIBBON_ART_TAB_LABEL_FONT: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_DISABLED_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_HOVER_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_HOVER_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_ACTIVE_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_ACTIVE_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_HOVER_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_FACE_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_HOVER_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_HOVER_FACE_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_ACTIVE_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_ACTIVE_FACE_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_DISABLED_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_BUTTON_DISABLED_FACE_COLOUR: RibbonArtSetting
+RIBBON_ART_GALLERY_ITEM_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_ACTIVE_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_HOVER_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_SEPARATOR_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_SEPARATOR_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_CTRL_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_CTRL_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_HOVER_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_HOVER_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_ACTIVE_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_ACTIVE_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TAB_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_BORDER_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_HOVER_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_HOVER_BORDER_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_MINIMISED_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_MINIMISED_BORDER_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_LABEL_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_LABEL_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_HOVER_LABEL_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_HOVER_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_MINIMISED_LABEL_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_ACTIVE_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_PANEL_ACTIVE_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_HOVER_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_PAGE_HOVER_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOLBAR_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOLBAR_HOVER_BORDER_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOLBAR_FACE_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_HOVER_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_HOVER_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_HOVER_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_ACTIVE_BACKGROUND_TOP_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_ACTIVE_BACKGROUND_COLOUR: RibbonArtSetting
+RIBBON_ART_TOOL_ACTIVE_BACKGROUND_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_TOP_COLOUR: RibbonArtSetting
+RIBBON_ART_BUTTON_BAR_LABEL_HIGHLIGHT_GRADIENT_TOP_COLOUR: RibbonArtSetting
 
-class _RibbonScrollButtonStyle(IntEnum):
-    RIBBON_SCROLL_BTN_LEFT = auto()
-    RIBBON_SCROLL_BTN_RIGHT = auto()
-    RIBBON_SCROLL_BTN_UP = auto()
-    RIBBON_SCROLL_BTN_DOWN = auto()
-    RIBBON_SCROLL_BTN_DIRECTION_MASK = auto()
-    RIBBON_SCROLL_BTN_NORMAL = auto()
-    RIBBON_SCROLL_BTN_HOVERED = auto()
-    RIBBON_SCROLL_BTN_ACTIVE = auto()
-    RIBBON_SCROLL_BTN_STATE_MASK = auto()
-    RIBBON_SCROLL_BTN_FOR_OTHER = auto()
-    RIBBON_SCROLL_BTN_FOR_TABS = auto()
-    RIBBON_SCROLL_BTN_FOR_PAGE = auto()
-    RIBBON_SCROLL_BTN_FOR_MASK = auto()
-RibbonScrollButtonStyle: TypeAlias = Union[_RibbonScrollButtonStyle, int]
-RIBBON_SCROLL_BTN_LEFT = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_LEFT
-RIBBON_SCROLL_BTN_RIGHT = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_RIGHT
-RIBBON_SCROLL_BTN_UP = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_UP
-RIBBON_SCROLL_BTN_DOWN = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_DOWN
-RIBBON_SCROLL_BTN_DIRECTION_MASK = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_DIRECTION_MASK
-RIBBON_SCROLL_BTN_NORMAL = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_NORMAL
-RIBBON_SCROLL_BTN_HOVERED = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_HOVERED
-RIBBON_SCROLL_BTN_ACTIVE = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_ACTIVE
-RIBBON_SCROLL_BTN_STATE_MASK = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_STATE_MASK
-RIBBON_SCROLL_BTN_FOR_OTHER = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_FOR_OTHER
-RIBBON_SCROLL_BTN_FOR_TABS = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_FOR_TABS
-RIBBON_SCROLL_BTN_FOR_PAGE = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_FOR_PAGE
-RIBBON_SCROLL_BTN_FOR_MASK = _RibbonScrollButtonStyle.RIBBON_SCROLL_BTN_FOR_MASK
+@final
+class RibbonScrollButtonStyle(int, metaclass=wx.siplib.enumtype):
+    RIBBON_SCROLL_BTN_LEFT: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_RIGHT: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_UP: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_DOWN: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_DIRECTION_MASK: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_NORMAL: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_HOVERED: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_ACTIVE: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_STATE_MASK: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_FOR_OTHER: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_FOR_TABS: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_FOR_PAGE: ClassVar[RibbonScrollButtonStyle]
+    RIBBON_SCROLL_BTN_FOR_MASK: ClassVar[RibbonScrollButtonStyle]
+RIBBON_SCROLL_BTN_LEFT: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_RIGHT: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_UP: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_DOWN: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_DIRECTION_MASK: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_NORMAL: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_HOVERED: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_ACTIVE: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_STATE_MASK: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_FOR_OTHER: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_FOR_TABS: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_FOR_PAGE: RibbonScrollButtonStyle
+RIBBON_SCROLL_BTN_FOR_MASK: RibbonScrollButtonStyle
 
-class _RibbonButtonKind(IntEnum):
-    RIBBON_BUTTON_NORMAL = auto()
-    RIBBON_BUTTON_DROPDOWN = auto()
-    RIBBON_BUTTON_HYBRID = auto()
-    RIBBON_BUTTON_TOGGLE = auto()
-RibbonButtonKind: TypeAlias = Union[_RibbonButtonKind, int]
-RIBBON_BUTTON_NORMAL = _RibbonButtonKind.RIBBON_BUTTON_NORMAL
-RIBBON_BUTTON_DROPDOWN = _RibbonButtonKind.RIBBON_BUTTON_DROPDOWN
-RIBBON_BUTTON_HYBRID = _RibbonButtonKind.RIBBON_BUTTON_HYBRID
-RIBBON_BUTTON_TOGGLE = _RibbonButtonKind.RIBBON_BUTTON_TOGGLE
+@final
+class RibbonButtonKind(int, metaclass=wx.siplib.enumtype):
+    RIBBON_BUTTON_NORMAL: ClassVar[RibbonButtonKind]
+    RIBBON_BUTTON_DROPDOWN: ClassVar[RibbonButtonKind]
+    RIBBON_BUTTON_HYBRID: ClassVar[RibbonButtonKind]
+    RIBBON_BUTTON_TOGGLE: ClassVar[RibbonButtonKind]
+RIBBON_BUTTON_NORMAL: RibbonButtonKind
+RIBBON_BUTTON_DROPDOWN: RibbonButtonKind
+RIBBON_BUTTON_HYBRID: RibbonButtonKind
+RIBBON_BUTTON_TOGGLE: RibbonButtonKind
 
-class RibbonArtProvider:
+class RibbonArtProvider(wx.siplib.wrapper):
     """
     RibbonArtProvider() -> None
     
@@ -1216,7 +1414,7 @@ class RibbonArtProvider:
         Get the value of a certain colour setting.
         """
 
-    def SetColour(self, id: int, colour: wx.Colour) -> None:
+    def SetColour(self, id: int, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetColour(id, colour) -> None
         
@@ -1228,7 +1426,7 @@ class RibbonArtProvider:
         GetColor(id) -> wx.Colour
         """
 
-    def SetColor(self, id: int, color: wx.Colour) -> None:
+    def SetColor(self, id: int, color: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetColor(id, color) -> None
         """
@@ -1240,7 +1438,7 @@ class RibbonArtProvider:
         Get the current colour scheme.
         """
 
-    def SetColourScheme(self, primary: wx.Colour, secondary: wx.Colour, tertiary: wx.Colour) -> None:
+    def SetColourScheme(self, primary: Union[wx.Colour, _ThreeInts, _FourInts, str, None], secondary: Union[wx.Colour, _ThreeInts, _FourInts, str, None], tertiary: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
         """
         SetColourScheme(primary, secondary, tertiary) -> None
         
@@ -1255,7 +1453,7 @@ class RibbonArtProvider:
         update its colours.
         """
 
-    def DrawTabCtrlBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
+    def DrawTabCtrlBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawTabCtrlBackground(dc, wnd, rect) -> None
         
@@ -1269,102 +1467,109 @@ class RibbonArtProvider:
         Draw a single tab in the tab region of a ribbon bar.
         """
 
-    def DrawTabSeparator(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, visibility: float) -> None:
+    def DrawTabSeparator(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], visibility: float) -> None:
         """
         DrawTabSeparator(dc, wnd, rect, visibility) -> None
         
         Draw a separator between two tabs in a ribbon bar.
         """
 
-    def DrawPageBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
+    def DrawPageBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawPageBackground(dc, wnd, rect) -> None
         
         Draw the background of a ribbon page.
         """
 
-    def DrawScrollButton(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, style: int) -> None:
+    def DrawScrollButton(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], style: int) -> None:
         """
         DrawScrollButton(dc, wnd, rect, style) -> None
         
         Draw a ribbon-style scroll button.
         """
 
-    def DrawPanelBackground(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect) -> None:
+    def DrawPanelBackground(self, dc: wx.DC, wnd: RibbonPanel, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawPanelBackground(dc, wnd, rect) -> None
         
         Draw the background and chrome for a ribbon panel.
         """
 
-    def DrawGalleryBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: wx.Rect) -> None:
+    def DrawGalleryBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawGalleryBackground(dc, wnd, rect) -> None
         
         Draw the background and chrome for a wxRibbonGallery control.
         """
 
-    def DrawGalleryItemBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: wx.Rect, item: RibbonGalleryItem) -> None:
+    def DrawGalleryItemBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: Union[wx.Rect, _FourInts], item: RibbonGalleryItem) -> None:
         """
         DrawGalleryItemBackground(dc, wnd, rect, item) -> None
         
         Draw the background of a single item in a wxRibbonGallery control.
         """
 
-    def DrawMinimisedPanel(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect, bitmap: wx.Bitmap) -> None:
+    def DrawMinimisedPanel(self, dc: wx.DC, wnd: RibbonPanel, rect: Union[wx.Rect, _FourInts], bitmap: wx.Bitmap) -> None:
         """
         DrawMinimisedPanel(dc, wnd, rect, bitmap) -> None
         
         Draw a minimised ribbon panel.
         """
 
-    def DrawButtonBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
+    def DrawButtonBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawButtonBarBackground(dc, wnd, rect) -> None
         
         Draw the background for a wxRibbonButtonBar control.
         """
 
-    def DrawButtonBarButton(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, kind: RibbonButtonKind, state: int, label: str, bitmap_large: wx.Bitmap, bitmap_small: wx.Bitmap) -> None:
+    def DrawButtonBarButton(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], kind: Union[RibbonButtonKind, int], state: int, label: str, bitmap_large: wx.Bitmap, bitmap_small: wx.Bitmap) -> None:
         """
         DrawButtonBarButton(dc, wnd, rect, kind, state, label, bitmap_large, bitmap_small) -> None
         
         Draw a single button for a wxRibbonButtonBar control.
         """
 
-    def DrawToolBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
+    def DrawToolBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawToolBarBackground(dc, wnd, rect) -> None
         
         Draw the background for a wxRibbonToolBar control.
         """
 
-    def DrawToolGroupBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
+    def DrawToolGroupBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawToolGroupBackground(dc, wnd, rect) -> None
         
         Draw the background for a group of tools on a wxRibbonToolBar control.
         """
 
-    def DrawTool(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, bitmap: wx.Bitmap, kind: RibbonButtonKind, state: int) -> None:
+    def DrawTool(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], bitmap: wx.Bitmap, kind: Union[RibbonButtonKind, int], state: int) -> None:
         """
         DrawTool(dc, wnd, rect, bitmap, kind, state) -> None
         
         Draw a single tool (for a wxRibbonToolBar control).
         """
 
-    def DrawToggleButton(self, dc: wx.DC, wnd: RibbonBar, rect: wx.Rect, mode: RibbonDisplayMode) -> None:
+    def DrawToggleButton(self, dc: wx.DC, wnd: RibbonBar, rect: Union[wx.Rect, _FourInts], mode: Union[RibbonDisplayMode, int]) -> None:
         """
         DrawToggleButton(dc, wnd, rect, mode) -> None
         
         Draw toggle button on wxRibbonBar.
         """
 
-    def DrawHelpButton(self, dc: wx.DC, wnd: RibbonBar, rect: wx.Rect) -> None:
+    def DrawHelpButton(self, dc: wx.DC, wnd: RibbonBar, rect: Union[wx.Rect, _FourInts]) -> None:
         """
         DrawHelpButton(dc, wnd, rect) -> None
         
         Draw help button on wxRibbonBar.
+        """
+
+    def DrawKeyTip(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], keytip: str) -> bool:
+        """
+        DrawKeyTip(dc, wnd, rect, keytip) -> bool
+        
+        Draw a KeyTip badge over a ribbon element in keyboard access mode.
         """
 
     def GetBarTabWidth(self, dc: wx.ReadOnlyDC, wnd: wx.Window, label: str, bitmap: wx.Bitmap, ideal: int, small_begin_need_separator: int, small_must_have_separator: int, minimum: int) -> None:
@@ -1389,28 +1594,28 @@ class RibbonArtProvider:
         Calculate the minimum size (in pixels) of a scroll button.
         """
 
-    def GetPanelSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, client_size: wx.Size, client_offset: wx.Point) -> wx.Size:
+    def GetPanelSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, client_size: Union[wx.Size, _TwoInts], client_offset: Union[wx.Point, _TwoInts]) -> wx.Size:
         """
         GetPanelSize(dc, wnd, client_size, client_offset) -> wx.Size
         
         Calculate the size of a panel for a given client size.
         """
 
-    def GetPanelClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, size: wx.Size, client_offset: wx.Point) -> wx.Size:
+    def GetPanelClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, size: Union[wx.Size, _TwoInts], client_offset: Union[wx.Point, _TwoInts]) -> wx.Size:
         """
         GetPanelClientSize(dc, wnd, size, client_offset) -> wx.Size
         
         Calculate the client size of a panel for a given overall size.
         """
 
-    def GetPanelExtButtonArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, rect: wx.Rect) -> wx.Rect:
+    def GetPanelExtButtonArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, rect: Union[wx.Rect, _FourInts]) -> wx.Rect:
         """
         GetPanelExtButtonArea(dc, wnd, rect) -> wx.Rect
         
         Calculate the position and size of the panel extension button.
         """
 
-    def GetGallerySize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, client_size: wx.Size) -> wx.Size:
+    def GetGallerySize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, client_size: Union[wx.Size, _TwoInts]) -> wx.Size:
         """
         GetGallerySize(dc, wnd, client_size) -> wx.Size
         
@@ -1418,7 +1623,7 @@ class RibbonArtProvider:
         size.
         """
 
-    def GetGalleryClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, size: wx.Size, client_offset: wx.Point, scroll_up_button: wx.Rect, scroll_down_button: wx.Rect, extension_button: wx.Rect) -> wx.Size:
+    def GetGalleryClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, size: Union[wx.Size, _TwoInts], client_offset: Union[wx.Point, _TwoInts], scroll_up_button: Union[wx.Rect, _FourInts], scroll_down_button: Union[wx.Rect, _FourInts], extension_button: Union[wx.Rect, _FourInts]) -> wx.Size:
         """
         GetGalleryClientSize(dc, wnd, size, client_offset, scroll_up_button, scroll_down_button, extension_button) -> wx.Size
         
@@ -1426,7 +1631,7 @@ class RibbonArtProvider:
         size.
         """
 
-    def GetPageBackgroundRedrawArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPage, page_old_size: wx.Size, page_new_size: wx.Size) -> wx.Rect:
+    def GetPageBackgroundRedrawArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPage, page_old_size: Union[wx.Size, _TwoInts], page_new_size: Union[wx.Size, _TwoInts]) -> wx.Rect:
         """
         GetPageBackgroundRedrawArea(dc, wnd, page_old_size, page_new_size) -> wx.Rect
         
@@ -1434,14 +1639,14 @@ class RibbonArtProvider:
         when a page is resized.
         """
 
-    def GetButtonBarButtonSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, kind: RibbonButtonKind, size: RibbonButtonBarButtonState, label: str, text_min_width: int, bitmap_size_large: wx.Size, bitmap_size_small: wx.Size, button_size: wx.Size, normal_region: wx.Rect, dropdown_region: wx.Rect) -> bool:
+    def GetButtonBarButtonSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, kind: Union[RibbonButtonKind, int], size: Union[RibbonButtonBarButtonState, int], label: str, text_min_width: int, bitmap_size_large: Union[wx.Size, _TwoInts], bitmap_size_small: Union[wx.Size, _TwoInts], button_size: Union[wx.Size, _TwoInts], normal_region: Union[wx.Rect, _FourInts], dropdown_region: Union[wx.Rect, _FourInts]) -> bool:
         """
         GetButtonBarButtonSize(dc, wnd, kind, size, label, text_min_width, bitmap_size_large, bitmap_size_small, button_size, normal_region, dropdown_region) -> bool
         
         Calculate the size of a button within a wxRibbonButtonBar.
         """
 
-    def GetButtonBarButtonTextWidth(self, dc: wx.ReadOnlyDC, label: str, kind: RibbonButtonKind, size: RibbonButtonBarButtonState) -> int:
+    def GetButtonBarButtonTextWidth(self, dc: wx.ReadOnlyDC, label: str, kind: Union[RibbonButtonKind, int], size: Union[RibbonButtonBarButtonState, int]) -> int:
         """
         GetButtonBarButtonTextWidth(dc, label, kind, size) -> int
         
@@ -1449,28 +1654,28 @@ class RibbonArtProvider:
         button label.
         """
 
-    def GetMinimisedPanelMinimumSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, desired_bitmap_size: wx.Size, expanded_panel_direction: wx.Direction) -> wx.Size:
+    def GetMinimisedPanelMinimumSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, desired_bitmap_size: Union[wx.Size, _TwoInts], expanded_panel_direction: Union[wx.Direction, int]) -> wx.Size:
         """
         GetMinimisedPanelMinimumSize(dc, wnd, desired_bitmap_size, expanded_panel_direction) -> wx.Size
         
         Calculate the size of a minimised ribbon panel.
         """
 
-    def GetToolSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, bitmap_size: wx.Size, kind: RibbonButtonKind, is_first: bool, is_last: bool, dropdown_region: wx.Rect) -> wx.Size:
+    def GetToolSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, bitmap_size: Union[wx.Size, _TwoInts], kind: Union[RibbonButtonKind, int], is_first: bool, is_last: bool, dropdown_region: Union[wx.Rect, _FourInts]) -> wx.Size:
         """
         GetToolSize(dc, wnd, bitmap_size, kind, is_first, is_last, dropdown_region) -> wx.Size
         
         Calculate the size of a tool within a wxRibbonToolBar.
         """
 
-    def GetBarToggleButtonArea(self, rect: wx.Rect) -> wx.Rect:
+    def GetBarToggleButtonArea(self, rect: Union[wx.Rect, _FourInts]) -> wx.Rect:
         """
         GetBarToggleButtonArea(rect) -> wx.Rect
         
         Calculate the position and size of the ribbon's toggle button.
         """
 
-    def GetRibbonHelpButtonArea(self, rect: wx.Rect) -> wx.Rect:
+    def GetRibbonHelpButtonArea(self, rect: Union[wx.Rect, _FourInts]) -> wx.Rect:
         """
         GetRibbonHelpButtonArea(rect) -> wx.Rect
         
@@ -1500,6 +1705,302 @@ class RibbonMSWArtProvider(RibbonArtProvider):
         appearance of Microsoft Office 2007 and the Windows Vista / Aero
         visual style.
         """
+
+    def SetFlags(self, flags: int) -> None:
+        """
+        SetFlags(flags) -> None
+        
+        Set the style flags.
+        """
+
+    def GetFlags(self) -> int:
+        """
+        GetFlags() -> int
+        
+        Get the previously set style flags.
+        """
+
+    def GetMetric(self, id: int) -> int:
+        """
+        GetMetric(id) -> int
+        
+        Get the value of a certain integer setting.
+        """
+
+    def SetMetric(self, id: int, new_val: int) -> None:
+        """
+        SetMetric(id, new_val) -> None
+        
+        Set the value of a certain integer setting to the value new_val.
+        """
+
+    def SetFont(self, id: int, font: wx.Font) -> None:
+        """
+        SetFont(id, font) -> None
+        
+        Set the value of a certain font setting to the value font.
+        """
+
+    def GetFont(self, id: int) -> wx.Font:
+        """
+        GetFont(id) -> wx.Font
+        
+        Get the value of a certain font setting.
+        """
+
+    def GetColour(self, id: int) -> wx.Colour:
+        """
+        GetColour(id) -> wx.Colour
+        
+        Get the value of a certain colour setting.
+        """
+
+    def SetColour(self, id: int, colour: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
+        """
+        SetColour(id, colour) -> None
+        
+        Set the value of a certain colour setting to the value colour.
+        """
+
+    def GetColourScheme(self) -> Tuple[wx.Colour, wx.Colour, wx.Colour]:
+        """
+        GetColourScheme() -> Tuple[wx.Colour, wx.Colour, wx.Colour]
+        
+        Get the current colour scheme.
+        """
+
+    def SetColourScheme(self, primary: Union[wx.Colour, _ThreeInts, _FourInts, str, None], secondary: Union[wx.Colour, _ThreeInts, _FourInts, str, None], tertiary: Union[wx.Colour, _ThreeInts, _FourInts, str, None]) -> None:
+        """
+        SetColourScheme(primary, secondary, tertiary) -> None
+        
+        Set all applicable colour settings from a few base colours.
+        """
+
+    def DrawTabCtrlBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawTabCtrlBackground(dc, wnd, rect) -> None
+        
+        Draw the background of the tab region of a ribbon bar.
+        """
+
+    def DrawTab(self, dc: wx.DC, wnd: wx.Window, tab: RibbonPageTabInfo) -> None:
+        """
+        DrawTab(dc, wnd, tab) -> None
+        
+        Draw a single tab in the tab region of a ribbon bar.
+        """
+
+    def DrawTabSeparator(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], visibility: float) -> None:
+        """
+        DrawTabSeparator(dc, wnd, rect, visibility) -> None
+        
+        Draw a separator between two tabs in a ribbon bar.
+        """
+
+    def DrawPageBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawPageBackground(dc, wnd, rect) -> None
+        
+        Draw the background of a ribbon page.
+        """
+
+    def DrawScrollButton(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], style: int) -> None:
+        """
+        DrawScrollButton(dc, wnd, rect, style) -> None
+        
+        Draw a ribbon-style scroll button.
+        """
+
+    def DrawPanelBackground(self, dc: wx.DC, wnd: RibbonPanel, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawPanelBackground(dc, wnd, rect) -> None
+        
+        Draw the background and chrome for a ribbon panel.
+        """
+
+    def DrawGalleryBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawGalleryBackground(dc, wnd, rect) -> None
+        
+        Draw the background and chrome for a wxRibbonGallery control.
+        """
+
+    def DrawGalleryItemBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: Union[wx.Rect, _FourInts], item: RibbonGalleryItem) -> None:
+        """
+        DrawGalleryItemBackground(dc, wnd, rect, item) -> None
+        
+        Draw the background of a single item in a wxRibbonGallery control.
+        """
+
+    def DrawMinimisedPanel(self, dc: wx.DC, wnd: RibbonPanel, rect: Union[wx.Rect, _FourInts], bitmap: wx.Bitmap) -> None:
+        """
+        DrawMinimisedPanel(dc, wnd, rect, bitmap) -> None
+        
+        Draw a minimised ribbon panel.
+        """
+
+    def DrawButtonBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawButtonBarBackground(dc, wnd, rect) -> None
+        
+        Draw the background for a wxRibbonButtonBar control.
+        """
+
+    def DrawButtonBarButton(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], kind: Union[RibbonButtonKind, int], state: int, label: str, bitmap_large: wx.Bitmap, bitmap_small: wx.Bitmap) -> None:
+        """
+        DrawButtonBarButton(dc, wnd, rect, kind, state, label, bitmap_large, bitmap_small) -> None
+        
+        Draw a single button for a wxRibbonButtonBar control.
+        """
+
+    def DrawToolBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawToolBarBackground(dc, wnd, rect) -> None
+        
+        Draw the background for a wxRibbonToolBar control.
+        """
+
+    def DrawToolGroupBackground(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawToolGroupBackground(dc, wnd, rect) -> None
+        
+        Draw the background for a group of tools on a wxRibbonToolBar control.
+        """
+
+    def DrawTool(self, dc: wx.DC, wnd: wx.Window, rect: Union[wx.Rect, _FourInts], bitmap: wx.Bitmap, kind: Union[RibbonButtonKind, int], state: int) -> None:
+        """
+        DrawTool(dc, wnd, rect, bitmap, kind, state) -> None
+        
+        Draw a single tool (for a wxRibbonToolBar control).
+        """
+
+    def DrawToggleButton(self, dc: wx.DC, wnd: RibbonBar, rect: Union[wx.Rect, _FourInts], mode: Union[RibbonDisplayMode, int]) -> None:
+        """
+        DrawToggleButton(dc, wnd, rect, mode) -> None
+        
+        Draw toggle button on wxRibbonBar.
+        """
+
+    def DrawHelpButton(self, dc: wx.DC, wnd: RibbonBar, rect: Union[wx.Rect, _FourInts]) -> None:
+        """
+        DrawHelpButton(dc, wnd, rect) -> None
+        
+        Draw help button on wxRibbonBar.
+        """
+
+    def GetBarTabWidth(self, dc: wx.ReadOnlyDC, wnd: wx.Window, label: str, bitmap: wx.Bitmap, ideal: int, small_begin_need_separator: int, small_must_have_separator: int, minimum: int) -> None:
+        """
+        GetBarTabWidth(dc, wnd, label, bitmap, ideal, small_begin_need_separator, small_must_have_separator, minimum) -> None
+        
+        Calculate the ideal and minimum width (in pixels) of a tab in a ribbon
+        bar.
+        """
+
+    def GetTabCtrlHeight(self, dc: wx.ReadOnlyDC, wnd: wx.Window, pages: RibbonPageTabInfoArray) -> int:
+        """
+        GetTabCtrlHeight(dc, wnd, pages) -> int
+        
+        Calculate the height (in pixels) of the tab region of a ribbon bar.
+        """
+
+    def GetScrollButtonMinimumSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, style: int) -> wx.Size:
+        """
+        GetScrollButtonMinimumSize(dc, wnd, style) -> wx.Size
+        
+        Calculate the minimum size (in pixels) of a scroll button.
+        """
+
+    def GetPanelSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, client_size: Union[wx.Size, _TwoInts], client_offset: Union[wx.Point, _TwoInts]) -> wx.Size:
+        """
+        GetPanelSize(dc, wnd, client_size, client_offset) -> wx.Size
+        
+        Calculate the size of a panel for a given client size.
+        """
+
+    def GetPanelClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, size: Union[wx.Size, _TwoInts], client_offset: Union[wx.Point, _TwoInts]) -> wx.Size:
+        """
+        GetPanelClientSize(dc, wnd, size, client_offset) -> wx.Size
+        
+        Calculate the client size of a panel for a given overall size.
+        """
+
+    def GetPanelExtButtonArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, rect: Union[wx.Rect, _FourInts]) -> wx.Rect:
+        """
+        GetPanelExtButtonArea(dc, wnd, rect) -> wx.Rect
+        
+        Calculate the position and size of the panel extension button.
+        """
+
+    def GetGallerySize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, client_size: Union[wx.Size, _TwoInts]) -> wx.Size:
+        """
+        GetGallerySize(dc, wnd, client_size) -> wx.Size
+        
+        Calculate the size of a wxRibbonGallery control for a given client
+        size.
+        """
+
+    def GetGalleryClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, size: Union[wx.Size, _TwoInts], client_offset: Union[wx.Point, _TwoInts], scroll_up_button: Union[wx.Rect, _FourInts], scroll_down_button: Union[wx.Rect, _FourInts], extension_button: Union[wx.Rect, _FourInts]) -> wx.Size:
+        """
+        GetGalleryClientSize(dc, wnd, size, client_offset, scroll_up_button, scroll_down_button, extension_button) -> wx.Size
+        
+        Calculate the client size of a wxRibbonGallery control for a given
+        size.
+        """
+
+    def GetPageBackgroundRedrawArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPage, page_old_size: Union[wx.Size, _TwoInts], page_new_size: Union[wx.Size, _TwoInts]) -> wx.Rect:
+        """
+        GetPageBackgroundRedrawArea(dc, wnd, page_old_size, page_new_size) -> wx.Rect
+        
+        Calculate the portion of a page background which needs to be redrawn
+        when a page is resized.
+        """
+
+    def GetButtonBarButtonSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, kind: Union[RibbonButtonKind, int], size: Union[RibbonButtonBarButtonState, int], label: str, text_min_width: int, bitmap_size_large: Union[wx.Size, _TwoInts], bitmap_size_small: Union[wx.Size, _TwoInts], button_size: Union[wx.Size, _TwoInts], normal_region: Union[wx.Rect, _FourInts], dropdown_region: Union[wx.Rect, _FourInts]) -> bool:
+        """
+        GetButtonBarButtonSize(dc, wnd, kind, size, label, text_min_width, bitmap_size_large, bitmap_size_small, button_size, normal_region, dropdown_region) -> bool
+        
+        Calculate the size of a button within a wxRibbonButtonBar.
+        """
+
+    def GetButtonBarButtonTextWidth(self, dc: wx.ReadOnlyDC, label: str, kind: Union[RibbonButtonKind, int], size: Union[RibbonButtonBarButtonState, int]) -> int:
+        """
+        GetButtonBarButtonTextWidth(dc, label, kind, size) -> int
+        
+        Gets the width of the string if it is used as a wxRibbonButtonBar
+        button label.
+        """
+
+    def GetMinimisedPanelMinimumSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, desired_bitmap_size: Union[wx.Size, _TwoInts], expanded_panel_direction: Union[wx.Direction, int]) -> wx.Size:
+        """
+        GetMinimisedPanelMinimumSize(dc, wnd, desired_bitmap_size, expanded_panel_direction) -> wx.Size
+        
+        Calculate the size of a minimised ribbon panel.
+        """
+
+    def GetToolSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, bitmap_size: Union[wx.Size, _TwoInts], kind: Union[RibbonButtonKind, int], is_first: bool, is_last: bool, dropdown_region: Union[wx.Rect, _FourInts]) -> wx.Size:
+        """
+        GetToolSize(dc, wnd, bitmap_size, kind, is_first, is_last, dropdown_region) -> wx.Size
+        
+        Calculate the size of a tool within a wxRibbonToolBar.
+        """
+
+    def GetBarToggleButtonArea(self, rect: Union[wx.Rect, _FourInts]) -> wx.Rect:
+        """
+        GetBarToggleButtonArea(rect) -> wx.Rect
+        
+        Calculate the position and size of the ribbon's toggle button.
+        """
+
+    def GetRibbonHelpButtonArea(self, rect: Union[wx.Rect, _FourInts]) -> wx.Rect:
+        """
+        GetRibbonHelpButtonArea(rect) -> wx.Rect
+        
+        Calculate the position and size of the ribbon's help button.
+        """
+    @property
+    def Flags(self) -> int: ...
+    @Flags.setter
+    def Flags(self, value: int, /) -> None: ...
 # end of class RibbonMSWArtProvider
 
 
@@ -1525,35 +2026,39 @@ else:
     RibbonDefaultArtProvider = RibbonAUIArtProvider
 #-- end-ribbon_art --#
 #-- begin-ribbon_buttonbar --#
+import wx.siplib
 
-class _RibbonButtonBarButtonState(IntEnum):
-    RIBBON_BUTTONBAR_BUTTON_SMALL = auto()
-    RIBBON_BUTTONBAR_BUTTON_MEDIUM = auto()
-    RIBBON_BUTTONBAR_BUTTON_LARGE = auto()
-    RIBBON_BUTTONBAR_BUTTON_SIZE_MASK = auto()
-    RIBBON_BUTTONBAR_BUTTON_NORMAL_HOVERED = auto()
-    RIBBON_BUTTONBAR_BUTTON_DROPDOWN_HOVERED = auto()
-    RIBBON_BUTTONBAR_BUTTON_HOVER_MASK = auto()
-    RIBBON_BUTTONBAR_BUTTON_NORMAL_ACTIVE = auto()
-    RIBBON_BUTTONBAR_BUTTON_DROPDOWN_ACTIVE = auto()
-    RIBBON_BUTTONBAR_BUTTON_ACTIVE_MASK = auto()
-    RIBBON_BUTTONBAR_BUTTON_DISABLED = auto()
-    RIBBON_BUTTONBAR_BUTTON_TOGGLED = auto()
-    RIBBON_BUTTONBAR_BUTTON_STATE_MASK = auto()
-RibbonButtonBarButtonState: TypeAlias = Union[_RibbonButtonBarButtonState, int]
-RIBBON_BUTTONBAR_BUTTON_SMALL = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_SMALL
-RIBBON_BUTTONBAR_BUTTON_MEDIUM = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_MEDIUM
-RIBBON_BUTTONBAR_BUTTON_LARGE = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_LARGE
-RIBBON_BUTTONBAR_BUTTON_SIZE_MASK = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_SIZE_MASK
-RIBBON_BUTTONBAR_BUTTON_NORMAL_HOVERED = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_NORMAL_HOVERED
-RIBBON_BUTTONBAR_BUTTON_DROPDOWN_HOVERED = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_DROPDOWN_HOVERED
-RIBBON_BUTTONBAR_BUTTON_HOVER_MASK = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_HOVER_MASK
-RIBBON_BUTTONBAR_BUTTON_NORMAL_ACTIVE = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_NORMAL_ACTIVE
-RIBBON_BUTTONBAR_BUTTON_DROPDOWN_ACTIVE = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_DROPDOWN_ACTIVE
-RIBBON_BUTTONBAR_BUTTON_ACTIVE_MASK = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_ACTIVE_MASK
-RIBBON_BUTTONBAR_BUTTON_DISABLED = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_DISABLED
-RIBBON_BUTTONBAR_BUTTON_TOGGLED = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_TOGGLED
-RIBBON_BUTTONBAR_BUTTON_STATE_MASK = _RibbonButtonBarButtonState.RIBBON_BUTTONBAR_BUTTON_STATE_MASK
+class RibbonButtonBarButtonBase(wx.siplib.wrapper):
+    pass
+
+@final
+class RibbonButtonBarButtonState(int, metaclass=wx.siplib.enumtype):
+    RIBBON_BUTTONBAR_BUTTON_SMALL: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_MEDIUM: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_LARGE: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_SIZE_MASK: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_NORMAL_HOVERED: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_DROPDOWN_HOVERED: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_HOVER_MASK: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_NORMAL_ACTIVE: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_DROPDOWN_ACTIVE: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_ACTIVE_MASK: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_DISABLED: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_TOGGLED: ClassVar[RibbonButtonBarButtonState]
+    RIBBON_BUTTONBAR_BUTTON_STATE_MASK: ClassVar[RibbonButtonBarButtonState]
+RIBBON_BUTTONBAR_BUTTON_SMALL: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_MEDIUM: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_LARGE: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_SIZE_MASK: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_NORMAL_HOVERED: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_DROPDOWN_HOVERED: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_HOVER_MASK: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_NORMAL_ACTIVE: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_DROPDOWN_ACTIVE: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_ACTIVE_MASK: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_DISABLED: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_TOGGLED: RibbonButtonBarButtonState
+RIBBON_BUTTONBAR_BUTTON_STATE_MASK: RibbonButtonBarButtonState
 wxEVT_RIBBONBUTTONBAR_CLICKED: int
 wxEVT_RIBBONBUTTONBAR_DROPDOWN_CLICKED: int
 
@@ -1566,7 +2071,7 @@ class RibbonButtonBar(RibbonControl):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0) -> None:
         ...
 
     @overload
@@ -1578,7 +2083,7 @@ class RibbonButtonBar(RibbonControl):
         A ribbon button bar is similar to a traditional toolbar.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0) -> bool
         
@@ -1586,11 +2091,11 @@ class RibbonButtonBar(RibbonControl):
         """
 
     @overload
-    def AddButton(self, button_id: int, label: str, bitmap: wx.Bitmap, bitmap_small: wx.Bitmap=wx.NullBitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, bitmap_small_disabled: wx.Bitmap=wx.NullBitmap, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, help_string: str='') -> RibbonButtonBarButtonBase:
+    def AddButton(self, button_id: int, label: str, bitmap: wx.Bitmap, bitmap_small: wx.Bitmap=wx.NullBitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, bitmap_small_disabled: wx.Bitmap=wx.NullBitmap, kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL, help_string: str='') -> RibbonButtonBarButtonBase:
         ...
 
     @overload
-    def AddButton(self, button_id: int, label: str, bitmap: wx.Bitmap, help_string: str, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL) -> RibbonButtonBarButtonBase:
+    def AddButton(self, button_id: int, label: str, bitmap: wx.Bitmap, help_string: str, kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL) -> RibbonButtonBarButtonBase:
         """
         AddButton(button_id, label, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonButtonBarButtonBase
         AddButton(button_id, label, bitmap, bitmap_small=wx.NullBitmap, bitmap_disabled=wx.NullBitmap, bitmap_small_disabled=wx.NullBitmap, kind=RIBBON_BUTTON_NORMAL, help_string='') -> RibbonButtonBarButtonBase
@@ -1620,11 +2125,11 @@ class RibbonButtonBar(RibbonControl):
         """
 
     @overload
-    def InsertButton(self, pos: int, button_id: int, label: str, bitmap: wx.Bitmap, bitmap_small: wx.Bitmap=wx.NullBitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, bitmap_small_disabled: wx.Bitmap=wx.NullBitmap, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, help_string: str='') -> RibbonButtonBarButtonBase:
+    def InsertButton(self, pos: int, button_id: int, label: str, bitmap: wx.Bitmap, bitmap_small: wx.Bitmap=wx.NullBitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, bitmap_small_disabled: wx.Bitmap=wx.NullBitmap, kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL, help_string: str='') -> RibbonButtonBarButtonBase:
         ...
 
     @overload
-    def InsertButton(self, pos: int, button_id: int, label: str, bitmap: wx.Bitmap, help_string: str, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL) -> RibbonButtonBarButtonBase:
+    def InsertButton(self, pos: int, button_id: int, label: str, bitmap: wx.Bitmap, help_string: str, kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL) -> RibbonButtonBarButtonBase:
         """
         InsertButton(pos, button_id, label, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonButtonBarButtonBase
         InsertButton(pos, button_id, label, bitmap, bitmap_small=wx.NullBitmap, bitmap_disabled=wx.NullBitmap, bitmap_small_disabled=wx.NullBitmap, kind=RIBBON_BUTTON_NORMAL, help_string='') -> RibbonButtonBarButtonBase
@@ -1664,16 +2169,16 @@ class RibbonButtonBar(RibbonControl):
         Returns the number of buttons in this button bar.
         """
 
-    def SetItemClientData(self, item: RibbonButtonBarButtonBase, data: ClientData) -> None:
+    def SetItemClientData(self, item: RibbonButtonBarButtonBase, data: Any) -> None:
         """
         SetItemClientData(item, data) -> None
         
         Set the client object associated with a button.
         """
 
-    def GetItemClientData(self, item: RibbonButtonBarButtonBase) -> ClientData:
+    def GetItemClientData(self, item: RibbonButtonBarButtonBase) -> Any:
         """
-        GetItemClientData(item) -> ClientData
+        GetItemClientData(item) -> Any
         
         Get the client object associated with a button.
         """
@@ -1771,14 +2276,14 @@ class RibbonButtonBar(RibbonControl):
         size.
         """
 
-    def SetButtonMinSizeClass(self, button_id: int, min_size_class: RibbonButtonBarButtonState) -> None:
+    def SetButtonMinSizeClass(self, button_id: int, min_size_class: Union[RibbonButtonBarButtonState, int]) -> None:
         """
         SetButtonMinSizeClass(button_id, min_size_class) -> None
         
         Sets the minimum size class of a ribbon button.
         """
 
-    def SetButtonMaxSizeClass(self, button_id: int, max_size_class: RibbonButtonBarButtonState) -> None:
+    def SetButtonMaxSizeClass(self, button_id: int, max_size_class: Union[RibbonButtonBarButtonState, int]) -> None:
         """
         SetButtonMaxSizeClass(button_id, max_size_class) -> None
         
@@ -1814,13 +2319,36 @@ class RibbonButtonBar(RibbonControl):
         Sets whether tooltips should be shown for disabled buttons or not.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
+    def SetKeyTip(self, button_id: int, keytip: str) -> None:
         """
-        CreateAccessible() -> wx.Accessible
+        SetKeyTip(button_id, keytip) -> None
+        
+        Assigns the KeyTip used to click the given button.
+        """
+
+    def GetKeyTip(self, button_id: int) -> str:
+        """
+        GetKeyTip(button_id) -> str
+        
+        Returns the KeyTip of the given button, or an empty string.
+        """
+
+    def SetDropdownKeyTip(self, button_id: int, keytip: str) -> None:
+        """
+        SetDropdownKeyTip(button_id, keytip) -> None
+        
+        Assigns the KeyTip used to open a hybrid button's dropdown menu.
+        """
+
+    def GetDropdownKeyTip(self, button_id: int) -> str:
+        """
+        GetDropdownKeyTip(button_id) -> str
+        
+        Returns the dropdown KeyTip of the given button, or an empty string.
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -1839,15 +2367,15 @@ class RibbonButtonBar(RibbonControl):
 
 class RibbonButtonBarEvent(wx.CommandEvent):
     """
-    RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr, button=nullptr) -> None
+    RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None, button=None) -> None
     
     Event used to indicate various actions relating to a button on a
     wxRibbonButtonBar.
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, bar: RibbonButtonBar=nullptr, button: RibbonButtonBarButtonBase=nullptr) -> None:
+    def __init__(self, command_type: int=wx.wxEVT_NULL, win_id: int=0, bar: Optional[RibbonButtonBar]=None, button: Optional[RibbonButtonBarButtonBase]=None) -> None:
         """
-        RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr, button=nullptr) -> None
+        RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None, button=None) -> None
         
         Event used to indicate various actions relating to a button on a
         wxRibbonButtonBar.
@@ -1898,21 +2426,25 @@ class RibbonButtonBarEvent(wx.CommandEvent):
 # end of class RibbonButtonBarEvent
 
 
-EVT_RIBBONBUTTONBAR_CLICKED = wx.PyEventBinder( wxEVT_RIBBONBUTTONBAR_CLICKED, 1 )
-EVT_RIBBONBUTTONBAR_DROPDOWN_CLICKED = wx.PyEventBinder( wxEVT_RIBBONBUTTONBAR_DROPDOWN_CLICKED, 1 )
+EVT_RIBBONBUTTONBAR_CLICKED: wx.PyEventBinder[RibbonButtonBarEvent]
+EVT_RIBBONBUTTONBAR_DROPDOWN_CLICKED: wx.PyEventBinder[RibbonButtonBarEvent]
 #-- end-ribbon_buttonbar --#
 #-- begin-ribbon_gallery --#
+import wx.siplib
 
-class _RibbonGalleryButtonState(IntEnum):
-    RIBBON_GALLERY_BUTTON_NORMAL = auto()
-    RIBBON_GALLERY_BUTTON_HOVERED = auto()
-    RIBBON_GALLERY_BUTTON_ACTIVE = auto()
-    RIBBON_GALLERY_BUTTON_DISABLED = auto()
-RibbonGalleryButtonState: TypeAlias = Union[_RibbonGalleryButtonState, int]
-RIBBON_GALLERY_BUTTON_NORMAL = _RibbonGalleryButtonState.RIBBON_GALLERY_BUTTON_NORMAL
-RIBBON_GALLERY_BUTTON_HOVERED = _RibbonGalleryButtonState.RIBBON_GALLERY_BUTTON_HOVERED
-RIBBON_GALLERY_BUTTON_ACTIVE = _RibbonGalleryButtonState.RIBBON_GALLERY_BUTTON_ACTIVE
-RIBBON_GALLERY_BUTTON_DISABLED = _RibbonGalleryButtonState.RIBBON_GALLERY_BUTTON_DISABLED
+class RibbonGalleryItem(wx.siplib.wrapper):
+    pass
+
+@final
+class RibbonGalleryButtonState(int, metaclass=wx.siplib.enumtype):
+    RIBBON_GALLERY_BUTTON_NORMAL: ClassVar[RibbonGalleryButtonState]
+    RIBBON_GALLERY_BUTTON_HOVERED: ClassVar[RibbonGalleryButtonState]
+    RIBBON_GALLERY_BUTTON_ACTIVE: ClassVar[RibbonGalleryButtonState]
+    RIBBON_GALLERY_BUTTON_DISABLED: ClassVar[RibbonGalleryButtonState]
+RIBBON_GALLERY_BUTTON_NORMAL: RibbonGalleryButtonState
+RIBBON_GALLERY_BUTTON_HOVERED: RibbonGalleryButtonState
+RIBBON_GALLERY_BUTTON_ACTIVE: RibbonGalleryButtonState
+RIBBON_GALLERY_BUTTON_DISABLED: RibbonGalleryButtonState
 wxEVT_RIBBONGALLERY_HOVER_CHANGED: int
 wxEVT_RIBBONGALLERY_SELECTED: int
 wxEVT_RIBBONGALLERY_CLICKED: int
@@ -1927,7 +2459,7 @@ class RibbonGallery(RibbonControl):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0) -> None:
         ...
 
     @overload
@@ -1940,7 +2472,7 @@ class RibbonGallery(RibbonControl):
         strings.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0) -> bool
         
@@ -1976,28 +2508,47 @@ class RibbonGallery(RibbonControl):
         """
 
     @overload
-    def Append(self, bitmap: wx.Bitmap, id: int, clientData: ClientData) -> RibbonGalleryItem:
+    def Append(self, bitmap: wx.Bitmap, id: int, label: str) -> RibbonGalleryItem:
+        ...
+
+    @overload
+    def Append(self, bitmap: wx.Bitmap, id: int, clientData: Any) -> RibbonGalleryItem:
         ...
 
     @overload
     def Append(self, bitmap: wx.Bitmap, id: int) -> RibbonGalleryItem:
         """
         Append(bitmap, id) -> RibbonGalleryItem
+        Append(bitmap, id, label) -> RibbonGalleryItem
         Append(bitmap, id, clientData) -> RibbonGalleryItem
         
         Add an item to the gallery (with no client data).
         """
 
-    def SetItemClientData(self, item: RibbonGalleryItem, data: ClientData) -> None:
+    def SetItemLabel(self, item: RibbonGalleryItem, label: str) -> None:
+        """
+        SetItemLabel(item, label) -> None
+        
+        Set the label of a gallery item.
+        """
+
+    def GetItemLabel(self, item: RibbonGalleryItem) -> str:
+        """
+        GetItemLabel(item) -> str
+        
+        Return the label of a gallery item.
+        """
+
+    def SetItemClientData(self, item: RibbonGalleryItem, data: Any) -> None:
         """
         SetItemClientData(item, data) -> None
         
         Set the client object associated with a gallery item.
         """
 
-    def GetItemClientData(self, item: RibbonGalleryItem) -> ClientData:
+    def GetItemClientData(self, item: RibbonGalleryItem) -> Any:
         """
-        GetItemClientData(item) -> ClientData
+        GetItemClientData(item) -> Any
         
         Get the client object associated with a gallery item.
         """
@@ -2080,13 +2631,22 @@ class RibbonGallery(RibbonControl):
         Scroll the gallery to ensure that the given item is visible.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
+    def SetKeyTip(self, keytip: str) -> None:
         """
-        CreateAccessible() -> wx.Accessible
+        SetKeyTip(keytip) -> None
+        
+        Assigns the KeyTip used to reach this gallery.
+        """
+
+    def GetKeyTip(self) -> str:
+        """
+        GetKeyTip() -> str
+        
+        Returns the KeyTip of this gallery, or an empty string.
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2101,6 +2661,10 @@ class RibbonGallery(RibbonControl):
     @property
     def HoveredItem(self) -> RibbonGalleryItem: ...
     @property
+    def KeyTip(self) -> str: ...
+    @KeyTip.setter
+    def KeyTip(self, value: str, /) -> None: ...
+    @property
     def Selection(self) -> RibbonGalleryItem: ...
     @Selection.setter
     def Selection(self, value: RibbonGalleryItem, /) -> None: ...
@@ -2111,12 +2675,12 @@ class RibbonGallery(RibbonControl):
 
 class RibbonGalleryEvent(wx.CommandEvent):
     """
-    RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=nullptr, item=nullptr) -> None
+    RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=None, item=None) -> None
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, gallery: RibbonGallery=nullptr, item: RibbonGalleryItem=nullptr) -> None:
+    def __init__(self, command_type: int=wx.wxEVT_NULL, win_id: int=0, gallery: Optional[RibbonGallery]=None, item: Optional[RibbonGalleryItem]=None) -> None:
         """
-        RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=nullptr, item=nullptr) -> None
+        RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=None, item=None) -> None
         """
 
     def GetGallery(self) -> RibbonGallery:
@@ -2158,11 +2722,15 @@ class RibbonGalleryEvent(wx.CommandEvent):
 # end of class RibbonGalleryEvent
 
 
-EVT_RIBBONGALLERY_HOVER_CHANGED = wx.PyEventBinder( wxEVT_RIBBONGALLERY_HOVER_CHANGED, 1 )
-EVT_RIBBONGALLERY_SELECTED = wx.PyEventBinder( wxEVT_RIBBONGALLERY_SELECTED, 1 )
-EVT_RIBBONGALLERY_CLICKED = wx.PyEventBinder( wxEVT_RIBBONGALLERY_CLICKED, 1 )
+EVT_RIBBONGALLERY_HOVER_CHANGED: wx.PyEventBinder[RibbonGalleryEvent]
+EVT_RIBBONGALLERY_SELECTED: wx.PyEventBinder[RibbonGalleryEvent]
+EVT_RIBBONGALLERY_CLICKED: wx.PyEventBinder[RibbonGalleryEvent]
 #-- end-ribbon_gallery --#
 #-- begin-ribbon_toolbar --#
+import wx.siplib
+
+class RibbonToolBarToolBase(wx.siplib.wrapper):
+    pass
 wxEVT_RIBBONTOOLBAR_CLICKED: int
 wxEVT_RIBBONTOOLBAR_DROPDOWN_CLICKED: int
 
@@ -2176,7 +2744,7 @@ class RibbonToolBar(RibbonControl):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0) -> None:
         ...
 
     @overload
@@ -2189,7 +2757,7 @@ class RibbonToolBar(RibbonControl):
         labels.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0) -> bool:
         """
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0) -> bool
         
@@ -2197,14 +2765,14 @@ class RibbonToolBar(RibbonControl):
         """
 
     @overload
-    def AddTool(self, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, clientData: PyUserData=nullptr) -> RibbonToolBarToolBase:
+    def AddTool(self, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL, clientData: Optional[Any]=None) -> RibbonToolBarToolBase:
         ...
 
     @overload
-    def AddTool(self, tool_id: int, bitmap: wx.Bitmap, help_string: str, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase:
+    def AddTool(self, tool_id: int, bitmap: wx.Bitmap, help_string: str, kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase:
         """
         AddTool(tool_id, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase
-        AddTool(tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=nullptr) -> RibbonToolBarToolBase
+        AddTool(tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=None) -> RibbonToolBarToolBase
         
         Add a tool to the tool bar (simple version).
         """
@@ -2238,14 +2806,14 @@ class RibbonToolBar(RibbonControl):
         """
 
     @overload
-    def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, clientData: PyUserData=nullptr) -> RibbonToolBarToolBase:
+    def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL, clientData: Optional[Any]=None) -> RibbonToolBarToolBase:
         ...
 
     @overload
-    def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, help_string: str, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase:
+    def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, help_string: str, kind: Union[RibbonButtonKind, int]=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase:
         """
         InsertTool(pos, tool_id, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase
-        InsertTool(pos, tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=nullptr) -> RibbonToolBarToolBase
+        InsertTool(pos, tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=None) -> RibbonToolBarToolBase
         
         Insert a tool to the tool bar (simple version) as the specified
         position.
@@ -2346,9 +2914,9 @@ class RibbonToolBar(RibbonControl):
         Returns the active item of the tool bar or nullptr if there is none.
         """
 
-    def GetToolClientData(self, tool_id: int) -> PyUserData:
+    def GetToolClientData(self, tool_id: int) -> Any:
         """
-        GetToolClientData(tool_id) -> PyUserData
+        GetToolClientData(tool_id) -> Any
         
         Get any client data associated with the tool.
         """
@@ -2412,7 +2980,7 @@ class RibbonToolBar(RibbonControl):
         Set the number of rows to distribute tool groups over.
         """
 
-    def SetToolClientData(self, tool_id: int, clientData: PyUserData) -> None:
+    def SetToolClientData(self, tool_id: int, clientData: Any) -> None:
         """
         SetToolClientData(tool_id, clientData) -> None
         
@@ -2455,13 +3023,36 @@ class RibbonToolBar(RibbonControl):
         Set a toggle tool to the checked or unchecked state.
         """
 
-    def CreateAccessible(self) -> wx.Accessible:
+    def SetKeyTip(self, tool_id: int, keytip: str) -> None:
         """
-        CreateAccessible() -> wx.Accessible
+        SetKeyTip(tool_id, keytip) -> None
+        
+        Assigns the KeyTip used to click the given tool.
+        """
+
+    def GetKeyTip(self, tool_id: int) -> str:
+        """
+        GetKeyTip(tool_id) -> str
+        
+        Returns the KeyTip of the given tool, or an empty string.
+        """
+
+    def SetDropdownKeyTip(self, tool_id: int, keytip: str) -> None:
+        """
+        SetDropdownKeyTip(tool_id, keytip) -> None
+        
+        Assigns the KeyTip used to open a hybrid tool's dropdown menu.
+        """
+
+    def GetDropdownKeyTip(self, tool_id: int) -> str:
+        """
+        GetDropdownKeyTip(tool_id) -> str
+        
+        Returns the dropdown KeyTip of the given tool, or an empty string.
         """
 
     @staticmethod
-    def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
+    def GetClassDefaultAttributes(variant: Union[wx.WindowVariant, int]=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
@@ -2474,12 +3065,12 @@ class RibbonToolBar(RibbonControl):
 
 class RibbonToolBarEvent(wx.CommandEvent):
     """
-    RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr) -> None
+    RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None) -> None
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, bar: RibbonToolBar=nullptr) -> None:
+    def __init__(self, command_type: int=wx.wxEVT_NULL, win_id: int=0, bar: Optional[RibbonToolBar]=None) -> None:
         """
-        RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr) -> None
+        RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None) -> None
         """
 
     def GetBar(self) -> RibbonToolBar:
@@ -2503,6 +3094,6 @@ class RibbonToolBarEvent(wx.CommandEvent):
 # end of class RibbonToolBarEvent
 
 
-EVT_RIBBONTOOLBAR_CLICKED = wx.PyEventBinder( wxEVT_RIBBONTOOLBAR_CLICKED, 1 )
-EVT_RIBBONTOOLBAR_DROPDOWN_CLICKED = wx.PyEventBinder( wxEVT_RIBBONTOOLBAR_DROPDOWN_CLICKED, 1 )
+EVT_RIBBONTOOLBAR_CLICKED: wx.PyEventBinder[RibbonToolBarEvent]
+EVT_RIBBONTOOLBAR_DROPDOWN_CLICKED: wx.PyEventBinder[RibbonToolBarEvent]
 #-- end-ribbon_toolbar --#

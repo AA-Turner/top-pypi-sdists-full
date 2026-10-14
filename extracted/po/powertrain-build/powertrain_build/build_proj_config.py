@@ -66,6 +66,8 @@ class BuildProjConfig:
         return {
             'generalAsilLevelDebug': 'B',
             'generalAsilLevelDependability': 'B',
+            'useExternalAsilConfig': False,
+            'useSpecificCvcDefinitions': False,
             'generateCalibrationInterfaceFiles': False,
             'useCalibrationRteMacroExpansion': False,
             'generateCoreDummy': False,
@@ -76,10 +78,12 @@ class BuildProjConfig:
             'generateYamlInterfaceFile': False,
             'includeAllEnums': False,
             'mapToRteEnums': False,
-            'propagateTagName': False,
+            'propagateReleaseInfo': False,
             'useA2lSymbolLinks': False,
+            'useCustomNvmSource': None,
             'useRteNvmStructs': False,
-            'useCamelCaseForNvmVariables': False
+            'useCamelCaseForNvmVariables': False,
+            'customNvmSignalMapping': {}
         }
 
     def _get_code_generation_config(self):
@@ -376,6 +380,24 @@ class BuildProjConfig:
         """
         return self._prj_cfg.get('includedCommonFiles', [])
 
+    def get_project_default_cfg(self):
+        """Return the values of the project default configuration."""
+        project_defaults = self._prj_cfg.get('projectDefaults', None)
+        config_values = [None, None]
+
+        if project_defaults is not None:
+            config_file_path = os.path.join(self._prj_root_dir, project_defaults)
+            with open(config_file_path, 'r') as config_file:
+                for line in config_file:
+                    if 'APP_DATA_SW_PARTNO_SWLM' in line or "APP_DATA_SW_PARTNO_SWLM_APV" in line:
+                        # Extract the SWLM value
+                        config_values[0] = line.split('=')[1].rstrip('\n')
+                    elif 'APP_DATA_SW_PARTNO_SWCE' in line or "APP_DATA_SW_PARTNO_SWCE_APV" in line:
+                        # Extract the SWCE value
+                        config_values[1] = line.split('=')[1].rstrip('\n')
+
+        return config_values
+
     def _calc_all_units(self):
         """Return a list of all the units."""
         units = set()
@@ -406,6 +428,20 @@ class BuildProjConfig:
         """
         return os.path.join(self._prj_root_dir,
                             self._prj_cfg['ProjectInfo']['configDir'])
+
+    def get_core_id_config_version(self):
+        """Return core ID configuration version of the file.
+
+        Version 1 is the default version.
+        Version 2 adds
+            EventId column to the Mode$06 file.
+            EventId column to the IUMPR file.
+            Len column to the FunctionID file.
+
+        Returns:
+            (str): Core ID configuration version of the file.
+        """
+        return self._prj_cfg['ProjectInfo'].get('coreIdConfigVersion', "1")
 
     def get_scheduler_prefix(self):
         """Returns a prefix used to distinguish function calls in one project from

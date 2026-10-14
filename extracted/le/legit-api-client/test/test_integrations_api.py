@@ -145,6 +145,13 @@ class TestIntegrationsApi(unittest.TestCase):
         """
         pass
 
+    def test_get_integration_health(self) -> None:
+        """Test case for get_integration_health
+
+        Get integration health
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

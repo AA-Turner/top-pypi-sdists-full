@@ -1,53 +1,43 @@
 # -*- coding: utf-8 -*-
 
 """
-Improve the list_object_versions_ and ListObjectVersions_ API.
+Improve the list_object_versions_ API.
 
-.. _list_object_versions: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_object_versions.html
-.. _ListObjectVersions: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListObjectVersions.html
-
-.. versionadded:: 2.0.1
+.. _list_object_versions: https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/list_object_versions.html
 """
+
+from __future__ import annotations
 
 import typing as T
 
-from func_args import NOTHING, resolve_kwargs
 from iterproxy import IterProxy
 
+from .._arg import OPT
+from ._paginate import iter_pages
+from ._paginate import yield_items
+from .list_objects import CommonPrefixTypeDefIterproxy
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_s3 import S3Client
-    from mypy_boto3_s3.type_defs import (
-        ListObjectVersionsOutputTypeDef,
-        ObjectVersionTypeDef,
-        DeleteMarkerEntryTypeDef,
-        CommonPrefixTypeDef,
-    )
+    from mypy_boto3_s3.type_defs import ListObjectVersionsOutputTypeDef
+    from mypy_boto3_s3.type_defs import ObjectVersionTypeDef
+    from mypy_boto3_s3.type_defs import DeleteMarkerEntryTypeDef
+    from mypy_boto3_s3.type_defs import CommonPrefixTypeDef
 
     _ = ListObjectVersionsOutputTypeDef
 
 
 class ObjectVersionTypeDefIterproxy(IterProxy["ObjectVersionTypeDef"]):
     """
-    An iterproxy that yields the "Versions" part of the ListObjectVersions_ response.
-
-    .. versionadded:: 2.0.1
+    An iterproxy that yields the "Versions" part of the list_object_versions_
+    responses.
     """
 
 
 class DeleteMarkerEntryTypeDefIterproxy(IterProxy["DeleteMarkerEntryTypeDef"]):
     """
-    An iterproxy that yields the "DeleteMarkers" part of the ListObjectVersions_ response.
-
-    .. versionadded:: 2.0.1
-    """
-
-
-class CommonPrefixTypeDefIterproxy(IterProxy["CommonPrefixTypeDef"]):
-    """
-    An iterproxy that yields the "CommonPrefixes" part of the ListObjectVersions_ response.
-
-    .. versionadded:: 2.0.1
+    An iterproxy that yields the "DeleteMarkers" part of the
+    list_object_versions_ responses.
     """
 
 
@@ -55,57 +45,40 @@ class ListObjectVersionsOutputTypeDefIterproxy(
     IterProxy["ListObjectVersionsOutputTypeDef"]
 ):
     """
-    An iterproxy that yields the original ListObjectVersions_ response.
-    It has two utility methods to get the contents and common prefixes.
+    An iterproxy that yields the original list_object_versions_ responses, one
+    per page. :meth:`versions`, :meth:`delete_markers`,
+    :meth:`common_prefixes`, :meth:`versions_and_delete_markers_and_common_prefixes`
+    and :meth:`iterate_key_and_version` give the parts of the responses.
 
-    .. versionadded:: 2.0.1
+    It can be iterated only once: the pages are fetched while iterating, and
+    using one of the methods consumes it. To get several parts, use
+    :meth:`versions_and_delete_markers_and_common_prefixes`.
     """
-
-    def _yield_versions(self) -> T.Iterator["ObjectVersionTypeDef"]:
-        for response in self:
-            for version in response.get("Versions", []):
-                yield version
 
     def versions(self) -> ObjectVersionTypeDefIterproxy:
         """
         Iterate object versions.
-
-        .. versionadded:: 2.0.1
         """
-        return ObjectVersionTypeDefIterproxy(self._yield_versions())
-
-    def _yield_delete_markers(self) -> T.Iterator["DeleteMarkerEntryTypeDef"]:
-        for response in self:
-            for delete_marker in response.get("DeleteMarkers", []):
-                yield delete_marker
+        return ObjectVersionTypeDefIterproxy(yield_items(self, "Versions"))
 
     def delete_markers(self) -> DeleteMarkerEntryTypeDefIterproxy:
         """
         Iterate delete markers.
-
-        .. versionadded:: 2.0.1
         """
-        return DeleteMarkerEntryTypeDefIterproxy(self._yield_delete_markers())
-
-    def _yield_common_prefixes(self) -> T.Iterator["CommonPrefixTypeDef"]:
-        for response in self:
-            for common_prefix in response.get("CommonPrefixes", []):
-                yield common_prefix
+        return DeleteMarkerEntryTypeDefIterproxy(yield_items(self, "DeleteMarkers"))
 
     def common_prefixes(self) -> CommonPrefixTypeDefIterproxy:
         """
         Iterate folders.
-
-        .. versionadded:: 2.0.1
         """
-        return CommonPrefixTypeDefIterproxy(self._yield_common_prefixes())
+        return CommonPrefixTypeDefIterproxy(yield_items(self, "CommonPrefixes"))
 
     def extract_versions_and_delete_markers_and_common_prefixes(
         self, response: dict
-    ) -> T.Tuple[
-        T.List["ObjectVersionTypeDef"],
-        T.List["DeleteMarkerEntryTypeDef"],
-        T.List["CommonPrefixTypeDef"],
+    ) -> tuple[
+        list[ObjectVersionTypeDef],
+        list[DeleteMarkerEntryTypeDef],
+        list[CommonPrefixTypeDef],
     ]:
         return (
             response.get("Versions", []),
@@ -115,15 +88,13 @@ class ListObjectVersionsOutputTypeDefIterproxy(
 
     def versions_and_delete_markers_and_common_prefixes(
         self,
-    ) -> T.Tuple[
-        T.List["ObjectVersionTypeDef"],
-        T.List["DeleteMarkerEntryTypeDef"],
-        T.List["CommonPrefixTypeDef"],
+    ) -> tuple[
+        list[ObjectVersionTypeDef],
+        list[DeleteMarkerEntryTypeDef],
+        list[CommonPrefixTypeDef],
     ]:
         """
         Return the full list of object versions, delete markers and folders.
-
-        .. versionadded:: 2.0.1
         """
         versions = list()
         delete_markers = list()
@@ -139,9 +110,12 @@ class ListObjectVersionsOutputTypeDefIterproxy(
             common_prefixes.extend(common_prefixes_)
         return versions, delete_markers, common_prefixes
 
-    def iterate_key_and_version(self) -> T.Iterator[T.Tuple[str, str]]:
+    def iterate_key_and_version(self) -> T.Iterator[tuple[str, str]]:
         """
-        Iterate the key and version pairs.
+        Iterate the ``(key, version_id)`` pairs of the versions and the delete
+        markers (page by page: the versions of a page, then its delete
+        markers). In a bucket that never had versioning, the version id is
+        ``"null"``.
         """
         for response in self:
             for version in response.get("Versions", []):
@@ -151,61 +125,62 @@ class ListObjectVersionsOutputTypeDefIterproxy(
 
 
 def paginate_list_object_versions(
-    s3_client: "S3Client",
+    s3_client: S3Client,
     bucket: str,
     prefix: str,
     batch_size: int = 1000,
-    limit: int = NOTHING,
-    delimiter: str = NOTHING,
-    encoding_type: str = NOTHING,
-    expected_bucket_owner: str = NOTHING,
+    limit: int | None = None,
+    delimiter: str = OPT,
+    encoding_type: str = OPT,
+    request_payer: str = OPT,
+    expected_bucket_owner: str = OPT,
 ) -> ListObjectVersionsOutputTypeDefIterproxy:
     """
-    Wrapper of list_object_versions_ and ListObjectVersions_. However, it returns
-    a user-friendly :class:`ListObjectsV2OutputTypeDefIterproxy` object.
+    Call list_object_versions_ page by page, and return the responses as a
+    :class:`ListObjectVersionsOutputTypeDefIterproxy`.
+
+    ``prefix`` is a string prefix, not a folder: ``"my-folder"`` also matches
+    ``my-folder-2/...``. End it with ``/`` to list a folder.
+
+    The pages are fetched lazily, while iterating the result: errors of the
+    AWS call (e.g. ``NoSuchBucket``, ``AccessDenied``) are raised as is, when
+    the iteration starts, not when this function is called.
 
     Example::
 
-        >>> proxy = paginate_list_object_versions(
-        ...     s3_client=s3_client,
-        ...     bucket="my-bucket",
-        ...     prefix="my-folder",
-        ... )
-        >>> (versions, delete_markers, common_prefixes) = proxy.versions_and_delete_markers_and_common_prefixes()
+        proxy = paginate_list_object_versions(s3_client, "my-bucket", "my-folder/")
+        versions, delete_markers, common_prefixes = (
+            proxy.versions_and_delete_markers_and_common_prefixes()
+        )
 
-    :param s3_client: ``boto3.session.Session().client("s3")`` object.
-    :param bucket: See ListObjectVersions_.
-    :param prefix: See ListObjectVersions_.
-    :param batch_size: See ListObjectVersions_.
-    :param limit: See ListObjectVersions_.
-    :param delimiter: See ListObjectVersions_.
-    :param encoding_type: See ListObjectVersions_.
-    :param expected_bucket_owner: See ListObjectVersions_.
+    :param batch_size: The number of entries per API call (``MaxKeys``),
+        1 to 1000.
+    :param limit: The maximum number of entries in total: versions, delete
+        markers and folders (common prefixes, when ``delimiter`` is given)
+        counted together, the same as ``MaxKeys``. ``0`` returns nothing
+        without calling AWS. ``None`` (default): no limit.
 
-    :return: a :class:`ListObjectVersionsOutputTypeDefIterproxy` object.
-
-    .. versionadded:: 2.0.1
+    :raises ValueError: if ``batch_size`` is not 1 to 1000, or ``limit`` is
+        negative.
     """
-    # validate arguments
-    if batch_size < 1 or batch_size > 1000:  # pragma: no cover
-        raise ValueError("``batch_size`` has to be 1 ~ 1000.")
-    if (limit is not NOTHING) and (batch_size > limit):  # pragma: no cover
-        batch_size = limit
-
-    def _paginate_list_objects_v2():
-        paginator = s3_client.get_paginator("list_object_versions")
-        kwargs = resolve_kwargs(
+    pages = iter_pages(
+        s3_client=s3_client,
+        method="list_object_versions",
+        params=dict(
             Bucket=bucket,
             Prefix=prefix,
             Delimiter=delimiter,
             EncodingType=encoding_type,
+            RequestPayer=request_payer,
             ExpectedBucketOwner=expected_bucket_owner,
-            PaginationConfig=resolve_kwargs(
-                MaxItems=limit,
-                PageSize=batch_size,
-            ),
-        )
-        for response in paginator.paginate(**kwargs):
-            yield response
-
-    return ListObjectVersionsOutputTypeDefIterproxy(_paginate_list_objects_v2())
+        ),
+        batch_size=batch_size,
+        limit=limit,
+        entry_keys=("Versions", "DeleteMarkers", "CommonPrefixes"),
+        next_params=lambda response: dict(
+            KeyMarker=response["NextKeyMarker"],
+            # absent when the page ends with a common prefix
+            VersionIdMarker=response.get("NextVersionIdMarker", OPT),
+        ),
+    )
+    return ListObjectVersionsOutputTypeDefIterproxy(pages)

@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import sys
+from typing import TYPE_CHECKING, TypeVar
+
+from typing_extensions import override
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, MutableMapping, Sequence
+
 
 try:
     import bpython
     # Access a property to verify module exists in case
     # there's a demand loader wrapping module imports
     # See https://github.com/inducer/pudb/issues/177
-    bpython.__version__  # noqa: B018
+    bpython.__version__  # ruff:ignore[useless-expression]
 except ImportError:
     HAVE_BPYTHON = False
 else:
@@ -29,7 +38,13 @@ else:
 
 # {{{ combined locals/globals dict
 
-class SetPropagatingDict(dict):
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+# This really *has* to be a dict, otherwise it will not work with
+# exec() and InteractiveConsole.
+class SetPropagatingDict(dict[K, V]):  # ruff: ignore[subclass-builtin]
     """
     Combine dict into one, with assignments affecting a target dict
 
@@ -45,19 +60,24 @@ class SetPropagatingDict(dict):
     debugger is inside a function frame.
 
     """
-    def __init__(self, source_dicts, target_dict):
-        dict.__init__(self)
+    target_dict: MutableMapping[K, V]
+
+    def __init__(self,
+            source_dicts: Sequence[Mapping[K, V]],
+            target_dict: MutableMapping[K, V]):
+        super().__init__()
+        self.target_dict = target_dict
         for s in source_dicts[::-1]:
             self.update(s)
 
-        self.target_dict = target_dict
-
-    def __setitem__(self, key, value):
-        dict.__setitem__(self, key, value)
+    @override
+    def __setitem__(self, key: K, value: V):
+        super().__setitem__(key, value)
         self.target_dict[key] = value
 
-    def __delitem__(self, key):
-        dict.__delitem__(self, key)
+    @override
+    def __delitem__(self, key: K):
+        super().__delitem__(key)
         del self.target_dict[key]
 
 # }}}
@@ -72,9 +92,11 @@ SHELL_FIRST_TIME = [True]
 def run_classic_shell(globals, locals, message=""):
     if SHELL_FIRST_TIME:
         banner = "Hit Ctrl-D to return to PuDB."
+        interactivehook = getattr(sys, "__interactivehook__", None)
         SHELL_FIRST_TIME.pop()
     else:
         banner = ""
+        interactivehook = None
 
     if message:
         banner = f"{message}\n{banner}"
@@ -95,10 +117,13 @@ def run_classic_shell(globals, locals, message=""):
     except ImportError:
         have_readline = False
 
+    if interactivehook:
+        interactivehook()
+
     if have_readline:
         readline.set_completer(
                 rlcompleter.Completer(ns).complete)
-        readline.parse_and_bind("tab: complete")
+
         readline.clear_history()
         try:
             readline.read_history_file(hist_file)
@@ -134,7 +159,7 @@ def have_ipython():
         # Access a property to verify module exists in case
         # there's a demand loader wrapping module imports
         # See https://github.com/inducer/pudb/issues/177
-        IPython.core  # noqa: B018
+        IPython.core  # ruff:ignore[useless-expression]
     except (ImportError, ValueError):
         # Old IPythons versions (0.12?) may fail to import with
         # ValueError: fallback required, but not specified
@@ -178,7 +203,6 @@ def _update_ipython_ns(shell, globals, locals):
     except AttributeError:
         class DummyMod:
             """A dummy module used for IPython's interactive namespace."""
-            pass
 
         user_module = DummyMod()
         user_module.__dict__ = globals
@@ -207,7 +231,7 @@ def run_ipython_shell_v11(globals, locals):
         from IPython.frontend.terminal.ipapp import load_default_config
     # XXX: in the future it could be useful to load a 'pudb' config for the
     # user (if it exists) that could contain the user's macros and other
-    # niceities.
+    # niceties.
     config = load_default_config()
     shell = TerminalInteractiveShell.instance(config=config,
             banner2=banner)

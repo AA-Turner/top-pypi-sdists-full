@@ -688,6 +688,13 @@ public:
 
        If the key is F2 (special), editing will always start and this
        method will not be called at all (but StartingKey() will)
+
+       Note that this function must not change the editor contents: this should
+       be only done in StartingKey() which will be called later.
+
+       Also note that this function is called with a special synthetic event
+       for the letter "A" to check if the editor accepts text input and whether
+       the IME should be enabled for it.
     */
     virtual bool IsAcceptedKey(wxKeyEvent& event);
 
@@ -1836,7 +1843,30 @@ public:
     A message object of this class must be sent to the grid using
     wxGrid::ProcessTableMessage() every time the table changes, e.g. rows are
     added/deleted. The messages are just notifications and don't result in any
-    actual changes but just allow the view to react to changes to the model.
+    changes to the table data, but allow the view to react to changes to the
+    model.
+
+    The table must be updated before sending the notification. For example, a
+    custom wxGridTableBase::InsertRows() implementation should first insert the
+    rows into its own data storage and only then notify the grid:
+
+    @code
+    bool MyTable::InsertRows(size_t pos, size_t numRows)
+    {
+        DoInsertRowsInDataModel(pos, numRows);
+
+        if ( GetView() )
+        {
+            GetView()->ProcessTableMessage(
+                this, wxGRIDTABLE_NOTIFY_ROWS_INSERTED, pos, numRows);
+        }
+
+        return true;
+    }
+    @endcode
+
+    The same rule applies to the other row and column modification messages:
+    update the table first, then notify the grid.
 */
 class wxGridTableMessage
 {
@@ -1847,14 +1877,14 @@ public:
     wxGridTableMessage();
 
     /**
-        Constructor really initialize the message.
+        Constructor initializes the message.
 
         @param table Pointer to the grid table
         @param id One of wxGridTableRequest enum elements.
-        @param comInt1 For the insert/delete messages, position after which the
+        @param comInt1 For the insert/delete messages, position at which the
             rows or columns are inserted/deleted. For the append messages, the
             number of rows or columns that were appended.
-        @param comInt2 For the insert/deleted messages, number of rows or
+        @param comInt2 For the insert/delete messages, number of rows or
             columns to be inserted/deleted. For the append messages, this
             parameter is not used.
     */
@@ -1881,12 +1911,12 @@ public:
     int GetId() const;
 
     /**
-        Set the position after which the insertion/deletion occur
+        Set the position at which the insertion/deletion occurs.
     */
     void SetCommandInt( int comInt1 );
 
     /**
-        Get the position after which the insertion/deletion occur
+        Get the position at which the insertion/deletion occurs.
     */
     int GetCommandInt() const;
 
@@ -1907,7 +1937,10 @@ public:
     stored in memory.
 
     The number of rows and columns in the table can be specified initially but
-    may also be changed later dynamically.
+    may also be changed later dynamically. Its InsertRows(), AppendRows(),
+    DeleteRows(), InsertCols(), AppendCols(), and DeleteCols() functions update
+    the table storage and also send the appropriate wxGridTableMessage to the
+    associated grid, if any.
  */
 class wxGridStringTable : public wxGridTableBase
 {
@@ -1994,7 +2027,7 @@ public:
 
         @since 3.3.0
      */
-    bool IsFullySpecified() const
+    bool IsFullySpecified() const;
 
     /**
         Assignment operator for coordinate types.
@@ -5033,7 +5066,7 @@ public:
         there is a cell at the right and, similarly, Shift-TAB moves the cursor
         to the left in the current row if it's not in the first column.
 
-        What happens if the cursor can't be moved because it it's already at
+        What happens if the cursor can't be moved because it's already at
         the beginning or end of the row can be configured using this function,
         see wxGrid::TabBehaviour documentation for the detailed description.
 

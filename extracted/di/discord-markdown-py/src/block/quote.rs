@@ -8,7 +8,12 @@ use nom::{
 };
 
 use crate::{
-	Input, context::Context, error::ParseError, grammar::Grammar, node::SpannedNodes, span::Span,
+	Input,
+	context::Context,
+	error::ParseError,
+	grammar::Grammar,
+	node::{ParsedNodes, SpannedNodes},
+	span::Span,
 	unparse::Unparse,
 };
 
@@ -39,7 +44,7 @@ pub fn unparse<S: Span>(
 
 fn quote_rest<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -54,7 +59,7 @@ where
 
 fn quote_line<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -80,7 +85,7 @@ where
 #[must_use]
 pub fn quote<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -93,15 +98,20 @@ mod test {
 	use nom::{Finish, Parser};
 
 	use crate::{
-		bold, heading, italic, list, list_item, list_items, paragraph, spanned_vec,
-		test_utils::handle_nom_err,
+		bold, heading, italic, list, list_item, list_items, paragraph,
+		range::Content,
+		spanned_vec,
+		test_utils::{handle_nom_err, resolved},
 		text, underline,
-		{context::Context, node::Node},
+		{
+			context::Context,
+			node::{Element, Node, ParsedNode},
+		},
 	};
 
 	use super::quote;
 
-	/// Parse `s` as a quote, asserting the whole input was consumed.
+	/// Parse `s` as a quote, asserting the whole input was consumed, and resolve it.
 	fn parse_quote(s: &str) -> crate::node::SpannedNodes<'_, ()> {
 		let (rem, res) = quote::<(), _>(Context::default())
 			.parse_complete(s.into())
@@ -109,7 +119,7 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "", "unexpected input remaining for {s:?}");
-		res
+		resolved(res, Content::Blocks)
 	}
 
 	#[test]
@@ -121,7 +131,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(paragraph!("foo")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!("foo"))
+		);
 	}
 
 	#[test]
@@ -133,7 +146,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "bar");
-		assert_eq!(res, spanned_vec!(paragraph!("foo")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!("foo"))
+		);
 	}
 
 	#[test]
@@ -145,7 +161,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(paragraph!("foo"), paragraph!("bar")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!("foo"), paragraph!("bar"))
+		);
 	}
 
 	#[test]
@@ -158,8 +177,12 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
-			spanned_vec!(paragraph!("foo"), Node::Empty, paragraph!("bar"))
+			resolved(res, Content::Blocks),
+			spanned_vec!(
+				paragraph!("foo"),
+				Node::Element(Element::Empty),
+				paragraph!("bar")
+			)
 		);
 	}
 
@@ -172,7 +195,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(paragraph!("foo")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!("foo"))
+		);
 	}
 
 	#[test]
@@ -185,7 +211,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Blocks),
 			spanned_vec!(
 				paragraph!(bold!(text!("foo "), italic!("bob"))),
 				paragraph!(text!("cat "), underline!("a kitty cat"))
@@ -215,7 +241,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "bar\n> baz");
-		assert_eq!(res, spanned_vec!(paragraph!("foo")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!("foo"))
+		);
 	}
 
 	/// Spans inside a quote index the original source. While quote bodies were joined into a new
@@ -254,7 +283,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Blocks),
 			spanned_vec!(paragraph!("foo"), paragraph!("bar"), paragraph!("baz"))
 		);
 	}
@@ -270,7 +299,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(paragraph!("foo")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!("foo"))
+		);
 	}
 
 	/// `>>>` only opens a quote when a space follows it. A fourth `>` is not a space, and neither
@@ -286,7 +318,7 @@ mod test {
 		}
 	}
 
-	/// Blank lines stay inside the quote rather than ending it, and produce the same `Node::Empty`
+	/// Blank lines stay inside the quote rather than ending it, and produce the same `Element::Empty`
 	/// a `>` quote does.
 	#[test]
 	fn rest_quote_keeps_empty_lines() {
@@ -298,8 +330,12 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
-			spanned_vec!(paragraph!("foo"), Node::Empty, paragraph!("bar"))
+			resolved(res, Content::Blocks),
+			spanned_vec!(
+				paragraph!("foo"),
+				Node::Element(Element::Empty),
+				paragraph!("bar")
+			)
 		);
 	}
 
@@ -314,7 +350,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(heading!(1, "foo"), paragraph!("bar")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(heading!(1, "foo"), paragraph!("bar"))
+		);
 	}
 
 	#[test]
@@ -327,7 +366,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Blocks),
 			spanned_vec!(
 				paragraph!(bold!(text!("foo "), italic!("bob"))),
 				paragraph!(text!("cat "), underline!("a kitty cat"))
@@ -347,7 +386,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Blocks),
 			spanned_vec!(
 				paragraph!("foo"),
 				paragraph!("> bar"),
@@ -366,7 +405,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
-		assert_eq!(res, spanned_vec!(paragraph!(">>> foo")));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(paragraph!(">>> foo"))
+		);
 	}
 
 	/// A block element that spans several quoted lines is one element, not one per line. The list
@@ -387,10 +429,10 @@ mod test {
 
 		assert_eq!(
 			parse_quote("> 1. foo\n> 2. bar"),
-			spanned_vec!(Node::List(List {
+			spanned_vec!(Node::Element(Element::List(List {
 				kind: Type::Ordered(1.try_into().unwrap()),
 				items: list_items!(list_item!("foo"), list_item!("bar")),
-			}))
+			})))
 		);
 	}
 
@@ -418,14 +460,14 @@ mod test {
 
 	/// A blank quoted line splits the list in two, matching what `- foo\n\n- bar` does outside a
 	/// quote. The prefix is consumed while looking for another item and given back when none is
-	/// found, so the block loop still sees the line and turns it into `Node::Empty`.
+	/// found, so the block loop still sees the line and turns it into `Element::Empty`.
 	#[test]
 	fn blank_quote_line_ends_quoted_list() {
 		assert_eq!(
 			parse_quote("> - foo\n>\n> - bar"),
 			spanned_vec!(
 				list!(-[list_item!("foo")]),
-				Node::Empty,
+				Node::Element(Element::Empty),
 				list!(-[list_item!("bar")])
 			)
 		);
@@ -442,7 +484,10 @@ mod test {
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(rem, "- bar");
-		assert_eq!(res, spanned_vec!(list!(-[list_item!("foo")])));
+		assert_eq!(
+			resolved(res, Content::Blocks),
+			spanned_vec!(list!(-[list_item!("foo")]))
+		);
 	}
 
 	/// The prefix is `>` plus a single space; anything past that is content. Consuming the run
@@ -465,7 +510,7 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 
-		let Node::List(list) = &res.value[0].value else {
+		let ParsedNode::Element(Element::List(list)) = &res.value[0].value else {
 			panic!("expected a list, got {res:?}");
 		};
 		let spans = list
@@ -516,10 +561,10 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Blocks),
 			spanned_vec!(
 				paragraph!("x >>> y"),
-				Node::Quote(spanned_vec!(paragraph!("z")))
+				Node::Element(Element::Quote(spanned_vec!(paragraph!("z"))))
 			)
 		);
 	}
@@ -538,10 +583,10 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
-			res,
+			resolved(res, Content::Blocks),
 			spanned_vec!(
-				Node::Quote(spanned_vec!(paragraph!("foo"))),
-				Node::Quote(spanned_vec!(paragraph!("bar")))
+				Node::Element(Element::Quote(spanned_vec!(paragraph!("foo")))),
+				Node::Element(Element::Quote(spanned_vec!(paragraph!("bar"))))
 			)
 		);
 	}

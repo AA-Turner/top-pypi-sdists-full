@@ -10,6 +10,7 @@ from ...client import AuthenticatedClient, Client
 from ...models.component_usage import ComponentUsage
 from ...models.component_usage_field_enum import ComponentUsageFieldEnum
 from ...models.component_usage_o_enum import ComponentUsageOEnum
+from ...models.missing_usage_policy_enum import MissingUsagePolicyEnum
 from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
 
@@ -23,6 +24,7 @@ def _get_kwargs(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -66,6 +68,15 @@ def _get_kwargs(
             json_field.append(field_item)
 
     params["field"] = json_field
+
+    json_missing_usage_policy: Union[Unset, list[str]] = UNSET
+    if not isinstance(missing_usage_policy, Unset):
+        json_missing_usage_policy = []
+        for missing_usage_policy_item_data in missing_usage_policy:
+            missing_usage_policy_item = missing_usage_policy_item_data.value
+            json_missing_usage_policy.append(missing_usage_policy_item)
+
+    params["missing_usage_policy"] = json_missing_usage_policy
 
     json_o: Union[Unset, list[str]] = UNSET
     if not isinstance(o, Unset):
@@ -146,6 +157,7 @@ def sync_detailed(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -168,6 +180,7 @@ def sync_detailed(
         date_after (Union[Unset, datetime.date]):
         date_before (Union[Unset, datetime.date]):
         field (Union[Unset, list[ComponentUsageFieldEnum]]):
+        missing_usage_policy (Union[Unset, list[MissingUsagePolicyEnum]]):
         o (Union[Unset, list[ComponentUsageOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -193,6 +206,7 @@ def sync_detailed(
         date_after=date_after,
         date_before=date_before,
         field=field,
+        missing_usage_policy=missing_usage_policy,
         o=o,
         offering_uuid=offering_uuid,
         page=page,
@@ -220,6 +234,7 @@ def sync(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -242,6 +257,7 @@ def sync(
         date_after (Union[Unset, datetime.date]):
         date_before (Union[Unset, datetime.date]):
         field (Union[Unset, list[ComponentUsageFieldEnum]]):
+        missing_usage_policy (Union[Unset, list[MissingUsagePolicyEnum]]):
         o (Union[Unset, list[ComponentUsageOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -268,6 +284,7 @@ def sync(
         date_after=date_after,
         date_before=date_before,
         field=field,
+        missing_usage_policy=missing_usage_policy,
         o=o,
         offering_uuid=offering_uuid,
         page=page,
@@ -289,6 +306,7 @@ async def asyncio_detailed(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -311,6 +329,7 @@ async def asyncio_detailed(
         date_after (Union[Unset, datetime.date]):
         date_before (Union[Unset, datetime.date]):
         field (Union[Unset, list[ComponentUsageFieldEnum]]):
+        missing_usage_policy (Union[Unset, list[MissingUsagePolicyEnum]]):
         o (Union[Unset, list[ComponentUsageOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -336,6 +355,7 @@ async def asyncio_detailed(
         date_after=date_after,
         date_before=date_before,
         field=field,
+        missing_usage_policy=missing_usage_policy,
         o=o,
         offering_uuid=offering_uuid,
         page=page,
@@ -361,6 +381,7 @@ async def asyncio(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -383,6 +404,7 @@ async def asyncio(
         date_after (Union[Unset, datetime.date]):
         date_before (Union[Unset, datetime.date]):
         field (Union[Unset, list[ComponentUsageFieldEnum]]):
+        missing_usage_policy (Union[Unset, list[MissingUsagePolicyEnum]]):
         o (Union[Unset, list[ComponentUsageOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -410,6 +432,7 @@ async def asyncio(
             date_after=date_after,
             date_before=date_before,
             field=field,
+            missing_usage_policy=missing_usage_policy,
             o=o,
             offering_uuid=offering_uuid,
             page=page,
@@ -432,6 +455,7 @@ def sync_all(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
@@ -454,6 +478,7 @@ def sync_all(
         date_after (Union[Unset, datetime.date]):
         date_before (Union[Unset, datetime.date]):
         field (Union[Unset, list[ComponentUsageFieldEnum]]):
+        missing_usage_policy (Union[Unset, list[MissingUsagePolicyEnum]]):
         o (Union[Unset, list[ComponentUsageOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
@@ -481,6 +506,7 @@ def sync_all(
         date_after=date_after,
         date_before=date_before,
         field=field,
+        missing_usage_policy=missing_usage_policy,
         o=o,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,
@@ -541,6 +567,7 @@ async def asyncio_all(
     date_after: Union[Unset, datetime.date] = UNSET,
     date_before: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ComponentUsageFieldEnum]] = UNSET,
+    missing_usage_policy: Union[Unset, list[MissingUsagePolicyEnum]] = UNSET,
     o: Union[Unset, list[ComponentUsageOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     project_uuid: Union[Unset, UUID] = UNSET,
@@ -563,6 +590,7 @@ async def asyncio_all(
         date_after (Union[Unset, datetime.date]):
         date_before (Union[Unset, datetime.date]):
         field (Union[Unset, list[ComponentUsageFieldEnum]]):
+        missing_usage_policy (Union[Unset, list[MissingUsagePolicyEnum]]):
         o (Union[Unset, list[ComponentUsageOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         project_uuid (Union[Unset, UUID]):
@@ -590,6 +618,7 @@ async def asyncio_all(
         date_after=date_after,
         date_before=date_before,
         field=field,
+        missing_usage_policy=missing_usage_policy,
         o=o,
         offering_uuid=offering_uuid,
         project_uuid=project_uuid,

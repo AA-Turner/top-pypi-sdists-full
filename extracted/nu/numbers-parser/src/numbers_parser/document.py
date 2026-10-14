@@ -1076,9 +1076,9 @@ class Table(Cacheable):
             The row number (zero indexed)
         col: int
             The column number (zero indexed)
-        value: str | int | float | bool | DateTime | Duration
-            The value to write to the cell. The generated cell type is automatically
-            created based on the type of ``value``.
+        value: str | int | float | bool | DateTime | Duration | None
+            The value to write to the cell, or ``None`` to clear it. The generated
+            cell type is automatically created based on the type of ``value``.
         style: Style | str | None
             The name of a document custom style or a :py:class:`~numbers_parser.cell.Style` object.
 
@@ -1503,6 +1503,48 @@ class Table(Cacheable):
             for row, cells in enumerate(self._data):
                 for col, cell in enumerate(cells):
                     cell._set_merge(merge_cells.get((row, col)))
+
+    def add_comment(
+        self,
+        *args,
+        author: str = __package__,
+        reply: bool = False,
+    ) -> None:
+        """
+        Add a comment or reply to a cell.
+
+        Parameters
+        ----------
+        *args:
+            Either a cell reference (e.g., "A1") and the comment text, or
+            row and column integers followed by the comment text.
+        author: str, optional, default: "numbers_parser"
+            The author name for the comment.
+        reply: bool, optional, default: ``False``
+            If ``True``, adds the comment as a reply to an existing comment thread.
+
+        Raises
+        ------
+        TypeError:
+            If no comments exist and ``reply`` is ``True``, or of adding a
+            comment to a cell that already has comments and ``reply`` is ``False``.
+
+        """
+        (row, col, *args) = self._validate_cell_coords(*args)
+        if len(args) == 1:
+            text = args[0]
+        elif len(args) > 1:
+            msg = "too many positional arguments to add_comment"
+            raise TypeError(msg)
+        else:
+            msg = "no text defined for comment"
+            raise TypeError(msg)
+
+        if isinstance(self._data[row][col], MergedCell):
+            msg = "Cannot add a comment to a merged cell; add it to the merge anchor instead"
+            raise TypeError(msg)
+
+        self._model.add_comment_to_cell(self._table_id, row, col, text, author, reply)
 
     def set_cell_border(self, *args) -> None:
         """

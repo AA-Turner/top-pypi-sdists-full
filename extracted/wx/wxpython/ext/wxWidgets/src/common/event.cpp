@@ -71,6 +71,7 @@
     wxIMPLEMENT_DYNAMIC_CLASS(wxScrollWinEvent, wxEvent);
     wxIMPLEMENT_DYNAMIC_CLASS(wxMouseEvent, wxEvent);
     wxIMPLEMENT_DYNAMIC_CLASS(wxKeyEvent, wxEvent);
+    wxIMPLEMENT_DYNAMIC_CLASS(wxAcceleratorKeyEvent, wxKeyEvent);
     wxIMPLEMENT_DYNAMIC_CLASS(wxSizeEvent, wxEvent);
     wxIMPLEMENT_DYNAMIC_CLASS(wxPaintEvent, wxEvent);
     wxIMPLEMENT_DYNAMIC_CLASS(wxNcPaintEvent, wxEvent);
@@ -204,6 +205,7 @@ wxDEFINE_EVENT( wxEVT_CHAR_HOOK, wxKeyEvent );
 wxDEFINE_EVENT( wxEVT_NAVIGATION_KEY, wxNavigationKeyEvent );
 wxDEFINE_EVENT( wxEVT_KEY_DOWN, wxKeyEvent );
 wxDEFINE_EVENT( wxEVT_KEY_UP, wxKeyEvent );
+wxDEFINE_EVENT( wxEVT_ACCELERATOR_KEY, wxAcceleratorKeyEvent );
 #if wxUSE_HOTKEY
 wxDEFINE_EVENT( wxEVT_HOTKEY, wxKeyEvent );
 #endif
@@ -774,13 +776,8 @@ wxPoint wxMouseEvent::GetLogicalPosition(const wxReadOnlyDC& dc) const
 // ----------------------------------------------------------------------------
 
 wxKeyEvent::wxKeyEvent(wxEventType type)
-    : m_uniChar(WXK_NONE)
 {
     m_eventType = type;
-    m_keyCode = WXK_NONE;
-
-    m_x =
-    m_y = wxDefaultCoord;
 
     InitPropagation();
 }
@@ -969,23 +966,6 @@ wxChildFocusEvent::wxChildFocusEvent(wxWindow *win)
                  : wxCommandEvent(wxEVT_CHILD_FOCUS)
 {
     SetEventObject(win);
-}
-
-// ----------------------------------------------------------------------------
-// wxHelpEvent
-// ----------------------------------------------------------------------------
-
-/* static */
-wxHelpEvent::Origin wxHelpEvent::GuessOrigin(Origin origin)
-{
-    if ( origin == Origin_Unknown )
-    {
-        // assume that the event comes from the help button if it's not from
-        // keyboard and that pressing F1 always results in the help event
-        origin = wxGetKeyState(WXK_F1) ? Origin_Keyboard : Origin_HelpButton;
-    }
-
-    return origin;
 }
 
 // ----------------------------------------------------------------------------
@@ -2098,9 +2078,9 @@ wxEventBlocker::~wxEventBlocker()
 bool wxEventBlocker::ProcessEvent(wxEvent& event)
 {
     // should this event be blocked?
-    for ( size_t i = 0; i < m_eventsToBlock.size(); i++ )
+    for ( const auto& evt : m_eventsToBlock )
     {
-        wxEventType t = (wxEventType)m_eventsToBlock[i];
+        wxEventType t = (wxEventType)evt;
         if ( t == wxEVT_ANY || t == event.GetEventType() )
             return true;   // yes, it should: mark this event as processed
     }

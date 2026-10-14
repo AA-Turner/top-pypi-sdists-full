@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 from mpp import PAYMENT_AUTHORIZATION_HEADER, Challenge, Credential, Receipt
 from mpp._parsing import ParseError, _b64_decode, _parse_timestamp
@@ -24,7 +24,14 @@ from mpp.events import (
     Unsubscribe,
 )
 from mpp.server._defaults import detect_realm, detect_secret_key
-from mpp.server.compose import ComposedHandler, ComposedResult, ComposeEntry, ComposeOptions
+from mpp.server.compose import (
+    ComposedChallenges,
+    ComposedHandler,
+    ComposedResult,
+    ComposeEntry,
+    ComposeOptions,
+    _offer_currencies,
+)
 from mpp.server.decorator import (
     BodyParamsType,
     bind_framework_scope,
@@ -34,7 +41,7 @@ from mpp.server.decorator import (
 from mpp.server.intent import Validation
 from mpp.server.intent import broadcast_credential as broadcast_intent_credential
 from mpp.server.intent import validate_credential as validate_intent_credential
-from mpp.server.method import _SupportsPaymentSuccess, transform_request
+from mpp.server.method import _SupportsPaymentSuccess, prepare_intent, transform_request
 from mpp.server.verify import (
     _authenticate_echo,
     _body_digest_error,
@@ -65,16 +72,18 @@ class Mpp:
     """Server-side payment handler.
 
     Binds a payment method with realm and secret_key for stateless
-    challenge verification. Currency and recipient are configured once
-    on the method, so charge() only needs an amount.
+    challenge verification. Currencies and recipient are configured once
+    on the method, so charge() only needs an amount. Tempo methods accept
+    OUSD then USDC.e on mainnet (OUSD then pathUSD on Moderato) by default
+    and issue one challenge per accepted currency.
 
     Example:
         from mpp.server import Mpp
-        from mpp.methods.tempo import tempo
+        from mpp.methods.tempo import ChargeIntent, tempo
 
         m = Mpp.create(
             method=tempo(
-                currency="0x20c0000000000000000000000000000000000000",
+                intents={"charge": ChargeIntent()},
                 recipient="0x742d35Cc6634c0532925a3b844bC9e7595F8fE00",
             ),
         )
@@ -84,8 +93,14 @@ class Mpp:
             amount="0.50",
         )
 
-        if isinstance(result, Challenge):
-            headers = {"WWW-Authenticate": result.to_www_authenticate(m.realm)}
+        if isinstance(result, Challenge | ComposedChallenges):
+            challenges = (
+                result.challenges if isinstance(result, ComposedChallenges) else (result,)
+            )
+            headers = [
+                ("WWW-Authenticate", challenge.to_www_authenticate(m.realm))
+                for challenge in challenges
+            ]
             return Response(status=402, headers=headers)
 
         credential, receipt = result
@@ -123,6 +138,7 @@ class Mpp:
         self.defaults = defaults or {}
         self.requires_auth = requires_auth
         self.credential_header = PAYMENT_AUTHORIZATION_HEADER if requires_auth else None
+        self._compose_implicit_methods = False
         self._events = EventDispatcher()
         self._register_method_payment_success_handler(method)
 
@@ -178,6 +194,7 @@ class Mpp:
         request: dict[str, Any] | None,
         meta: dict[str, str] | None = _CONTEXT_UNSET,
         body: str | bytes | dict[str, Any] | None = _CONTEXT_UNSET,
+        method_options: Mapping[str, Any] | None = None,
     ) -> tuple[Credential, Method, Intent | VerifiableIntent, dict[str, Any], Challenge]:
         """Authenticate and resolve a credential outside an HTTP route."""
         credential = self._parse_credential(value)
@@ -227,6 +244,9 @@ class Mpp:
         intent_obj = method.intents.get(echo.intent)
         if intent_obj is None:
             raise PaymentMethodUnsupportedError(f"{echo.method}/{echo.intent}")
+        intent_obj, remaining = prepare_intent(method, intent_obj, method_options or {})
+        if remaining:
+            raise TypeError(f"unsupported method option: {next(iter(remaining))}")
         challenge = _challenge_from_echo(echo, echoed_request, echoed_opaque)
         return credential, method, intent_obj, echoed_request, challenge
 
@@ -248,6 +268,7 @@ class Mpp:
         request: dict[str, Any] | None = None,
         meta: dict[str, str] | None = _CONTEXT_UNSET,
         body: str | bytes | dict[str, Any] | None = _CONTEXT_UNSET,
+        **method_options: Any,
     ) -> Validation:
         """Validate a bound credential without consuming payment state.
 
@@ -290,6 +311,7 @@ class Mpp:
             request=request,
             meta=meta,
             body=body,
+            method_options=method_options,
         )
         return await validate_intent_credential(
             intent=intent_obj,
@@ -305,6 +327,7 @@ class Mpp:
         request: dict[str, Any] | None = None,
         meta: dict[str, str] | None = _CONTEXT_UNSET,
         body: str | bytes | dict[str, Any] | None = _CONTEXT_UNSET,
+        **method_options: Any,
     ) -> Receipt:
         """Revalidate and perform a bound credential's terminal operation.
 
@@ -342,6 +365,7 @@ class Mpp:
                 request=request,
                 meta=meta,
                 body=body,
+                method_options=method_options,
             )
         except Exception as error:
             echo = parsed.challenge
@@ -423,7 +447,7 @@ class Mpp:
         """Create an Mpp instance with smart defaults.
 
         Args:
-            method: Payment method (e.g., tempo(currency=..., recipient=...)).
+            method: Payment method (e.g., tempo(intents=..., recipient=...)).
             methods: Ordered payment methods. Mutually exclusive with ``method``.
             realm: Server realm. Auto-detected from environment if omitted.
             secret_key: HMAC secret. Required unless `MPP_SECRET_KEY` is set.
@@ -453,8 +477,10 @@ class Mpp:
             store=store,
             requires_auth=requires_auth,
         )
-        if len(configured) > 1:
+        server._compose_implicit_methods = methods is not None
+        if methods is not None:
             server.methods = configured
+        if len(configured) > 1:
             if store is not None:
                 server._wire_store(store)
             for configured_method in configured[1:]:
@@ -492,26 +518,27 @@ class Mpp:
         recipient: str | None = None,
         expires: str | None = None,
         description: str | None = None,
-        memo: str | None = None,
         splits: list[dict[str, str]] | None = None,
         fee_payer: bool = False,
         chain_id: int | None = None,
         extra: dict[str, str] | None = None,
         body: str | bytes | dict[str, Any] | None = None,
         payment_authorization: str | None = None,
+        **method_options: Any,
     ) -> Challenge | ComposedResult:
         """Handle a charge intent.
 
         Args:
             authorization: The Authorization header value (or None).
             amount: Payment amount in human units (e.g., "0.50" for $0.50).
-                Automatically converted to base units (6 decimals for pathUSD).
-            currency: Override the method's default currency.
+                Automatically converted to base units using the method's
+                decimals (6 for Tempo stablecoins).
+            currency: Offer only this currency instead of the method's
+                accepted currencies.
             recipient: Override the method's default recipient.
             expires: Challenge expiration as auth-param (ISO 8601).
                 Defaults to now + 5 minutes. Not included in the request body.
             description: Optional human-readable description.
-            memo: Optional 32-byte memo (hex string) for transferWithMemo.
             splits: Optional split recipients/amounts for multi-transfer charges.
             fee_payer: Whether to use a fee payer for gas sponsorship.
             chain_id: Override the default chain ID (e.g., 42431 for moderato).
@@ -523,29 +550,37 @@ class Mpp:
                 Used when the server was created with ``requires_auth=True``.
 
         Returns:
-            Challenge, or ComposedChallenges for multiple methods, if payment
-            is required; otherwise (Credential, Receipt).
+            Challenge, or ComposedChallenges for multiple offers (methods or
+            accepted currencies), if payment is required; otherwise
+            (Credential, Receipt).
         """
         methods = [method for method in self.methods if "charge" in method.intents]
         if not methods:
             raise ValueError(f"Method {self.method.name} does not support charge intent")
-        options: ComposeOptions = {
+        options: dict[str, Any] = {
             "amount": amount,
             "currency": currency,
             "recipient": recipient,
             "expires": expires,
             "description": description,
-            "memo": memo,
             "splits": splits,
             "fee_payer": fee_payer,
             "chain_id": chain_id,
             "extra": extra,
+            **method_options,
         }
-        if len(methods) > 1:
-            return await self.compose(
-                *((method, options) for method in methods),
+        composed_methods = self._composed_methods(methods, options)
+        if composed_methods:
+            handler = self.compose(
+                *((method, cast(ComposeOptions, options)) for method in composed_methods),
                 body=body,
-            ).verify(self.payment_credential_value(authorization, payment_authorization))
+            )
+            result = await handler.verify(
+                self.payment_credential_value(authorization, payment_authorization)
+            )
+            if len(handler._offers) == 1 and isinstance(result, ComposedChallenges):
+                return result.challenges[0]
+            return result
 
         intent, request, challenge_expires = self._build_offer_request(
             methods[0], "charge", options, None, api_name="charge"
@@ -576,6 +611,7 @@ class Mpp:
         chain_id: int | None = None,
         extra: dict[str, str] | None = None,
         body: BodyParamsType = None,
+        **method_options: Any,
     ) -> Callable[  # noqa: UP047
         [Callable[[Any, Credential, Receipt], Awaitable[R]]],
         Callable[[Any], Awaitable[R | Any]],
@@ -591,7 +627,8 @@ class Mpp:
         Args:
             amount: Payment amount in human units (e.g., "0.50").
             intent: Intent name to look up on the method (default: "charge").
-            currency: Override the method's default currency.
+            currency: Offer only this currency instead of the method's
+                accepted currencies.
             recipient: Override the method's default recipient.
             description: Optional human-readable description.
             expires_in: Challenge validity duration. Defaults to 5 minutes.
@@ -602,7 +639,7 @@ class Mpp:
                 challenges via digest and used to verify paid retries.
 
         Example:
-            server = Mpp.create(method=tempo(currency=..., recipient=...))
+            server = Mpp.create(method=tempo(intents=..., recipient=...))
 
             @app.get("/paid")
             @server.pay(amount="0.50")
@@ -617,7 +654,7 @@ class Mpp:
         methods = [method for method in self.methods if intent in method.intents]
         if not methods:
             raise ValueError(f"Method {self.method.name} does not support {intent} intent")
-        options: ComposeOptions = {
+        options: dict[str, Any] = {
             "amount": amount,
             "currency": currency,
             "recipient": recipient,
@@ -625,10 +662,15 @@ class Mpp:
             "expires_in": expires_in,
             "chain_id": chain_id,
             "extra": extra,
+            **method_options,
         }
-        if len(methods) > 1:
+        composed_methods = self._composed_methods(methods, options)
+        if composed_methods:
             return self.compose(
-                *((f"{method.name}/{intent}", options) for method in methods),
+                *(
+                    (f"{method.name}/{intent}", cast(ComposeOptions, options))
+                    for method in composed_methods
+                ),
                 body=body,
             )
 
@@ -665,6 +707,22 @@ class Mpp:
 
         return decorator
 
+    def _composed_methods(
+        self,
+        methods: Sequence[Method],
+        options: Mapping[str, Any],
+    ) -> Sequence[Method]:
+        """Return the methods to serve through composition, or none.
+
+        Servers created with ``methods=`` always compose. A single ``method=``
+        composes only when it offers more than one currency for this request.
+        """
+        if self._compose_implicit_methods:
+            return methods
+        if _offer_currencies(methods[0], options) is not None:
+            return methods[:1]
+        return ()
+
     def _build_offer_request(
         self,
         method: Method,
@@ -676,6 +734,12 @@ class Mpp:
     ) -> tuple[Intent | VerifiableIntent, dict[str, Any], str | None]:
         """Build the canonical request shared by one configured payment offer."""
         intent = method.intents[intent_name]
+        intent, options = prepare_intent(method, intent, options)
+        from mpp.server.compose import _OPTION_KEYS
+
+        unknown = options.keys() - _OPTION_KEYS
+        if unknown:
+            raise TypeError(f"unsupported {api_name} option: {sorted(unknown)[0]}")
         currency = options.get("currency") or getattr(method, "currency", None)
         recipient = options.get("recipient") or getattr(method, "recipient", None)
         if not currency:
@@ -706,11 +770,8 @@ class Mpp:
         fee_payer = options.get("fee_payer", False)
         if splits and fee_payer:
             raise ValueError("splits and fee_payer cannot be used together")
-        memo = options.get("memo")
         details = {
-            key: value
-            for key, value in (("memo", memo), ("splits", splits), ("feePayer", fee_payer))
-            if value
+            key: value for key, value in (("splits", splits), ("feePayer", fee_payer)) if value
         }
         if chain_id is not None:
             details["chainId"] = chain_id

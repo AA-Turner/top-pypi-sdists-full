@@ -31,15 +31,19 @@ THE SOFTWARE.
 import inspect
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sized
+from collections.abc import Callable, Iterator, Sized
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, ClassVar, Literal, TypeAlias, cast
 
 import urwid
-from typing_extensions import TypeAlias, override
+from typing_extensions import override
 
 from pudb.lowlevel import ui_log
 from pudb.ui_tools import text_width
+
+
+if TYPE_CHECKING:
+    from pudb.debugger import Debugger
 
 
 if TYPE_CHECKING:
@@ -57,7 +61,7 @@ else:
 
 # {{{ abstract base classes for containers
 
-class PudbCollection(ABC):  # noqa: B024
+class PudbCollection(ABC):  # ruff:ignore[abstract-base-class-without-abstract-method]
     @classmethod
     def __subclasshook__(cls, c):
         if cls is PudbCollection:
@@ -66,12 +70,12 @@ class PudbCollection(ABC):  # noqa: B024
                     any("__contains__" in b.__dict__ for b in c.__mro__),
                     any("__iter__" in b.__dict__ for b in c.__mro__),
                 ])
-            except Exception:
+            except Exception:  # ruff:ignore[try-except-pass]
                 pass
         return NotImplemented
 
     @classmethod
-    def entries(cls, collection, label: str):
+    def entries(cls, collection, label: str | None):
         """
         :yield: ``(label, entry, id_path_ext)`` tuples for each entry in the
         collection.
@@ -89,7 +93,7 @@ class PudbCollection(ABC):  # noqa: B024
         return len(collection)
 
 
-class PudbSequence(ABC):  # noqa: B024
+class PudbSequence(ABC):  # ruff:ignore[abstract-base-class-without-abstract-method]
     @classmethod
     def __subclasshook__(cls, c):
         if cls is PudbSequence:
@@ -98,12 +102,12 @@ class PudbSequence(ABC):  # noqa: B024
                     any("__getitem__" in b.__dict__ for b in c.__mro__),
                     any("__iter__" in b.__dict__ for b in c.__mro__),
                 ])
-            except Exception:
+            except Exception:  # ruff:ignore[try-except-pass]
                 pass
         return NotImplemented
 
     @classmethod
-    def entries(cls, sequence, label: str):
+    def entries(cls, sequence, label: str | None):
         """
         :yield: ``(label, entry, id_path_ext)`` tuples for each entry in the
         sequence.
@@ -121,7 +125,7 @@ class PudbSequence(ABC):  # noqa: B024
         return len(sequence)
 
 
-class PudbMapping(ABC):  # noqa: B024
+class PudbMapping(ABC):  # ruff:ignore[abstract-base-class-without-abstract-method]
     @classmethod
     def __subclasshook__(cls, c):
         if cls is PudbMapping:
@@ -131,9 +135,12 @@ class PudbMapping(ABC):  # noqa: B024
                     any("__iter__" in b.__dict__ for b in c.__mro__),
                     any("keys" in b.__dict__ for b in c.__mro__),
                 ])
-            except Exception:
+            except Exception:  # ruff:ignore[try-except-pass]
                 pass
         return NotImplemented
+
+    if TYPE_CHECKING:
+        def __iter__(self) -> Iterator[object]: ...
 
     @classmethod
     def _safe_key_repr(cls, key):
@@ -143,14 +150,14 @@ class PudbMapping(ABC):  # noqa: B024
             return f"!! repr error on key with id: {id(key):#x} !!"
 
     @classmethod
-    def entries(cls, mapping, label: str):
+    def entries(cls, mapping, label: str | None):
         """
         :yield: ``(label, entry, id_path_ext)`` tuples for each entry in the
         mapping.
         """
         assert isinstance(mapping, cls)
         try:
-            for key in mapping.keys():
+            for key in mapping:
                 key_repr = cls._safe_key_repr(key)
                 yield (key_repr, mapping[key], f"[{key_repr}]")
         except Exception as error:
@@ -176,6 +183,9 @@ CONTAINER_CLASSES = (
 # {{{ data
 
 class FrameVarInfo:
+    id_path_to_iinfo: dict[IdPath, InspectInfo]
+    watches: list[WatchExpression]
+
     def __init__(self):
         self.id_path_to_iinfo = {}
         self.watches = []
@@ -189,7 +199,7 @@ class FrameVarInfo:
                     id_path, InspectInfo())
 
 
-VarAccessLevel: TypeAlias = Literal["private", "public"]
+VarAccessLevel: TypeAlias = Literal["private", "public", "all"]
 Stringifier: TypeAlias = Literal[
     "default",
     "type",
@@ -203,7 +213,7 @@ IdPath: TypeAlias = "tuple[str, ...]"
 
 class InspectInfo:
     show_detail: bool
-    display_type: Stringifier
+    display_type: Stringifier | str
     highlighted: bool
     repeated_at_top: bool
     access_level: VarAccessLevel
@@ -246,7 +256,7 @@ class VariableWidget(urwid.Widget):
     nesting_level: int
     var_label: str | None
     value_str: str | None
-    id_path: IdPath
+    id_path: str
     attr_prefix: str
     watch_expr: WatchExpression | None
     wrap: bool
@@ -255,7 +265,7 @@ class VariableWidget(urwid.Widget):
                 parent: VariableWidget | None,
                 var_label: str | None,
                 value_str: str | None,
-                id_path: IdPath,
+                id_path: str,
                 attr_prefix: str | None = None,
                 watch_expr: WatchExpression | None = None,
                 iinfo: InspectInfo | None = None
@@ -432,11 +442,13 @@ def get_str_safe_types():
     return (
         *[
             getattr(types, s)
-            for s in ("BuiltinFunctionType BuiltinMethodType  ClassType "
-                 "CodeType FileType FrameType FunctionType GetSetDescriptorType "
-                 "LambdaType MemberDescriptorType MethodType ModuleType "
-                 "SliceType TypeType TracebackType UnboundMethodType XRangeType"
-            ).split() if hasattr(types, s)],
+            for s in [
+                "BuiltinFunctionType", "BuiltinMethodType", "ClassType",
+                "CodeType", "FileType", "FrameType", "FunctionType",
+                "GetSetDescriptorType", "LambdaType", "MemberDescriptorType",
+                "MethodType", "ModuleType", "SliceType", "TypeType",
+                "TracebackType", "UnboundMethodType", "XRangeType"
+            ] if hasattr(types, s)],
          WatchEvalError)
 
 
@@ -502,7 +514,7 @@ def error_stringifier(_: object) -> str:
 
 custom_stringifier_dict = {}
 
-STRINGIFIERS: dict[Stringifier, Callable[[object], str]] = {
+STRINGIFIERS: dict[str, Callable[[object], str]] = {
     "default": default_stringifier,
     "type": type_stringifier,
     "repr": repr,
@@ -541,8 +553,7 @@ def get_stringifier(iinfo: InspectInfo) -> Callable[[object], str]:
             if "pudb_stringifier" not in custom_stringifier_dict:
                 ui_log.error(f"{iinfo.display_type} does not contain a function "
                              "named pudb_stringifier at the module level.")
-                return lambda value: str(
-                        "ERROR: Invalid custom stringifier file: "
+                return lambda value: ("ERROR: Invalid custom stringifier file: "
                         "pudb_stringifier not defined.")
             else:
                 return (lambda value:
@@ -554,14 +565,22 @@ def get_stringifier(iinfo: InspectInfo) -> Callable[[object], str]:
 # {{{ tree walking
 
 class ValueWalker(ABC):
-    EMPTY_LABEL = "<empty>"
-    CONTINUATION_LABEL = "[...]"
+    EMPTY_LABEL: ClassVar[str] = "<empty>"
+    CONTINUATION_LABEL: ClassVar[str] = "[...]"
+
+    frame_var_info: FrameVarInfo
 
     def __init__(self, frame_var_info):
         self.frame_var_info = frame_var_info
 
     @abstractmethod
-    def add_item(self, parent, var_label, value_str, id_path, attr_prefix=None):
+    def add_item(self,
+                parent: VariableWidget | None,
+                var_label: str,
+                value_str: str | None,
+                id_path: str,
+                attr_prefix: str | None = None
+            ):
         pass
 
     def add_continuation_item(self, parent: VariableWidget, id_path: str,
@@ -573,7 +592,7 @@ class ValueWalker(ABC):
             container should be added. If no continuation item was added,
             continue adding entries from the container.
         """
-        cont_id_path = "%s.cont-%d" % (id_path, count)
+        cont_id_path = f"{id_path}.cont-{count}"
         if not self.frame_var_info.get_inspect_info(
                 cont_id_path, read_only=True).show_detail:
             if length > 0:
@@ -586,8 +605,11 @@ class ValueWalker(ABC):
             return True
         return False
 
-    def walk_container(self, parent: VariableWidget, label: str,
-                       value, id_path: str | None = None):
+    def walk_container(self,
+                parent: VariableWidget,
+                label: str | None,
+                value: object,
+                id_path: str | None = None):
         try:
             container_cls = next(cls for cls in CONTAINER_CLASSES
                                  if isinstance(value, cls))
@@ -609,7 +631,7 @@ class ValueWalker(ABC):
 
             entry_id_path = f"{id_path}{id_path_ext}"
             self.walk_value(parent,
-                            "[{}]".format(entry_label if entry_label else ""),
+                            "[{}]".format(entry_label or ""),
                             entry, entry_id_path)
 
         if is_empty:
@@ -618,7 +640,12 @@ class ValueWalker(ABC):
 
         return True
 
-    def walk_attributes(self, parent, label, value, id_path, iinfo):
+    def walk_attributes(self,
+                parent: VariableWidget | None,
+                label: str | None,
+                value: object,
+                id_path: str,
+                iinfo: InspectInfo):
         try:
             keys = dir(value)
         except Exception:
@@ -629,9 +656,9 @@ class ValueWalker(ABC):
             if iinfo.access_level == "public":
                 if key.startswith("_"):
                     continue
-            elif iinfo.access_level == "private":
-                if key.startswith("__") and key.endswith("__"):
-                    continue
+            elif (iinfo.access_level == "private"
+                    and key.startswith("__") and key.endswith("__")):
+                continue
 
             try:
                 with warnings.catch_warnings():
@@ -646,8 +673,14 @@ class ValueWalker(ABC):
                     f".{key}", attr_value,
                     f"{id_path}.{key}")
 
-    def walk_value(self, parent, label, value, id_path=None, attr_prefix=None):
+    def walk_value(self,
+                parent: VariableWidget | None,
+                label: str,
+                value: object,
+                id_path: str | None = None,
+                attr_prefix: str | None = None):
         if id_path is None:
+            assert label is not None
             id_path = label
 
         assert isinstance(id_path, str)
@@ -712,7 +745,7 @@ class WatchValueWalker(ValueWalker):
 
 
 class TopAndMainVariableWalker(ValueWalker):
-    def __init__(self, frame_var_info):
+    def __init__(self, frame_var_info: FrameVarInfo):
         ValueWalker.__init__(self, frame_var_info)
 
         self.main_widget_list = []
@@ -721,7 +754,7 @@ class TopAndMainVariableWalker(ValueWalker):
         self.top_id_path_prefixes = []
 
     @staticmethod
-    def _should_repeat_at_top(id_path, tipp) -> bool:
+    def _should_repeat_at_top(id_path: str | None, tipp: str) -> bool:
         """
         :return: True if the id_path is a child path of tipp
         """
@@ -743,7 +776,7 @@ class TopAndMainVariableWalker(ValueWalker):
             attr_prefix = "highlighted var"
 
         repeated_at_top = iinfo.repeated_at_top
-        if repeated_at_top and id_path is not None:
+        if repeated_at_top and id_path is not None:  # pyright: ignore[reportUnnecessaryComparison]
             self.top_id_path_prefixes.append(id_path)
 
         for tipp in self.top_id_path_prefixes:
@@ -767,7 +800,11 @@ class TopAndMainVariableWalker(ValueWalker):
 SEPARATOR = urwid.AttrMap(urwid.Text(""), "variable separator")
 
 
-def make_var_view(frame_var_info, locals, globals):
+def make_var_view(
+            frame_var_info: FrameVarInfo,
+            locals: dict[str, object],
+            globals: dict[str, object]
+        ):
     vars = list(locals.keys())
     vars.sort(key=str.lower)
 
@@ -807,12 +844,16 @@ def make_var_view(frame_var_info, locals, globals):
 
 
 class FrameVarInfoKeeper:
+    frame_var_info: dict[str, FrameVarInfo]
+
+    # self.debugger set by subclass
+    debugger:  Debugger  # pyright: ignore[reportUninitializedInstanceVariable]
+
     def __init__(self):
         self.frame_var_info = {}
 
-    def get_frame_var_info(self, read_only, ssid=None):
+    def get_frame_var_info(self, read_only: bool, ssid: str | None = None):
         if ssid is None:
-            # self.debugger set by subclass
             ssid = self.debugger.get_stack_situation_id()
         if read_only:
             return self.frame_var_info.get(ssid, FrameVarInfo())

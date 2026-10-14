@@ -51,6 +51,8 @@ class Customer:
         user_identity_sources (Union[Unset, list[str]]):
         default_affiliations (Union[Unset, list['AffiliatedOrganization']]): Affiliations offered to project creators of
             this organization.
+        is_service_provider_manager_only (Union[Unset, bool]): True when the requesting user's only link to this
+            organization is a role on its service provider. Such a row carries only identity fields.
         name (Union[Unset, str]):
         slug (Union[Unset, str]): URL-friendly identifier. Only editable by staff users.
         native_name (Union[Unset, str]):
@@ -118,6 +120,7 @@ class Customer:
     user_affiliations: Union[Unset, list[str]] = UNSET
     user_identity_sources: Union[Unset, list[str]] = UNSET
     default_affiliations: Union[Unset, list["AffiliatedOrganization"]] = UNSET
+    is_service_provider_manager_only: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     slug: Union[Unset, str] = UNSET
     native_name: Union[Unset, str] = UNSET
@@ -250,6 +253,8 @@ class Customer:
             for default_affiliations_item_data in self.default_affiliations:
                 default_affiliations_item = default_affiliations_item_data.to_dict()
                 default_affiliations.append(default_affiliations_item)
+
+        is_service_provider_manager_only = self.is_service_provider_manager_only
 
         name = self.name
 
@@ -427,6 +432,8 @@ class Customer:
             field_dict["user_identity_sources"] = user_identity_sources
         if default_affiliations is not UNSET:
             field_dict["default_affiliations"] = default_affiliations
+        if is_service_provider_manager_only is not UNSET:
+            field_dict["is_service_provider_manager_only"] = is_service_provider_manager_only
         if name is not UNSET:
             field_dict["name"] = name
         if slug is not UNSET:
@@ -632,6 +639,8 @@ class Customer:
 
             default_affiliations.append(default_affiliations_item)
 
+        is_service_provider_manager_only = d.pop("is_service_provider_manager_only", UNSET)
+
         name = d.pop("name", UNSET)
 
         slug = d.pop("slug", UNSET)
@@ -829,6 +838,7 @@ class Customer:
             user_affiliations=user_affiliations,
             user_identity_sources=user_identity_sources,
             default_affiliations=default_affiliations,
+            is_service_provider_manager_only=is_service_provider_manager_only,
             name=name,
             slug=slug,
             native_name=native_name,

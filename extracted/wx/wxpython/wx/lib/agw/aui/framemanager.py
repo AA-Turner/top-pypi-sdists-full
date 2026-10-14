@@ -7282,6 +7282,18 @@ class AuiManager(wx.EvtHandler):
                 if notebookRoot:
                     notebookRoot.Caption(paneInfo.caption)
                     self.RefreshCaptions()
+                    if notebookRoot.IsFloating() and notebookRoot.frame:
+                        # When the notebook is floating, its visible caption bar is drawn by
+                        # the AuiFloatingFrame's own internal AuiManager, from a *copy* of this
+                        # pane's info made when the frame was created (see SetPaneWindow). That
+                        # copy is never told about caption changes, so update it directly and
+                        # refresh/re-sync that inner manager too.
+                        innerMgr = notebookRoot.frame._mgr
+                        innerPane = innerMgr.GetPane(notebook)
+                        if innerPane.IsOk():
+                            innerPane.Caption(paneInfo.caption)
+                            innerMgr.RefreshCaptions()
+                        notebookRoot.frame.SetTitle(paneInfo.caption)
 
         event.Skip()
 
@@ -8036,10 +8048,16 @@ class AuiManager(wx.EvtHandler):
     def RefreshCaptions(self):
         """ Refreshes all pane captions. """
 
+        # Invalidate all captions first and repaint them in a single pass. Every Update() repaints
+        # everything that is invalid in the frame, which is expensive if the frame has large windows
+        refreshed = False
         for part in self._uiparts:
             if part.type == AuiDockUIPart.typeCaption:
                 self._frame.Refresh(True, part.rect)
-                self._frame.Update()
+                refreshed = True
+
+        if refreshed:
+            self._frame.Update()
 
     def CalculateHintRect(self, pane_window, pt, offset):
         """

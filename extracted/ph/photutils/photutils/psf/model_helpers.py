@@ -13,12 +13,23 @@ from astropy.nddata import NDData
 from astropy.units import Quantity
 from astropy.utils.decorators import deprecated
 from scipy.integrate import dblquad, trapezoid
+from scipy.interpolate import make_interp_spline
 
 from photutils.utils._deprecation import deprecated_positional_kwargs
+from photutils.utils._parameters import as_pair
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
-__all__ = ['grid_from_epsfs', 'make_psf_model']
+__all__ = ['grid_from_epsfs', 'make_epsf_from_psf', 'make_psf_model']
 
 
+@deprecated(since='3.1',
+            message=('make_psf_model was deprecated in version 3.1 and will '
+                     'be removed in version 4.0. Use one of the PSF models '
+                     'provided by photutils.psf, an ImagePSF made from the '
+                     'output of make_epsf_from_psf, or a custom astropy '
+                     'Fittable2DModel with x_0, y_0, and flux parameters '
+                     'instead.'),
+            warning_type=PhotutilsDeprecationWarning)
 def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
                    normalize=True, dx=50, dy=50, subsample=100,
                    use_dblquad=False):
@@ -49,6 +60,10 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
         It is *not* needed for any of the PSF models provided by
         Photutils.
 
+    The output PSF model is evaluated at the input positions like
+    the input ``model``. It is not integrated over the detector pixels
+    (see the Notes section).
+
     Parameters
     ----------
     model : `~astropy.modeling.Fittable2DModel`
@@ -57,30 +72,33 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
     x_name : `str` or `None`, optional
         The name of the ``model`` parameter that corresponds to the x
         center of the PSF. If `None`, the model will be assumed to be
-        centered at x=0, and a new model parameter called ``xpos_0``
+        centered at x=0, and a new model parameter called ``offset_0``
         will be added for the x position.
 
     y_name : `str` or `None`, optional
-        The name of the ``model`` parameter that corresponds to the
-        y center of the PSF. If `None`, the model will be assumed
-        to be centered at y=0, and a new parameter called ``ypos_1``
-        will be added for the y position.
+        The name of the ``model`` parameter that corresponds to the y
+        center of the PSF. If `None`, the model will be assumed to be
+        centered at y=0, and a new parameter called ``offset_1`` will be
+        added for the y position.
 
     flux_name : `str` or `None`, optional
         The name of the ``model`` parameter that corresponds to the
-        total flux of a source. If `None`, a new model parameter called
-        ``flux_3`` will be added for model flux.
+        total flux of a source. If `None`, a new flux parameter will
+        be added. It is called ``amplitude_3`` unless ``model`` is a
+        compound model, in which case the number is the number of
+        submodels in ``model`` plus 2. The name is stored in the
+        ``flux_name`` attribute of the output model.
 
     normalize : bool, optional
         If `True`, the input ``model`` will be integrated and rescaled
-        so that its sum integrates to 1. This normalization occurs only
+        so that it integrates to 1. This normalization occurs only
         once for the input ``model``. If the total flux of ``model``
         somehow depends on (x, y) position, then one will need to
         correct the fitted model fluxes for this effect.
 
-    dx, dy : odd int, optional
+    dx, dy : int, optional
         The size of the integration grid in x and y for normalization.
-        Must be odd. These keywords are ignored if ``normalize`` is
+        Must be positive. These keywords are ignored if ``normalize`` is
         `False` or ``use_dblquad`` is `True`.
 
     subsample : int, optional
@@ -100,28 +118,43 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
     result : `~astropy.modeling.CompoundModel`
         A PSF model that can be used with the PSF photometry classes.
         The returned model will always be an Astropy compound model.
+        All parameters of the output model other than the x, y, and
+        flux parameters are fixed, so that they are not fit by the PSF
+        photometry classes.
 
     Notes
     -----
-    To normalize the model, by default it is discretized on a grid of
-    size ``dx`` x ``dy`` from the model center with a subsampling factor
-    of ``subsample``. The model is then integrated over the grid using
-    trapezoidal integration.
+    To normalize the model, by default it is evaluated on a grid of
+    ``dx * subsample`` by ``dy * subsample`` points that spans ``dx -
+    1`` by ``dy - 1`` pixels centered on the model. The model is then
+    integrated over that grid using trapezoidal integration.
 
     If the ``use_dblquad`` keyword is set to `True`, then the model is
     integrated using `scipy.integrate.dblquad`. This is *much* slower
     than the default integration of the evaluated model, but it is more
     accurate. Also, note that the ``dblquad`` integration can sometimes
-    fail, e.g., return zero for a non-zero model. This can happen when
+    fail, e.g., return zero for a nonzero model. This can happen when
     the model function is sharply localized relative to the size of the
-    integration interval.
+    integration interval. A `ValueError` is raised if the integral is
+    zero.
+
+    That integration is used only to normalize the model. The values
+    of the output model on a grid of detector pixels are the values of
+    the input ``model`` at the pixel centers, not the fluxes in the
+    pixels. For a PSF that is undersampled by the detector pixels, such
+    a model is sharper than a source in the data and the sum of its
+    values over the pixels depends on the subpixel position of the
+    source. To integrate a model over the pixels, evaluate it on an
+    oversampled grid, make an ePSF image from the result with
+    `make_epsf_from_psf`, and use that image with `ImagePSF`.
 
     Examples
     --------
     >>> from astropy.modeling.models import Gaussian2D
     >>> from photutils.psf import make_psf_model
     >>> model = Gaussian2D(x_stddev=2, y_stddev=2)
-    >>> psf_model = make_psf_model(model, x_name='x_mean', y_name='y_mean')
+    >>> psf_model = make_psf_model(model, x_name='x_mean',
+    ...                            y_name='y_mean')  # doctest: +SKIP
     >>> print(psf_model.param_names)  # doctest: +SKIP
     ('amplitude_2', 'x_mean_2', 'y_mean_2', 'x_stddev_2', 'y_stddev_2',
      'theta_2', 'amplitude_3', 'amplitude_4')
@@ -130,8 +163,8 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
 
     if x_name is None:
         x_model = _InverseShift(0, name='x_position')
-        # "offset" is the _InverseShift parameter name;
-        # the x inverse shift model is always the first submodel
+        # The _InverseShift model is always the first submodel, so the x
+        # position parameter name is always "offset_0".
         x_name = 'offset_0'
     else:
         if x_name not in input_model.param_names:
@@ -143,8 +176,8 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
 
     if y_name is None:
         y_model = _InverseShift(0, name='y_position')
-        # "offset" is the _InverseShift parameter name;
-        # the y inverse shift model is always the second submodel
+        # The _InverseShift model is always the second submodel, so the y
+        # position parameter name is always "offset_1".
         y_name = 'offset_1'
     else:
         if y_name not in input_model.param_names:
@@ -160,11 +193,15 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
 
     if flux_name is None:
         psf_model *= Const2D(1.0, name='flux')
-        # "amplitude" is the Const2D parameter name;
-        # the flux scaling is always the last component (prior to
-        # normalization)
+        # The Const2D model is always the last submodel, so the flux
+        # parameter name is always "amplitude_3" (or "amplitude" if the
+        # input model is a CompoundModel).
         flux_name = psf_model.param_names[-1]
     else:
+        if flux_name not in input_model.param_names:
+            msg = f'{flux_name!r} parameter name not found in the input model'
+            raise ValueError(msg)
+
         flux_name = _shift_model_param(input_model, flux_name, shift=2)
 
     if normalize:
@@ -179,24 +216,17 @@ def make_psf_model(model, *, x_name=None, y_name=None, flux_name=None,
 
         psf_model *= Const2D(1.0 / integral, name='normalization_scaling')
 
-    # fix all the output model parameters that are not x, y, or flux
+    # Set all the other parameters to be fixed so that they are not fit
+    # during PSF photometry.
     for name in psf_model.param_names:
         psf_model.fixed[name] = name not in (x_name, y_name, flux_name)
 
-    # final check that the x, y, and flux parameter names are in the
-    # output model
-    names = (x_name, y_name, flux_name)
-    for name in names:
-        if name not in psf_model.param_names:
-            msg = f'{name!r} parameter name not found in the output model'
-            raise ValueError(msg)
-
-    # set the parameter names for the PSF photometry classes
+    # Set the parameter names for the PSF photometry classes
     psf_model.x_name = x_name
     psf_model.y_name = y_name
     psf_model.flux_name = flux_name
 
-    # set aliases
+    # Set aliases
     psf_model.x_0 = getattr(psf_model, x_name)
     psf_model.y_0 = getattr(psf_model, y_name)
     psf_model.flux = getattr(psf_model, flux_name)
@@ -229,16 +259,16 @@ def _integrate_model(model, *, x_name=None, y_name=None, dx=50, dy=50,
     """
     Integrate a model over a 2D grid.
 
-    By default, the model is discretized on a grid of size ``dx``
-    x ``dy`` from the model center with a subsampling factor of
-    ``subsample``. The model is then integrated over the grid using
-    trapezoidal integration.
+    By default, the model is evaluated on a grid of ``dx * subsample``
+    by ``dy * subsample`` points that spans ``dx - 1`` by ``dy - 1``
+    pixels centered on the model. The model is then integrated over
+    that grid using trapezoidal integration.
 
     If the ``use_dblquad`` keyword is set to `True`, then the model is
     integrated using `scipy.integrate.dblquad`. This is *much* slower
     than the default integration of the evaluated model, but it is more
     accurate. Also, note that the ``dblquad`` integration can sometimes
-    fail, e.g., return zero for a non-zero model. This can happen when
+    fail, e.g., return zero for a nonzero model. This can happen when
     the model function is sharply localized relative to the size of the
     integration interval.
 
@@ -259,8 +289,8 @@ def _integrate_model(model, *, x_name=None, y_name=None, dx=50, dy=50,
         ``use_dblquad`` is `False` and ignored if ``use_dblquad`` is
         `True`.
 
-    dx, dy : odd int, optional
-        The size of the integration grid in x and y. Must be odd.
+    dx, dy : int, optional
+        The size of the integration grid in x and y. Must be positive.
         These keywords are ignored if ``use_dblquad`` is `True`.
 
     subsample : int, optional
@@ -297,36 +327,38 @@ def _integrate_model(model, *, x_name=None, y_name=None, dx=50, dy=50,
 
     hx = (dx - 1) / 2
     hy = (dy - 1) / 2
-    nxpts = int(dx * subsample)
-    nypts = int(dy * subsample)
-    xvals = np.linspace(xc - hx, xc + hx, nxpts)
-    yvals = np.linspace(yc - hy, yc + hy, nypts)
+    nx_pts = int(dx * subsample)
+    ny_pts = int(dy * subsample)
+    xvals = np.linspace(xc - hx, xc + hx, nx_pts)
+    yvals = np.linspace(yc - hy, yc + hy, ny_pts)
 
-    # evaluate the model on the subsampled grid
+    # Evaluate the model on the subsampled grid
     data = model(xvals.reshape(-1, 1), yvals.reshape(1, -1))
     if isinstance(data, Quantity):
         data = data.value
 
-    # now integrate over the subsampled grid (first over x, then over y)
+    # Now integrate over the subsampled grid (first over y because
+    # each row varies over y, then over x)
     int_func = trapezoid
 
-    return int_func([int_func(row, xvals) for row in data], yvals)
+    return int_func([int_func(row, yvals) for row in data], xvals)
 
 
 def _shift_model_param(model, param_name, *, shift=2):
     if isinstance(model, CompoundModel):
-        # for CompoundModel, add "shift" to the parameter suffix
-        out = re.search(r'(.*)_([\d]*)$', param_name)
-        new_name = out.groups()[0] + '_' + str(int(out.groups()[1]) + 2)
+        # For CompoundModel, add "shift" to the parameter suffix
+        out = re.search(r'(.*)_([\d]+)$', param_name)
+        new_name = out.groups()[0] + '_' + str(int(out.groups()[1]) + shift)
     else:
-        # simply add the shift to the parameter name
+        # Simply add the shift to the parameter name
         new_name = param_name + '_' + str(shift)
 
     return new_name
 
 
 @deprecated_positional_kwargs(since='3.0', until='4.0')
-@deprecated(since='3.0', alternative='`GriddedPSFModel`')
+@deprecated(since='3.0', alternative='`GriddedPSFModel`',
+            warning_type=PhotutilsDeprecationWarning)
 def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
     """
     Create a GriddedPSFModel from a list of ImagePSF models.
@@ -336,7 +368,7 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
     each input ImagePSF can either be set on each individual model by
     setting the 'x_0' and 'y_0' attributes, or provided as a list of
     tuples (``grid_xypos``). If a ``grid_xypos`` list is provided, it
-    must match the length of input EPSFs. In either case, the fiducial
+    must match the length of input ePSFs. In either case, the fiducial
     points must be on a grid.
 
     Optionally, a ``meta`` dictionary may be provided for the output
@@ -344,9 +376,12 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
     'oversampling', or 'fill_value', they will be overridden.
 
     Note: If set on the input ImagePSF (x_0, y_0), then ``origin``
-    must be the same for each input EPSF. Additionally, data units and
-    dimensions must be for each input EPSF, and values for ``flux`` and
-    ``oversampling``, and ``fill_value`` must match as well.
+    must be the same for each input ePSF. Additionally, data units and
+    dimensions must be the same for each input ePSF, and values for
+    ``flux``, ``oversampling``, and ``fill_value`` must match as well.
+    The ``flux`` and ``origin`` of the input models are not passed on.
+    The output model has a ``flux`` of 1 and takes the center of each
+    image as the reference pixel.
 
     Parameters
     ----------
@@ -354,23 +389,24 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
         A list of ImagePSF models representing the individual PSFs.
     grid_xypos : list, optional
         A list of fiducial points (x_0, y_0) for each PSF. If not
-        provided, the x_0 and y_0 of each input EPSF will be considered
+        provided, the x_0 and y_0 of each input ePSF will be considered
         the fiducial point for that PSF. Default is None.
     meta : dict, optional
         Additional metadata for the GriddedPSFModel. Note that, if
         they exist in the supplied ``meta``, any values under the keys
-        ``grid_xypos`` , ``oversampling``, or ``fill_value`` will be
-        overridden. Default is None.
+        ``grid_xypos``, ``oversampling``, or ``fill_value`` will be
+        overridden. The input dictionary is modified in place. Default
+        is None.
 
     Returns
     -------
-    GriddedPSFModel: `photutils.psf.GriddedPSFModel`
-        The gridded PSF model created from the input EPSFs.
+    model : `photutils.psf.GriddedPSFModel`
+        The gridded PSF model created from the input ePSFs.
     """
-    # prevent circular imports
+    # Prevent circular imports
     from photutils.psf import GriddedPSFModel, ImagePSF
 
-    # optional, to store fiducial from input if `grid_xypos` is None
+    # Optional, to store fiducial from input if `grid_xypos` is None
     x_0s = []
     y_0s = []
     data_arrs = []
@@ -380,37 +416,36 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
     origin = None
     flux = None
 
-    # make sure, if provided, that ``grid_xypos`` is the same length as
-    # ``epsfs``
+    # Make sure that ``grid_xypos`` has the same length as epsfs
     if grid_xypos is not None and len(grid_xypos) != len(epsfs):
         msg = 'grid_xypos must be the same length as epsfs'
         raise ValueError(msg)
 
-    # loop over input once
+    # Loop over input once
     for i, epsf in enumerate(epsfs):
 
-        # check input type
+        # Check input type
         if not isinstance(epsf, ImagePSF):
             msg = 'All input epsfs must be of type ImagePSF'
             raise TypeError(msg)
 
-        # get data array from EPSF
+        # Get data array from EPSF
         data_arrs.append(epsf.data)
 
         if i == 0:
             oversampling = epsf.oversampling
 
-            # same for fill value and flux, grid will have a single value
+            # Same for fill value and flux, grid will have a single value
             # so it should be the same for all input, and error if not.
             fill_value = epsf.fill_value
 
-            # check that origins are the same
+            # Check that origins are the same
             if grid_xypos is None:
                 origin = epsf.origin
 
             flux = epsf.flux
 
-            # if there's a unit, those should also all be the same
+            # If there's a unit, those should also all be the same
             with contextlib.suppress(AttributeError):
                 dat_unit = epsf.data.unit
         else:
@@ -429,15 +464,12 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
                        'same dimensions')
                 raise ValueError(msg)
 
-            try:
-                unitt = epsf.data_unit
-                if unitt != dat_unit:
-                    msg = 'All input data must have the same unit'
-                    raise ValueError(msg)
-            except AttributeError as exc:
-                if dat_unit is not None:
-                    msg = 'All input data must have the same unit'
-                    raise ValueError(msg) from exc
+            unitt = None
+            with contextlib.suppress(AttributeError):
+                unitt = epsf.data.unit
+            if unitt != dat_unit:
+                msg = 'All input data must have the same unit'
+                raise ValueError(msg)
 
             if epsf.flux != flux:
                 msg = ('All input ImagePSF models must have the same value '
@@ -448,16 +480,16 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
             x_0s.append(epsf.x_0.value)
             y_0s.append(epsf.y_0.value)
 
-            # also check that origin is the same, if using x_0s and y_0s
+            # Also check that origin is the same, if using x_0s and y_0s
             # from input
-            if np.all(epsf.origin != origin):
+            if np.any(epsf.origin != origin):
                 msg = ('If using (x_0, y_0) as fiducial point, origin must '
                        'match for each input EPSF')
                 raise ValueError(msg)
 
-    # if not supplied, use from x_0, y_0 of input EPSFs as fiducuals
-    # these are checked when GriddedPSFModel is created to make sure they
-    # are actually on a grid.
+    # If not supplied, use from x_0, y_0 of input EPSFs as fiducials.
+    # These are checked when GriddedPSFModel is created to make sure
+    # they are actually on a grid.
     if grid_xypos is None:
         grid_xypos = list(zip(x_0s, y_0s, strict=True))
 
@@ -465,7 +497,7 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
 
     if meta is None:
         meta = {}
-    # add required keywords to meta
+    # Add required keywords to meta
     meta['grid_xypos'] = grid_xypos
     meta['oversampling'] = oversampling
     meta['fill_value'] = fill_value
@@ -473,3 +505,246 @@ def grid_from_epsfs(epsfs, grid_xypos=None, meta=None):  # pragma: no cover
     data = NDData(data_cube, meta=meta)
 
     return GriddedPSFModel(data, fill_value=fill_value)
+
+
+def _integrate_pixel_along_axis(data, half_width, axis, *, midpoints=False):
+    """
+    Integrate the cubic spline through ``data`` over a window centered
+    at each grid point along one axis, or at each point midway between
+    adjacent grid points.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The data array.
+
+    half_width : float
+        The half width of the integration window in grid points.
+
+    axis : int
+        The axis along which to integrate.
+
+    midpoints : bool, optional
+        Whether to center the windows midway between adjacent grid
+        points instead of at the grid points.
+
+    Returns
+    -------
+    result : `~numpy.ndarray`
+        The integrals, with the same shape as ``data``, or with one
+        fewer point along ``axis`` if ``midpoints`` is `True`. The
+        window is truncated at the first and last grid points.
+    """
+    n_points = data.shape[axis]
+    points = np.arange(n_points, dtype=float)
+    antiderivative = make_interp_spline(points, data, k=3,
+                                        axis=axis).antiderivative()
+    centers = points[:-1] + 0.5 if midpoints else points
+    lower = np.clip(centers - half_width, 0, n_points - 1)
+    upper = np.clip(centers + half_width, 0, n_points - 1)
+    return antiderivative(upper) - antiderivative(lower)
+
+
+def make_epsf_from_psf(data, *, oversampling, midpoints=False):
+    """
+    Make an effective PSF (ePSF) image from an oversampled PSF image
+    that is not integrated over the detector pixels.
+
+    The image-based PSF models (`ImagePSF` and `GriddedPSFModel`)
+    require ePSF images. Each value of an ePSF is the fraction of the
+    source flux that falls in a whole detector pixel centered at that
+    position relative to the source. This function makes such an image
+    from an oversampled PSF whose values are samples of the PSF at the
+    grid points, such as the output of an optical model.
+
+    Parameters
+    ----------
+    data : 2D or 3D `~numpy.ndarray`
+        The oversampled PSF image. A 3D array is a stack of PSF images
+        with shape ``(n_psfs, ny, nx)``, such as the data of a
+        `GriddedPSFModel`. The x and y dimensions must both be at
+        least 4 pixels. All values must be finite. A masked array
+        with masked values is not allowed. The units of a
+        `~astropy.units.Quantity` are dropped.
+
+    oversampling : int or array_like (int)
+        The integer oversampling factor(s) of the PSF image. If a
+        scalar is provided, it is applied to both axes. If two values
+        are provided, they must be in ``(y, x)`` order.
+
+    midpoints : bool, optional
+        Whether to make the ePSF at the points midway between the
+        input grid points along each axis, instead of at the input
+        grid points. The output image then has one fewer point along
+        each axis than ``data``.
+
+        Use this option for a PSF that is centered on an image with an
+        even number of points along each axis, which is what an
+        optical model typically returns for an even oversampling
+        factor. The PSF center is then between the four central grid
+        points of ``data``. With ``midpoints=True`` the output image
+        has an odd number of points along each axis and the PSF
+        center is on its central grid point, like the ePSFs that
+        `EPSFBuilder` makes. That is convenient for comparing or
+        combining the result with other ePSFs and for displaying it.
+        The accuracy is the same for either grid, because the same
+        spline is integrated.
+
+        This option is not needed to use the result with `ImagePSF`
+        or `GriddedPSFModel`. Both accept an image with an even
+        number of points, whose center is between grid points.
+
+    Returns
+    -------
+    result : `~numpy.ndarray`
+        The ePSF image(s), with the same oversampling as ``data``. The
+        shape and grid are also the same as ``data`` unless
+        ``midpoints`` is `True`. The result is always a plain array
+        without units.
+
+    See Also
+    --------
+    ImagePSF, GriddedPSFModel
+
+    Notes
+    -----
+    The input image is interpolated with a bicubic spline. The spline
+    is integrated exactly over the area of one detector pixel centered
+    at each output grid point, and the result is divided by the number
+    of grid points in a detector pixel. The output values are
+    therefore on the same scale as the input values, and the output
+    image is not normalized.
+
+    Normalize the input image, not the output image. `ImagePSF`
+    requires an image whose values would sum to the product of the
+    oversampling factors if the image contained all of the PSF. The
+    values of an image that contains only part of the PSF should sum
+    to that product times the fraction of the flux that is inside the
+    image. If the input image is scaled that way, the output values
+    are correctly scaled. The output image has the same sum as the
+    input image if the PSF is negligible at the image edges. Otherwise
+    its sum is slightly smaller, because of the edge values described
+    below, and normalizing the output image would make all of its
+    values too large.
+
+    The accuracy of the result is set by how well the spline through
+    the input values represents the PSF. The input grid must therefore
+    sample the PSF well, which generally requires an oversampled image
+    for a PSF that is undersampled by the detector pixels.
+
+    The function does not move the PSF within the image. The point at
+    the center of the input image is also at the center of the output
+    image, for either value of ``midpoints``. `GriddedPSFModel`, and
+    `ImagePSF` by default, take the center of the image as the
+    position of the source. The PSF should therefore be centered on
+    the input image. Otherwise, the source positions fitted with the
+    model are all offset by the distance of the PSF center from the
+    image center. For `ImagePSF`, the ``origin`` keyword can be used
+    instead to give the position of the PSF center in the ePSF image.
+    That position is 0.5 smaller along each axis than in the input
+    image if ``midpoints`` is `True`.
+
+    The input image is taken to be zero outside of its grid. The
+    output values within half of a detector pixel of the image edges
+    are therefore integrals over only the part of the pixel that is
+    inside the grid. They are smaller than the ePSF values at those
+    positions, by a factor of about two at an edge and about four at
+    a corner. If ``midpoints`` is `True`, no output point is on an
+    edge and the factors are smaller. All other output values are
+    unaffected. These values matter for PSF photometry only if the
+    fitted region of a source extends to within half of a detector
+    pixel of the edge of the model image. They are not removed from
+    the output image, because a model made from the trimmed image
+    contains less of the source flux and conserves flux no better.
+    The input image should be large enough that the PSF is small at
+    its edges.
+
+    The input values must be samples of the PSF at the grid points.
+    The result is less accurate for an image whose values are the
+    fluxes in the cells of the oversampled grid, because such an image
+    is already integrated over the area of one cell.
+
+    A model made from the output image conserves flux. The model
+    values on a grid of detector pixels sum to the model flux for any
+    subpixel position of the source, apart from the flux that falls
+    outside of the image. A model made directly from a PSF that is
+    sampled at points does not have this property when the PSF is
+    undersampled by the detector pixels.
+
+    Examples
+    --------
+    Make an ePSF from a narrow Gaussian PSF that is sampled at the
+    points of a grid that is oversampled by a factor of 5:
+
+    >>> import numpy as np
+    >>> from photutils.psf import ImagePSF, make_epsf_from_psf
+    >>> oversampling = 5
+    >>> yy, xx = np.mgrid[-37:38, -37:38] / oversampling
+    >>> sigma = 0.42  # detector pixels
+    >>> psf = np.exp(-(xx**2 + yy**2) / (2 * sigma**2))
+    >>> psf *= oversampling**2 / psf.sum()
+    >>> epsf = make_epsf_from_psf(psf, oversampling=oversampling)
+
+    The sum of the `ImagePSF` model over the detector pixels depends
+    on the subpixel position of the source for the sampled PSF, but
+    not for the ePSF:
+
+    >>> yy, xx = np.mgrid[-7:8, -7:8]
+    >>> for name, data in (('psf', psf), ('epsf', epsf)):
+    ...     model = ImagePSF(data, oversampling=oversampling)
+    ...     for x_0 in (0.0, 0.25, 0.5, 0.75):
+    ...         model.x_0 = x_0
+    ...         print(f'{name}, x_0={x_0:.1f}: {model(xx, yy).sum():.3f}')
+    psf, x_0=0.0: 1.127
+    psf, x_0=0.2: 1.062
+    psf, x_0=0.5: 0.997
+    psf, x_0=0.8: 1.062
+    epsf, x_0=0.0: 1.000
+    epsf, x_0=0.2: 1.000
+    epsf, x_0=0.5: 1.000
+    epsf, x_0=0.8: 1.000
+
+    An optical model with an even oversampling factor typically returns
+    an image with an even number of points, with the PSF centered
+    between the four central grid points. Use ``midpoints=True`` to
+    make an ePSF with the PSF center on its central grid point:
+
+    >>> oversampling = 4
+    >>> yy, xx = (np.mgrid[0:60, 0:60] - 29.5) / oversampling
+    >>> psf = np.exp(-(xx**2 + yy**2) / (2 * sigma**2))
+    >>> psf *= oversampling**2 / psf.sum()
+    >>> epsf = make_epsf_from_psf(psf, oversampling=oversampling,
+    ...                           midpoints=True)
+    >>> print(epsf.shape)
+    (59, 59)
+    >>> print(epsf.argmax() == epsf.size // 2)
+    True
+    """
+    if np.ma.is_masked(data):
+        msg = 'data must not have masked values'
+        raise ValueError(msg)
+    data = np.asarray(data, dtype=float)
+    if data.ndim not in (2, 3):
+        msg = 'data must be a 2D or 3D array'
+        raise ValueError(msg)
+    if data.shape[-2] < 4 or data.shape[-1] < 4:
+        msg = 'The x and y dimensions of data must both be at least 4'
+        raise ValueError(msg)
+    if not np.all(np.isfinite(data)):
+        msg = 'All elements of data must be finite'
+        raise ValueError(msg)
+    oversampling = as_pair('oversampling', oversampling, lower_bound=(0, 0))
+
+    # Integrate a stack one image at a time. The spline coefficients
+    # of the whole stack would use several times the memory of data.
+    images = data if data.ndim == 3 else data[np.newaxis]
+    n_trim = int(midpoints)
+    result = np.empty((images.shape[0], images.shape[1] - n_trim,
+                       images.shape[2] - n_trim))
+    for idx, image in enumerate(images):
+        for axis, factor in zip((-2, -1), oversampling, strict=True):
+            image = _integrate_pixel_along_axis(image, factor / 2, axis,
+                                                midpoints=midpoints)
+            image /= factor
+        result[idx] = image
+    return result if data.ndim == 3 else result[0]

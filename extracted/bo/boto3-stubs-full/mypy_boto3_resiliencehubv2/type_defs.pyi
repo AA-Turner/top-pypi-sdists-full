@@ -35,6 +35,10 @@ from .literals import (
     DependencyDiscoveryStatusType,
     DependencyInsightsErrorCodeType,
     DependencyInsightsStatusType,
+    DevOpsAgentConfidenceType,
+    DevOpsAgentConnectionStatusType,
+    DevOpsAgentInvestigationStatusType,
+    DevOpsAgentVerdictType,
     EksLabelSelectorOperatorType,
     FailureCategoryType,
     FindingSeverityType,
@@ -131,6 +135,9 @@ __all__ = (
     "DependencyDiscoveryConfigTypeDef",
     "DependencyInsightTypeDef",
     "DependencySummaryTypeDef",
+    "DevOpsAgentConfigurationTypeDef",
+    "DevOpsAgentConfigurationViewTypeDef",
+    "DevOpsAgentInvestigationTypeDef",
     "DisasterRecoverySourceTypeDef",
     "EdgePropertySummaryTypeDef",
     "EffectivePolicyValuesTypeDef",
@@ -488,6 +495,9 @@ class ServiceFunctionTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
+class DevOpsAgentConfigurationTypeDef(TypedDict):
+    agentSpaceArn: NotRequired[str]
+
 class CreateSystemRequestTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
@@ -581,6 +591,22 @@ class DependencyInsightTypeDef(TypedDict):
     category: InsightsCategoryType
     description: str
 
+class DevOpsAgentConfigurationViewTypeDef(TypedDict):
+    agentSpaceArn: NotRequired[str]
+    agentSpaceId: NotRequired[str]
+    region: NotRequired[str]
+    status: NotRequired[DevOpsAgentConnectionStatusType]
+    operatorAppUrl: NotRequired[str]
+    connectedAt: NotRequired[datetime]
+    statusReason: NotRequired[str]
+
+class DevOpsAgentInvestigationTypeDef(TypedDict):
+    verdict: NotRequired[DevOpsAgentVerdictType]
+    confidence: NotRequired[DevOpsAgentConfidenceType]
+    deepLink: NotRequired[str]
+    status: NotRequired[DevOpsAgentInvestigationStatusType]
+    summary: NotRequired[str]
+
 class DisasterRecoverySourceTypeDef(TypedDict):
     value: NotRequired[str]
     policyName: NotRequired[str]
@@ -644,6 +670,7 @@ class FindingSummaryTypeDef(TypedDict):
     status: NotRequired[FindingStatusType]
     policyComponent: NotRequired[PolicyComponentType]
     updatedAt: NotRequired[datetime]
+    investigationDeepLink: NotRequired[str]
 
 class InfrastructureAndCodeRecommendationTypeDef(TypedDict):
     suggestedChanges: NotRequired[list[str]]
@@ -950,6 +977,10 @@ class ResourceTypeDef(TypedDict):
     awsRegion: NotRequired[str]
     awsAccountId: NotRequired[str]
     resourceType: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    availabilityZoneName: NotRequired[str]
+    containmentParentId: NotRequired[str]
+    logicalResourceGroupId: NotRequired[str]
 
 class ServiceAchievabilityUpdatedMetadataTypeDef(TypedDict):
     assessmentId: NotRequired[str]
@@ -1397,6 +1428,8 @@ class ServiceSummaryTypeDef(TypedDict):
     regions: NotRequired[list[str]]
     policyArn: NotRequired[str]
     assessmentStatus: NotRequired[AssessmentStatusType]
+    devOpsAgentStatus: NotRequired[DevOpsAgentConnectionStatusType]
+    devOpsAgentSpaceArn: NotRequired[str]
     openFindingsCount: NotRequired[int]
     resolvedFindingsCount: NotRequired[int]
     dependencyDiscovery: NotRequired[DependencyDiscoveryConfigTypeDef]
@@ -1465,6 +1498,7 @@ class FindingTypeDef(TypedDict):
     observabilityRecommendations: NotRequired[list[ObservabilityRecommendationTypeDef]]
     testingRecommendations: NotRequired[list[TestingRecommendationTypeDef]]
     updatedAt: NotRequired[datetime]
+    investigationDeepLink: NotRequired[str]
 
 class GetServiceRequestWaitExtraTypeDef(TypedDict):
     serviceArn: str
@@ -2040,6 +2074,7 @@ class ServiceTypeDef(TypedDict):
     organizationId: NotRequired[str]
     ouId: NotRequired[str]
     accountId: NotRequired[str]
+    devOpsAgentConfiguration: NotRequired[DevOpsAgentConfigurationViewTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2079,6 +2114,7 @@ class TestRunTypeDef(TypedDict):
     permissionModel: NotRequired[PermissionModelOutputTypeDef]
     regions: NotRequired[list[str]]
     accountTargeting: NotRequired[AccountTargetingType]
+    devOpsAgentInvestigation: NotRequired[DevOpsAgentInvestigationTypeDef]
 
 class ServiceEventTypeDef(TypedDict):
     eventId: str
@@ -2138,6 +2174,7 @@ class CreateServiceRequestTypeDef(TypedDict):
     dependencyDiscovery: NotRequired[DependencyDiscoveryInputType]
     reportConfiguration: NotRequired[ServiceReportConfigurationUnionTypeDef]
     kmsKeyId: NotRequired[str]
+    devOpsAgentConfiguration: NotRequired[DevOpsAgentConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
 
@@ -2150,6 +2187,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     permissionModel: NotRequired[PermissionModelUnionTypeDef]
     dependencyDiscovery: NotRequired[DependencyDiscoveryInputType]
     reportConfiguration: NotRequired[ServiceReportConfigurationUnionTypeDef]
+    devOpsAgentConfiguration: NotRequired[DevOpsAgentConfigurationTypeDef]
 
 class GetTestRunResponseTypeDef(TypedDict):
     testRun: TestRunTypeDef

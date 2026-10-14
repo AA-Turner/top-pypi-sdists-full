@@ -17,11 +17,14 @@ class CreateManualAssignmentRequest:
         reviewer_pool_entry_uuid (UUID): UUID of the reviewer pool entry to assign proposals to
         proposal_uuids (list[UUID]): List of proposal UUIDs to assign to the reviewer
         manager_notes (Union[Unset, str]): Optional notes about this assignment
+        override_workload_limit (Union[Unset, bool]): Assign even if this takes the reviewer above their maximum number
+            of open assignments. The override is logged. Default: False.
     """
 
     reviewer_pool_entry_uuid: UUID
     proposal_uuids: list[UUID]
     manager_notes: Union[Unset, str] = UNSET
+    override_workload_limit: Union[Unset, bool] = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -34,6 +37,8 @@ class CreateManualAssignmentRequest:
 
         manager_notes = self.manager_notes
 
+        override_workload_limit = self.override_workload_limit
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -44,6 +49,8 @@ class CreateManualAssignmentRequest:
         )
         if manager_notes is not UNSET:
             field_dict["manager_notes"] = manager_notes
+        if override_workload_limit is not UNSET:
+            field_dict["override_workload_limit"] = override_workload_limit
 
         return field_dict
 
@@ -61,10 +68,13 @@ class CreateManualAssignmentRequest:
 
         manager_notes = d.pop("manager_notes", UNSET)
 
+        override_workload_limit = d.pop("override_workload_limit", UNSET)
+
         create_manual_assignment_request = cls(
             reviewer_pool_entry_uuid=reviewer_pool_entry_uuid,
             proposal_uuids=proposal_uuids,
             manager_notes=manager_notes,
+            override_workload_limit=override_workload_limit,
         )
 
         create_manual_assignment_request.additional_properties = d

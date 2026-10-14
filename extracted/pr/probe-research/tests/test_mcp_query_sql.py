@@ -114,9 +114,18 @@ def test_an_oversized_result_is_cut_to_one_honest_page_never_a_cursor():
     assert 0 < len(out["rows"]) < 100
     assert out["rows"] == rows[: len(out["rows"])]
     assert out["row_count"] == len(out["rows"])
+    # How much was cut: the rows the server returned, beside the rows kept.
+    assert out["rows_fetched"] == 100
     assert out["truncated"] is True
     assert out["truncated_reason"] == "byte_limit"
     assert "next_cursor" not in out
+
+
+def test_a_byte_limit_cut_names_the_budget_it_can_be_raised_to():
+    # The TRAPS line quotes the schema's own ceiling; this keeps the two equal.
+    ceiling = _tool().inputSchema["properties"]["token_budget"]["maximum"]
+    assert f"A byte_limit cut -> raise `token_budget` (up to {ceiling})" in QUERY_SQL_DESCRIPTION
+    assert "`rows_fetched`" in QUERY_SQL_DESCRIPTION
 
 
 def test_a_result_that_fits_comes_back_untouched():

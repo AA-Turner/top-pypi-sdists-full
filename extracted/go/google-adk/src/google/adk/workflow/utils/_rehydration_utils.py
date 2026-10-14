@@ -28,11 +28,12 @@ from pydantic import TypeAdapter
 from pydantic import ValidationError
 
 from ...events._branch_path import _BranchPath
+from ...events._interrupts import extract_event_interrupt_ids
+from ...events._interrupts import is_interrupt_event
 from ...events._node_path_builder import _NodePathBuilder
 from ...events.event import Event
+from ...utils._function_call_names import REQUEST_INPUT_FUNCTION_CALL_NAME
 from .._errors import WorkflowDataError
-from ._workflow_hitl_utils import get_request_input_interrupt_ids
-from ._workflow_hitl_utils import REQUEST_INPUT_FUNCTION_CALL_NAME
 
 if TYPE_CHECKING:
   from .._base_node import BaseNode
@@ -86,13 +87,7 @@ class _ChildScanState:
   """Responses keyed by interrupt id, for the ids in ``resolved_ids``."""
 
   finished_after_resume: bool = False
-  """Whether the child finished without asking again after its last answer.
-
-  A user response to one of the child's interrupts clears it, and the child's
-  next direct event sets it unless that event raises an interrupt. It tells a
-  child that reran with its answers and finished without output apart from one
-  that has not rerun yet.
-  """
+  """Whether the child emitted a direct completion event since its last answer (or start)."""
 
 
 def _wrap_response(value: Any) -> dict[str, Any]:
@@ -330,7 +325,7 @@ def _reconstruct_node_states(
             scan_states[owner].resolved_responses[fr.id] = response_data
             scan_states[owner].finished_after_resume = False
 
-          if event.branch:
+          elif event.branch:
             # Match the branch's run ids exactly. A substring test on the raw
             # branch string resolves an interrupt whose id merely happens to be
             # contained in another id.
@@ -407,10 +402,11 @@ def _reconstruct_node_states(
         child.transfer_to_agent = event.actions.transfer_to_agent
 
       # The node's outcome is whatever its latest attempt recorded, so a
-      # result clears the error left by an earlier failed attempt. A result
-      # wins on the same event too: an LlmAgent node's output rides on the
-      # response event, which carries an error code for any finish reason
-      # other than STOP, and that node did produce a result.
+      # later non-error event or result clears the error left by an earlier
+      # failed attempt. A result wins on the same event too: an LlmAgent
+      # node's output rides on the response event, which carries an error
+      # code for any finish reason other than STOP, and that node did
+      # produce a result.
       has_result = has_output or (
           event.actions is not None
           and (
@@ -418,18 +414,13 @@ def _reconstruct_node_states(
               or event.actions.transfer_to_agent is not None
           )
       )
-      if has_result:
+      if has_result or (event.error_code is None and not event.partial):
         child.error_code = None
       elif event.error_code is not None:
         child.error_code = event.error_code
 
     # 6. Extract interrupts and their schemas
-    # Modern events explicitly set long_running_tool_ids.
-    interrupt_ids_to_process = set(event.long_running_tool_ids or [])
-
-    # Fallback for older session JSONs where RequestInput/Auth events were exported
-    # without populating long_running_tool_ids. We extract the IDs directly from the function calls.
-    interrupt_ids_to_process.update(get_request_input_interrupt_ids(event))
+    interrupt_ids_to_process = extract_event_interrupt_ids(event)
 
     if interrupt_ids_to_process:
       for interrupt_id in interrupt_ids_to_process:
@@ -441,7 +432,13 @@ def _reconstruct_node_states(
           schemas_by_id[interrupt_id] = schema_json
 
     if is_direct:
-      child.finished_after_resume = not interrupt_ids_to_process
+      child.finished_after_resume = (
+          not interrupt_ids_to_process
+          and child.error_code is None
+          and not event.partial
+          and not event.get_function_calls()
+          and not event.get_function_responses()
+      )
 
   return scan_states
 
@@ -458,17 +455,9 @@ def is_terminal_event(event: Event) -> bool:
     return True
   if event.actions and event.actions.route is not None:
     return True
-  if event.long_running_tool_ids:
-    return True
   if event.error_code is not None:
     return True
-
-  from ._workflow_hitl_utils import has_auth_request_function_call
-  from ._workflow_hitl_utils import has_request_input_function_call
-
-  if has_request_input_function_call(event) or has_auth_request_function_call(
-      event
-  ):
+  if is_interrupt_event(event):
     return True
 
   return False

@@ -18,15 +18,18 @@
 
 #-- begin-typing-imports --#
 from __future__ import annotations
+import builtins
+import typing
 from datetime import datetime, date
 from enum import IntEnum, IntFlag, auto
-from typing import (Any, overload, TypeAlias, Generic,
-    Union, Optional, List, Tuple, Callable
+from typing import (Any, overload, TypeAlias, Generic, TypeVar, Protocol, ClassVar, final,
+    Union, Optional, List, Tuple, Callable, Iterator, Sequence
 )
 try:
     from typing import ParamSpec
 except ImportError:
     from typing_extensions import ParamSpec
+from typing_extensions import Buffer
 
 _TwoInts: TypeAlias = Tuple[int, int]
 _ThreeInts: TypeAlias = Tuple[int, int, int]
@@ -66,7 +69,7 @@ class PyAxBaseWindow(wx.Window):
         ...
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=-1, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=wx.PanelNameStr) -> None:
+    def __init__(self, parent: wx.Window, id: int=-1, pos: Union[wx.Point, _TwoInts]=wx.DefaultPosition, size: Union[wx.Size, _TwoInts]=wx.DefaultSize, style: int=0, name: str=...) -> None:
         """
         PyAxBaseWindow(parent, id=-1, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=wx.PanelNameStr) -> None
         PyAxBaseWindow() -> None
@@ -79,7 +82,7 @@ class PyAxBaseWindow(wx.Window):
         elsewhere.
         """
 
-    def MSWTranslateMessage(self, msg: WXMSG) -> bool:
+    def MSWTranslateMessage(self, msg: Any) -> bool:
         """
         MSWTranslateMessage(msg) -> bool
         """

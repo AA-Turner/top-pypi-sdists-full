@@ -1,32 +1,76 @@
 [build-system]
-requires = ["setuptools>=45, <=70.0.0", "setuptools-scm[toml]>=6.2, <=8.1.0"]  # pin max versions of build deps and update as needed
+requires = ["setuptools>=77.0.3, <=84.0.0", "setuptools-scm[toml]>=6.2, <=10.3.4"]  # pin max versions of build deps and update as needed
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "ansible-builder"
+dynamic = ["version"]
+requires-python = ">=3.11"
+authors = [
+    {name = "Ansible Project"},
+]
+description = "A tool for building Ansible Execution Environments"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE.md"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "PyYAML",
+    "bindep",
+    "jsonschema",
+    "packaging",
+]
+
+[project.urls]
+source = "https://github.com/ansible/ansible-builder"
+issues = "https://github.com/ansible/ansible-builder/issues"
+documentation = "https://docs.ansible.com/projects/builder/en/latest/"
+
+[project.scripts]
+ansible-builder = "ansible_builder.cli:run"
+
 [tool.setuptools_scm]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"ansible_builder._target_scripts" = ["*"]
 
 [tool.pylint.main]
 output-format = "colorized"
 max-line-length=120
 disable = [
-  # Some codes we will leave disabled
-  "C0103",  # invalid-name
-  "C0114",  # missing-module-docstring
-  "C0115",  # missing-class-docstring
-  "C0116",  # missing-function-docstring
+    # Some codes we will leave disabled
+    "C0103",  # invalid-name
+    "C0114",  # missing-module-docstring
+    "C0116",  # missing-function-docstring
 
-  "R0801",  # duplicate-code
-  "R0902",  # too-many-instance-attributes
-  "R0903",  # too-few-public-methods
-  "R0904",  # too-many-public-methods
-  "R0911",  # too-many-return-statements
-  "R0912",  # too-many-branches
-  "R0913",  # too-many-arguments
-  "R0914",  # too-many-locals
-  "R0915",  # too-many-statements
-  "R1702",  # too-many-nested-blocks
+    "R0801",  # duplicate-code
+    "R0902",  # too-many-instance-attributes
+    "R0903",  # too-few-public-methods
+    "R0912",  # too-many-branches
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+    "R0915",  # too-many-statements
 
-  "W0511",  # fixme
-  "W1514",  # unspecified-encoding
-  "W0718",  # broad-exception-caught
-  "W0719",  # broad-exception-raised
+    "W0511",  # fixme
+    "W1514",  # unspecified-encoding
 ]

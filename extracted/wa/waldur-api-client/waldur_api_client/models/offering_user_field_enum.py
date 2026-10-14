@@ -21,6 +21,8 @@ class OfferingUserFieldEnum(str, Enum):
     PRIMARYGROUP = "primarygroup"
     REQUIRES_RECONSENT = "requires_reconsent"
     RUNTIME_STATE = "runtime_state"
+    SERVICE_PROVIDER_ACCOUNT_USERNAME = "service_provider_account_username"
+    SERVICE_PROVIDER_ACCOUNT_UUID = "service_provider_account_uuid"
     SERVICE_PROVIDER_COMMENT = "service_provider_comment"
     SERVICE_PROVIDER_COMMENT_URL = "service_provider_comment_url"
     STATE = "state"

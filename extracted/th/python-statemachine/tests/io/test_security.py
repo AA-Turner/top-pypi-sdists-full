@@ -551,11 +551,14 @@ class TestLeakedEngineClassPollution:
         try:
             sm = _run_exec(scxml, native, fmt)
             assert "failed" in _config(sm)
-            # The shared class is intact: add_note is still the inherited method, not int 1,
-            # and a normal exception still constructs and carries a note.
-            assert callable(TransitionNotAllowed.add_note)
-            err = TransitionNotAllowed(None, set())
-            err.add_note("still works")
+            # The shared class is intact: the exploit did not inject ``add_note = 1`` onto it.
+            # ``BaseException.add_note`` only exists on Python 3.11+, so assert on the injection
+            # site (the class ``__dict__``) rather than the inherited method, to stay
+            # version-agnostic.
+            assert "add_note" not in TransitionNotAllowed.__dict__
+            assert getattr(TransitionNotAllowed, "add_note", None) != 1
+            # A normal exception still constructs.
+            TransitionNotAllowed(None, set())
         finally:
             # Defensive: if a regression ever mutated the shared class, restore it so the
             # rest of the suite is not corrupted.
@@ -597,10 +600,22 @@ def _dos_expr_scxml(expr: str) -> str:
 
 @pytest.mark.parametrize("fmt", FORMATS)
 class TestArithmeticDoS:
-    """``**`` and ``*`` are magnitude-capped in the restricted evaluator: the denial-of-service
-    forms are rejected, but ordinary scalar arithmetic keeps working (GHSA-r8gj-366q-cgvj)."""
+    """``**``, ``*``, ``+`` and ``%`` are magnitude-capped in the restricted evaluator: the
+    denial-of-service forms are rejected, but ordinary scalar arithmetic keeps working
+    (GHSA-r8gj-366q-cgvj)."""
 
-    @pytest.mark.parametrize("expr", ["9**9**9", "2**100000", "[0]*20000000", "'a'*20000000"])
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            "9**9**9",
+            "2**100000",
+            "[0]*20000000",
+            "'a'*20000000",
+            "3**2048 * 3**2048",
+            "[0]*999999 + [0]*999999",
+            "'%20000000d' % 0",
+        ],
+    )
     def test_dos_expr_rejected(self, fmt, expr):
         # The cap raises while evaluating the expression, surfacing as error.execution.
         sm = _run_exec(
@@ -612,12 +627,12 @@ class TestArithmeticDoS:
 
     def test_scalar_arithmetic_preserved(self, fmt):
         sm = _run_exec(
-            _dos_expr_scxml("x * 2 + 3 ** 2"),
-            [{"assign": {"location": "x", "expr": "x * 2 + 3 ** 2"}}],
+            _dos_expr_scxml("x * 2 + 3 ** 2 + 10 % 3"),
+            [{"assign": {"location": "x", "expr": "x * 2 + 3 ** 2 + 10 % 3"}}],
             fmt,
         )
         assert "failed" not in _config(sm)
-        assert sm.model.x == 9  # 0 * 2 + 3 ** 2
+        assert sm.model.x == 10  # 0 * 2 + 3 ** 2 + 10 % 3
 
 
 @pytest.mark.parametrize("fmt", FORMATS)

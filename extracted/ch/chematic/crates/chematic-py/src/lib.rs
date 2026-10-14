@@ -35,11 +35,13 @@ mod crystal;
 mod ensemble_v2;
 mod errors;
 mod fingerprint_similarity;
+mod force_field;
 mod formats;
 mod lammps;
 mod misc;
 mod mol_methods;
 mod nucleic_acid;
+mod pickle;
 mod pipeline_v2;
 mod reactions;
 mod reports;
@@ -88,6 +90,7 @@ impl Mol {
 #[pymodule]
 fn chematic(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Mol>()?;
+    m.add_class::<force_field::PyMolecularForceField>()?;
     m.add_class::<rwmol::RWMol>()?;
     m.add_class::<pipeline_v2::PyPipelineV2Config>()?;
     m.add(
@@ -112,6 +115,7 @@ fn chematic(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // io functions (iter_sdf, iter_sdf_str)
     io::register(m)?;
+    pickle::register(m)?;
 
     // SimilarityIndex class
     index::register(m)?;

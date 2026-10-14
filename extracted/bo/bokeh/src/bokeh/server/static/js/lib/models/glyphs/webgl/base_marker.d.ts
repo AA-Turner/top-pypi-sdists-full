@@ -18,8 +18,8 @@ export declare abstract class BaseMarkerGL extends BaseGLGlyph {
     protected readonly _auxs: Float32Buffer;
     protected _border_radius: Vec4;
     protected _border_radius_nonzero: boolean;
-    protected readonly _show: Uint8Buffer;
-    protected _show_all: boolean;
+    protected _show_indices: number[] | null;
+    protected _show_nmarkers: number;
     protected readonly _linewidths: Float32Buffer;
     protected readonly _line_caps: Uint8Buffer;
     protected readonly _line_joins: Uint8Buffer;
@@ -59,12 +59,13 @@ export declare abstract class BaseMarkerGL extends BaseGLGlyph {
     get line_props(): LineProps;
     get fill_props(): FillProps;
     get hatch_props(): HatchProps;
-    protected _draw_one_marker_type(marker_type: GLMarkerType, transform: Transform, main_gl_glyph: BaseMarkerGL): void;
+    protected _draw_one_marker_type(marker_type: GLMarkerType, transform: Transform, main_gl_glyph: BaseMarkerGL, show: Uint8Buffer): void;
     private _did_set_once;
-    set_data(): void;
-    protected abstract _set_data(): void;
+    set_data(data_changed?: boolean): void;
+    protected abstract _set_data(data_changed?: boolean): void;
     protected _set_once(): void;
     protected abstract _get_visuals(): MarkerVisuals;
     protected _set_visuals(): void;
+    protected _have_indices_changed(indices: number[]): boolean;
 }
 //# sourceMappingURL=base_marker.d.ts.map

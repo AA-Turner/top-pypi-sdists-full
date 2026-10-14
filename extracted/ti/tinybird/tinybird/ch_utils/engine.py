@@ -1,3 +1,4 @@
+import functools
 import logging
 import re
 from collections import defaultdict
@@ -24,6 +25,9 @@ DEFAULT_EMPTY_PARAMETERS = ["ttl", "partition_key", "sorting_key"]
 # * `Z` is [AZaZ]*
 # * `N` is a number
 SIMPLE_TTL_DEFINITION = re.compile(r"""^([a-zA-Z0-9_\-\.\(\)\ \/\*]*) \+ (toInterval[a-zA-Z]*\([0-9]+\))$""")
+
+# ClickHouse 25.8 quotes the engine name `Null`, as `null` is a keyword.
+_BACKQUOTED_ENGINE_NAME = re.compile(r"^`(\w+)`")
 
 
 class TableDetails:
@@ -78,6 +82,16 @@ class TableDetails:
 
     @property
     def engine_full(self) -> Optional[str]:
+        """
+        >>> TableDetails({"engine_full": "`Null`", "engine": "Null"}).engine_full
+        'Null'
+        >>> TableDetails({"engine_full": "`Null`()", "engine": "Null"}).engine_full
+        'Null()'
+        >>> TableDetails({"engine_full": "Null", "engine": "Null"}).to_json()
+        {'engine_full': 'Null', 'engine': 'Null'}
+        >>> TableDetails({"engine_full": "`Null`", "engine": "Null"}).to_json()
+        {'engine_full': 'Null', 'engine': 'Null'}
+        """
         _engine_full: Optional[str] = self.details.get("engine_full", None)
         if not _engine_full:
             return None
@@ -86,7 +100,7 @@ class TableDetails:
         # We cannot remove index_granularity = 8192 blindly because it might be followed by other settings
         if settings and settings.strip().lower() == "index_granularity = 8192":
             _engine_full = _engine_full.replace(" SETTINGS index_granularity = 8192", "")
-        return engine_replicated_to_local(_engine_full)
+        return engine_replicated_to_local(_BACKQUOTED_ENGINE_NAME.sub(r"\1", _engine_full))
 
     @property
     def original_engine_full(self) -> Optional[str]:
@@ -776,17 +790,22 @@ def ttl_condition_from_engine_full(engine_full: Optional[str]) -> Optional[str]:
         return None
 
 
+@functools.lru_cache(maxsize=1024)
+def _index_lines(create_table_query_expr: str) -> tuple[str, ...]:
+    from tinybird.sql_toolset import format_sql
+
+    return tuple(
+        line.strip() for line in format_sql(create_table_query_expr).splitlines() if line.strip().startswith("INDEX")
+    )
+
+
 def _parse_indexes(create_table_query_expr: str) -> List[TableIndex]:
-    if create_table_query_expr == "":
+    # format_sql is CPU-heavy and runs on the event loop. ClickHouse writes the
+    # INDEX keyword in uppercase in create_table_query.
+    if "INDEX" not in create_table_query_expr:
         return []
     try:
-        from tinybird.sql_toolset import format_sql
-
-        indexes = [
-            line.strip()
-            for line in format_sql(create_table_query_expr).splitlines()
-            if line.strip().startswith("INDEX")
-        ]
+        indexes = list(_index_lines(create_table_query_expr))
     except ModuleNotFoundError:
         # this is not needed from CLI
         return []

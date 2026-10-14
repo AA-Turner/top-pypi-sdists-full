@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Base class and star finder kernel for detecting stars in an astronomical
-image.
+Base classes and the star finder kernel for detecting stars in an
+astronomical image.
 
 Each star-finding class should define a method called ``find_stars``
 that finds stars in an image.
@@ -11,12 +11,11 @@ import abc
 import inspect
 import math
 import warnings
+from functools import cached_property
 
 import astropy.units as u
 import numpy as np
 from astropy.stats import gaussian_fwhm_to_sigma
-from astropy.utils import lazyproperty
-from astropy.utils.exceptions import AstropyDeprecationWarning
 
 from photutils.detection.peakfinder import find_peaks
 from photutils.utils._deprecation import (create_empty_deprecated_qtable,
@@ -24,10 +23,13 @@ from photutils.utils._deprecation import (create_empty_deprecated_qtable,
                                           deprecated_positional_kwargs,
                                           deprecated_renamed_argument)
 from photutils.utils._misc import _get_meta
+from photutils.utils._parameters import validate_table_columns
 from photutils.utils._quantity_helpers import check_units
 from photutils.utils._repr import make_repr
+from photutils.utils._round import round_half_away
 from photutils.utils.cutouts import _make_cutouts
-from photutils.utils.exceptions import NoDetectionsWarning
+from photutils.utils.exceptions import (NoDetectionsWarning,
+                                        PhotutilsDeprecationWarning)
 
 __all__ = ['StarFinderBase', 'StarFinderCatalogBase']
 
@@ -54,7 +56,7 @@ class StarFinderBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        data : 2D array_like
+        data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
             The 2D image array.
 
         mask : 2D bool array, optional
@@ -65,7 +67,7 @@ class StarFinderBase(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        table : `~astropy.table.Table` or `None`
+        table : `~astropy.table.QTable` or `None`
             A table of found stars. If no stars are found then `None` is
             returned.
         """
@@ -79,8 +81,8 @@ class StarFinderBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        convolved_data : 2D array_like
-            The convolved 2D array. Should be NaN-free; any NaN values
+        convolved_data : 2D `~numpy.ndarray`
+            The convolved 2D array. Should be NaN-free. Any NaN values
             should be handled before calling this method.
 
         kernel : `_StarFinderKernel` or 2D `~numpy.ndarray`
@@ -90,21 +92,22 @@ class StarFinderBase(metaclass=abc.ABCMeta):
         threshold : float or 2D array_like
             The absolute image value above which to select sources. The
             exact value depends on the calling star finder class (e.g.,
-            `DAOStarFinder` multiplies the ``threshold`` by the kernel
-            relative error, whereas `IRAFStarFinder` and `StarFinder`
-            directly use the input ``threshold``). A 2D ``threshold``
-            must have the same shape as ``convolved_data``. If
-            ``convolved_data`` is a `~astropy.units.Quantity` array,
-            then ``threshold`` must have the same units.
+            `DAOStarFinder` by default multiplies the ``threshold``
+            by the kernel relative error, whereas `IRAFStarFinder` and
+            `StarFinder` directly use the input ``threshold``). A
+            2D ``threshold`` must have the same shape as
+            ``convolved_data``. If ``convolved_data`` is a
+            `~astropy.units.Quantity` array, then ``threshold`` must
+            have the same units.
 
         min_separation : float, optional
             The minimum separation for detected objects in pixels.
 
         mask : 2D bool array, optional
-            A boolean mask with the same shape as ``data``, where a
-            `True` value indicates the corresponding element of ``data``
-            is masked. Masked pixels are ignored when searching for
-            stars.
+            A boolean mask with the same shape as ``convolved_data``,
+            where a `True` value indicates the corresponding element
+            of ``convolved_data`` is masked. Masked pixels are ignored
+            when searching for stars.
 
         exclude_border : bool, optional
             Set to `True` to exclude sources found within half the
@@ -118,8 +121,22 @@ class StarFinderBase(metaclass=abc.ABCMeta):
         Returns
         -------
         result : Nx2 `~numpy.ndarray` or `None`
-            An Nx2 array containing the (x, y) pixel coordinates. `None`
-            is returned if no sources are found.
+            An Nx2 array containing the (x, y) integer pixel
+            coordinates of the peak pixels. These are integer indices,
+            not subpixel centroids. The star finder classes compute
+            subpixel centroid positions separately from these peak
+            positions. `None` is returned if no sources are found.
+
+        Notes
+        -----
+        Because the returned positions are the integer pixel
+        coordinates of the peak pixels, the ``min_separation``
+        constraint applies to these integer positions. The star finder
+        classes subsequently compute subpixel centroid positions (e.g.,
+        via marginal Gaussian fits), which may shift sources slightly.
+        This means the final centroid-based separations in the star
+        finder output tables can be slightly smaller (or larger) than
+        ``min_separation``.
         """
         # Define a local footprint for the peak finder
         find_peaks_kwargs = {}
@@ -163,7 +180,7 @@ class StarFinderBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        data : 2D array_like
+        data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
             The 2D image array.
 
         mask : 2D bool array, optional
@@ -174,7 +191,7 @@ class StarFinderBase(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        table : `~astropy.table.Table` or `None`
+        table : `~astropy.table.QTable` or `None`
             A table of found stars. If no stars are found then `None` is
             returned.
         """
@@ -190,31 +207,34 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
     Subclasses **must** implement:
 
-    * :attr:`x_centroid` property -- Object centroid in the x direction.
-    * :attr:`y_centroid` property -- Object centroid in the y direction.
-    * `apply_filters` method -- Filter the catalog using
+    * :attr:`x_centroid` property: the object centroid in the x
+      direction.
+    * :attr:`y_centroid` property: the object centroid in the y
+      direction.
+    * `apply_filters` method: filter the catalog using
       algorithm-specific criteria.
-    * ``default_columns`` attribute -- A tuple of column names used
+    * ``default_columns`` attribute: a tuple of column names used
       by `to_table` when no explicit columns are given. This should
       be set in the subclass ``__init__``.
 
     Subclasses **may** override:
 
-    * `_get_init_attributes` -- Return attribute names to copy
+    * `_get_init_attributes`: return attribute names to copy
       during slicing. The override should include
       ``'default_columns'`` in the returned tuple.
-    * `make_cutouts` -- Customize how cutout arrays are extracted.
-    * `cutout_data` -- Customize the cutouts used for photometry
+    * `make_cutouts`: customize how cutout arrays are extracted.
+    * `cutout_data`: customize the cutouts used for photometry
       (e.g., zeroing negative pixels).
 
     Parameters
     ----------
-    data : 2D `~numpy.ndarray`
+    data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
         The 2D image. The image should be background-subtracted.
 
     xypos : Nx2 `~numpy.ndarray`
         An Nx2 array of (x, y) pixel coordinates denoting the central
-        positions of the stars.
+        positions of the stars. The positions are rounded to the
+        nearest pixel.
 
     kernel : 2D `~numpy.ndarray`
         A 2D array of the PSF kernel. Internally, the star finder
@@ -249,7 +269,9 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         self.kernel = kernel
         self.cutout_shape = kernel.shape
 
-        self.xypos = np.atleast_2d(xypos)
+        # The cutouts are centered on the nearest pixel, so the positions
+        # are rounded the same way to keep the cutout origins consistent
+        self.xypos = round_half_away(np.atleast_2d(xypos))
         self.n_brightest = n_brightest
         self.peak_max = peak_max
         self.default_columns = ()
@@ -257,13 +279,13 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         self.id = np.arange(len(self)) + 1
 
     def __repr__(self):
-        params = ('nsources',)
-        overrides = {'nsources': len(self)}
+        params = ('n_sources',)
+        overrides = {'n_sources': len(self)}
         return make_repr(self, params, brackets=True, overrides=overrides)
 
     def __str__(self):
-        params = ('nsources',)
-        overrides = {'nsources': len(self)}
+        params = ('n_sources',)
+        overrides = {'n_sources': len(self)}
         return make_repr(self, params, overrides=overrides, long=True)
 
     def __len__(self):
@@ -273,12 +295,20 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         """
         Index or slice the catalog.
 
-        This method should be overridden in subclasses to handle
-        class-specific attributes.
+        Class-specific attributes to copy are declared by overriding
+        the ``_get_init_attributes`` method in subclasses.
         """
         # NOTE: we allow indexing/slicing of scalar (self.isscalar = True)
         #       instances in order to perform catalog filtering even for
         #       a single source
+
+        # Normalize an integer index to a one-element fancy index so
+        # that the leading source axis is always preserved, including
+        # for cached multidimensional per-source arrays (e.g., moments
+        # and cutouts).
+        if (isinstance(index, (int, np.integer))
+                and not isinstance(index, bool)):
+            index = [index]
 
         newcls = object.__new__(self.__class__)
 
@@ -288,13 +318,11 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
             setattr(newcls, attr, getattr(self, attr))
 
         # xypos determines ordering and isscalar
-        # NOTE: always keep as 2D array, even for a single source
         attr = 'xypos'
-        value = getattr(self, attr)[index]
-        setattr(newcls, attr, np.atleast_2d(value))
+        setattr(newcls, attr, getattr(self, attr)[index])
 
         # Index/slice the remaining attributes
-        keys = set(self.__dict__.keys()) & set(self._lazyproperties)
+        keys = set(self.__dict__) & set(self._cached_properties)
         keys.add('id')
         for key in keys:
             value = self.__dict__[key]
@@ -304,11 +332,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
             if np.isscalar(value):
                 continue
 
-            # Ensure value is always at least a 1D array, even for a
-            # single source
-            value = np.atleast_1d(value[index])
-
-            newcls.__dict__[key] = value
+            newcls.__dict__[key] = value[index]
 
         return newcls
 
@@ -316,32 +340,46 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         """
         Return a tuple of attribute names to copy during slicing.
 
-        This method should be overridden in subclasses.
+        Subclasses that define additional attributes in ``__init__``
+        should override this method to include them.
         """
         return ('data', 'unit', 'kernel', 'n_brightest', 'peak_max',
                 'cutout_shape', 'default_columns')
 
     @property
-    def _lazyproperties(self):
+    def _cached_properties(self):
         """
-        Return all lazyproperties (even in superclasses).
+        Return all cached properties (even in superclasses).
 
         The result is cached on the class to avoid repeated
         introspection via `inspect.getmembers`.
         """
         cls = self.__class__
-        attr = '_cached_lazyproperties'
-        # Subclasses get their own lazyproperty list
+        attr = '_cached_properties_cache'
+        # Subclasses get their own cached-property list
         if attr not in cls.__dict__:
-            def islazyproperty(obj):
-                return isinstance(obj, lazyproperty)
+            def is_cached_property(obj):
+                return isinstance(obj, cached_property)
 
             setattr(cls, attr,
                     [i[0] for i in inspect.getmembers(
-                        cls, predicate=islazyproperty)])
+                        cls, predicate=is_cached_property)])
         return getattr(cls, attr)
 
-    @lazyproperty
+    @property
+    def _properties(self):
+        """
+        A sorted list of the built-in source properties.
+        """
+        cached_properties = [name for name in self._cached_properties
+                             if not name.startswith('_')]
+        # isscalar is a scalar value for the whole object, not a
+        # per-source value, so it is not a valid table column
+        cached_properties.remove('isscalar')
+        cached_properties.sort()
+        return cached_properties
+
+    @cached_property
     def isscalar(self):
         """
         Whether the instance is scalar (e.g., a single source).
@@ -360,13 +398,14 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        data : 2D `~numpy.ndarray`
-            The 2D image array.
+        data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
+            The 2D image array. Any units are ignored.
 
         Returns
         -------
-        cutouts : 3D `~numpy.ndarray`
-            The cutout arrays.
+        cutouts : 3D `~numpy.ndarray` or `~astropy.units.Quantity`
+            The cutout arrays with shape ``(n_sources, ny, nx)``. The
+            catalog ``unit`` is attached if it is not `None`.
         """
         data_arr = data.value if isinstance(data, u.Quantity) else data
 
@@ -378,7 +417,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
         return cutouts
 
-    @lazyproperty
+    @cached_property
     def cutout_data(self):
         """
         The cutout data arrays.
@@ -389,7 +428,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         """
         return self.make_cutouts(self.data)
 
-    @lazyproperty
+    @cached_property
     def moments(self):
         """
         The raw image moments.
@@ -405,10 +444,11 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         # M[n, p, q] = sum_jk data[n,j,k] * y[j]^p * x[k]^q
         return ypowers.T @ data @ xpowers
 
-    @lazyproperty
+    @cached_property
     def moments_central(self):
         """
-        The central image moments.
+        The central image moments up to second order, normalized by
+        the zeroth raw moment (the total cutout flux).
         """
         data = self.cutout_data
         if isinstance(data, u.Quantity):
@@ -428,10 +468,11 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
             warnings.simplefilter('ignore', RuntimeWarning)
             return moments / self.moments[:, 0, 0][:, np.newaxis, np.newaxis]
 
-    @lazyproperty
+    @cached_property
     def cutout_centroid(self):
         """
-        The cutout centroids.
+        The centroids within the cutouts as an Nx2 array in ``(y, x)``
+        order.
         """
         moments = self.moments
 
@@ -442,14 +483,14 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
             x_centroid = moments[:, 0, 1] / moments[:, 0, 0]
         return np.transpose((y_centroid, x_centroid))
 
-    @lazyproperty
+    @cached_property
     def cutout_x_centroid(self):
         """
         The cutout x centroids.
         """
         return np.transpose(self.cutout_centroid)[1]
 
-    @lazyproperty
+    @cached_property
     def cutout_y_centroid(self):
         """
         The cutout y centroids.
@@ -479,47 +520,52 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         return deprecated_getattr(self, name, _DEPRECATED_ATTRIBUTES,
                                   since='3.0', until='4.0')
 
-    @lazyproperty
+    @cached_property
     def mu_sum(self):
         """
-        The sum of the central moments.
+        The sum of the second-order central moments in x and y.
         """
         return (self.moments_central[:, 0, 2]
                 + self.moments_central[:, 2, 0])
 
-    @lazyproperty
+    @cached_property
     def mu_diff(self):
         """
-        The difference of the central moments.
+        The difference of the second-order central moments in x and y
+        (x minus y).
         """
         return (self.moments_central[:, 0, 2]
                 - self.moments_central[:, 2, 0])
 
-    @lazyproperty
+    @cached_property
     def fwhm(self):
         """
         The FWHM of the sources.
         """
         return 2.0 * np.sqrt(np.log(2.0) * self.mu_sum)
 
-    @lazyproperty
+    @cached_property
     def orientation(self):
         """
-        The angle between the ``x`` axis and the major axis of the 2D
+        The angle between the x-axis and the major axis of the 2D
         Gaussian function that has the same second-order moments as the
         source.
 
-        The angle increases in the counter-clockwise direction and
-        will be in the range [0, 360) degrees.
+        The angle increases in the counterclockwise direction and is
+        in the range (-90, 90] degrees.
         """
         angle = 0.5 * np.arctan2(2.0 * self.moments_central[:, 1, 1],
                                  self.mu_diff)
-        return (np.rad2deg(angle) % 360) << u.deg
+        return np.rad2deg(angle) * u.deg
 
-    @lazyproperty
+    @cached_property
     def roundness(self):
         """
-        The roundness of the sources.
+        The roundness of the sources, computed from the second-order
+        central moments.
+
+        The value is 0 for a circular source and approaches 1 for a
+        highly elongated source.
         """
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
@@ -527,21 +573,21 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
                             + 4.0 * self.moments_central[:, 1, 1]**2)
                     / self.mu_sum)
 
-    @lazyproperty
+    @cached_property
     def peak(self):
         """
         The peak pixel values.
         """
         return np.max(self.cutout_data, axis=(1, 2))
 
-    @lazyproperty
+    @cached_property
     def flux(self):
         """
         The instrumental fluxes.
         """
         return np.sum(self.cutout_data, axis=(1, 2))
 
-    @lazyproperty
+    @cached_property
     def mag(self):
         """
         The instrumental magnitudes.
@@ -556,8 +602,14 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
     def select_brightest(self):
         """
-        Sort the catalog by the brightest fluxes and select the top
-        brightest sources.
+        Select the ``n_brightest`` sources with the largest fluxes.
+
+        Returns
+        -------
+        catalog : `StarFinderCatalogBase`
+            A new catalog of the ``n_brightest`` sources sorted by
+            decreasing flux. If ``n_brightest`` is `None`, the catalog
+            itself is returned unchanged. The source IDs are not reset.
         """
         newcat = self
         if self.n_brightest is not None:
@@ -568,7 +620,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
     def _filter_finite(self, attrs, *, initial_mask=None,
                        skip_attrs=()):
         """
-        Filter the catalog by removing sources with non-finite values.
+        Filter the catalog by removing sources with nonfinite values.
 
         Parameters
         ----------
@@ -576,7 +628,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
             Attribute names to check for finiteness.
 
         initial_mask : 1D `~numpy.ndarray` of bool or `None`, optional
-            A pre-existing boolean mask to combine with. If `None`,
+            An existing boolean mask to combine with. If `None`,
             starts with all `True`.
 
         skip_attrs : tuple of str, optional
@@ -607,7 +659,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
     def _filter_bounds(self, bounds, *, initial_mask=None, peakattr='peak'):
         """
-        Filter the catalog by sharpness, roundness, and peak_max bounds.
+        Filter the catalog by attribute bounds and ``peak_max``.
 
         Parameters
         ----------
@@ -618,7 +670,7 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
             skip filtering for that attribute.
 
         initial_mask : 1D `~numpy.ndarray` of bool or `None`, optional
-            A pre-existing boolean mask to combine with. If `None`,
+            An existing boolean mask to combine with. If `None`,
             starts with all `True`.
 
         peakattr : str, optional
@@ -665,12 +717,23 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
         This method must be implemented in subclasses to apply
         algorithm-specific filtering criteria.
+
+        Returns
+        -------
+        catalog : `StarFinderCatalogBase` or `None`
+            The filtered catalog, or `None` if no sources remain.
         """
 
     def apply_all_filters(self):
         """
         Apply all filters, select the brightest, and reset the source
         IDs.
+
+        Returns
+        -------
+        catalog : `StarFinderCatalogBase` or `None`
+            The filtered catalog, or `None` if no sources pass the
+            filters.
         """
         cat = self.apply_filters()
         if cat is None:
@@ -685,14 +748,22 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        columns : list of str, optional
-            List of column names to include in the table. If `None`,
-            uses ``self.default_columns``.
+        columns : str or list of str, optional
+            Names of column(s) to include in the table. If `None`,
+            uses ``self.default_columns``. The valid names are ``'id'``,
+            the names in ``default_columns``, and the cached source
+            properties.
 
         Returns
         -------
         table : `~astropy.table.QTable`
             A table of the catalog properties.
+
+        Raises
+        ------
+        ValueError
+            If any name in ``columns`` is not a valid (or deprecated)
+            column name.
         """
         # Replace with QTable in 4.0
         table = create_empty_deprecated_qtable(
@@ -701,13 +772,29 @@ class StarFinderCatalogBase(metaclass=abc.ABCMeta):
         table.meta.update(_get_meta())  # keep table.meta type
         if columns is None:
             if not self.default_columns:
-                msg = ('default_columns attribute is not set; either '
+                msg = ('default_columns attribute is not set. Either '
                        'pass explicit column names or set '
                        'default_columns in the subclass __init__')
                 raise AttributeError(msg)
-            columns = self.default_columns
-        for column in columns:
-            table[column] = getattr(self, column)
+            table_columns = list(self.default_columns)
+        else:
+            # id is not included in self._properties because it is
+            # not a cached property
+            allowed_columns = (set(self._properties) | {'id'}
+                               | set(self.default_columns))
+            table_columns = validate_table_columns(
+                columns, allowed_columns,
+                deprecated_names=_DEPRECATED_ATTRIBUTES)
+
+        for column in table_columns:
+            values = getattr(self, column)
+
+            # Use the canonical (nondeprecated) column name so that
+            # assigning into ``table`` does not trigger a second,
+            # redundant deprecation warning (the deprecated attribute
+            # access above already warned once).
+            canonical_column = _DEPRECATED_ATTRIBUTES.get(column, column)
+            table[canonical_column] = values
         return table
 
 
@@ -715,13 +802,13 @@ class _StarFinderKernel:
     """
     Container class for a 2D Gaussian density enhancement kernel.
 
-    The kernel has negative wings and sums to zero. It is used by both
-    `DAOStarFinder` and `IRAFStarFinder`.
+    By default, the kernel has negative wings and sums to zero. It is
+    used by both `DAOStarFinder` and `IRAFStarFinder`.
 
     Parameters
     ----------
     fwhm : float
-        The full-width half-maximum (FWHM) of the major axis of the
+        The full width at half maximum (FWHM) of the major axis of the
         Gaussian kernel in units of pixels.
 
     ratio : float, optional
@@ -732,8 +819,8 @@ class _StarFinderKernel:
 
     theta : float, optional
         The position angle (in degrees) of the major axis of the
-        Gaussian kernel, measured counter-clockwise from the positive x
-        axis.
+        Gaussian kernel, measured counterclockwise from the positive
+        x-axis.
 
     sigma_radius : float, optional
         The truncation radius of the Gaussian kernel in units
@@ -743,21 +830,6 @@ class _StarFinderKernel:
     normalize_zerosum : bool, optional
         Whether to normalize the Gaussian kernel to have zero sum. The
         default is `True`, which generates a density-enhancement kernel.
-
-    Notes
-    -----
-    The class attributes include the dimensions of the elliptical kernel
-    and the coefficients of a 2D elliptical Gaussian function expressed
-    as:
-
-    .. math::
-        f(x, y) = A \\exp\\bigl(-g(x, y)\\bigr)
-
-    where
-
-    .. math::
-        g(x, y) = a (x - x_0)^{2} + 2 b (x - x_0)(y - y_0)
-                   + c (y - y_0)^{2}
 
     Attributes
     ----------
@@ -789,6 +861,20 @@ class _StarFinderKernel:
 
     n_pixels : int
         Total number of pixels within the kernel ``mask``.
+
+    Notes
+    -----
+    The kernel is built from a 2D elliptical Gaussian function expressed
+    as:
+
+    .. math::
+        f(x, y) = A \\exp\\bigl(-g(x, y)\\bigr)
+
+    where
+
+    .. math::
+        g(x, y) = a (x - x_0)^{2} + 2 b (x - x_0)(y - y_0)
+                   + c (y - y_0)^{2}
 
     References
     ----------
@@ -896,7 +982,7 @@ def _validate_n_brightest(n_brightest):
 
     Parameters
     ----------
-    n_brightest : int, None, or bool
+    n_brightest : int or `None`
         The number of brightest sources to select. If `None`, all
         sources are selected. If a boolean is passed, a `TypeError` is
         raised.
@@ -914,6 +1000,37 @@ def _validate_n_brightest(n_brightest):
             raise ValueError(msg)
         n_brightest = bright_int
     return n_brightest
+
+
+def _validate_xycoords_bounds(xycoords, shape):
+    """
+    Validate that ``xycoords`` positions are within the data shape.
+
+    Positions are interpreted as pixel coordinates, where pixel centers
+    are at integer values and the image footprint spans ``(-0.5, nx -
+    0.5)`` in x and ``(-0.5, ny - 0.5)`` in y.
+
+    Parameters
+    ----------
+    xycoords : Nx2 `~numpy.ndarray`
+        The (x, y) pixel coordinates of sources.
+
+    shape : tuple of 2 int
+        The ``(ny, nx)`` shape of the data array.
+
+    Raises
+    ------
+    ValueError
+        If any position is outside the bounds of the data.
+    """
+    ny, nx = shape
+    xpos = xycoords[:, 0]
+    ypos = xycoords[:, 1]
+    if np.any((xpos <= -0.5) | (xpos >= nx - 0.5)
+              | (ypos <= -0.5) | (ypos >= ny - 0.5)):
+        msg = ('xycoords must be within the bounds of the input data '
+               f'with shape {tuple(shape)}')
+        raise ValueError(msg)
 
 
 def _handle_deprecated_range(old_lower, old_upper, new_range,
@@ -942,7 +1059,8 @@ def _handle_deprecated_range(old_lower, old_upper, new_range,
         ``'sharpness_range'``).
 
     default_range : tuple of 2 floats
-        The default range values when ``new_range`` is `None`.
+        The range used to fill in a bound that is not given by the
+        deprecated parameters when ``new_range`` is `None`.
 
     Returns
     -------
@@ -951,9 +1069,9 @@ def _handle_deprecated_range(old_lower, old_upper, new_range,
     """
     if old_lower is not _DEPR_DEFAULT or old_upper is not _DEPR_DEFAULT:
         msg = (f"The '{old_name}lo' and '{old_name}hi' parameters are "
-               'deprecated and will be removed in a future version. '
+               'deprecated and will be removed in version 4.0. '
                f"Use '{new_name}=(lower, upper)' instead.")
-        warnings.warn(msg, AstropyDeprecationWarning)
+        warnings.warn(msg, PhotutilsDeprecationWarning)
         _default = new_range if new_range is not None else default_range
         lower = (old_lower if old_lower is not _DEPR_DEFAULT
                  else _default[0])

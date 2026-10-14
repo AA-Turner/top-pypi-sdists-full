@@ -1,11 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Tools for reading and writing PSF models.
+Tools for reading PSF models.
 """
 
 import io
 import itertools
 import os
+import re
 import warnings
 
 import numpy as np
@@ -17,6 +18,34 @@ from photutils.utils._deprecation import deprecated_positional_kwargs
 
 __all__ = ['GriddedPSFModelRead', 'stdpsf_reader', 'webbpsf_reader']
 __doctest_skip__ = ['GriddedPSFModelRead']
+
+# Filename extensions recognized as FITS files
+_FITS_EXTENSIONS = ('.fits', '.fits.gz', '.fit', '.fit.gz', '.fts',
+                    '.fts.gz')
+
+# Pattern matching the WebbPSF detector-position header keywords
+_DET_YX_PATTERN = re.compile(r'DET_YX(\d+)$')
+
+# Mapping of the STDPSF filename detector field to the (instrument,
+# detector) metadata values
+_STDPSF_DETECTOR_MAP = {'WFPC2': ('HST/WFPC2', 'WFPC2'),
+                        'ACSHRC': ('HST/ACS', 'HRC'),
+                        'ACSWFC': ('HST/ACS', 'WFC'),
+                        'WFC3UV': ('HST/WFC3', 'UVIS'),
+                        'WFC3IR': ('HST/WFC3', 'IR'),
+                        'NRCSW': ('JWST/NIRCam', 'NRCSW'),
+                        'NRCA1': ('JWST/NIRCam', 'A1'),
+                        'NRCA2': ('JWST/NIRCam', 'A2'),
+                        'NRCA3': ('JWST/NIRCam', 'A3'),
+                        'NRCA4': ('JWST/NIRCam', 'A4'),
+                        'NRCB1': ('JWST/NIRCam', 'B1'),
+                        'NRCB2': ('JWST/NIRCam', 'B2'),
+                        'NRCB3': ('JWST/NIRCam', 'B3'),
+                        'NRCB4': ('JWST/NIRCam', 'B4'),
+                        'NRCAL': ('JWST/NIRCam', 'A5'),
+                        'NRCBL': ('JWST/NIRCam', 'B5'),
+                        'NIRISS': ('JWST/NIRISS', 'NIRISS'),
+                        'MIRI': ('JWST/MIRI', 'MIRIM')}
 
 
 class GriddedPSFModelRead(registry.UnifiedReadWrite):
@@ -33,10 +62,10 @@ class GriddedPSFModelRead(registry.UnifiedReadWrite):
     Get help on the available readers for
     `~photutils.psf.GriddedPSFModel` using the ``help()`` method::
 
-      >>> # Get help reading Table and list supported formats
+      >>> # Get help reading a GriddedPSFModel and list supported formats
       >>> GriddedPSFModel.read.help()
 
-      >>> # Get detailed help on the STSPSF FITS reader
+      >>> # Get detailed help on the STDPSF FITS reader
       >>> GriddedPSFModel.read.help('stdpsf')
 
       >>> # Get detailed help on the WebbPSF FITS reader
@@ -55,7 +84,7 @@ class GriddedPSFModelRead(registry.UnifiedReadWrite):
     """
 
     def __init__(self, instance, cls):
-        # uses default global registry
+        # Use default global registry
         super().__init__(instance, cls, 'read', registry=None)
 
     def __call__(self, *args, **kwargs):
@@ -87,8 +116,43 @@ def _read_stdpsf(filename):
 
     Parameters
     ----------
-    filename : str
-        The name of the STDPDF FITS file.
+    filename : str, path-like, file-like, or `~astropy.io.fits.HDUList`
+        The name of the STDPSF FITS file, an open file object, or an
+        already-open `~astropy.io.fits.HDUList`.
+
+    Returns
+    -------
+    data : dict
+        A dictionary containing the ePSF data and metadata.
+    """
+    if isinstance(filename, os.PathLike):
+        filename = os.fspath(filename)
+
+    is_hdulist = isinstance(filename, fits.HDUList)
+    if isinstance(filename, io.IOBase):
+        # A file object created from a file descriptor has an int name
+        name = getattr(filename, 'name', None)
+        is_fileobj = (isinstance(name, str)
+                      and name.lower().endswith(_FITS_EXTENSIONS))
+    else:
+        is_fileobj = False
+    is_fits_ext = (isinstance(filename, str)
+                   and filename.lower().endswith(_FITS_EXTENSIONS))
+    if is_hdulist or is_fileobj or is_fits_ext:
+        return _read_fits_stdpsf(filename)
+    msg = 'This interface supports only FITS files.'
+    raise TypeError(msg)
+
+
+def _read_fits_stdpsf(filename):
+    """
+    Read a STScI standard-format ePSF (STDPSF) FITS file.
+
+    Parameters
+    ----------
+    filename : str, path-like, file-like, or `~astropy.io.fits.HDUList`
+        The name of the STDPSF FITS file, an open file object, or an
+        already-open `~astropy.io.fits.HDUList`.
 
     Returns
     -------
@@ -97,21 +161,25 @@ def _read_stdpsf(filename):
     """
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', VerifyWarning)
-        with fits.open(filename, ignore_missing_end=True) as hdulist:
-            header = hdulist[0].header
-            data = hdulist[0].data
+        if isinstance(filename, fits.HDUList):
+            header = filename[0].header
+            data = filename[0].data
+        else:
+            with fits.open(filename, ignore_missing_end=True) as hdulist:
+                header = hdulist[0].header
+                data = hdulist[0].data
 
     try:
-        npsfs = header['NAXIS3']
-        nxpsfs = header['NXPSFS']
-        nypsfs = header['NYPSFS']
+        n_psfs = header['NAXIS3']
+        nx_grid = header['NXPSFS']
+        ny_grid = header['NYPSFS']
     except KeyError as exc:
-        msg = 'Invalid STDPDF FITS file'
+        msg = 'Invalid STDPSF FITS file'
         raise ValueError(msg) from exc
 
     if 'IPSFX01' in header:
-        xgrid = [header[f'IPSFX{i:02d}'] for i in range(1, nxpsfs + 1)]
-        ygrid = [header[f'JPSFY{i:02d}'] for i in range(1, nypsfs + 1)]
+        xgrid = [header[f'IPSFX{i:02d}'] for i in range(1, nx_grid + 1)]
+        ygrid = [header[f'JPSFY{i:02d}'] for i in range(1, ny_grid + 1)]
     elif 'IPSFXA5' in header:
         xgrid = []
         ygrid = []
@@ -125,11 +193,11 @@ def _read_stdpsf(filename):
         msg = 'Unknown STDPSF FITS file'
         raise ValueError(msg)
 
-    # STDPDF FITS positions are 1-indexed
+    # STDPSF FITS positions are 1-indexed
     xgrid = np.array(xgrid) - 1
     ygrid = np.array(ygrid) - 1
 
-    # nypsfs, nxpsfs, detector
+    # ny_grid, nx_grid, detector
     # 6, 6     WFPC2, 4 det
     # 1, 1     ACS/HRC
     # 10, 9    ACS/WFC, 2 det
@@ -142,9 +210,9 @@ def _read_stdpsf(filename):
     # 3, 3     MIRI
 
     return {'data': data,
-            'npsfs': npsfs,
-            'nxpsfs': nxpsfs,
-            'nypsfs': nypsfs,
+            'n_psfs': n_psfs,
+            'nx_grid': nx_grid,
+            'ny_grid': ny_grid,
             'xgrid': xgrid,
             'ygrid': ygrid}
 
@@ -177,7 +245,7 @@ def _split_detectors(grid_data, detector_data, detector_id):
 
     Notes
     -----
-    In particular::
+    The STDPSF files that contain multiple detectors are:
 
     * HST WFPC2 STDPSF file contains 4 detectors
     * HST ACS/WFC STDPSF file contains 2 detectors
@@ -185,34 +253,34 @@ def _split_detectors(grid_data, detector_data, detector_id):
     * JWST NIRCam "NRCSW" STDPSF file contains 8 detectors
     """
     data = grid_data['data']
-    npsfs = grid_data['npsfs']
-    nxpsfs = grid_data['nxpsfs']
-    nypsfs = grid_data['nypsfs']
+    n_psfs = grid_data['n_psfs']
+    nx_grid = grid_data['nx_grid']
+    ny_grid = grid_data['ny_grid']
     xgrid = grid_data['xgrid']
     ygrid = grid_data['ygrid']
-    nxdet = detector_data['nxdet']
-    nydet = detector_data['nydet']
+    nx_det = detector_data['nx_det']
+    ny_det = detector_data['ny_det']
     det_map = detector_data['det_map']
     det_size = detector_data['det_size']
 
-    ii = np.arange(npsfs).reshape((nypsfs, nxpsfs))
-    nxpsfs //= nxdet
-    nypsfs //= nydet
-    ndet = nxdet * nydet
-    ii = reshape_as_blocks(ii, (nypsfs, nxpsfs))
-    ii = ii.reshape(ndet, npsfs // ndet)
+    ii = np.arange(n_psfs).reshape((ny_grid, nx_grid))
+    nx_grid //= nx_det
+    ny_grid //= ny_det
+    n_detectors = nx_det * ny_det
+    ii = reshape_as_blocks(ii, (ny_grid, nx_grid))
+    ii = ii.reshape(n_detectors, n_psfs // n_detectors)
 
-    # detector_id -> index
+    # Map detector_id to index
     det_idx = det_map[detector_id]
     idx = ii[det_idx]
     data = data[idx]
 
-    xp = det_idx % nxdet
-    i0 = xp * nxpsfs
-    i1 = i0 + nxpsfs
+    xp = det_idx % nx_det
+    i0 = xp * nx_grid
+    i1 = i0 + nx_grid
     xgrid = xgrid[i0:i1] - xp * det_size
-
-    ygrid = ygrid[:nypsfs] if det_idx < nxdet else ygrid[nypsfs:] - det_size
+    ygrid = (ygrid[:ny_grid] if det_idx < nx_det
+             else ygrid[ny_grid:] - det_size)
 
     return data, xgrid, ygrid
 
@@ -253,12 +321,14 @@ def _split_wfc_uvis(grid_data, detector_id):
     ygrid = grid_data['ygrid']
     ygrid = ygrid.reshape((2, ygrid.shape[0] // 2))[detector_id - 1]
     if detector_id == 2:
-        ygrid -= 2048
+        # Avoid writing through the reshape view into the input grid
+        # data
+        ygrid = ygrid - 2048
 
-    npsfs = grid_data['npsfs']
+    n_psfs = grid_data['n_psfs']
     data = grid_data['data']
     data_ny, data_nx = data.shape[1:]
-    data = data.reshape((2, npsfs // 2, data_ny, data_nx))[detector_id - 1]
+    data = data.reshape((2, n_psfs // 2, data_ny, data_nx))[detector_id - 1]
 
     return data, xgrid, ygrid
 
@@ -293,17 +363,19 @@ def _split_wfpc2(grid_data, detector_id):
         msg = 'detector_id must be between 1 and 4, inclusive'
         raise ValueError(msg)
 
-    nxdet = 2
-    nydet = 2
+    nx_det = 2
+    ny_det = 2
     det_size = 800
 
+    # Map of detector ID to index in the 2x2 grid of detectors. The
+    # detector IDs are defined in the STDPSF filenames as follows:
     # det (exten:idx)
     # WF2 (2:2)  PC (1:3)
     # WF3 (3:0)  WF4 (4:1)
     det_map = {1: 3, 2: 2, 3: 0, 4: 1}
 
-    detector_data = {'nxdet': nxdet,
-                     'nydet': nydet,
+    detector_data = {'nx_det': nx_det,
+                     'ny_det': ny_det,
                      'det_size': det_size,
                      'det_map': det_map}
 
@@ -340,17 +412,19 @@ def _split_nrcsw(grid_data, detector_id):
         msg = 'detector_id must be between 1 and 8, inclusive'
         raise ValueError(msg)
 
-    nxdet = 4
-    nydet = 2
+    nx_det = 4
+    ny_det = 2
     det_size = 2048
 
+    # Map of detector ID to index in the 4x2 grid of detectors. The
+    # detector IDs are defined in the STDPSF filenames as follows:
     # det (ext:idx)
     # A2 (2:4)  A4 (4:5)  B3 (7:6)  B1 (5:7)
     # A1 (1:0)  A3 (3:1)  B4 (8:2)  B2 (6:3)
     det_map = {1: 0, 3: 1, 8: 2, 6: 3, 2: 4, 4: 5, 7: 6, 5: 7}
 
-    detector_data = {'nxdet': nxdet,
-                     'nydet': nydet,
+    detector_data = {'nx_det': nx_det,
+                     'ny_det': ny_det,
                      'det_size': det_size,
                      'det_map': det_map}
 
@@ -363,21 +437,35 @@ def _get_metadata(filename, detector_id):
 
     Parameters
     ----------
-    filename : str
-        The name of the STDPDF FITS file.
+    filename : str, path-like, file-like, or `~astropy.io.fits.HDUList`
+        The name of the STDPSF FITS file, an open file object, or an
+        already-open `~astropy.io.fits.HDUList`.
 
-    detector_id : int
-        The detector ID.
+    detector_id : int or `None`
+        The detector ID. It selects the detector name for a file that
+        contains ePSF grids for multiple detectors.
 
     Returns
     -------
     meta : dict or `None`
-        A dictionary containing the metadata.
+        A dictionary containing the metadata. `None` is returned if a
+        filename string cannot be determined from the input or if the
+        filename does not have the STDPSF form.
     """
-    if isinstance(filename, io.FileIO):
-        filename = filename.name
+    if isinstance(filename, fits.HDUList):
+        filename = filename.filename()
+    elif isinstance(filename, io.IOBase):
+        filename = getattr(filename, 'name', None)
+    elif isinstance(filename, os.PathLike):
+        filename = os.fspath(filename)
 
-    parts = os.path.basename(filename).strip('.fits').split('_')
+    if not isinstance(filename, str):
+        return None
+
+    # Strip the file extension (e.g., '.fits' or '.fits.gz') before
+    # splitting the filename into its underscore-separated fields.
+    basename = os.path.basename(filename).split('.')[0]
+    parts = basename.split('_')
     if len(parts) not in (3, 4):
         return None  # filename from astropy download_file
 
@@ -386,32 +474,18 @@ def _get_metadata(filename, detector_id):
             'detector': detector,
             'filter': filter_name}
 
+    try:
+        # Copy so that the module-level map is never mutated
+        inst_det = list(_STDPSF_DETECTOR_MAP[detector])
+    except KeyError as exc:
+        if detector_id is None:
+            return meta
+        msg = f'Unknown detector {detector}'
+        raise ValueError(msg) from exc
+
+    # The detector name within a multidetector file depends on
+    # detector_id
     if detector_id is not None:
-        detector_map = {'WFPC2': ['HST/WFPC2', 'WFPC2'],
-                        'ACSHRC': ['HST/ACS', 'HRC'],
-                        'ACSWFC': ['HST/ACS', 'WFC'],
-                        'WFC3UV': ['HST/WFC3', 'UVIS'],
-                        'WFC3IR': ['HST/WFC3', 'IR'],
-                        'NRCSW': ['JWST/NIRCam', 'NRCSW'],
-                        'NRCA1': ['JWST/NIRCam', 'A1'],
-                        'NRCA2': ['JWST/NIRCam', 'A2'],
-                        'NRCA3': ['JWST/NIRCam', 'A3'],
-                        'NRCA4': ['JWST/NIRCam', 'A4'],
-                        'NRCB1': ['JWST/NIRCam', 'B1'],
-                        'NRCB2': ['JWST/NIRCam', 'B2'],
-                        'NRCB3': ['JWST/NIRCam', 'B3'],
-                        'NRCB4': ['JWST/NIRCam', 'B4'],
-                        'NRCAL': ['JWST/NIRCam', 'A5'],
-                        'NRCBL': ['JWST/NIRCam', 'B5'],
-                        'NIRISS': ['JWST/NIRISS', 'NIRISS'],
-                        'MIRI': ['JWST/MIRI', 'MIRIM']}
-
-        try:
-            inst_det = detector_map[detector]
-        except KeyError as exc:
-            msg = f'Unknown detector {detector}'
-            raise ValueError(msg) from exc
-
         if inst_det[1] == 'WFPC2':
             wfpc2_map = {1: 'PC', 2: 'WF2', 3: 'WF3', 4: 'WF4'}
             inst_det[1] = wfpc2_map[detector_id]
@@ -425,8 +499,8 @@ def _get_metadata(filename, detector_id):
                       5: 'B1', 6: 'B2', 7: 'B3', 8: 'B4'}
             inst_det[1] = sw_map[detector_id]
 
-        meta['instrument'] = inst_det[0]
-        meta['detector'] = inst_det[1]
+    meta['instrument'] = inst_det[0]
+    meta['detector'] = inst_det[1]
 
     return meta
 
@@ -451,8 +525,12 @@ def stdpsf_reader(filename, detector_id=None):
 
     Parameters
     ----------
-    filename : str
-        The name of the STDPDF FITS file. A URL can also be used.
+    filename : str, path-like, file-like, or `~astropy.io.fits.HDUList`
+        The name of the STDPSF FITS file, an open file object, or an
+        already-open `~astropy.io.fits.HDUList`. A URL can also be
+        used. A filename, or the ``name`` of a file object, must end
+        with a FITS extension (e.g., ``.fits`` or ``.fits.gz``).
+        Otherwise a `TypeError` is raised.
 
     detector_id : `None` or int, optional
         For STDPSF files that contain ePSF grids for multiple detectors,
@@ -469,11 +547,10 @@ def stdpsf_reader(filename, detector_id=None):
         * 1: WFC2, UVIS2 (sci, 1)
         * 2: WFC1, UVIS1 (sci, 2)
 
-        Note that for these two instruments, detector 1 is above
-        detector 2 in the y direction. However, in the FLT FITS files,
-        the (sci, 1) extension corresponds to detector 2 (WFC2, UVIS2)
-        and the (sci, 2) extension corresponds to detector 1 (WFC1,
-        UVIS1).
+        Note that for these two instruments, chip 1 (WFC1, UVIS1) is
+        above chip 2 (WFC2, UVIS2) in the y direction. In the FLT FITS
+        files, the (sci, 1) extension corresponds to chip 2 and the
+        (sci, 2) extension corresponds to chip 1.
 
         For NIRCam NRCSW files that contain ePSF grids for all 8 SW
         detectors, the detector value should be:
@@ -490,35 +567,31 @@ def stdpsf_reader(filename, detector_id=None):
 
     grid_data = _read_stdpsf(filename)
 
-    npsfs = grid_data['npsfs']
-    if npsfs in (90, 56, 36, 200):
-        if npsfs in (90, 56):  # ACS/WFC or WFC3/UVIS data (2 chips)
-            data, xgrid, ygrid = _split_wfc_uvis(grid_data, detector_id)
-        elif npsfs == 36:  # WFPC2 data (4 chips)
-            data, xgrid, ygrid = _split_wfpc2(grid_data, detector_id)
-        elif npsfs == 200:  # NIRCam SW data (8 chips)
-            data, xgrid, ygrid = _split_nrcsw(grid_data, detector_id)
-        else:
-            msg = 'Unknown detector or STDPSF format'
-            raise ValueError(msg)
+    # Number of ePSFs in the STDPSF files that contain grids for
+    # multiple detectors, mapped to the function that extracts a single
+    # detector from the grid
+    splitters = {90: _split_wfc_uvis,  # ACS/WFC or WFC3/UVIS (2 chips)
+                 56: _split_wfc_uvis,  # ACS/WFC or WFC3/UVIS (2 chips)
+                 36: _split_wfpc2,  # WFPC2 (4 chips)
+                 200: _split_nrcsw}  # NIRCam SW (8 chips)
+
+    splitter = splitters.get(grid_data['n_psfs'])
+    if splitter is not None:
+        data, xgrid, ygrid = splitter(grid_data, detector_id)
     else:
         data = grid_data['data']
         xgrid = grid_data['xgrid']
         ygrid = grid_data['ygrid']
 
     # itertools.product iterates over the last input first
-    xy_grid = [yx[::-1] for yx in itertools.product(ygrid, xgrid)]
+    xy_grid = np.array([yx[::-1] for yx in itertools.product(ygrid, xgrid)])
 
     oversampling = 4  # assumption for STDPSF files
-    nxpsfs = xgrid.shape[0]
-    nypsfs = ygrid.shape[0]
     meta = {'grid_xypos': xy_grid,
-            'oversampling': oversampling,
-            'nxpsfs': nxpsfs,
-            'nypsfs': nypsfs}
+            'oversampling': oversampling}
 
-    # try to get additional metadata from the filename because this
-    # information is not currently available in the FITS headers
+    # Try to get additional metadata from the filename because this
+    # information is not currently available in the FITS headers.
     file_meta = _get_metadata(filename, detector_id)
     if file_meta is not None:
         meta.update(file_meta)
@@ -537,19 +610,35 @@ def webbpsf_reader(filename):
         method, e.g., ``model = GriddedPSFModel.read(filename,
         format='webbpsf')``.
 
-    The WebbPSF FITS file contain a 3D array of ePSFs with the header
+    The WebbPSF FITS file contains a 3D array of ePSFs with the header
     detailing where the fiducial ePSFs are located in the detector
     coordinate frame.
 
     Parameters
     ----------
-    filename : str
-        The name of the WebbPSF FITS file. A URL can also be used.
+    filename : str, path-like, or file-like
+        The name of the WebbPSF FITS file or an open file object. A URL
+        can also be used.
 
     Returns
     -------
     model : `~photutils.psf.GriddedPSFModel`
         The gridded ePSF model.
+
+    Notes
+    -----
+    The STPSF (formerly WebbPSF) ``psf_grid`` method makes these ePSFs
+    from PSFs that are sampled at the points of the oversampled grid.
+    It integrates each PSF over the detector pixels with a discrete
+    box kernel, which is a low-order approximation of the integral.
+    The ePSF peak and the fluxes fitted with these models can
+    therefore be in error by up to a few percent for the filters
+    with the narrowest PSFs.
+
+    A more accurate ePSF can be made by applying
+    `~photutils.psf.make_epsf_from_psf` to the oversampled PSF that
+    the STPSF ``calc_psf`` method returns. See :ref:`psf-image-models`
+    for the measured errors and an example.
     """
     from photutils.psf import GriddedPSFModel  # prevent circular import
 
@@ -559,30 +648,40 @@ def webbpsf_reader(filename):
             header = hdulist[0].header
             data = hdulist[0].data
 
-    # handle the case of only one 2D PSF
-    data = np.atleast_3d(data)
+    # Handle the case of only one 2D PSF
+    if data.ndim == 2:
+        data = data[np.newaxis, :]
 
     if not any('DET_YX' in key for key in header):
-        msg = 'Invalid WebbPSF FITS file; missing "DET_YX{}" header keys'
+        msg = 'Invalid WebbPSF FITS file. Missing "DET_YX{}" header keys'
         raise ValueError(msg)
     if 'OVERSAMP' not in header:
-        msg = 'Invalid WebbPSF FITS file; missing "OVERSAMP" header key'
+        msg = 'Invalid WebbPSF FITS file. Missing "OVERSAMP" header key'
         raise ValueError(msg)
 
-    # convert header to meta dict
+    # Convert header to meta dict
     header = header.copy(strip=True)
     header.pop('HISTORY', None)
     header.pop('COMMENT', None)
     header.pop('', None)
     meta = dict(header)
-    meta = {key.lower(): meta[key] for key in meta}  # user lower-case keys
+    meta = {key.lower(): meta[key] for key in meta}  # use lowercase keys
 
-    # define grid_xypos from DET_YX{} FITS header keywords
+    # Define grid_xypos from the DET_YX{i} FITS header keywords. The
+    # keywords are sorted by their numeric index so that the positions
+    # always match the order of the ePSF planes in the data array. The
+    # header values are the '(y, x)' detector positions, but grid_xypos
+    # is defined in (x, y) order.
+    det_yx_keys = {}
+    for key in header:
+        match = _DET_YX_PATTERN.match(key)
+        if match is not None:
+            det_yx_keys[int(match.group(1))] = key
+
     xypos = []
-    for key in meta:
-        if 'det_yx' in key:
-            vals = header[key].lstrip('(').rstrip(')').split(',')
-            xypos.append((float(vals[0]), float(vals[1])))
+    for index in sorted(det_yx_keys):
+        vals = header[det_yx_keys[index]].lstrip('(').rstrip(')').split(',')
+        xypos.append((float(vals[1]), float(vals[0])))
     meta['grid_xypos'] = xypos
 
     if 'oversampling' not in meta:
@@ -591,6 +690,57 @@ def webbpsf_reader(filename):
     ndd = NDData(data, meta=meta)
 
     return GriddedPSFModel(ndd)
+
+
+def _has_fits_header_keys(filepath, keys, *, fileobj=None):
+    """
+    Determine whether a file is a FITS file whose primary header
+    contains all of the given keywords.
+
+    Parameters
+    ----------
+    filepath : str, path-like, or `None`
+        The file path of the FITS file.
+
+    keys : tuple of str
+        The FITS header keywords that must all be present.
+
+    fileobj : file-like object or `None`, optional
+        An open file object to read the file's contents. If given, the
+        header is read from it instead of reopening ``filepath``.
+
+    Returns
+    -------
+    result : bool
+        Returns `True` if the file is a FITS file containing all of the
+        input keywords.
+    """
+    if fileobj is not None:
+        try:
+            fileobj.seek(0)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', VerifyWarning)
+                header = fits.getheader(fileobj)
+        except OSError:
+            # A corrupt file is not a FITS file
+            return False
+        return all(key in header for key in keys)
+
+    if isinstance(filepath, os.PathLike):
+        filepath = os.fspath(filepath)
+
+    if filepath is None or not filepath.lower().endswith(_FITS_EXTENSIONS):
+        return False
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', VerifyWarning)
+            header = fits.getheader(filepath)
+    except OSError:
+        # A corrupt file with a FITS extension is not a FITS file
+        return False
+
+    return all(key in header for key in keys)
 
 
 def is_stdpsf(origin, filepath, fileobj, *args, **kwargs):
@@ -603,7 +753,7 @@ def is_stdpsf(origin, filepath, fileobj, *args, **kwargs):
         A string indicating whether the file is to be opened for reading
         or writing.
 
-    filepath : str
+    filepath : str or path-like
         The file path of the FITS file.
 
     fileobj : file-like object
@@ -619,17 +769,8 @@ def is_stdpsf(origin, filepath, fileobj, *args, **kwargs):
     result : bool
         Returns `True` if the given file is a STDPSF FITS file.
     """
-    if filepath is not None:
-        extens = ('.fits', '.fits.gz', '.fit', '.fit.gz', '.fts', '.fts.gz')
-        isfits = filepath.lower().endswith(extens)
-        if isfits:
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', VerifyWarning)
-                header = fits.getheader(filepath)
-            keys = ('NAXIS3', 'NXPSFS', 'NYPSFS')
-            return all(key in header for key in keys)
-
-    return False
+    return _has_fits_header_keys(filepath, ('NAXIS3', 'NXPSFS', 'NYPSFS'),
+                                 fileobj=fileobj)
 
 
 def is_webbpsf(origin, filepath, fileobj, *args, **kwargs):
@@ -642,7 +783,7 @@ def is_webbpsf(origin, filepath, fileobj, *args, **kwargs):
         A string indicating whether the file is to be opened for reading
         or writing.
 
-    filepath : str
+    filepath : str or path-like
         The file path of the FITS file.
 
     fileobj : file-like object
@@ -658,14 +799,5 @@ def is_webbpsf(origin, filepath, fileobj, *args, **kwargs):
     result : bool
         Returns `True` if the given file is a WebbPSF FITS file.
     """
-    if filepath is not None:
-        extens = ('.fits', '.fits.gz', '.fit', '.fit.gz', '.fts', '.fts.gz')
-        isfits = filepath.lower().endswith(extens)
-        if isfits:
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', VerifyWarning)
-                header = fits.getheader(filepath)
-            keys = ('NAXIS3', 'OVERSAMP', 'DET_YX0')
-            return all(key in header for key in keys)
-
-    return False
+    return _has_fits_header_keys(filepath, ('NAXIS3', 'OVERSAMP', 'DET_YX0'),
+                                 fileobj=fileobj)

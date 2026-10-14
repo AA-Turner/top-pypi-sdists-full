@@ -1,5 +1,7 @@
 """Analytics service implementation."""
 
+import json
+
 from ..models.analytics import (
     AnalyticsQueryParams,
     PaginatedAnalyticsQueryParams,
@@ -536,6 +538,45 @@ class AnalyticsService:
         """GET /v1/analytics/leaderboard/framework — dimension definitions."""
         return self._api.get(
             "/v1/analytics/leaderboard/framework",
+            dict,
+            params=kwargs if kwargs else None,
+            wrap_response=False,
+        )
+
+    def send_cli_hook_events(self, events: list[dict]) -> dict:
+        """POST /v1/analytics/cli-analytics/event-hooks — ingest CLI plugin hook events.
+
+        The events are sent as NDJSON (one JSON object per line), the format the
+        codemie-code analytics plugin uses. The authenticated user becomes the
+        events' sender. Events with an ``event_id`` already stored are skipped.
+
+        Args:
+            events: Hook events, e.g. ``{"type": "agent.session.start", "session_id": ...}``
+
+        Returns:
+            Ingest response body (an empty object on success)
+        """
+        body = "\n".join(json.dumps(event) for event in events) + "\n"
+        return self._api.post(
+            "/v1/analytics/cli-analytics/event-hooks",
+            dict,
+            data=body.encode("utf-8"),
+            extra_headers={"Content-Type": "application/x-ndjson"},
+            wrap_response=False,
+        )
+
+    def get_cli_sessions(self, **kwargs) -> dict:
+        """GET /v1/analytics/cli-analytics/sessions — CLI Analytics session list.
+
+        Args:
+            **kwargs: Query parameters (time_period, start_date, end_date, users,
+                projects, page, per_page, sort_by, search, framework, branch)
+
+        Returns:
+            Response with ``data.sessions`` (one row per session) and paging fields
+        """
+        return self._api.get(
+            "/v1/analytics/cli-analytics/sessions",
             dict,
             params=kwargs if kwargs else None,
             wrap_response=False,

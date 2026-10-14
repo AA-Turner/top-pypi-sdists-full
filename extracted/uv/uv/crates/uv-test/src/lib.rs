@@ -10,9 +10,11 @@ mod path;
 pub mod pypi_proxy;
 mod vendor;
 
-pub use path::assert_path_missing;
+pub use path::{assert_link_target, assert_path_missing};
 
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Write as _;
 use std::iter::Iterator;
@@ -24,9 +26,7 @@ use uv_python_managed::downloads::ManagedPythonDownloadList;
 
 use assert_cmd::assert::{Assert, OutputAssertExt};
 use assert_fs::assert::PathAssert;
-use assert_fs::fixture::{
-    ChildPath, FileWriteStr, PathChild, PathCopy, PathCreateDir, SymlinkToFile,
-};
+use assert_fs::fixture::{ChildPath, FileWriteStr, PathChild, PathCreateDir, SymlinkToFile};
 use base64::{Engine, prelude::BASE64_STANDARD as base64};
 use futures::StreamExt;
 use indoc::{formatdoc, indoc};
@@ -49,6 +49,7 @@ static TEST_TIMESTAMP: &str = "2024-03-25T00:00:00Z";
 pub const DEFAULT_PYTHON_VERSION: &str = "3.12";
 
 // The expected latest patch version for each Python minor version.
+const LATEST_PYTHON_3_16: &str = "3.16.0a1";
 const LATEST_PYTHON_3_15: &str = "3.15.0";
 const LATEST_PYTHON_3_14: &str = "3.14.8";
 const LATEST_PYTHON_3_13: &str = "3.13.16";
@@ -640,6 +641,7 @@ impl TestContext {
         // Filter the latest patch versions with [LATEST] placeholder
         // The order matters - we want to match the full version first
         for (minor, patch) in [
+            ("3.16", LATEST_PYTHON_3_16.strip_prefix("3.16.").unwrap()),
             ("3.15", LATEST_PYTHON_3_15.strip_prefix("3.15.").unwrap()),
             ("3.14", LATEST_PYTHON_3_14.strip_prefix("3.14.").unwrap()),
             ("3.13", LATEST_PYTHON_3_13.strip_prefix("3.13.").unwrap()),
@@ -1002,14 +1004,25 @@ impl TestContext {
             .expect("CARGO_MANIFEST_DIR should be doubly nested in workspace")
             .to_path_buf();
 
-        let download_list = ManagedPythonDownloadList::new_only_embedded().unwrap();
+        let download_list = if python_versions.is_empty() {
+            None
+        } else {
+            Some(
+                ManagedPythonDownloadList::new_only_embedded()
+                    .expect("Failed to load embedded Python downloads"),
+            )
+        };
 
         let python_versions: Vec<_> = python_versions
             .iter()
             .map(|version| PythonVersion::from_str(version).unwrap())
             .zip(
-                python_installations_for_versions(&temp_dir, python_versions, &download_list)
-                    .expect("Failed to find test Python versions"),
+                python_installations_for_versions(
+                    &temp_dir,
+                    python_versions,
+                    download_list.as_ref(),
+                )
+                .expect("Failed to find test Python versions"),
             )
             .collect();
 
@@ -2033,7 +2046,7 @@ impl TestContext {
     /// This panics (fails the current test) for any failure.
     pub fn copy_ecosystem_project(&self, name: &str) {
         let project_dir = PathBuf::from(format!("../../test/ecosystem/{name}"));
-        self.temp_dir.copy_from(project_dir, &["**/*"]).unwrap();
+        copy_dir_ignore(project_dir, &self.temp_dir).expect("Failed to copy ecosystem project");
         // If there is a (gitignore) lockfile, remove it.
         if let Err(err) = fs_err::remove_file(self.temp_dir.join("uv.lock")) {
             assert_eq!(
@@ -2263,9 +2276,13 @@ pub fn python_path_with_versions(
     temp_dir: &ChildPath,
     python_versions: &[&str],
 ) -> anyhow::Result<OsString> {
-    let download_list = ManagedPythonDownloadList::new_only_embedded().unwrap();
+    let download_list = if python_versions.is_empty() {
+        None
+    } else {
+        Some(ManagedPythonDownloadList::new_only_embedded()?)
+    };
     Ok(env::join_paths(
-        python_installations_for_versions(temp_dir, python_versions, &download_list)?
+        python_installations_for_versions(temp_dir, python_versions, download_list.as_ref())?
             .into_iter()
             .map(|path| path.parent().unwrap().to_path_buf()),
     )?)
@@ -2277,12 +2294,15 @@ pub fn python_path_with_versions(
 fn python_installations_for_versions(
     temp_dir: &ChildPath,
     python_versions: &[&str],
-    download_list: &ManagedPythonDownloadList,
+    download_list: Option<&ManagedPythonDownloadList>,
 ) -> anyhow::Result<Vec<PathBuf>> {
     let cache = Cache::from_path(temp_dir.child("cache").to_path_buf())
         .init_no_wait()?
         .expect("No cache contention when setting up Python in tests");
     let _preview = uv_preview::test::with_features(&[]);
+    let Some(download_list) = download_list else {
+        return Ok(Vec::new());
+    };
     let selected_pythons = python_versions
         .iter()
         .map(|python_version| {
@@ -2315,15 +2335,30 @@ pub enum WindowsFilters {
     Universal,
 }
 
+thread_local! {
+    /// Reuse compiled patterns across snapshots and contexts on the same test thread.
+    static SNAPSHOT_FILTER_CACHE: RefCell<HashMap<String, Regex>> = RefCell::new(HashMap::new());
+}
+
 /// Helper method to apply filters to a string. Useful when `!uv_snapshot` cannot be used.
 pub fn apply_filters<T: AsRef<str>>(mut snapshot: String, filters: impl AsRef<[(T, T)]>) -> String {
-    for (matcher, replacement) in filters.as_ref() {
-        // TODO(konstin): Cache regex compilation
-        let re = Regex::new(matcher.as_ref()).expect("Do you need to regex::escape your filter?");
+    let filters = filters.as_ref();
+    // Release the thread-local borrow before converting the caller's filters.
+    let mut compiled_filters = SNAPSHOT_FILTER_CACHE.take();
+    for (matcher, replacement) in filters {
+        let matcher = matcher.as_ref();
+        if !compiled_filters.contains_key(matcher) {
+            compiled_filters.insert(
+                matcher.to_owned(),
+                Regex::new(matcher).expect("Do you need to regex::escape your filter?"),
+            );
+        }
+        let re = &compiled_filters[matcher];
         if re.is_match(&snapshot) {
             snapshot = re.replace_all(&snapshot, replacement.as_ref()).to_string();
         }
     }
+    SNAPSHOT_FILTER_CACHE.set(compiled_filters);
     snapshot
 }
 
@@ -2520,7 +2555,7 @@ pub fn copy_dir_ignore(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> anyhow::
         let relative = entry.path().strip_prefix(&src)?;
         let ty = entry.file_type().unwrap();
         if ty.is_dir() {
-            fs_err::create_dir(dst.as_ref().join(relative))?;
+            fs_err::create_dir_all(dst.as_ref().join(relative))?;
         } else {
             fs_err::copy(entry.path(), dst.as_ref().join(relative))?;
         }
@@ -2826,5 +2861,52 @@ mod file_read_tests {
         let context = TestContext::new_with_versions_and_bin(&[], PathBuf::from("uv"));
 
         context.read_bytes("missing.bin");
+    }
+}
+
+#[cfg(test)]
+mod copy_dir_ignore_tests {
+    use anyhow::Result;
+    use assert_fs::prelude::*;
+    use predicates::prelude::predicate;
+
+    use super::copy_dir_ignore;
+
+    #[test]
+    fn copy_fixture_into_nested_destination() -> Result<()> {
+        let root = assert_fs::TempDir::new()?;
+        let source = root.child("source");
+        source.child(".git").create_dir_all()?;
+        source.child(".gitignore").write_str("ignored.txt\n")?;
+        source.child("module.py").write_str("VALUE = 1\n")?;
+        source
+            .child("ignored.txt")
+            .write_str("local build output")?;
+
+        let destination = root.child("nested/destination");
+        copy_dir_ignore(&source, &destination)?;
+
+        destination.child("module.py").assert("VALUE = 1\n");
+        destination
+            .child("ignored.txt")
+            .assert(predicate::path::missing());
+        Ok(())
+    }
+
+    #[test]
+    fn copy_fixture_into_existing_destination() -> Result<()> {
+        let root = assert_fs::TempDir::new()?;
+        let source = root.child("source");
+        source.child("module.py").write_str("VALUE = 1\n")?;
+
+        let destination = root.child("destination");
+        destination
+            .child("existing.txt")
+            .write_str("existing file")?;
+        copy_dir_ignore(&source, &destination)?;
+
+        destination.child("module.py").assert("VALUE = 1\n");
+        destination.child("existing.txt").assert("existing file");
+        Ok(())
     }
 }

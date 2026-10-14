@@ -12,12 +12,18 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..db.async_bridge import run_db
+from ..ops_log import message_hash
 from ..dashboard_links import page_url
 from .. import hosted_writes
 from ..hosted_writes import laptop_writes_refused
 from ..ai.inbound_qualifier import _classify_fast
 from ..db import aio as db
 from ..linkedin import get_account_id, get_linkedin_client
+from ..linkedin.unipile import (
+    LOOKUP_BUDGET_SPENT,
+    UnipileRateLimitError,
+    lookups_restart_words,
+)
 from ..linkedin.message_sender import message_is_ours
 
 logger = logging.getLogger(__name__)
@@ -181,10 +187,16 @@ async def _fetch_raw_chats(
     return all_items[:limit]
 
 
-async def _resolve_profile(client: Any, account_id: str, provider_id: str) -> dict[str, str]:
-    """Resolve a LinkedIn provider_id to name + headline via profile lookup."""
+async def _resolve_profile(client: Any, account_id: str, provider_id: str) -> dict[str, Any]:
+    """Resolve a LinkedIn provider_id to name + headline via profile lookup.
+
+    When the seat's profile lookups for today are spent (#3006) the answer
+    carries ``lookups_spent`` and the server's ``retry_after``, so the reply
+    can say why the name is missing instead of printing "Unknown". Any other
+    failure is still an empty name.
+    """
     try:
-        profile = await client.get_profile(account_id, provider_id)
+        profile = await client.get_profile(account_id, provider_id, raise_on_rate_limit=True)
         if not profile:
             return {"name": "", "headline": ""}
         name = (
@@ -194,9 +206,48 @@ async def _resolve_profile(client: Any, account_id: str, provider_id: str) -> di
         )
         headline = profile.get("headline") or profile.get("occupation") or ""
         return {"name": name, "headline": headline}
+    except UnipileRateLimitError as e:
+        if getattr(e, "kind", "") == LOOKUP_BUDGET_SPENT:
+            return {"name": "", "headline": "", "lookups_spent": True, "retry_after": e.retry_after}
+        logger.debug("Profile resolve rate limited for %s", provider_id[:20])
+        return {"name": "", "headline": ""}
     except Exception as e:
         logger.debug("Profile resolve failed for %s: %s", provider_id, e)
         return {"name": "", "headline": ""}
+
+
+def _take_profile(ci: dict[str, Any], profile: Any) -> None:
+    """Copy a resolved profile onto a chat row, with the budget marker when there is one."""
+    if not isinstance(profile, dict):
+        return
+    ci["contact_name"] = profile.get("name", "") or ci.get("contact_name", "")
+    ci["contact_headline"] = profile.get("headline", "") or ci.get("contact_headline", "")
+    if profile.get("lookups_spent"):
+        ci["lookups_spent"] = True
+        ci["retry_after"] = profile.get("retry_after")
+
+
+def _lookups_spent_line(missing: int, total: int, retry_after: float | None) -> str:
+    """The one line above the rows when today's lookups are used on this account (#3006)."""
+    when = lookups_restart_words(retry_after)
+    if missing == 1 and total == 1:
+        count = "this conversation shows"
+    elif missing == 1:
+        count = "1 conversation shows"
+    else:
+        count = f"{missing} of {total} conversations show"
+    return (
+        "LinkedIn profile lookups for today are used on this account; "
+        f"{count} without a name until they start again {when}."
+    )
+
+
+def _lookups_spent_from(profiles: list[Any]) -> tuple[bool, float | None]:
+    """Whether any resolution hit the budget, and the server's retry_after if so."""
+    for profile in profiles:
+        if isinstance(profile, dict) and profile.get("lookups_spent"):
+            return True, profile.get("retry_after")
+    return False, None
 
 
 def _extract_chat_info(chat: dict) -> dict[str, Any]:
@@ -268,6 +319,7 @@ async def _resolve_chat(
     contact_headline = ""
     contact_name_resolved = ""
     contact_provider_id = ""
+    lookups_spent, lookups_retry_after = False, None
 
     if not chat_id and name:
         raw_chats = await _fetch_raw_chats(client, account_id, 50)
@@ -290,6 +342,7 @@ async def _resolve_chat(
                     for ci in unresolved[:30]
                 ]
                 profiles = await asyncio.gather(*tasks, return_exceptions=True)
+                lookups_spent, lookups_retry_after = _lookups_spent_from(list(profiles))
                 for ci, profile in zip(unresolved[:30], profiles):
                     if isinstance(profile, dict) and profile.get("name"):
                         ci["contact_name"] = profile["name"]
@@ -309,7 +362,7 @@ async def _resolve_chat(
             try:
                 candidates = await db.search_global_contacts(query=name, limit=5)
             except Exception as e:
-                logger.debug("global contact search failed for '%s': %s", name, e)
+                logger.debug("global contact search failed for '%s': %s", message_hash(name), e)
                 candidates = []
             for contact in candidates:
                 pid = _contact_provider_id(contact)
@@ -328,8 +381,15 @@ async def _resolve_chat(
                     break
 
         if not chat_id:
+            why = ""
+            if lookups_spent:
+                why = (
+                    " LinkedIn profile lookups for today are used on this account, so "
+                    "conversations without a name could not be matched by name until "
+                    f"they start again {lookups_restart_words(lookups_retry_after)}."
+                )
             return (
-                f"No conversation found matching '{name}'.\n"
+                f"No conversation found matching '{name}'.{why}\n"
                 "Use `inbox(action='list')` to see all conversations."
             )
 
@@ -351,12 +411,16 @@ async def _resolve_chat(
             profile = await _resolve_profile(client, account_id, contact_provider_id)
             contact_name_resolved = profile.get("name", "")
             contact_headline = profile.get("headline", "")
+            if profile.get("lookups_spent"):
+                lookups_spent, lookups_retry_after = True, profile.get("retry_after")
 
     return {
         "chat_id": chat_id,
         "contact_name": contact_name_resolved,
         "contact_headline": contact_headline,
         "contact_provider_id": contact_provider_id,
+        "lookups_spent": lookups_spent,
+        "retry_after": lookups_retry_after,
     }
 
 
@@ -541,9 +605,7 @@ async def _list_inbox(client: Any, account_id: str, limit: int) -> str:
         ]
         profiles = await asyncio.gather(*tasks, return_exceptions=True)
         for ci, profile in zip(batch, profiles):
-            if isinstance(profile, dict):
-                ci["contact_name"] = profile.get("name", "")
-                ci["contact_headline"] = profile.get("headline", "")
+            _take_profile(ci, profile)
 
     # Batch fetch last messages (all, in groups of BATCH)
     own_id = await run_db(_own_provider_id) if needs_message else ""
@@ -579,15 +641,19 @@ async def _list_inbox(client: Any, account_id: str, limit: int) -> str:
         ]
         profiles = await asyncio.gather(*tasks, return_exceptions=True)
         for ci, profile in zip(batch, profiles):
-            if isinstance(profile, dict):
-                ci["contact_name"] = profile.get("name", "")
-                ci["contact_headline"] = profile.get("headline", "")
+            _take_profile(ci, profile)
 
     # Format output
     lines = [f"**LinkedIn Inbox** ({len(chat_infos)} conversations)\n"]
+    spent = [ci for ci in chat_infos if ci.get("lookups_spent") and not ci["contact_name"]]
+    if spent:
+        lines.append(_lookups_spent_line(len(spent), len(chat_infos), spent[0].get("retry_after")) + "\n")
 
     for i, ci in enumerate(chat_infos, 1):
-        contact_name = ci["contact_name"] or "Unknown"
+        # A name the budget refused is not unknown: it was not asked for (#3006).
+        contact_name = ci["contact_name"] or (
+            "(name not loaded)" if ci.get("lookups_spent") else "Unknown"
+        )
         headline = ci["contact_headline"]
         text = ci["last_text"]
         ts = ci["timestamp"]
@@ -633,6 +699,8 @@ async def _read_conversation(
     contact_name_resolved = resolved["contact_name"]
     contact_headline = resolved["contact_headline"]
     contact_provider_id = resolved["contact_provider_id"]
+    lookups_spent = bool(resolved.get("lookups_spent")) and not contact_name_resolved
+    lookups_retry_after = resolved.get("retry_after")
 
     # Fetch full message thread
     try:
@@ -671,6 +739,9 @@ async def _read_conversation(
             # Resolve the first unknown sender as the contact
             tasks = [_resolve_profile(client, account_id, sid) for sid in list(sender_ids)[:3]]
             profiles = await asyncio.gather(*tasks, return_exceptions=True)
+            hit, retry_after = _lookups_spent_from(list(profiles))
+            if hit and not contact_name_resolved:
+                lookups_spent, lookups_retry_after = True, retry_after
             for sid, profile in zip(sender_ids, profiles):
                 if isinstance(profile, dict) and profile.get("name"):
                     sender_names[sid] = profile["name"]
@@ -684,6 +755,8 @@ async def _read_conversation(
     if contact_headline:
         header += f"\n_{contact_headline}_"
     header += f"\n({len(messages)} messages)\n"
+    if lookups_spent:
+        header += _lookups_spent_line(1, 1, lookups_retry_after) + "\n"
 
     lines = [header, "---"]
     prospect_texts: list[str] = []
@@ -751,7 +824,7 @@ async def _reply_conversation(
     chat_id = resolved["chat_id"]
     contact_name = resolved["contact_name"] or "contact"
 
-    from ..ops_log import log_event, message_hash
+    from ..ops_log import log_event
     log_event(
         "inbox_reply_sent",
         channel="dm",

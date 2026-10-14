@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-teradata
-Version: 3.7.0
+Version: 3.7.1
 Summary: Provider package apache-airflow-providers-teradata for Apache Airflow
 Keywords: airflow-provider,teradata,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -30,11 +29,11 @@ Requires-Dist: teradatasqlalchemy>=17.20.0.0
 Requires-Dist: teradatasql>=17.20.0.28
 Requires-Dist: apache-airflow-providers-amazon ; extra == "amazon"
 Requires-Dist: apache-airflow-providers-microsoft-azure ; extra == "microsoft-azure"
-Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
+Requires-Dist: sqlalchemy>=1.4.54,!=2.1.0 ; extra == "sqlalchemy"
 Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -72,7 +71,7 @@ Import-Namespace: airflow.providers
 
 Package ``apache-airflow-providers-teradata``
 
-Release: ``3.7.0``
+Release: ``3.7.1``
 
 
 `Teradata <https://www.teradata.com/>`__
@@ -85,7 +84,7 @@ This is a provider package for ``teradata`` provider. All classes for this provi
 are in ``airflow.providers.teradata`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.1/>`_.
 
 Installation
 ------------
@@ -94,7 +93,7 @@ You can install this package on top of an existing Airflow installation (see ``R
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-teradata``
 
-The package supports the following python versions: 3.10,3.11,3.12,3.13,3.14
+The package supports the following python versions: 3.11,3.12,3.13,3.14
 
 Requirements
 ------------
@@ -138,10 +137,10 @@ Extra                Dependencies
 ===================  ============================================
 ``microsoft.azure``  ``apache-airflow-providers-microsoft-azure``
 ``amazon``           ``apache-airflow-providers-amazon``
-``sqlalchemy``       ``sqlalchemy>=1.4.54``
+``sqlalchemy``       ``sqlalchemy>=1.4.54,!=2.1.0``
 ``ssh``              ``apache-airflow-providers-ssh``
 ===================  ============================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.7.1/changelog.html>`_.
 

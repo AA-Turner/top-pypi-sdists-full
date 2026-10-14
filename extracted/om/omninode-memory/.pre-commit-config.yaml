@@ -88,9 +88,11 @@ repos:
         files: ^(\.github/workflows/ci\.yml|\.github/required-checks\.yaml|\.pre-commit-config\.yaml|tests/scripts/test_occ_eligibility_enforcement\.py)$
         stages: [pre-commit]
 
-  # No hardcoded ONEX topic strings — sourced from onex_change_control (OMN-5259)
-  - repo: https://github.com/OmniNode-ai/onex_change_control
-    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
+  # No hardcoded ONEX topic strings and ticketed TODO format — sourced from omnibase_core
+  # (OMN-5259; OMN-20074, OCC retirement S8: same hook ids, no longer pulled from
+  # the change-control repository)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 4a4177335d11b138a29fe28e2f4c5575afa92b2b  # pragma: allowlist secret
     hooks:
       - id: no-hardcoded-topics
         exclude: ^src/omnimemory/topics\.py$
@@ -117,10 +119,10 @@ repos:
   # lines in a SKILL.md, and any new baseline, allowlist or suppression entry.
   # Shrink-only baseline at .onex_ratchets/canonical_file_shape_baseline.txt.
   # CI runs the same module at the same commit (job "Canonical File Shape
-  # (OMN-20304)"). The rev moved from 6363509770 to the OMN-20304 commit for
-  # both hooks; the lifecycle validator's source is identical at the two commits.
+  # (OMN-20304)"). OMN-20943 pins canonical-file-shape to the commit that reads
+  # the imperative guard caller's allowlist-path as a shrink-only declaration.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5  # pragma: allowlist secret
+    rev: 031148215620031436cba30619bbae67c0bb38ad  # pragma: allowlist secret
     hooks:
       - id: no-noncanonical-lifecycle-classes
         args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omnimemory]
@@ -576,7 +578,7 @@ repos:
 
   # Skip-token rejection gate (OMN-10414 / OMN-13296)
   # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
-  # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+  # There is no escape hatch (OMN-20074): a skip token is rejected whatever comment accompanies it.
   - repo: local
     hooks:
       - id: reject-deploy-gate-skip-token
@@ -673,9 +675,18 @@ repos:
   # the two verdicts cannot diverge. Advancing it is those two lines, together.
   # --------------------------------------------------------------------------
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 42b994826519e8d6bc21d0ca915803084c7c3955  # pragma: allowlist secret
+    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae  # pragma: allowlist secret
     hooks:
       - id: secrets-baseline-wired
+      # OMN-20940: the local twin of the required CI context
+      # `public-repo-hygiene / deployment-config` (the caller
+      # .github/workflows/public-repo-hygiene.yml), run at the same omniclaude
+      # commit as that job. It refuses deployment and lab configuration a commit
+      # adds, by shape, with no vocabulary and no token. It shares this block, and
+      # so its one existing allowlist comment, because the canonical-file-shape
+      # ratchet admits no new suppression.
+      - id: deployment-config
+        require_serial: true
 
   - repo: local
     hooks:

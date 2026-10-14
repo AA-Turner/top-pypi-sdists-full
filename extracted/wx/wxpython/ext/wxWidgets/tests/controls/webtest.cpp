@@ -8,6 +8,8 @@
 
 #include "testprec.h"
 
+#include <memory>
+
 #if wxUSE_WEBVIEW && (wxUSE_WEBVIEW_WEBKIT || wxUSE_WEBVIEW_WEBKIT2 || wxUSE_WEBVIEW_IE)
 
 
@@ -33,7 +35,7 @@ class WebViewTestCase
 public:
     WebViewTestCase()
         : m_browser(wxWebView::New()),
-          m_loaded(new EventCounter(m_browser, wxEVT_WEBVIEW_LOADED))
+          m_loaded(new EventCounter(m_browser.get(), wxEVT_WEBVIEW_LOADED))
     {
 #ifdef __WXMSW__
         if (wxWebView::IsBackendAvailable(wxWebViewBackendEdge))
@@ -52,11 +54,6 @@ public:
 #endif
     }
 
-    ~WebViewTestCase()
-    {
-        delete m_loaded;
-        delete m_browser;
-    }
 
 protected:
     void LoadUrl(int times = 1)
@@ -89,8 +86,8 @@ protected:
         m_browser->Unbind(wxEVT_WEBVIEW_SCRIPT_RESULT, &WebViewTestCase::OnScriptResult, this);
     }
 
-    wxWebView* const m_browser;
-    EventCounter* const m_loaded;
+    const std::unique_ptr<wxWebView> m_browser;
+    const std::unique_ptr<EventCounter> m_loaded;
     wxString m_blankTitle;
     wxString m_alternateHistoryURL;
     int m_asyncScriptResult;
@@ -109,7 +106,7 @@ TEST_CASE_METHOD(WebViewTestCase, "WebView", "[wxWebView]")
     }
 #endif
 
-    m_browser -> Create(wxTheApp->GetTopWindow(), wxID_ANY);
+    m_browser->Create(wxTheApp->GetTopWindow(), wxID_ANY);
     ENSURE_LOADED;
 
     SECTION("Title")
@@ -240,6 +237,17 @@ TEST_CASE_METHOD(WebViewTestCase, "WebView", "[wxWebView]")
         // without wxYielding a bit because this seems to cause the extension
         // to hang with webkit 2.40.0+.
         YieldForAWhile();
+
+        if ( IsRunningUnderWayland() )
+        {
+            // Waiting 50ms doesn't seem to be enough under Wayland, so wait
+            // for the selection to become available for longer time.
+            if ( !WaitFor("selection",
+                          [this]() { return m_browser->HasSelection(); }) )
+            {
+                return;
+            }
+        }
 #endif // wxUSE_WEBVIEW_WEBKIT2
 
         CHECK(m_browser->HasSelection());

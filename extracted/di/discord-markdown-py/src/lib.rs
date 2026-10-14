@@ -2,13 +2,18 @@
 #![cfg_attr(test, allow(clippy::similar_names))]
 #![doc = include_str!("../README.md")]
 
-use std::fmt::{Debug, Display};
+use std::{
+	collections::HashSet,
+	fmt::{Debug, Display},
+};
 
 use context::Context;
 pub use context::{DEFAULT_FUEL, Options};
 use nom::{Finish, Parser, combinator::all_consuming};
 
 use node::SpannedNodes;
+use range::{Content, Unmatched};
+use span::Spanned;
 
 /// Parsing block markdown content.
 pub mod block;
@@ -23,6 +28,7 @@ pub mod inline;
 mod input;
 /// Markdown nodes.
 pub mod node;
+pub mod range;
 /// Rules for parsing markdown content.
 pub mod rule;
 /// Spans for Markdown nodes
@@ -57,17 +63,56 @@ where
 	S: Span,
 	E: ParseError<'data> + Display,
 {
-	Ok(all_consuming(block::block(Context::new(options)))
-		.parse_complete(data.into())
-		.finish()?
-		.1)
+	// Modifiers are parsed as delimiters and resolved into the tree once the whole message is in;
+	// see `range`.
+	//
+	// An opener read before block syntax that then matches nothing was not an opener, and its line
+	// is a paragraph; parse again without it. Each round settles at least one, and the rounds
+	// share one fuel tank. Past the last, whatever is left stays where it stands.
+	const ROUNDS: usize = 4;
+
+	let input = data.into();
+	let mut disabled = HashSet::new();
+	let mut context = Context::new(options);
+
+	for round in 1..=ROUNDS {
+		context = context.with_disabled_openers(&disabled);
+		let parsed = all_consuming(block::block(context.clone()))
+			.parse_complete(input.clone())
+			.finish()?
+			.1;
+
+		let unmatched = if round < ROUNDS {
+			Unmatched::Reject
+		} else {
+			Unmatched::Text
+		};
+		match range::resolve(
+			parsed.value,
+			options.allowed_rules,
+			Content::Blocks,
+			unmatched,
+			&mut node::Ids::default(),
+		) {
+			Ok(nodes) => {
+				return Ok(Spanned {
+					value: nodes,
+					span: parsed.span,
+				});
+			}
+			Err(unmatched) => disabled.extend(unmatched),
+		}
+	}
+
+	unreachable!("the last round resolves regardless")
 }
 
 #[cfg(test)]
 mod test {
 	use super::parse;
-	use crate::context::Options;
-	use crate::node::Node;
+	use crate::context::{DEFAULT_FUEL, Options};
+	use crate::error::Error;
+	use crate::node::{Element, Modifier, Node};
 	use crate::rule::{Rule, RuleSet};
 	use crate::test_utils::handle_nom_err;
 	use crate::{
@@ -82,6 +127,62 @@ mod test {
 	// leaves better than 10x headroom. A debug build is ~15x slower and lands near the same 1s,
 	// which makes the tests flap on nothing more than a busy laptop; debug gets a budget scaled to
 	// match instead.
+
+	/// Exhausting the tank fails the parse outright — the caller gets an error, not a truncated
+	/// AST — and an error type that keeps the external error says so. This is the cost of setting
+	/// [`Options::fuel`] too low.
+	#[test]
+	fn fuel_exhaustion_fails_the_parse() {
+		let s = "**bold** and _italic_";
+
+		let err = parse::<(), Error<'_>>(
+			s,
+			Options {
+				fuel: 1,
+				..Default::default()
+			},
+		)
+		.expect_err("one unit cannot cover a line and its inline parse");
+		assert_eq!(err, Error::OutOfFuel);
+
+		parse::<(), Error<'_>>(s, Options::default())
+			.expect("the same input parses with the default budget");
+	}
+
+	/// The worst 4000-character inputs the timeout tests know about stay far inside
+	/// [`DEFAULT_FUEL`], which is what makes that default safe to ship. If this starts failing,
+	/// a rule change has made backtracking much more expensive.
+	#[test]
+	fn default_fuel_covers_worst_case_message_content() {
+		// Discord's message limit is 4000 characters.
+		for s in [
+			"__".repeat(1_000) + "x" + &"_".repeat(1_998),
+			"**".repeat(1_000) + "x" + &"*".repeat(1_998),
+			// every line opens a delimiter before block syntax that only the last lines close
+			"**a\n__a\n~~a\n||a\n".repeat(249) + "a||\na~~\na__\na**",
+		] {
+			assert_eq!(s.chars().count(), 4_000 - 1);
+
+			let used = (1..=5)
+				.map(|n| DEFAULT_FUEL / 10 * n)
+				.find(|&fuel| {
+					parse::<(), Error<'_>>(
+						&*s,
+						Options {
+							fuel,
+							..Default::default()
+						},
+					)
+					.is_ok()
+				})
+				.expect("worst-case message content should fit in half the default budget");
+
+			assert!(
+				used <= DEFAULT_FUEL / 2,
+				"worst-case message content used {used} of {DEFAULT_FUEL} fuel, leaving too little headroom"
+			);
+		}
+	}
 
 	/// Escape sequences are independent of one another.
 	///
@@ -110,7 +211,7 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![paragraph!(Node::Text(expected.into()))],
+				spanned_vec![paragraph!(Node::Element(Element::Text(expected.into())))],
 				"unexpected output for {s:?}"
 			);
 		}
@@ -153,7 +254,7 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![Node::Paragraph(expected)],
+				spanned_vec![Node::Element(Element::Paragraph(expected))],
 				"unexpected output for {s:?}"
 			);
 
@@ -162,7 +263,7 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![paragraph!(Node::Text(s.into()))],
+				spanned_vec![paragraph!(Node::Element(Element::Text(s.into())))],
 				"unexpected output for {s:?} without the rule"
 			);
 		}
@@ -175,7 +276,10 @@ mod test {
 		let res = parse::<(), _>(s, Options::default())
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
-		assert_eq!(res, spanned_vec![paragraph!(Node::Text(s.into()))]);
+		assert_eq!(
+			res,
+			spanned_vec![paragraph!(Node::Element(Element::Text(s.into())))]
+		);
 	}
 
 	#[test]
@@ -252,11 +356,11 @@ mod test {
 			.expect("unable to parse");
 
 		let paragraph = &res.value[0];
-		let Node::Paragraph(content) = &paragraph.value else {
+		let Node::Element(Element::Paragraph(content)) = &paragraph.value else {
 			panic!("expected a paragraph, got {:?}", paragraph.value)
 		};
 		let bold = &content.value[0];
-		let Node::Bold(children) = &bold.value else {
+		let Node::Modifier(Modifier::Bold(children)) = &bold.value else {
 			panic!("expected bold, got {:?}", bold.value)
 		};
 
@@ -294,19 +398,35 @@ mod test {
 	}
 
 	#[test]
-	fn block_content_inside_inline() {
+	fn block_content_inside_modifier() {
 		let s = "||\n# test\nstuff goes here\n```js\nconst a = '2'\n```\n||";
 		let res = parse::<(), _>(s, Options::default())
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
 		assert_eq!(
 			res,
-			spanned_vec![paragraph!(spoiler!(
+			spanned_vec![spoiler!(
 				heading!(1, "test"),
-				text!("stuff goes here\n"),
-				code_block!(language = "js", "const a = '2'\n"),
-				text!("\n")
-			))]
+				paragraph!("stuff goes here"),
+				paragraph!(code_block!(language = "js", "const a = '2'\n"))
+			)]
+		);
+	}
+
+	/// A modifier opened mid-paragraph applies to the blocks that follow it, and one covering a whole
+	/// list wraps it rather than splitting into its items.
+	#[test]
+	fn a_modifier_opened_mid_paragraph_wraps_a_following_list() {
+		let s = "foo ||\n- a\n- b||";
+		let res = parse::<(), _>(s, Options::default())
+			.map_err(handle_nom_err(s))
+			.expect("unable to parse");
+		assert_eq!(
+			res,
+			spanned_vec![
+				paragraph!("foo "),
+				spoiler!(list!(-[list_item!("a"), list_item!("b")]))
+			]
 		);
 	}
 
@@ -316,9 +436,13 @@ mod test {
 		let res = parse::<(), _>(s, Options::default())
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
+		// the spoiler reaches from the list into the heading, but neither block holds the other
 		assert_eq!(
 			res,
-			spanned_vec![list!(-[list_item!("content ||")]), heading!(1, "test||")]
+			spanned_vec![
+				list!(-[list_item!("content ")]),
+				heading!(1, [spoiler!("test")])
+			]
 		);
 	}
 
@@ -332,10 +456,10 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![Node::Quote(spanned_vec![list!(-[
+				spanned_vec![Node::Element(Element::Quote(spanned_vec![list!(-[
 					list_item![paragraph!("foo"), list!(-[list_item!("bar")])],
 					list_item!("baz")
-				])])],
+				])]))],
 				"unexpected output for {s:?}"
 			);
 		}
@@ -375,10 +499,9 @@ mod test {
 		}
 	}
 
-	/// [`crate::grammar::Grammar::overlapping_rules`] lets an italic run a whole bold or underline
-	/// parse at the position where it would otherwise have closed. These are the shapes that fire
-	/// it hardest -- runs where every delimiter is both a possible terminal and the head of a
-	/// possible opener -- plus deep alternating nesting, where a probe sits inside a probe.
+	/// Runs where every delimiter could both open and close, where the pairing has to choose
+	/// between an italic and a bold at each one, plus deep alternating nesting, which every pass
+	/// over the rebuilt tree recurses through.
 	#[test]
 	#[cfg_attr(debug_assertions, timeout(3000))]
 	#[cfg_attr(not(debug_assertions), timeout(1000))]
@@ -404,6 +527,67 @@ mod test {
 				.map_err(handle_nom_err(&s))
 				.expect("unable to parse");
 		}
+	}
+
+	/// Lines that each open a delimiter before block syntax, only some of which anything closes:
+	/// every unmatched one costs a parse without it.
+	///
+	/// Each input is about the 4000 character message limit.
+	#[test]
+	#[cfg_attr(debug_assertions, timeout(3000))]
+	#[cfg_attr(not(debug_assertions), timeout(1000))]
+	fn opener_before_block_repeats() {
+		for s in [
+			"*a\n_a\n".repeat(660) + "a_\na*",
+			"**a\n__a\n~~a\n||a\n".repeat(235) + "a||\na~~\na__\na**",
+			"*1. a\n".repeat(660) + "a*",
+		] {
+			let _ = parse::<(), _>(&*s, Options::default())
+				.map_err(handle_nom_err(&s))
+				.expect("unable to parse");
+		}
+	}
+
+	/// As [`opener_before_block_repeats`], for other line shapes, plus pairs that would nest far
+	/// deeper than anything written by hand.
+	#[test]
+	#[cfg_attr(debug_assertions, timeout(3000))]
+	#[cfg_attr(not(debug_assertions), timeout(1000))]
+	fn delimiter_line_repeats() {
+		for s in [
+			"***a\n___a\n".repeat(400),
+			"*a\n".repeat(1_300),
+			"*- a\n".repeat(1_000) + "*",
+			"> *a\n".repeat(800) + "> a*",
+			"*_".repeat(1_000) + "x" + &"_*".repeat(1_000),
+			"**".repeat(1_000) + "x" + &"*".repeat(1_998),
+		] {
+			let _ = parse::<(), _>(&*s, Options::default())
+				.map_err(handle_nom_err(&s))
+				.expect("unable to parse");
+		}
+	}
+
+	/// Closers that each find an opener they cannot pair with, under many openers of another
+	/// character. Far past the message limit, so a search per closer shows; only release builds are
+	/// fast enough for a size that does.
+	#[test]
+	#[cfg_attr(debug_assertions, timeout(3000))]
+	#[cfg_attr(not(debug_assertions), timeout(1000))]
+	fn refused_pairs_repeat() {
+		let n = if cfg!(debug_assertions) {
+			16_000
+		} else {
+			64_000
+		};
+		let s = "*a ".to_string() + &"_ ".repeat(n) + &"* ".repeat(n);
+		let options = Options {
+			allowed_rules: RuleSet::all() - Rule::Italic,
+			..Default::default()
+		};
+		let _ = parse::<(), _>(&*s, options)
+			.map_err(handle_nom_err(&s))
+			.expect("unable to parse");
 	}
 
 	#[test]

@@ -4,6 +4,8 @@ from typing import Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.queue_kind_enum import QueueKindEnum
+
 T = TypeVar("T", bound="AgentQueueInfo")
 
 
@@ -15,12 +17,14 @@ class AgentQueueInfo:
         messages (int): Number of messages in queue
         consumers (int): Number of active consumers
         object_type (Union[None, str]): Parsed object type from queue name
+        kind (QueueKindEnum):
     """
 
     name: str
     messages: int
     consumers: int
     object_type: Union[None, str]
+    kind: QueueKindEnum
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,6 +37,8 @@ class AgentQueueInfo:
         object_type: Union[None, str]
         object_type = self.object_type
 
+        kind = self.kind.value
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -41,6 +47,7 @@ class AgentQueueInfo:
                 "messages": messages,
                 "consumers": consumers,
                 "object_type": object_type,
+                "kind": kind,
             }
         )
 
@@ -62,11 +69,14 @@ class AgentQueueInfo:
 
         object_type = _parse_object_type(d.pop("object_type"))
 
+        kind = QueueKindEnum(d.pop("kind"))
+
         agent_queue_info = cls(
             name=name,
             messages=messages,
             consumers=consumers,
             object_type=object_type,
+            kind=kind,
         )
 
         agent_queue_info.additional_properties = d

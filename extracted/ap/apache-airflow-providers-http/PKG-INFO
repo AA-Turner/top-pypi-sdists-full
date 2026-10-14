@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-http
-Version: 6.2.0
+Version: 6.3.0
 Summary: Provider package apache-airflow-providers-http for Apache Airflow
 Keywords: airflow-provider,http,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -33,8 +32,8 @@ Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: dnspython>=2.0.0 ; extra == "srv"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-http/6.2.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-http/6.2.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-http/6.3.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-http/6.3.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -69,7 +68,7 @@ Import-Namespace: airflow.providers
 
 Package ``apache-airflow-providers-http``
 
-Release: ``6.2.0``
+Release: ``6.3.0``
 
 
 `Hypertext Transfer Protocol (HTTP) <https://www.w3.org/Protocols/>`__
@@ -82,7 +81,7 @@ This is a provider package for ``http`` provider. All classes for this provider 
 are in ``airflow.providers.http`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-http/6.2.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-http/6.3.0/>`_.
 
 Installation
 ------------
@@ -91,7 +90,7 @@ You can install this package on top of an existing Airflow installation (see ``R
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-http``
 
-The package supports the following python versions: 3.10,3.11,3.12,3.13,3.14
+The package supports the following python versions: 3.11,3.12,3.13,3.14
 
 Requirements
 ------------
@@ -119,5 +118,5 @@ Extra    Dependencies
 =======  ====================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-http/6.2.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-http/6.3.0/changelog.html>`_.
 

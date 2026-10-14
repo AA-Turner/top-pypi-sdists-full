@@ -4698,6 +4698,44 @@ class TestPylockOutputNameValidation:
 class TestConfigErrors:
     """Errors in [tool.nab] surface as exit 1 with a clear message."""
 
+    def test_source_subdirectory_sibling_project_rejected(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        base = tmp_path / "base"
+        outside = tmp_path / "source-root" / "demo"
+        base.mkdir()
+        outside.mkdir(parents=True)
+        _make_pyproject(
+            base,
+            '[project]\nname = "demo"\nversion = "1.0"\ndependencies = []\n',
+        )
+        _make_pyproject(
+            outside,
+            '[project]\nname = "demo"\nversion = "2.0"\ndependencies = []\n',
+        )
+
+        project = tmp_path / "application"
+        project.mkdir()
+        pyproject = _make_pyproject(
+            project,
+            '[project]\nname = "application"\nversion = "0"\n'
+            'dependencies = ["demo==2.0"]\n'
+            '[tool.nab]\nbuild-policy = "never"\n'
+            '[[tool.nab.local-sources]]\nname = "demo"\npath = "../base"\n'
+            'subdirectory = "../source-root/demo"\n',
+        )
+        output = project / "pylock.toml"
+
+        _lock_cli(
+            str(pyproject), "--offline", "--no-cache", "--output", str(output), status=1
+        )
+
+        err = capsys.readouterr().err
+        assert "../source-root/demo" in err
+        assert "escapes the source tree" in err
+
+        assert not output.exists()
+
     def test_invalid_config_exits(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -7121,6 +7159,51 @@ class TestProgressReachesTheResolve:
 
 class TestMakeTransport:
     """Each HttpBackend value resolves to its corresponding transport class."""
+
+    @pytest.mark.parametrize("command", ["lock", "download"])
+    def test_cli_reports_transport_initialization_failure(
+        self,
+        command: str,
+        hermetic_roots: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A malformed proxy fails cleanly; absent and valid proxies build clients."""
+        pyproject = _make_pyproject(
+            hermetic_roots,
+            '[project]\nname = "root"\nversion = "0"\ndependencies = []\n',
+        )
+        for name in tuple(os.environ):
+            if name.lower().endswith("_proxy"):
+                monkeypatch.delenv(name)
+
+        output = hermetic_roots / ("pylock.toml" if command == "lock" else "wheels")
+        arguments = (
+            command,
+            str(pyproject),
+            "--offline",
+            "--no-cache",
+            "--no-workspace-discovery",
+            "--http-backend",
+            "httpx",
+            "--output",
+            str(output),
+        )
+        for proxy in (None, "http://proxy.example:8080"):
+            if proxy is not None:
+                monkeypatch.setenv("HTTPS_PROXY", proxy)
+            transport = _make_transport("httpx")
+            asyncio.run(transport.aclose())
+        assert capsys.readouterr().err == ""
+
+        monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:wrong")
+        assert run(arguments) == 1
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "cannot initialize httpx transport" in captured.err
+        assert "Invalid port: 'wrong'" in captured.err
+        assert "Traceback" not in captured.err
 
     @pytest.mark.parametrize(
         ("backend", "transport_type"),

@@ -7,15 +7,18 @@ import astropy.units as u
 import numpy as np
 import pytest
 from astropy.nddata import CCDData, NDData
-from astropy.stats import SigmaClip
-from astropy.utils.exceptions import (AstropyDeprecationWarning,
-                                      AstropyUserWarning)
+from astropy.stats import SigmaClip, biweight_location, biweight_scale
+from astropy.utils.exceptions import AstropyUserWarning
 from numpy.testing import assert_allclose, assert_equal
 
-from photutils.background import (Background2D, BkgZoomInterpolator,
+from photutils.background import (Background2D, BiweightLocationBackground,
+                                  BiweightScaleBackgroundRMS,
+                                  BkgZoomInterpolator, MADStdBackgroundRMS,
                                   MeanBackground, MedianBackground,
-                                  SExtractorBackground)
+                                  MMMBackground, ModeEstimatorBackground,
+                                  SExtractorBackground, StdBackgroundRMS)
 from photutils.utils._optional_deps import HAS_MATPLOTLIB
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 
 @pytest.fixture
@@ -141,7 +144,7 @@ class TestBackground2D:
 
     def test_background_rect(self):
         """
-        Regression test for interpolators with non-square input data.
+        Regression test for interpolators with nonsquare input data.
         """
         data = np.arange(12).reshape(3, 4)
         rms = np.zeros((3, 4))
@@ -155,7 +158,7 @@ class TestBackground2D:
 
     def test_background_nonconstant_data(self, test_data, bkg_mesh):
         """
-        Test on non-constant data to ensure that the background mesh
+        Test on nonconstant data to ensure that the background mesh
         is computed correctly and that the background is properly
         interpolated.
         """
@@ -206,12 +209,7 @@ class TestBackground2D:
     def test_filter_threshold_rms_mesh_before_mesh(self):
         """
         Test that accessing background_rms_mesh before background_mesh
-        does not crash when filter_threshold is set.
-
-        Background2D._bkg_stats is used by _selective_filter, which
-        is called when filter_threshold is not None. It must still
-        be available when background_mesh is computed even if
-        background_rms_mesh was computed first.
+        gives sensible results when filter_threshold is set.
         """
         data = np.ones((100, 100))
         data[25:50, 50:75] = 10.0
@@ -230,11 +228,7 @@ class TestBackground2D:
     def test_rms_mesh_before_mesh_no_filter_threshold(self):
         """
         Test that accessing background_rms_mesh before background_mesh
-        does not crash when filter_threshold is None (the default).
-
-        _try_free_bkg_stats must not free _bkg_stats before
-        background_mesh has been computed, otherwise _interpolate_grid
-        receives None and raises a TypeError on np.isnan.
+        works when filter_threshold is None (the default).
         """
         data = np.ones((101, 101))
         coverage_mask = np.zeros(data.shape, dtype=bool)
@@ -245,6 +239,87 @@ class TestBackground2D:
         rms_mesh = bkg.background_rms_mesh
         mesh = bkg.background_mesh
         assert rms_mesh.shape == mesh.shape
+
+    @pytest.mark.parametrize('filter_threshold', [None, 9.0])
+    def test_mesh_access_order_independent(self, filter_threshold):
+        """
+        Test that the background_mesh and background_rms_mesh values do
+        not depend on the order in which they are first accessed, with
+        and without filter_threshold.
+        """
+        data = np.ones((100, 100))
+        data[25:50, 50:75] = 10.0
+
+        bkg1 = Background2D(data, (25, 25), filter_size=(3, 3),
+                            filter_threshold=filter_threshold)
+        mesh1 = bkg1.background_mesh
+        rms_mesh1 = bkg1.background_rms_mesh
+
+        bkg2 = Background2D(data, (25, 25), filter_size=(3, 3),
+                            filter_threshold=filter_threshold)
+        rms_mesh2 = bkg2.background_rms_mesh
+        mesh2 = bkg2.background_mesh
+
+        assert_allclose(mesh1, mesh2)
+        assert_allclose(rms_mesh1, rms_mesh2)
+
+    @pytest.mark.parametrize('n_threads', [2, 8])
+    def test_n_threads(self, n_threads):
+        """
+        Test that multithreaded box statistics give identical results
+        to the single-threaded computation.
+
+        The data shape is not an integer multiple of the box size, so
+        the extra row, column, and corner boxes are also exercised.
+        """
+        rng = np.random.default_rng(0)
+        data = rng.normal(1.0, 0.5, (121, 289))
+        data[50:60, 50:60] = 1000.0
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[50:60, 50:60] = True
+
+        bkg1 = Background2D(data, (25, 25), mask=mask)
+        bkg2 = Background2D(data, (25, 25), mask=mask, n_threads=n_threads)
+        assert bkg2.n_threads == n_threads
+        assert_equal(bkg1.background_mesh, bkg2.background_mesh)
+        assert_equal(bkg1.background_rms_mesh, bkg2.background_rms_mesh)
+        assert_equal(bkg1.n_pixels_mesh, bkg2.n_pixels_mesh)
+        # The multithreaded full-size interpolation is identical up to
+        # floating-point rounding
+        assert_allclose(bkg1.background, bkg2.background, rtol=1e-10)
+        assert_allclose(bkg1.background_rms, bkg2.background_rms,
+                        rtol=1e-10)
+
+    def test_n_threads_no_sigma_clip(self):
+        """
+        Test multithreading with sigma clipping disabled.
+        """
+        rng = np.random.default_rng(0)
+        data = rng.normal(1.0, 0.5, (100, 100))
+        bkg1 = Background2D(data, (25, 25), sigma_clip=None)
+        bkg2 = Background2D(data, (25, 25), sigma_clip=None, n_threads=4)
+        assert_equal(bkg1.background_mesh, bkg2.background_mesh)
+        assert_equal(bkg1.background_rms_mesh, bkg2.background_rms_mesh)
+
+    def test_n_threads_single_box_row(self):
+        """
+        Test that n_threads larger than the number of box rows falls
+        back to a single-chunk (serial) computation.
+        """
+        data = np.ones((25, 100))
+        bkg = Background2D(data, (25, 25), n_threads=8)
+        assert bkg.background_mesh.shape == (1, 4)
+        assert_allclose(bkg.background, data)
+
+    def test_invalid_n_threads(self, test_data):
+        """
+        Test that an error is raised if n_threads is not a positive
+        integer.
+        """
+        match = 'n_threads must be a positive integer'
+        for n_threads in (0, -1, 2.5, True):
+            with pytest.raises(ValueError, match=match):
+                Background2D(test_data, (25, 25), n_threads=n_threads)
 
     def test_no_sigma_clipping(self, test_data):
         """
@@ -365,29 +440,37 @@ class TestBackground2D:
         assert_equal(bkg1.background_rms[:50, :50], fill_value)
 
         # Test that combined mask and coverage_mask gives the same
-        # results
+        # results. The input masks cover all of the nonfinite values,
+        # so no warning should be issued.
         mask = np.zeros(test_data.shape, dtype=bool)
         coverage_mask = np.zeros(test_data.shape, dtype=bool)
         mask[:50, :25] = True
         coverage_mask[:50, 25:50] = True
-        match = r'Input data contains non-finite \(NaN or infinity\) values'
-        with pytest.warns(AstropyUserWarning, match=match):
-            bkg2 = Background2D(data, (25, 25), filter_size=(1, 1), mask=mask,
-                                coverage_mask=mask, fill_value=0.0,
-                                bkg_estimator=MeanBackground())
+        bkg2 = Background2D(data, (25, 25), filter_size=(1, 1), mask=mask,
+                            coverage_mask=coverage_mask, fill_value=0.0,
+                            bkg_estimator=MeanBackground())
         assert_allclose(bkg1.background_mesh, bkg2.background_mesh)
         assert_allclose(bkg1.background_rms_mesh, bkg2.background_rms_mesh)
 
     def test_mask_nonfinite(self, test_data):
         """
-        Test that non-finite values in the input data are masked and a
+        Test that nonfinite values in the input data are masked and a
         warning is issued.
         """
         data = test_data.copy()
         data[0, 0:50] = np.nan
-        match = r'Input data contains non-finite \(NaN or infinity\) values'
+        match = r'Input data contains nonfinite \(NaN or infinity\) values'
         with pytest.warns(AstropyUserWarning, match=match):
             bkg = Background2D(data, (25, 25), filter_size=(1, 1))
+        assert_allclose(bkg.background, test_data, rtol=1e-5)
+
+        # A warning is also issued when an input mask is given that
+        # does not cover the nonfinite values
+        mask = np.zeros(test_data.shape, dtype=bool)
+        mask[60:70, 60:70] = True
+        with pytest.warns(AstropyUserWarning, match=match):
+            bkg = Background2D(data, (25, 25), filter_size=(1, 1),
+                               mask=mask)
         assert_allclose(bkg.background, test_data, rtol=1e-5)
 
     def test_mask_with_already_masked_nans(self, test_data):
@@ -453,7 +536,7 @@ class TestBackground2D:
 
         data = test_data.copy()
         data[:] = np.nan
-        match = r'Input data contains all non-finite \(NaN or infinity\)'
+        match = r'Input data contains all nonfinite \(NaN or infinity\)'
         with pytest.raises(ValueError, match=match):
             Background2D(data, (25, 25))
 
@@ -480,7 +563,7 @@ class TestBackground2D:
         """
         data = np.copy(test_data)
         data[0:50, 0:50] = np.nan
-        match = r'Input data contains non-finite \(NaN or infinity\) values'
+        match = r'Input data contains nonfinite \(NaN or infinity\) values'
         with pytest.warns(AstropyUserWarning, match=match):
             bkg = Background2D(data, (25, 25), filter_size=(1, 1),
                                exclude_percentile=100.0)
@@ -493,12 +576,63 @@ class TestBackground2D:
 
         data[:] = np.nan
         data[0, 0] = 1.0
-        match1 = r'Input data contains non-finite \(NaN or infinity\) values'
+        match1 = r'Input data contains nonfinite \(NaN or infinity\) values'
         match2 = r'All boxes contain .* unmasked or finite pixels'
         ctx1 = pytest.warns(AstropyUserWarning, match=match1)
         ctx2 = pytest.raises(ValueError, match=match2)
         with ctx1, ctx2:
             Background2D(data, (10, 10))
+
+    def test_exclude_percentile_zero(self, test_data):
+        """
+        Test that exclude_percentile=0 keeps fully unmasked boxes and
+        excludes boxes with any masked pixels.
+        """
+        bkg = Background2D(test_data, (25, 25), filter_size=(1, 1),
+                           sigma_clip=None, exclude_percentile=0)
+        assert_allclose(bkg.background_mesh, np.ones((4, 4)))
+
+        # A box with a single masked pixel is excluded. Its mesh value
+        # is then interpolated from the other (unit-valued) boxes.
+        data = np.copy(test_data)
+        data[0:25, 0:25] = 5.0
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[0, 0] = True
+        bkg = Background2D(data, (25, 25), filter_size=(1, 1),
+                           sigma_clip=None, mask=mask, exclude_percentile=0)
+        assert_allclose(bkg.background_mesh[0, 0], 1.0)
+
+        # The same box is included when exclude_percentile=100
+        bkg = Background2D(data, (25, 25), filter_size=(1, 1),
+                           sigma_clip=None, mask=mask,
+                           exclude_percentile=100)
+        assert_allclose(bkg.background_mesh[0, 0], 5.0)
+
+    def test_exclude_percentile_boundary(self):
+        """
+        Test that a box with exactly exclude_percentile percent masked
+        pixels is included.
+
+        Only boxes with more than exclude_percentile percent masked
+        pixels are excluded.
+        """
+        data = np.ones((10, 10))
+        data[0, 0:10] = 5.0
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[0, 0:10] = True  # Exactly 10% of the single box
+        bkg = Background2D(data, (10, 10), filter_size=(1, 1),
+                           sigma_clip=None, mask=mask,
+                           exclude_percentile=10.0)
+        assert_allclose(bkg.background_mesh, [[1.0]])
+        assert bkg.n_pixels_mesh[0, 0] == 90
+
+        # More than 10% masked excludes the only box
+        mask[1, 0] = True
+        match = 'All boxes contain fewer than'
+        with pytest.raises(ValueError, match=match):
+            Background2D(data, (10, 10), filter_size=(1, 1),
+                         sigma_clip=None, mask=mask,
+                         exclude_percentile=10.0)
 
     def test_filter_threshold(self, test_data, bkg_mesh):
         """
@@ -601,12 +735,12 @@ class TestBackground2D:
         match = 'data and mask must have the same shape'
         with pytest.raises(ValueError, match=match):
             Background2D(test_data, (25, 25), filter_size=(1, 1),
-                         mask=np.zeros((2, 2)))
+                         mask=np.zeros((2, 2), dtype=bool))
 
         match = 'mask must be a 2D array'
         with pytest.raises(ValueError, match=match):
             Background2D(test_data, (25, 25), filter_size=(1, 1),
-                         mask=np.zeros((2, 2, 2)))
+                         mask=np.zeros((2, 2, 2), dtype=bool))
 
     def test_invalid_coverage_mask(self, test_data):
         """
@@ -616,12 +750,24 @@ class TestBackground2D:
         match = 'data and coverage_mask must have the same shape'
         with pytest.raises(ValueError, match=match):
             Background2D(test_data, (25, 25), filter_size=(1, 1),
-                         coverage_mask=np.zeros((2, 2)))
+                         coverage_mask=np.zeros((2, 2), dtype=bool))
 
         match = 'coverage_mask must be a 2D array'
         with pytest.raises(ValueError, match=match):
             Background2D(test_data, (25, 25), filter_size=(1, 1),
-                         coverage_mask=np.zeros((2, 2, 2)))
+                         coverage_mask=np.zeros((2, 2, 2), dtype=bool))
+
+    @pytest.mark.parametrize('name', ['mask', 'coverage_mask'])
+    @pytest.mark.parametrize('dtype', [float, int])
+    def test_invalid_mask_dtype(self, name, dtype, test_data):
+        """
+        Test that an error is raised if the mask or coverage_mask is
+        not a boolean array.
+        """
+        mask = np.zeros(test_data.shape, dtype=dtype)
+        match = f'{name} must be a boolean array'
+        with pytest.raises(TypeError, match=match):
+            Background2D(test_data, (25, 25), **{name: mask})
 
     @pytest.mark.skipif(not HAS_MATPLOTLIB, reason='matplotlib is required')
     def test_plot_meshes(self, test_data):
@@ -669,16 +815,16 @@ class TestBackground2D:
     def test_masks(self):
         """
         Test that the input data is not modified when a mask is applied
-        and that the same background is computed whether the non-finite
+        and that the same background is computed whether the nonfinite
         values are masked or set to NaN.
         """
         arr = np.arange(25.0).reshape(5, 5)
         arr_orig = arr.copy()
         mask = np.zeros(arr.shape, dtype=bool)
-        mask[0, 0] = np.nan
-        mask[-1, 0] = np.nan
-        mask[-1, -1] = np.nan
-        mask[0, -1] = np.nan
+        mask[0, 0] = True
+        mask[-1, 0] = True
+        mask[-1, -1] = True
+        mask[0, -1] = True
 
         box_size = (2, 2)
         exclude_percentile = 100
@@ -694,7 +840,7 @@ class TestBackground2D:
         arr2 = arr.copy()
         arr2[mask] = np.nan
         arr3 = arr2.copy()
-        match = r'Input data contains non-finite \(NaN or infinity\) values'
+        match = r'Input data contains nonfinite \(NaN or infinity\) values'
         with pytest.warns(AstropyUserWarning, match=match):
             bkg2 = Background2D(arr2, box_size, mask=None,
                                 exclude_percentile=exclude_percentile,
@@ -732,11 +878,11 @@ class TestBackground2D:
         Test that the interpolator keyword is deprecated.
         """
         match = 'BkgZoomInterpolator is deprecated'
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             interp = BkgZoomInterpolator()
 
         match = "'interpolator' was deprecated"
-        with pytest.warns(AstropyDeprecationWarning, match=match):
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
             bkg = Background2D(test_data, (25, 25), interpolator=interp)
 
         assert_allclose(bkg.background, test_data)
@@ -910,7 +1056,431 @@ def test_deprecations(test_data):
     data = test_data.copy()
     bkg = Background2D(data, (25, 25))
     match = 'was deprecated'
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         assert bkg.npixels_mesh.shape == (4, 4)
-    with pytest.warns(AstropyDeprecationWarning, match=match):
+    with pytest.warns(PhotutilsDeprecationWarning, match=match):
         assert bkg.npixels_map.shape == data.shape
+
+
+def _make_sigma_clip_biweight(cenfunc='biweight', stdfunc='biweight',
+                              **kwargs):
+    """
+    Create a SigmaClip instance using the 'biweight' cenfunc/stdfunc
+    string options, emulating them on astropy versions that do not
+    support these options.
+    """
+
+    def nanbiloc(data, axis=None):
+        return biweight_location(data, axis=axis, ignore_nan=True)
+
+    def nanbiscale(data, axis=None):
+        return biweight_scale(data, axis=axis, ignore_nan=True)
+
+    try:
+        return SigmaClip(cenfunc=cenfunc, stdfunc=stdfunc, **kwargs)
+    except ValueError:
+        init_cenfunc = 'median' if cenfunc == 'biweight' else cenfunc
+        init_stdfunc = 'std' if stdfunc == 'biweight' else stdfunc
+        sigma_clip = SigmaClip(cenfunc=init_cenfunc, stdfunc=init_stdfunc,
+                               **kwargs)
+        sigma_clip.cenfunc = cenfunc
+        sigma_clip.stdfunc = stdfunc
+        if cenfunc == 'biweight':
+            sigma_clip._cenfunc_parsed = nanbiloc
+        if stdfunc == 'biweight':
+            sigma_clip._stdfunc_parsed = nanbiscale
+        return sigma_clip
+
+
+def _make_generic_background2d(monkeypatch, *args, **kwargs):
+    """
+    Create a Background2D instance that uses the generic (nonfused)
+    box-statistics path.
+    """
+    monkeypatch.setattr(Background2D, '_make_box_stats_spec',
+                        lambda _self: None)
+    bkg = Background2D(*args, **kwargs)
+    monkeypatch.undo()
+    assert bkg._box_stats_spec is None
+    return bkg
+
+
+class TestFastBoxStatistics:
+    """
+    Tests for the fused sigma-clipping and box-statistics fast path.
+
+    The fast path must produce the same results as the generic path
+    based on `astropy.stats.SigmaClip` and the estimator callables.
+    """
+
+    @classmethod
+    def setup_class(cls):
+        rng = np.random.default_rng(0)
+        # Shape that is not an integer multiple of the box size, so
+        # the extra row, column, and corner boxes are also exercised
+        data = rng.normal(1.0, 0.5, (121, 289))
+        data[10:40, 10:40] += 100.0  # outliers to clip
+        data[50:75, 50:75] = 7.0  # constant boxes (zero std)
+        data[0:25, 250:275] = rng.exponential(10.0, (25, 25))  # skewed
+        mask = np.zeros(data.shape, dtype=bool)
+        mask[80:105, 80:105] = True  # fully masked box
+        mask[0:10, 25:50] = True  # partially masked boxes
+        cls.data = data
+        cls.mask = mask
+
+    def _compare_paths(self, monkeypatch, *, data=None, **kwargs):
+        """
+        Compare the fast and generic box-statistics paths.
+        """
+        if data is None:
+            data = self.data
+        kwargs = {'filter_size': (1, 1), 'exclude_percentile': 100.0,
+                  'mask': self.mask[:data.shape[0], :data.shape[1]],
+                  **kwargs}
+        bkg_fast = Background2D(data, (25, 25), **kwargs)
+        assert bkg_fast._box_stats_spec is not None
+        bkg_generic = _make_generic_background2d(monkeypatch, data,
+                                                 (25, 25), **kwargs)
+        assert_allclose(bkg_fast.background_mesh,
+                        bkg_generic.background_mesh, rtol=1e-10)
+        assert_allclose(bkg_fast.background_rms_mesh,
+                        bkg_generic.background_rms_mesh, rtol=1e-10)
+        assert_equal(bkg_fast.n_pixels_mesh, bkg_generic.n_pixels_mesh)
+
+    @pytest.mark.parametrize('bkg_estimator', [
+        MeanBackground(), MedianBackground(),
+        ModeEstimatorBackground(median_factor=2.5, mean_factor=1.5),
+        MMMBackground(), SExtractorBackground(),
+        BiweightLocationBackground()])
+    @pytest.mark.parametrize('rms_estimator', [StdBackgroundRMS(),
+                                               MADStdBackgroundRMS(),
+                                               BiweightScaleBackgroundRMS()])
+    def test_estimators_match_generic(self, bkg_estimator, rms_estimator,
+                                      monkeypatch):
+        """
+        Test that all supported estimator combinations match the
+        generic path.
+        """
+        self._compare_paths(monkeypatch, bkg_estimator=bkg_estimator,
+                            bkg_rms_estimator=rms_estimator)
+
+    @pytest.mark.parametrize('bkg_estimator', [
+        BiweightLocationBackground(c=5.0),
+        BiweightLocationBackground(M=2.0)])
+    @pytest.mark.parametrize('rms_estimator', [
+        BiweightScaleBackgroundRMS(c=8.0),
+        BiweightScaleBackgroundRMS(M=2.0)])
+    def test_biweight_variants_match_generic(self, bkg_estimator,
+                                             rms_estimator, monkeypatch):
+        """
+        Test that the biweight estimators with nondefault tuning
+        constants and scalar location anchors match the generic path.
+
+        The test data include constant boxes, for which the biweight
+        statistics are defined by the location anchor (zero MAD).
+        The data are trimmed to an integer number of boxes because
+        the generic path raises an ``AttributeError`` for a float
+        ``M`` anchor when a corner box is computed (an astropy
+        ``biweight_location`` bug for scalar ``M`` with ``axis=None``).
+        The fast path handles it.
+        """
+        self._compare_paths(monkeypatch, data=self.data[:100, :275],
+                            bkg_estimator=bkg_estimator,
+                            bkg_rms_estimator=rms_estimator)
+
+    @pytest.mark.parametrize(('cenfunc', 'stdfunc'), [
+        ('biweight', 'biweight'),
+        ('biweight', 'std'),
+        ('median', 'biweight')])
+    def test_biweight_sigma_clip_matches_generic(self, cenfunc, stdfunc,
+                                                 monkeypatch):
+        """
+        Test that the SigmaClip 'biweight' cenfunc/stdfunc string
+        options are supported by the fused kernel and match the generic
+        path (astropy's Python clipping code paths).
+        """
+        sigma_clip = _make_sigma_clip_biweight(cenfunc=cenfunc,
+                                               stdfunc=stdfunc,
+                                               sigma=2.0, maxiters=5)
+        self._compare_paths(monkeypatch, sigma_clip=sigma_clip)
+
+    def test_biweight_final_bounds_survivors(self):
+        """
+        Test that the fused kernel's biweight clipping keeps every value
+        within the final bounds, including a value dropped in an earlier
+        iteration.
+
+        The value 4 is dropped in the second iteration (upper bound
+        3.87) and is within the final bounds (upper bound 4.14).
+        """
+        values = np.array([-2, 1, -2, 1, -5, 1, 1, -6, -3, -3, 2, -4, -2,
+                           -3, -2, -1, 6, 2, 4, 2, 0, 1, 1, 3], dtype=float)
+        kept = values
+        n_dropped = 1
+        while n_dropped:
+            center = biweight_location(kept)
+            scale = biweight_scale(kept)
+            lower = center - 1.5 * scale
+            upper = center + 1.5 * scale
+            survivors = kept[(kept >= lower) & (kept <= upper)]
+            n_dropped = kept.size - survivors.size
+            kept = survivors
+        expected = values[(values >= lower) & (values <= upper)]
+        assert 4.0 not in kept
+        assert 4.0 in expected
+
+        sigma_clip = _make_sigma_clip_biweight(sigma=1.5, maxiters=20)
+        bkg = Background2D(values.reshape(4, 6), (4, 6), filter_size=1,
+                           sigma_clip=sigma_clip,
+                           bkg_estimator=MeanBackground(sigma_clip=None),
+                           exclude_percentile=100.0)
+        assert bkg._box_stats_spec is not None
+        assert_equal(bkg.n_pixels_mesh, [[expected.size]])
+        assert_allclose(bkg.background_mesh, [[np.mean(expected)]],
+                        rtol=1e-12)
+
+    def test_biweight_nonfinite_m_falls_back(self, test_data):
+        """
+        Test that a nonfinite biweight location anchor (M) falls back
+        to the generic path, where the all-NaN result raises an error,
+        rather than silently computing median-anchored values.
+        """
+        bkg_estimator = BiweightLocationBackground(M=np.nan)
+        match = 'All boxes contain fewer than'
+        with pytest.raises(ValueError, match=match):
+            Background2D(test_data, (25, 25), bkg_estimator=bkg_estimator)
+
+    @pytest.mark.parametrize('sigma_clip', [
+        None,
+        SigmaClip(sigma=2.0, maxiters=5),
+        SigmaClip(sigma_lower=2.0, sigma_upper=4.0, maxiters=None),
+        SigmaClip(sigma=3.0, maxiters=10, cenfunc='mean'),
+        SigmaClip(sigma=3.0, maxiters=10, stdfunc='mad_std'),
+        SigmaClip(sigma=2.5, maxiters=1)])
+    def test_sigma_clip_variants_match_generic(self, sigma_clip,
+                                               monkeypatch):
+        """
+        Test that all supported sigma_clip variants match the generic
+        path.
+        """
+        self._compare_paths(monkeypatch, sigma_clip=sigma_clip)
+
+    @pytest.mark.parametrize('box_size', [(5, 5), (4, 4), (5, 4)])
+    @pytest.mark.parametrize('sigma_clip', [
+        SigmaClip(sigma=2.0, maxiters=None, stdfunc='mad_std'),
+        _make_sigma_clip_biweight(sigma=2.0, maxiters=5)])
+    def test_mad_boxes_match_generic(self, box_size, sigma_clip,
+                                     monkeypatch):
+        """
+        Test that the MAD-based sigma clipping and the MAD standard
+        deviation RMS estimator match the generic path for boxes with
+        odd and even numbers of surviving pixels.
+
+        The data are skewed and rounded so that the absolute deviations
+        about the box medians contain many ties and the numbers of
+        pixels below and above the median are very unequal. A random
+        mask varies the pixel count from box to box.
+        """
+        rng = np.random.default_rng(1)
+        data = np.round(rng.exponential(2.0, (40, 60)), 1)
+        mask = rng.random(data.shape) < 0.2
+        kwargs = {'filter_size': (1, 1), 'exclude_percentile': 100.0,
+                  'mask': mask, 'sigma_clip': sigma_clip,
+                  'bkg_estimator': MedianBackground(),
+                  'bkg_rms_estimator': MADStdBackgroundRMS()}
+        bkg_fast = Background2D(data, box_size, **kwargs)
+        assert bkg_fast._box_stats_spec is not None
+        bkg_generic = _make_generic_background2d(monkeypatch, data,
+                                                 box_size, **kwargs)
+        n_pixels = bkg_fast.n_pixels_mesh
+        assert np.any(n_pixels % 2 == 0)
+        assert np.any(n_pixels % 2 == 1)
+        assert_equal(n_pixels, bkg_generic.n_pixels_mesh)
+        assert_allclose(bkg_fast.background_mesh,
+                        bkg_generic.background_mesh, rtol=1e-10)
+        assert_allclose(bkg_fast.background_rms_mesh,
+                        bkg_generic.background_rms_mesh, rtol=1e-10)
+
+    def test_fast_path_used_by_default(self, test_data):
+        """
+        Test that the fast path is used with the default inputs.
+        """
+        bkg = Background2D(test_data, (25, 25))
+        spec = bkg._box_stats_spec
+        assert spec is not None
+        assert spec.bkg_kind == 'sextractor'
+        assert spec.rms_kind == 'std'
+        assert spec.do_clip
+
+    def test_unsupported_inputs_fall_back(self, test_data):
+        """
+        Test that unsupported sigma_clip and estimator inputs fall back
+        to the generic path and still produce finite results.
+        """
+
+        class UnknownClip:
+            def __call__(self, data, **_kwargs):
+                return np.asarray(data)
+
+        class MySExtractorBackground(SExtractorBackground):
+            pass
+
+        def bkg_func(data, *, axis=None):
+            return np.nanmean(data, axis=axis)
+
+        def rms_func(data, *, axis=None):
+            return np.nanstd(data, axis=axis)
+
+        unsupported = [
+            {'sigma_clip': UnknownClip()},
+            {'sigma_clip': SigmaClip(cenfunc=np.nanmedian)},
+            {'sigma_clip': SigmaClip(stdfunc=np.nanstd)},
+            {'sigma_clip': SigmaClip(grow=1.0)},
+            {'bkg_estimator': MySExtractorBackground()},
+            {'bkg_estimator': bkg_func},
+            {'bkg_estimator':
+                BiweightLocationBackground(M=np.array([1.0]))},
+            {'bkg_rms_estimator': rms_func},
+            {'bkg_rms_estimator':
+                BiweightScaleBackgroundRMS(M=np.array([1.0]))},
+        ]
+        for kwargs in unsupported:
+            bkg = Background2D(test_data, (25, 25), **kwargs)
+            assert bkg._box_stats_spec is None
+            assert np.all(np.isfinite(bkg.background_mesh))
+
+    def test_degenerate_clip_masks_all(self, monkeypatch):
+        """
+        Test the degenerate case where sigma clipping converges to an
+        empty set.
+
+        Every value in the box is clipped, so the box has no surviving
+        pixels and its mesh value is filled by interpolation. This
+        matches astropy's corrected behavior (astropy/astropy#20393).
+        Older astropy versions instead kept every value in this case,
+        so the generic path is only compared when the installed astropy
+        agrees.
+        """
+        data = np.ones((2, 4))
+        data[0:2, 2:4] = [[0.0, 0.0], [100.0, 100.0]]
+        sigma_clip = SigmaClip(sigma=0.1, maxiters=10)
+        kwargs = {'box_size': (2, 2), 'filter_size': (1, 1),
+                  'exclude_percentile': 100.0, 'sigma_clip': sigma_clip}
+
+        bkg_fast = Background2D(data, **kwargs)
+        assert bkg_fast._box_stats_spec is not None
+        assert_equal(bkg_fast.n_pixels_mesh, [[4, 0]])
+        assert_allclose(bkg_fast.background_mesh, 1.0)
+
+        # Older astropy versions (<8.0.2) emit a numpy RuntimeWarning
+        # for the NaN bound comparisons in this degenerate case.
+        with np.errstate(invalid='ignore'):
+            clipped = sigma_clip(data[:, 2:4].ravel(), axis=0, masked=True)
+        if not np.all(clipped.mask):
+            pytest.skip('installed astropy keeps all values when sigma '
+                        'clipping rejects every value')
+
+        bkg_generic = _make_generic_background2d(monkeypatch, data,
+                                                 **kwargs)
+        assert_equal(bkg_fast.n_pixels_mesh, bkg_generic.n_pixels_mesh)
+        assert_allclose(bkg_fast.background_mesh,
+                        bkg_generic.background_mesh, rtol=1e-10)
+
+    def test_float32_matches_generic(self, monkeypatch):
+        """
+        Test that float32 input uses the fast path, preserves the
+        dtype, and matches the generic path.
+        """
+        data = self.data.astype(np.float32)
+        bkg_fast = Background2D(data, (25, 25), filter_size=(1, 1),
+                                exclude_percentile=100.0)
+        assert bkg_fast._box_stats_spec is not None
+        assert bkg_fast.background_mesh.dtype == np.float32
+        bkg_generic = _make_generic_background2d(
+            monkeypatch, data, (25, 25), filter_size=(1, 1),
+            exclude_percentile=100.0)
+        assert bkg_generic.background_mesh.dtype == np.float32
+        assert_allclose(bkg_fast.background_mesh,
+                        bkg_generic.background_mesh, rtol=2e-6)
+        assert_allclose(bkg_fast.background_rms_mesh,
+                        bkg_generic.background_rms_mesh, rtol=1e-3,
+                        atol=1e-5)
+
+    def test_n_threads_fast_path(self):
+        """
+        Test that the multithreaded fast path gives identical results
+        to the single-threaded fast path.
+        """
+        bkg1 = Background2D(self.data, (25, 25), mask=self.mask,
+                            exclude_percentile=100.0)
+        bkg2 = Background2D(self.data, (25, 25), mask=self.mask,
+                            exclude_percentile=100.0, n_threads=4)
+        assert_equal(bkg1.background_mesh, bkg2.background_mesh)
+        assert_equal(bkg1.background_rms_mesh, bkg2.background_rms_mesh)
+        assert_equal(bkg1.n_pixels_mesh, bkg2.n_pixels_mesh)
+
+    def test_masked_array_data_mask(self):
+        """
+        Test that the mask of masked-array input data is respected
+        and combined with the input mask.
+        """
+        data_values = np.ones((100, 100))
+        data_values[0:25, 0:25] = 1e6
+        data_values[25:50, 25:50] = 1e6
+        data_mask = np.zeros(data_values.shape, dtype=bool)
+        data_mask[0:25, 0:25] = True
+        data_ma = np.ma.MaskedArray(data_values, mask=data_mask)
+
+        # Without an input mask, the data mask alone is used
+        mask = np.zeros(data_values.shape, dtype=bool)
+        mask[25:50, 25:50] = True
+        bkg = Background2D(data_ma, (25, 25), filter_size=(1, 1),
+                           mask=mask)
+        assert_allclose(bkg.background_mesh, 1.0)
+        assert bkg.n_pixels_mesh[0, 0] == 0
+        assert bkg.n_pixels_mesh[1, 1] == 0
+
+        # A masked array with no masked values (nomask)
+        data_nomask = np.ma.MaskedArray(np.ones((100, 100)))
+        bkg = Background2D(data_nomask, (25, 25), filter_size=(1, 1))
+        assert_allclose(bkg.background_mesh, 1.0)
+
+
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize(('bkg_estimator', 'bkg_rms_estimator'),
+                         [(MedianBackground(), StdBackgroundRMS()),
+                          (SExtractorBackground(), MADStdBackgroundRMS()),
+                          (BiweightLocationBackground(),
+                           BiweightScaleBackgroundRMS())])
+def test_read_only_inputs(dtype, bkg_estimator, bkg_rms_estimator):
+    """
+    Regression test that read-only (nonwritable) input arrays are
+    accepted, are not modified, and give results identical to writable
+    arrays.
+    """
+    rng = np.random.default_rng(0)
+    data = rng.normal(10.0, 1.0, (100, 100)).astype(dtype)
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[10:20, 30:40] = True
+    coverage_mask = np.zeros(data.shape, dtype=bool)
+    coverage_mask[:, :5] = True
+    arrays = (data, mask, coverage_mask)
+    originals = [arr.copy() for arr in arrays]
+
+    def compute():
+        bkg = Background2D(data, (25, 25), mask=mask,
+                           coverage_mask=coverage_mask,
+                           bkg_estimator=bkg_estimator,
+                           bkg_rms_estimator=bkg_rms_estimator)
+        return (bkg.background, bkg.background_rms, bkg.background_mesh,
+                bkg.background_rms_mesh)
+
+    expected = compute()
+    for arr in arrays:
+        arr.setflags(write=False)
+    result = compute()
+
+    for res, exp in zip(result, expected, strict=True):
+        assert_equal(res, exp)
+    for arr, original in zip(arrays, originals, strict=True):
+        assert_equal(arr, original)

@@ -72,9 +72,10 @@ worker of a resumed session waits for the previous one to finish.
                    was reinstalled under it (`install_replaced`): exit 0, and
                    the supervisor starts the new install at once
 
-A bite is due when the queue holds your prompt, the agent's turn end, more than
-QUEUE_LIMIT_CHARS, anything older than DUE_AFTER_S (from when it was noticed),
-or anything at all once the session is ending.
+A bite is due when the queue holds a request from the main agent (`probe ask
+--writer`, at any place in the queue: `requests.py`), your prompt, the agent's
+turn end, more than QUEUE_LIMIT_CHARS, anything older than DUE_AFTER_S (from
+when it was noticed), or anything at all once the session is ending.
 """
 
 from __future__ import annotations
@@ -101,17 +102,29 @@ from typing import Callable
 from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools
 from probe.daemon import alerts
 from probe.daemon import scope
+from probe.daemon import requests as requests_mod
 from probe.daemon import gate as gate_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
 from probe.daemon import exclusions as exclusions_mod
-from probe.daemon.events import MAIN_STREAM, READER_SOURCE, READER_STREAM, Event, Kind
+from probe.daemon.events import (
+    MAIN_STREAM,
+    READER_SOURCE,
+    READER_STREAM,
+    REQUEST_SOURCE,
+    REQUEST_STREAM,
+    REQUEST_TOOL,
+    Event,
+    Kind,
+)
 from probe.daemon import shipper as shipper_mod
 from probe.daemon import trace as trace_mod
 from probe.sdk.session_marker import WIZARD_HINT
 from probe.daemon.store import (
     BITE_DONE,
     BITE_PAUSED,
+    BITE_SKIPPED,
     CARRY_ON,
+    UNRECORDED_BITE,
     LANE_WRITE,
     _epoch,
     Store,
@@ -128,6 +141,13 @@ DUE_AFTER_S = 120.0
 #: The two run triggers the writer's least gap may hold back (`Worker.deferrable`).
 TRIGGER_TURN_END = "turn end"
 TRIGGER_AGE = "age"
+#: A request from the main agent waits (`probe ask --writer`): never held back.
+TRIGGER_REQUEST = "request"
+#: A request starts a run at once, but at most one per this long (or per the
+#: writer's least gap, if longer): an agent asking again and again pays for one
+#: run a minute, not one per ask. A request held back waits in the queue like
+#: any event and goes with the next run, whatever starts it.
+REQUEST_RUN_MIN_GAP_S = 60.0
 QUEUE_LIMIT_CHARS = 200_000
 READ_CHUNK_BYTES = 4 * 1024 * 1024
 MAX_LINE_BYTES = 8 * 1024 * 1024
@@ -340,6 +360,8 @@ class Worker:
         self.next_attempt_at = 0.0
         #: When the last run started (`clock`): the writer's least gap counts from it.
         self.last_run_at = float("-inf")
+        #: When the last run a request started began (REQUEST_RUN_MIN_GAP_S counts from it).
+        self.last_request_run_at = float("-inf")
         #: Why this worker released the lease; renewing waits until a model round answers again.
         self.released_reason: str | None = None
         self.parent_pid = os.getppid()
@@ -356,6 +378,9 @@ class Worker:
         self.probe_refused_key = False
         #: The reader (daemon reads), started in `loop` when reads are on.
         self.reader = None
+        #: The run-alert poller (`run_alerts.py`), started with the reader: the
+        #: same mailbox, the same switch.
+        self.run_alerts = None
         #: The team-note audit (daemon-team-note-audit), made in `loop`; it starts
         #: itself at most once per session, on the researcher's first prompt.
         self.audit = None
@@ -539,6 +564,8 @@ class Worker:
         # placed by when it is read, so it must not come before those lines.
         if (until is None or READER_STREAM in until) and not self.stream_behind.get("main"):
             added += self._read_reader_log(None if until is None else until[READER_STREAM])
+        if until is None:  # not at the shutdown drain: a request filed now waits for the next worker
+            added += self._take_requests()
         self._mark_inline()
         return added
 
@@ -808,6 +835,9 @@ class Worker:
         with self.store.tx():
             self.store.set_cursor(READER_STREAM, str(path), start)
             self.store.set_fact(READER_LOG_INODE, _inode(path))
+            tail = _bytes_before_hash(path, start)
+            if tail is not None:
+                self.store.set_fact(READER_LOG_TAIL, {"at": start, "hash": tail})
 
     def _read_reader_log(self, until: int | None = None) -> int:
         """What the daemon's reader handed the main agent: each claim the mailbox
@@ -828,8 +858,19 @@ class Worker:
         with handle:
             stat = os.fstat(handle.fileno())
             known = self.store.fact(READER_LOG_INODE)
-            if stat.st_size < offset or (known is not None and known != stat.st_ino):
-                offset = 0  # a new log (the folder was swept and made again): all of it is new
+            before = b""
+            if offset and stat.st_size >= offset:
+                handle.seek(max(0, offset - GUARD_BYTES))
+                before = handle.read(offset - max(0, offset - GUARD_BYTES))
+            guard = self.store.fact(READER_LOG_TAIL)
+            guarded = isinstance(guard, dict) and guard.get("at") == offset
+            if (stat.st_size < offset or (known is not None and known != stat.st_ino)
+                    or (offset and guarded and _tail_hash(before) != guard.get("hash"))):
+                offset, before = 0, b""  # a new log (the folder was swept and made again): all of it is new
+            elif offset and not guarded:
+                # A store from before this guard (or a cursor moved without it):
+                # take it now, as the bytes stand, so the next sweep is caught.
+                self.store.set_fact(READER_LOG_TAIL, {"at": offset, "hash": _tail_hash(before)})
             end = stat.st_size if until is None else min(stat.st_size, until)
             if end <= offset:
                 return 0
@@ -885,7 +926,160 @@ class Worker:
                 added = self.store.add(self.exclusions.keep(events, stream=READER_STREAM))
             self.store.set_cursor(READER_STREAM, str(path), offset + pos)
             self.store.set_fact(READER_LOG_INODE, stat.st_ino)
+            self.store.set_fact(READER_LOG_TAIL, {"at": offset + pos,
+                                                  "hash": _tail_hash((before + buf[:pos])[-GUARD_BYTES:])})
         return added
+
+    # -- the main agent's requests (`probe ask --writer`, requests.py) ---------
+    def _take_requests(self) -> int:
+        """Each request `probe ask --writer` filed: a `write_requests` row and one
+        META event on the `request` stream, in one transaction, then its file is
+        moved aside. A request already older than WRITE_REQUEST_TIMEOUT_S is
+        stored as failed, with no event: it never runs."""
+        sid = self.session.session_id
+        added = 0
+        try:
+            pending = mailbox.pending_requests(sid)
+        except OSError as exc:  # the mailbox is best effort: the next poll tries again
+            log.warning("could not read the main agent's requests: %s", exc)
+            pending = []
+        for req in pending:
+            text = " ".join(req.text.split())[:mailbox.REQUEST_MAX_CHARS]
+            with self.store.tx():
+                if self.store.has_write_request(req.id):
+                    pass  # stored by an earlier pass that stopped before moving the file
+                elif self.clock() - req.asked_at >= requests_mod.WRITE_REQUEST_TIMEOUT_S:
+                    self.store.add_write_request(req.id, text, req.asked_at, req.wait, None, state="failed",
+                                                 reason=requests_mod.REASON_TIMEOUT)
+                    self._writer_failed(req.id, requests_mod.REASON_TIMEOUT)
+                else:
+                    ev = Event(kind=Kind.META, stream=REQUEST_STREAM, offset=self.store.next_offset(),
+                               text=requests_mod.REQUEST_LINE.format(text=text), ts=_stamp(req.asked_at),
+                               tool=REQUEST_TOOL, source=REQUEST_SOURCE)
+                    self.store.add([ev])
+                    seq = self.store.db.execute("SELECT seq FROM events WHERE event_id = ?",
+                                                (ev.event_id,)).fetchone()["seq"]
+                    self.store.add_write_request(req.id, text, req.asked_at, req.wait, int(seq))
+                    added += 1
+            try:
+                mailbox.take_request(sid, req.id)
+            except OSError as exc:  # stored: the next poll moves it (`has_write_request`)
+                log.warning("could not move request %s aside: %s", req.id, exc)
+        if added:
+            log.info("%s request(s) from the main agent: a run starts now", added)
+        self.publish_writer_messages()
+        return added
+
+    def _writer_failed(self, request_id: str, reason: str, *, bite: int | None = None) -> None:
+        """Inside a transaction: the message that tells the agent a request will not run."""
+        self.store.add_writer_message(message_id=mailbox.new_message_id(), kind=mailbox.Kind.FAILED,
+                                      ask=request_id, reason=reason, bite=bite)
+
+    def fail_requests(self, reason: str, *, rows: list | None = None, run: range | None = None,
+                      bite: int | None = None) -> int:
+        """Fail waiting requests (`rows`, default every waiting one): each gets its
+        failure message, with what the runs that saw it already wrote ("partly
+        done"), and its event is retired in the same transaction, so a request
+        reported as failed never runs later. A conversation whose saved history
+        holds one (a run of it covered the event: paused, or skipped) ends with
+        it: carried on, it would act on a request the agent was told did not run
+        (a paused run's other events go back on the queue, `_end_resumed`),
+        whatever the mode now. "Partly done": the writes of the bites that
+        worked on it (`Store.request_bites`), and of `run`, a run that ended
+        unfinished with it (`bite`: the bite that ended it)."""
+        rows = self.store.waiting_write_requests() if rows is None else rows
+        if not rows:
+            return 0
+        failed = 0
+        with self.store.tx():
+            live = self.store.live_conversation()
+            if live is not None and any(r["conversation"] == live["id"] and (r["event_bite"] or 0) >= 1
+                                        for r in rows):
+                self._end_resumed(int(live["id"]), f"a request it was shown failed: {reason}")
+            for row in rows:
+                bites = self.store.request_bites(row["id"]) | set(run or ())
+                done = requests_mod.describe(self.store.writes_of_bites(bites)) if bites else None
+                why = requests_mod.failure_reason(reason, done)
+                if self.store.end_write_request(row["id"], "failed", reason=why):
+                    self._writer_failed(row["id"], why, bite=bite)
+                    failed += 1
+        if failed:
+            log.info("%s request(s) from the main agent failed: %s", failed, reason)
+        self.publish_writer_messages()
+        return failed
+
+    def _fail_stuck_requests(self) -> None:
+        """Fail each waiting request no run will answer:
+        - not taken by a run within WRITE_REQUEST_TIMEOUT_S (the lease elsewhere,
+          a blocked worker or a failing model leave it queued);
+        - its event marked unrecorded (`/probe inline` covered its stamp);
+        - shown to a run that will not finish: one that paused in a conversation
+          that has ended, or any run in bites mode (a run there answers as it
+          ends, so one still waiting was never going to be);
+        - shown to the paused run being carried on, which has not finished in
+          twice the timeout (each carry-on fails, or the lease is elsewhere):
+          REASON_STALLED."""
+        now = self.clock()
+        live = self.store.live_conversation() if self._carrying_on() else None
+        stuck: dict[str, list] = {}
+        for row in self.store.waiting_write_requests():
+            where, age = row["event_bite"], now - float(row["asked_at"])
+            if where is None or where == -1:
+                if age >= requests_mod.WRITE_REQUEST_TIMEOUT_S:
+                    stuck.setdefault(requests_mod.REASON_TIMEOUT, []).append(row)
+            elif where == UNRECORDED_BITE:
+                stuck.setdefault(requests_mod.REASON_INLINE, []).append(row)
+            elif live is None or row["conversation"] != live["id"]:
+                stuck.setdefault(requests_mod.REASON_SKIPPED, []).append(row)
+            elif age >= 2 * requests_mod.WRITE_REQUEST_TIMEOUT_S:
+                stuck.setdefault(requests_mod.REASON_STALLED, []).append(row)
+        for reason, rows in stuck.items():
+            self.fail_requests(reason, rows=rows)
+
+    def _answer_run(self, bite_id: int, conversation: int | None, reply: str) -> None:
+        """Inside a transaction, as a run finishes (its events covered): ONE reply to
+        each request this run saw -- its conversation's, or in bites mode its own
+        bite's -- with its `reply` and the writes of this run and of every bite
+        that worked on one (an earlier attempt's included; never an unrelated
+        run's), or, when it saw none, a receipt for the structural writes the run
+        recorded, if any (never a bite that worked on a request: that request
+        tells its writes)."""
+        asked = [r for r in self.store.waiting_write_requests()
+                 if r["first_bite"] is not None and r["event_bite"] is not None and 1 <= r["event_bite"] <= bite_id
+                 and (r["conversation"] == conversation if conversation is not None
+                      else r["event_bite"] == bite_id)]
+        run = set(range(self.store.run_start(bite_id), bite_id + 1))
+        if asked:
+            bites = run.union(*(self.store.request_bites(r["id"]) for r in asked))
+            text = requests_mod.reply_text(reply, requests_mod.describe(self.store.writes_of_bites(bites)))
+            for row in asked:
+                self.store.end_write_request(row["id"], "answered", bite=bite_id)
+                self.store.add_writer_message(message_id=mailbox.new_message_id(), kind=mailbox.Kind.ANSWER,
+                                              ask=row["id"], text=text, bite=bite_id)
+            return
+        if not mailbox.enabled(source=self.session.source):
+            return  # nobody delivers a receipt: the agent's hooks read no mailbox
+        # A bite that worked on a request is told with that request (its reply or
+        # its failure), so a receipt never tells the same write twice.
+        run -= self.store.bites_of_requests(min(run), bite_id)
+        receipt = requests_mod.receipt_text(requests_mod.describe(self.store.writes_of_bites(run)))
+        if receipt:
+            self.store.add_writer_message(message_id=mailbox.new_message_id(), kind=mailbox.Kind.MESSAGE,
+                                          text=receipt, bite=bite_id)
+
+    def publish_writer_messages(self) -> None:
+        """Publish saved writer messages not yet in the mailbox (all of them after a
+        crash). Best effort: one the mailbox refuses stays unpublished for the
+        next poll, and never stops the worker."""
+        sid = self.session.session_id
+        for row in self.store.unpublished_writer_messages():
+            try:
+                mailbox.publish(requests_mod.message(row, sid))
+            except OSError as exc:
+                log.warning("could not hand the main agent the writer's message %s: %s", row["id"], exc)
+                return
+            with self.store.tx():
+                self.store.mark_writer_message_published(row["id"])
 
     # -- deciding when --------------------------------------------------------
     def due(self) -> str | None:
@@ -903,6 +1097,9 @@ class Worker:
         return trigger
 
     def _trigger(self, pending: list) -> str | None:
+        # First, wherever it sits in the queue: the agent waits on the answer.
+        if self.store.has_pending_request() and self._request_may_start():
+            return TRIGGER_REQUEST
         if any(ev.kind == Kind.PROMPT and ev.seq != pending[0].seq for ev in pending):
             return "prompt"
         if any(ev.kind == Kind.TURN_END for ev in pending):
@@ -914,6 +1111,12 @@ class Worker:
         if self.stopping:
             return "session end"
         return "carry on" if self._carrying_on() else None
+
+    def _request_may_start(self) -> bool:
+        from probe.daemon import model as model_mod
+
+        gap = max(REQUEST_RUN_MIN_GAP_S, model_mod.writer_min_gap_s())
+        return self.clock() - self.last_request_run_at >= gap
 
     @staticmethod
     def _over_size(pending: list) -> bool:
@@ -964,6 +1167,8 @@ class Worker:
     def pending_lines(self) -> list[str]:
         lines = []
         for req in self.board.all(session_id=self.session.session_id, state=appr.WAITING):
+            if req.policy == appr.FEEDBACK:
+                continue  # not the daemon's question, and its text is the agent's: never in the writer's prompt
             lines.append(f"question {req.id} ({req.policy}) is waiting for the researcher: {req.question.question[:200]}")
         for row in self.store.open_failures(bites=FAILURES_SHOWN_BITES, limit=5):
             argv = " ".join(json.loads(row["argv"]))[:200]
@@ -1007,6 +1212,9 @@ class Worker:
             self.next_attempt_at = self.clock() + UNAUTHORIZED_RETRY_S
             return False
         bite_id = self.store.open_bite(trigger, built.first_seq, built.last_seq)
+        self.store.mark_requests_seen(bite_id, built.first_seq, built.last_seq, conversation)
+        if trigger == TRIGGER_REQUEST:
+            self.last_request_run_at = self.clock()
         # A carry-on with no new events has no first event to seed the keys from.
         deps = self.deps(bite_id, workdirs,
                          op_seed=f"{self.session.session_id}:{built.first_seq}" if built.first_seq else None)
@@ -1043,6 +1251,7 @@ class Worker:
             return self._lease_lost(bite_id, {"input_tokens": in_tok, "output_tokens": out_tok,
                                               "cached_tokens": cached})
         summary = getattr(result.output, "summary", None) or ""
+        reply = getattr(result.output, "reply", None) or ""
         saved = _dump_messages(result.all_messages()) if conversation is not None else None
         with self.store.tx():
             self.store.set_note(summary, bite=bite_id)
@@ -1051,10 +1260,12 @@ class Worker:
             self.store.mark_covered(bite_id, built.last_seq)
             self.store.close_bite(bite_id, outcome=BITE_DONE, input_tokens=in_tok, output_tokens=out_tok,
                                   cached_tokens=cached)
+            self._answer_run(bite_id, conversation, reply)
             if self.store.fact("cut_short"):
                 self.store.set_fact("cut_short", None)
             if self.store.fact(CARRY_ON):
                 self.store.set_fact(CARRY_ON, None)
+        self.publish_writer_messages()
         if conversation is not None:
             self._maybe_start_fresh(conversation)
         self.failures = 0
@@ -1450,13 +1661,14 @@ class Worker:
                 CutShort.TOO_LARGE: "its prompt was over the model route's ceiling",
             }[cause]
             with self.store.tx():
-                self.store.close_bite(bite_id, outcome="cut short: skipped", error=text, **spent)
+                self.store.close_bite(bite_id, outcome=BITE_SKIPPED, error=text, **spent)
                 self.store.set_fact("cut_short", None)
                 self.store.set_fact(CARRY_ON, None)
                 self.store.log_write(bite=bite_id, op_id=uuid.uuid4().hex, argv=["continued run"], head="skipped",
                                      status="not_run", reason=why)
                 self.store.add([_notice_event(self.store, (
                     f"The continued run stopped before it finished and what it had left was not recorded: {why}."))])
+            self._fail_skipped_requests(bite_id)
             _device_error(f"session {self.session.session_id}: a continued run stopped unfinished: {why}")
             alerts.report(alerts.Kind.EVENTS_SKIPPED, session_id=self.session.session_id, lane=LANE_WRITE, exc=exc,
                           text=f"a continued run stopped unfinished: {why}")
@@ -1482,12 +1694,13 @@ class Worker:
         skipped = self.store.pending_count(built.first_seq, built.last_seq)
         with self.store.tx():
             self.store.mark_covered(bite_id, built.last_seq)
-            self.store.close_bite(bite_id, outcome="cut short: skipped", error=text, **spent)
+            self.store.close_bite(bite_id, outcome=BITE_SKIPPED, error=text, **spent)
             self.store.set_fact("cut_short", None)
             self.store.log_write(bite=bite_id, op_id=uuid.uuid4().hex, argv=[what], head="skipped",
                                  status="not_run", reason=why)
             self.store.add([_notice_event(self.store, (
                 f"{what} (turn {self.store.turn_of(built.first_seq)}) were not recorded: {why}."))])
+        self._fail_skipped_requests(bite_id)
         _device_error(f"session {self.session.session_id}: {what} were {why}")
         how = {
             CutShort.LIMITS: f"{times} bites in a row hit their limits",
@@ -1498,6 +1711,15 @@ class Worker:
         alerts.report(alerts.Kind.EVENTS_SKIPPED, session_id=self.session.session_id, lane=LANE_WRITE, exc=exc,
                       text=f"{skipped} events skipped: {how}", count=skipped)
         return True
+
+    def _fail_skipped_requests(self, bite_id: int) -> None:
+        """A run cut short and skipped: the requests it saw fail, with what it did."""
+        first = self.store.run_start(bite_id)
+        rows = [r for r in self.store.waiting_write_requests()
+                if r["first_bite"] is not None and r["event_bite"] is not None
+                and first <= r["event_bite"] <= bite_id]
+        if rows:
+            self.fail_requests(requests_mod.REASON_SKIPPED, rows=rows, run=range(first, bite_id + 1), bite=bite_id)
 
     def _defer(self, built: bite_mod.Bite) -> None:
         """Move a failing range to the back of the queue: later events go first."""
@@ -1596,6 +1818,8 @@ class Worker:
 
     async def settle_answers(self) -> None:
         for req in self.board.all(session_id=self.session.session_id, state=appr.WAITING):
+            if req.policy == appr.FEEDBACK:
+                continue  # no held action: `probe feedback flush` sends a yes (`probe.feedback`)
             retry = self.settle_retry.get(req.id)
             if retry is not None and self.clock() < retry[1]:
                 continue
@@ -1773,11 +1997,13 @@ class Worker:
                 log.info("the researcher set Probe inline: stopping")
                 await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home),
                                           force=True)
+                self.fail_requests(requests_mod.REASON_INLINE)
                 self._release(lease.REASON_STOPPED)
                 return inline_exit_code()
             if lease.reads_only(self.session.session_id, state):
                 return await self._read_only_tick()
             if state is not None and not lease.records(self.session.session_id, state):
+                self.fail_requests(requests_mod.REASON_OFF)
                 self._release(lease.REASON_STOPPED)
                 return 0
             if state is None:
@@ -1793,6 +2019,8 @@ class Worker:
             self.begin_stopping()
         self._take_input()
         self._announce_inline()
+        self._fail_stuck_requests()
+        self.publish_writer_messages()
         if self.audit is not None and not self.stopping:
             self.audit.maybe_start()
         if self.paused():
@@ -1822,6 +2050,7 @@ class Worker:
                 _device_error(f"session {self.session.session_id} ended while the daemon was paused by the ML gate: "
                               f"{unrecorded} events were not recorded; `/probe on` in that session (resume it) "
                               "records them")
+            self.fail_requests(requests_mod.REASON_SESSION_END)
             self._release(lease.REASON_STOPPED)
             return 0
         left = None if self.finish_by is None else self.finish_by - self.clock()
@@ -1843,6 +2072,7 @@ class Worker:
             if unrecorded:
                 _device_error(f"session {self.session.session_id} ended with {unrecorded} events unrecorded; "
                               "the next daemon on this machine finishes them")
+            self.fail_requests(requests_mod.REASON_SESSION_END)
             self._release(lease.REASON_STOPPED)
             return 0
         return None
@@ -1863,6 +2093,8 @@ class Worker:
         if lease.held(sid):
             self._release(lease.REASON_STOPPED)
         self.read_new()
+        # The writer records nothing here: a request filed now, or still waiting, fails.
+        self.fail_requests(requests_mod.REASON_READ_ONLY)
         with self.store.tx():
             self.store.leave_unrecorded(self.read_only_from)
         # The reader reads here: the ML gate may pause its unasked turns too.
@@ -1993,9 +2225,15 @@ class Worker:
                                       force=True)
         if self.replay is None and mailbox.enabled(source=self.session.source):
             from probe.daemon.reader_lane import ReaderLane
+            from probe.daemon.run_alerts import RunAlertLane
 
             self.reader = ReaderLane(self)
             self.reader.start()
+            # Its own task, never a step of `tick`: tick returns early in `read
+            # only (daemon)` and awaits whole bites, and an alert must not wait
+            # behind either.
+            self.run_alerts = RunAlertLane(self)
+            self.run_alerts.start()
         if self.replay is None:
             from probe.daemon.audit import AuditLane
 
@@ -2007,6 +2245,9 @@ class Worker:
                 if self.stopping and self.reader is not None:
                     await self.reader.stop()  # nobody is left to deliver to
                     self.reader = None
+                if self.stopping and self.run_alerts is not None:
+                    await self.run_alerts.stop()  # nobody is left to tell
+                    self.run_alerts = None
                 if self.stopping and self.audit is not None:
                     await self.audit.stop()  # cut short before its write: the note stays due
                     self.audit = None
@@ -2018,6 +2259,9 @@ class Worker:
             if self.reader is not None:
                 await self.reader.stop()
                 self.reader = None
+            if self.run_alerts is not None:
+                await self.run_alerts.stop()
+                self.run_alerts = None
             if self.audit is not None:
                 await self.audit.stop()
                 self.audit = None
@@ -2211,6 +2455,12 @@ def _spans(value: object) -> dict:
 
 #: The claim log's inode when the reader stream's cursor was last saved.
 READER_LOG_INODE = "reader_log_inode"
+#: ...and `{"at": cursor, "hash": ...}`, the hash of the bytes just before the
+#: cursor (`GUARD_BYTES`): a log deleted and made again often gets the SAME
+#: inode number back, so the bytes, not the inode alone, tell a new log from the
+#: one read so far. A guard saved at another offset (a cursor an older build
+#: moved) is no evidence either way and is taken again where the cursor is.
+READER_LOG_TAIL = "reader_log_tail"
 #: How long a claim waits for the chat line that carries it (`_held`).
 CLAIM_HOLD_S = 10.0
 
@@ -2225,6 +2475,16 @@ def _held(at: object, newest: float | None, now: float) -> bool:
     if not 0 <= now - at < CLAIM_HOLD_S:  # a stamp from the future never holds
         return False
     return newest is None or newest < at
+
+
+def _bytes_before_hash(path: Path, offset: int) -> str | None:
+    """`_tail_hash` of the `GUARD_BYTES` before `offset` in `path`, or None."""
+    try:
+        with path.open("rb") as handle:
+            handle.seek(max(0, offset - GUARD_BYTES))
+            return _tail_hash(handle.read(offset - max(0, offset - GUARD_BYTES)))
+    except OSError:
+        return None
 
 
 def _inode(path: Path) -> int | None:
@@ -2577,6 +2837,12 @@ def main(argv: list[str] | None = None) -> int:
     # left by one that crashed is stale.
     mailbox.finishing_path(sid).unlink(missing_ok=True)
     try:
+        # At once, not after the folder baseline: `probe ask --writer` refuses a
+        # live worker without it as one from before requests.
+        mailbox.mark_worker_accepts(sid)
+    except OSError as exc:
+        log.warning("could not say this worker takes requests: %s", exc)
+    try:
         try:
             worker = Worker(Session(sid, Path(args.transcript), Path(args.cwd), args.source))
         except (LookupError, StoreVersionError) as exc:
@@ -2619,6 +2885,10 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_CRASHED
     finally:
         mailbox.finishing_path(sid).unlink(missing_ok=True)
+        try:
+            mailbox.clear_worker_accepts(sid)  # before the lock goes: the next worker writes its own
+        except OSError:
+            pass
         held.close()
 
 

@@ -10,7 +10,11 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from mistralai.vibe.sdk.observability.context import attributes_from_context
 
-TelemetryCallType = Literal["main_call", "secondary_call"]
+# Existing auxiliary requests (including compaction) explicitly use secondary_call;
+# unrecognized metadata falls back to main_call in _normalize_values.
+TelemetryCallType = Literal[
+    "main_call", "secondary_call", "title_generation", "worktree_title", "follow_up"
+]
 CALL_TYPES = get_args(TelemetryCallType)
 DEFAULT_CALL_TYPE: TelemetryCallType = "main_call"
 DEFAULT_CALL_SOURCE = "vibe_code"
@@ -40,6 +44,7 @@ class RequestMetadata(BaseModel):
     user_id: str | None = None
     workspace_id: str | None = None
     customer_id: str | None = None
+    user_plan: str | None = None
     call_type: TelemetryCallType | None = None
     call_source: str = DEFAULT_CALL_SOURCE
     surface: str | None = None

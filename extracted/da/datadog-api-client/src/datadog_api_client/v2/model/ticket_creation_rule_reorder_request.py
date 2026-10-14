@@ -30,7 +30,7 @@ class TicketCreationRuleReorderRequest(ModelNormal):
 
     def __init__(self_, data: List[TicketCreationRuleReorderItem], **kwargs):
         """
-        The body of the ticket creation rule reorder request.
+        The body of a ticket creation rule reorder request.
 
         :param data: The ordered list of all ticket creation rules. Every rule must be included.
         :type data: [TicketCreationRuleReorderItem]

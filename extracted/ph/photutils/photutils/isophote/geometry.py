@@ -116,7 +116,7 @@ class EllipseGeometry:
     fix_center : bool, optional
         Keep center of ellipse fixed during fit? The default is False.
     fix_pa : bool, optional
-        Keep position angle of semi-major axis of ellipse fixed during fit?
+        Keep position angle of semimajor axis of ellipse fixed during fit?
         The default is False.
     fix_eps : bool, optional
         Keep ellipticity of ellipse fixed during fit? The default is False.
@@ -143,10 +143,21 @@ class EllipseGeometry:
         self._phi_min = 0.05
         self._phi_max = 0.2
 
+        self._reset_sma_dependent_attributes()
+
+    def _reset_sma_dependent_attributes(self):
+        """
+        Reset attributes derived from the current semimajor axis length.
+        """
         # variables used in the calculation of the sector angular width
         sma1, sma2 = self.bounding_ellipses()
         inner_sma = min((sma2 - sma1), 3.0)
         self._area_factor = (sma2 - sma1) * inner_sma
+
+        for attr in ('sector_angular_width', 'initial_polar_angle',
+                     'initial_polar_radius'):
+            if hasattr(self, attr):
+                delattr(self, attr)
 
         # sma can eventually be zero!
         if self.sma > 0.0:
@@ -187,7 +198,7 @@ class EllipseGeometry:
 
         Notes
         -----
-        The centerer function scans a 10x10 window centered on the (x,
+        The centerer function scans an 11x11 window centered on the (x,
         y) coordinates in the `~photutils.isophote.EllipseGeometry`
         instance passed to the constructor of the
         `~photutils.isophote.Ellipse` class. If any of the
@@ -203,9 +214,9 @@ class EllipseGeometry:
         of the algorithm can be decreased by decreasing the value of
         the object centerer threshold parameter. The centerer works by
         looking where a quantity akin to a signal-to-noise ratio is
-        maximized within the 10x10 window. The centerer can thus be shut
+        maximized within the 11x11 window. The centerer can thus be shut
         off entirely by setting the threshold to a large value (i.e.,
-        >> 1; meaning no location inside the search window will achieve
+        >> 1, meaning no location inside the search window will achieve
         that signal-to-noise ratio).
         """
         self._centerer_mask_half_size = len(IN_MASK) / 2
@@ -276,7 +287,7 @@ class EllipseGeometry:
                 log.info(f'Found center at x0 = {self.x0:5.1f}, '
                          f'y0 = {self.y0:5.1f}')
         elif verbose:
-            log.info('Result is below the threshold -- keeping the '
+            log.info('Result is below the threshold. Keeping the '
                      'original coordinates.')
 
     def radius(self, angle):
@@ -438,7 +449,7 @@ class EllipseGeometry:
         # that is incurred when using vectorized code.
 
         # The split in two separate functions helps in
-        # the profiling analysis: most of the time is
+        # the profiling analysis. Most of the time is
         # spent in the scalar function.
         if isinstance(x, (int, float)):
             return self._to_polar_scalar(x, y)

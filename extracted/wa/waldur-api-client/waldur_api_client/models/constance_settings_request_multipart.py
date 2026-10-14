@@ -16,11 +16,14 @@ from ..models.fontfamily_enum import FONTFAMILYEnum
 from ..models.loginpagelayout_enum import LOGINPAGELAYOUTEnum
 from ..models.marketplacecardstyle_enum import MARKETPLACECARDSTYLEEnum
 from ..models.marketplacelayoutmode_enum import MARKETPLACELAYOUTMODEEnum
+from ..models.matrix_external_login_method_enum import MatrixExternalLoginMethodEnum
 from ..models.notify_system_enum import NotifySystemEnum
 from ..models.offering_type_enum import OfferingTypeEnum
 from ..models.onboarding_validation_enum import OnboardingValidationEnum
 from ..models.openportalmembershipsyncmode_enum import OPENPORTALMEMBERSHIPSYNCMODEEnum
+from ..models.proposal_configurable_field_enum import ProposalConfigurableFieldEnum
 from ..models.restrictedofferingvisibilitymode_enum import RESTRICTEDOFFERINGVISIBILITYMODEEnum
+from ..models.scimusermatchwaldurattribute_enum import SCIMUSERMATCHWALDURATTRIBUTEEnum
 from ..models.scriptrunmode_enum import SCRIPTRUNMODEEnum
 from ..models.serviceaccessmode_enum import SERVICEACCESSMODEEnum
 from ..models.sidebarstyle_enum import SIDEBARSTYLEEnum
@@ -48,6 +51,8 @@ class ConstanceSettingsRequestMultipart:
         homeport_url (Union[Unset, str]):
         rancher_username_input_label (Union[Unset, str]):
         disclaimer_area_text (Union[Unset, str]):
+        about_us_page_enabled (Union[Unset, bool]):
+        about_us_page_content (Union[Unset, str]):
         site_address (Union[Unset, str]):
         site_email (Union[Unset, str]):
         site_phone (Union[Unset, str]):
@@ -72,6 +77,7 @@ class ConstanceSettingsRequestMultipart:
         enable_issues_for_user_ssh_key_changes (Union[Unset, bool]):
         telemetry_url (Union[Unset, str]):
         telemetry_version (Union[Unset, int]):
+        telemetry_deployment_id (Union[Unset, str]):
         check_for_updates (Union[Unset, bool]):
         script_run_mode (Union[Unset, SCRIPTRUNMODEEnum]):
         docker_client (Union[Unset, str]):
@@ -125,6 +131,7 @@ class ConstanceSettingsRequestMultipart:
         waldur_support_enabled (Union[Unset, bool]):
         waldur_support_active_backend_type (Union[Unset, WALDURSUPPORTACTIVEBACKENDTYPEEnum]):
         waldur_support_display_request_type (Union[Unset, bool]):
+        waldur_support_issue_key_prefix (Union[Unset, str]):
         waldur_support_provider_routing_enabled (Union[Unset, bool]):
         waldur_support_auto_assign (Union[Unset, bool]):
         waldur_support_auto_assign_strategy (Union[Unset, str]):
@@ -140,6 +147,7 @@ class ConstanceSettingsRequestMultipart:
         atlassian_token (Union[Unset, str]):
         atlassian_personal_access_token (Union[Unset, str]):
         atlassian_oauth2_client_id (Union[Unset, str]):
+        atlassian_oauth2_client_secret (Union[Unset, str]):
         atlassian_oauth2_access_token (Union[Unset, str]):
         atlassian_oauth2_token_type (Union[Unset, str]):
         atlassian_verify_ssl (Union[Unset, bool]):
@@ -189,6 +197,7 @@ class ConstanceSettingsRequestMultipart:
         enable_mock_service_account_backend (Union[Unset, bool]):
         enable_mock_course_account_backend (Union[Unset, bool]):
         proposal_review_duration (Union[Unset, int]):
+        proposal_dashboard_reviews_due_within_days (Union[Unset, int]):
         orcid_client_id (Union[Unset, str]):
         orcid_client_secret (Union[Unset, str]):
         orcid_redirect_uri (Union[Unset, str]):
@@ -223,6 +232,10 @@ class ConstanceSettingsRequestMultipart:
         scim_inbound_source_name (Union[Unset, str]):
         scim_inbound_allowed_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         scim_inbound_ssh_keys_enabled (Union[Unset, bool]):
+        scim_user_match_waldur_attribute (Union[Unset, SCIMUSERMATCHWALDURATTRIBUTEEnum]):
+        scim_user_match_scim_attribute (Union[Unset, str]):
+        sram_integration_enabled (Union[Unset, bool]):
+        sram_placeholder_role_template (Union[Unset, str]):
         scim_pull_api_url (Union[Unset, str]):
         scim_pull_api_key (Union[Unset, str]):
         scim_pull_source_name (Union[Unset, str]):
@@ -234,6 +247,7 @@ class ConstanceSettingsRequestMultipart:
         oidc_client_secret (Union[Unset, str]):
         oidc_user_field (Union[Unset, str]):
         oidc_cache_timeout (Union[Unset, int]):
+        oidc_registration_method (Union[Unset, str]):
         oidc_access_token_enabled (Union[Unset, bool]):
         oidc_block_creation_of_uninvited_users (Union[Unset, bool]):
         oidc_block_creation_of_uninvited_users_response_message (Union[Unset, str]):
@@ -246,6 +260,8 @@ class ConstanceSettingsRequestMultipart:
         remote_eduteams_refresh_token (Union[Unset, str]):
         default_offering_user_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         default_call_user_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
+        default_proposal_required_fields (Union[Unset, list[Union[BlankEnum, ProposalConfigurableFieldEnum]]]):
+        default_proposal_hidden_fields (Union[Unset, list[Union[BlankEnum, ProposalConfigurableFieldEnum]]]):
         invitation_allowed_fields (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         enabled_user_profile_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         mandatory_user_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
@@ -333,6 +349,12 @@ class ConstanceSettingsRequestMultipart:
         arrow_consumption_sync_enabled (Union[Unset, bool]):
         arrow_consumption_sync_interval_hours (Union[Unset, int]):
         arrow_billing_check_interval_hours (Union[Unset, int]):
+        metrics_late_data_days (Union[Unset, int]):
+        metrics_max_series_per_resource_metric (Union[Unset, int]):
+        metrics_max_points_per_request (Union[Unset, int]):
+        metrics_max_otlp_body_bytes (Union[Unset, int]):
+        metrics_default_retention_policy (Union[Unset, str]):
+        metrics_archive_grace_days (Union[Unset, int]):
         usage_poll_record_retention_months (Union[Unset, int]):
         slurm_policy_evaluation_log_retention_days (Union[Unset, int]):
         federated_identity_sync_enabled (Union[Unset, bool]):
@@ -347,21 +369,25 @@ class ConstanceSettingsRequestMultipart:
         posix_id_pool_utilization_threshold (Union[Unset, int]):
         affiliates_enabled (Union[Unset, bool]):
         matrix_enabled (Union[Unset, bool]):
+        matrix_auto_create_project_rooms (Union[Unset, bool]):
         matrix_homeserver_url (Union[Unset, str]):
         matrix_homeserver_public_url (Union[Unset, str]):
         matrix_homeserver_domain (Union[Unset, str]):
         matrix_appservice_as_token (Union[Unset, str]):
         matrix_appservice_hs_token (Union[Unset, str]):
         matrix_appservice_sender_localpart (Union[Unset, str]):
+        matrix_tokens_managed_by (Union[Unset, str]):
         matrix_history_export_enabled (Union[Unset, bool]):
         matrix_export_media (Union[Unset, bool]):
+        matrix_history_export_retention_days (Union[Unset, int]):
         matrix_user_registration_secret (Union[Unset, str]):
         matrix_user_id_format (Union[Unset, str]):
-        matrix_login_method (Union[Unset, str]):
-        matrix_oidc_provider_url (Union[Unset, str]):
+        matrix_external_login_method (Union[Unset, MatrixExternalLoginMethodEnum]):
+        matrix_sso_registration_method (Union[Unset, str]):
         matrix_livekit_key (Union[Unset, str]):
         matrix_livekit_secret (Union[Unset, str]):
         matrix_livekit_url (Union[Unset, str]):
+        matrix_livekit_public_url (Union[Unset, str]):
         site_agent_log_max_rows_per_identity (Union[Unset, int]):
         pat_enabled (Union[Unset, bool]):
         pat_max_lifetime_days (Union[Unset, int]):
@@ -375,6 +401,8 @@ class ConstanceSettingsRequestMultipart:
     homeport_url: Union[Unset, str] = UNSET
     rancher_username_input_label: Union[Unset, str] = UNSET
     disclaimer_area_text: Union[Unset, str] = UNSET
+    about_us_page_enabled: Union[Unset, bool] = UNSET
+    about_us_page_content: Union[Unset, str] = UNSET
     site_address: Union[Unset, str] = UNSET
     site_email: Union[Unset, str] = UNSET
     site_phone: Union[Unset, str] = UNSET
@@ -399,6 +427,7 @@ class ConstanceSettingsRequestMultipart:
     enable_issues_for_user_ssh_key_changes: Union[Unset, bool] = UNSET
     telemetry_url: Union[Unset, str] = UNSET
     telemetry_version: Union[Unset, int] = UNSET
+    telemetry_deployment_id: Union[Unset, str] = UNSET
     check_for_updates: Union[Unset, bool] = UNSET
     script_run_mode: Union[Unset, SCRIPTRUNMODEEnum] = UNSET
     docker_client: Union[Unset, str] = UNSET
@@ -452,6 +481,7 @@ class ConstanceSettingsRequestMultipart:
     waldur_support_enabled: Union[Unset, bool] = UNSET
     waldur_support_active_backend_type: Union[Unset, WALDURSUPPORTACTIVEBACKENDTYPEEnum] = UNSET
     waldur_support_display_request_type: Union[Unset, bool] = UNSET
+    waldur_support_issue_key_prefix: Union[Unset, str] = UNSET
     waldur_support_provider_routing_enabled: Union[Unset, bool] = UNSET
     waldur_support_auto_assign: Union[Unset, bool] = UNSET
     waldur_support_auto_assign_strategy: Union[Unset, str] = UNSET
@@ -467,6 +497,7 @@ class ConstanceSettingsRequestMultipart:
     atlassian_token: Union[Unset, str] = UNSET
     atlassian_personal_access_token: Union[Unset, str] = UNSET
     atlassian_oauth2_client_id: Union[Unset, str] = UNSET
+    atlassian_oauth2_client_secret: Union[Unset, str] = UNSET
     atlassian_oauth2_access_token: Union[Unset, str] = UNSET
     atlassian_oauth2_token_type: Union[Unset, str] = UNSET
     atlassian_verify_ssl: Union[Unset, bool] = UNSET
@@ -516,6 +547,7 @@ class ConstanceSettingsRequestMultipart:
     enable_mock_service_account_backend: Union[Unset, bool] = UNSET
     enable_mock_course_account_backend: Union[Unset, bool] = UNSET
     proposal_review_duration: Union[Unset, int] = UNSET
+    proposal_dashboard_reviews_due_within_days: Union[Unset, int] = UNSET
     orcid_client_id: Union[Unset, str] = UNSET
     orcid_client_secret: Union[Unset, str] = UNSET
     orcid_redirect_uri: Union[Unset, str] = UNSET
@@ -550,6 +582,10 @@ class ConstanceSettingsRequestMultipart:
     scim_inbound_source_name: Union[Unset, str] = UNSET
     scim_inbound_allowed_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     scim_inbound_ssh_keys_enabled: Union[Unset, bool] = UNSET
+    scim_user_match_waldur_attribute: Union[Unset, SCIMUSERMATCHWALDURATTRIBUTEEnum] = UNSET
+    scim_user_match_scim_attribute: Union[Unset, str] = UNSET
+    sram_integration_enabled: Union[Unset, bool] = UNSET
+    sram_placeholder_role_template: Union[Unset, str] = UNSET
     scim_pull_api_url: Union[Unset, str] = UNSET
     scim_pull_api_key: Union[Unset, str] = UNSET
     scim_pull_source_name: Union[Unset, str] = UNSET
@@ -561,6 +597,7 @@ class ConstanceSettingsRequestMultipart:
     oidc_client_secret: Union[Unset, str] = UNSET
     oidc_user_field: Union[Unset, str] = UNSET
     oidc_cache_timeout: Union[Unset, int] = UNSET
+    oidc_registration_method: Union[Unset, str] = UNSET
     oidc_access_token_enabled: Union[Unset, bool] = UNSET
     oidc_block_creation_of_uninvited_users: Union[Unset, bool] = UNSET
     oidc_block_creation_of_uninvited_users_response_message: Union[Unset, str] = UNSET
@@ -573,6 +610,8 @@ class ConstanceSettingsRequestMultipart:
     remote_eduteams_refresh_token: Union[Unset, str] = UNSET
     default_offering_user_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     default_call_user_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
+    default_proposal_required_fields: Union[Unset, list[Union[BlankEnum, ProposalConfigurableFieldEnum]]] = UNSET
+    default_proposal_hidden_fields: Union[Unset, list[Union[BlankEnum, ProposalConfigurableFieldEnum]]] = UNSET
     invitation_allowed_fields: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     enabled_user_profile_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     mandatory_user_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
@@ -660,6 +699,12 @@ class ConstanceSettingsRequestMultipart:
     arrow_consumption_sync_enabled: Union[Unset, bool] = UNSET
     arrow_consumption_sync_interval_hours: Union[Unset, int] = UNSET
     arrow_billing_check_interval_hours: Union[Unset, int] = UNSET
+    metrics_late_data_days: Union[Unset, int] = UNSET
+    metrics_max_series_per_resource_metric: Union[Unset, int] = UNSET
+    metrics_max_points_per_request: Union[Unset, int] = UNSET
+    metrics_max_otlp_body_bytes: Union[Unset, int] = UNSET
+    metrics_default_retention_policy: Union[Unset, str] = UNSET
+    metrics_archive_grace_days: Union[Unset, int] = UNSET
     usage_poll_record_retention_months: Union[Unset, int] = UNSET
     slurm_policy_evaluation_log_retention_days: Union[Unset, int] = UNSET
     federated_identity_sync_enabled: Union[Unset, bool] = UNSET
@@ -674,21 +719,25 @@ class ConstanceSettingsRequestMultipart:
     posix_id_pool_utilization_threshold: Union[Unset, int] = UNSET
     affiliates_enabled: Union[Unset, bool] = UNSET
     matrix_enabled: Union[Unset, bool] = UNSET
+    matrix_auto_create_project_rooms: Union[Unset, bool] = UNSET
     matrix_homeserver_url: Union[Unset, str] = UNSET
     matrix_homeserver_public_url: Union[Unset, str] = UNSET
     matrix_homeserver_domain: Union[Unset, str] = UNSET
     matrix_appservice_as_token: Union[Unset, str] = UNSET
     matrix_appservice_hs_token: Union[Unset, str] = UNSET
     matrix_appservice_sender_localpart: Union[Unset, str] = UNSET
+    matrix_tokens_managed_by: Union[Unset, str] = UNSET
     matrix_history_export_enabled: Union[Unset, bool] = UNSET
     matrix_export_media: Union[Unset, bool] = UNSET
+    matrix_history_export_retention_days: Union[Unset, int] = UNSET
     matrix_user_registration_secret: Union[Unset, str] = UNSET
     matrix_user_id_format: Union[Unset, str] = UNSET
-    matrix_login_method: Union[Unset, str] = UNSET
-    matrix_oidc_provider_url: Union[Unset, str] = UNSET
+    matrix_external_login_method: Union[Unset, MatrixExternalLoginMethodEnum] = UNSET
+    matrix_sso_registration_method: Union[Unset, str] = UNSET
     matrix_livekit_key: Union[Unset, str] = UNSET
     matrix_livekit_secret: Union[Unset, str] = UNSET
     matrix_livekit_url: Union[Unset, str] = UNSET
+    matrix_livekit_public_url: Union[Unset, str] = UNSET
     site_agent_log_max_rows_per_identity: Union[Unset, int] = UNSET
     pat_enabled: Union[Unset, bool] = UNSET
     pat_max_lifetime_days: Union[Unset, int] = UNSET
@@ -707,6 +756,10 @@ class ConstanceSettingsRequestMultipart:
         rancher_username_input_label = self.rancher_username_input_label
 
         disclaimer_area_text = self.disclaimer_area_text
+
+        about_us_page_enabled = self.about_us_page_enabled
+
+        about_us_page_content = self.about_us_page_content
 
         site_address = self.site_address
 
@@ -765,6 +818,8 @@ class ConstanceSettingsRequestMultipart:
         telemetry_url = self.telemetry_url
 
         telemetry_version = self.telemetry_version
+
+        telemetry_deployment_id = self.telemetry_deployment_id
 
         check_for_updates = self.check_for_updates
 
@@ -973,6 +1028,8 @@ class ConstanceSettingsRequestMultipart:
 
         waldur_support_display_request_type = self.waldur_support_display_request_type
 
+        waldur_support_issue_key_prefix = self.waldur_support_issue_key_prefix
+
         waldur_support_provider_routing_enabled = self.waldur_support_provider_routing_enabled
 
         waldur_support_auto_assign = self.waldur_support_auto_assign
@@ -1002,6 +1059,8 @@ class ConstanceSettingsRequestMultipart:
         atlassian_personal_access_token = self.atlassian_personal_access_token
 
         atlassian_oauth2_client_id = self.atlassian_oauth2_client_id
+
+        atlassian_oauth2_client_secret = self.atlassian_oauth2_client_secret
 
         atlassian_oauth2_access_token = self.atlassian_oauth2_access_token
 
@@ -1103,6 +1162,8 @@ class ConstanceSettingsRequestMultipart:
 
         proposal_review_duration = self.proposal_review_duration
 
+        proposal_dashboard_reviews_due_within_days = self.proposal_dashboard_reviews_due_within_days
+
         orcid_client_id = self.orcid_client_id
 
         orcid_client_secret = self.orcid_client_secret
@@ -1183,6 +1244,16 @@ class ConstanceSettingsRequestMultipart:
 
         scim_inbound_ssh_keys_enabled = self.scim_inbound_ssh_keys_enabled
 
+        scim_user_match_waldur_attribute: Union[Unset, str] = UNSET
+        if not isinstance(self.scim_user_match_waldur_attribute, Unset):
+            scim_user_match_waldur_attribute = self.scim_user_match_waldur_attribute.value
+
+        scim_user_match_scim_attribute = self.scim_user_match_scim_attribute
+
+        sram_integration_enabled = self.sram_integration_enabled
+
+        sram_placeholder_role_template = self.sram_placeholder_role_template
+
         scim_pull_api_url = self.scim_pull_api_url
 
         scim_pull_api_key = self.scim_pull_api_key
@@ -1213,6 +1284,8 @@ class ConstanceSettingsRequestMultipart:
         oidc_user_field = self.oidc_user_field
 
         oidc_cache_timeout = self.oidc_cache_timeout
+
+        oidc_registration_method = self.oidc_registration_method
 
         oidc_access_token_enabled = self.oidc_access_token_enabled
 
@@ -1261,6 +1334,30 @@ class ConstanceSettingsRequestMultipart:
                     default_call_user_attributes_item = default_call_user_attributes_item_data.value
 
                 default_call_user_attributes.append(default_call_user_attributes_item)
+
+        default_proposal_required_fields: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.default_proposal_required_fields, Unset):
+            default_proposal_required_fields = []
+            for default_proposal_required_fields_item_data in self.default_proposal_required_fields:
+                default_proposal_required_fields_item: str
+                if isinstance(default_proposal_required_fields_item_data, ProposalConfigurableFieldEnum):
+                    default_proposal_required_fields_item = default_proposal_required_fields_item_data.value
+                else:
+                    default_proposal_required_fields_item = default_proposal_required_fields_item_data.value
+
+                default_proposal_required_fields.append(default_proposal_required_fields_item)
+
+        default_proposal_hidden_fields: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.default_proposal_hidden_fields, Unset):
+            default_proposal_hidden_fields = []
+            for default_proposal_hidden_fields_item_data in self.default_proposal_hidden_fields:
+                default_proposal_hidden_fields_item: str
+                if isinstance(default_proposal_hidden_fields_item_data, ProposalConfigurableFieldEnum):
+                    default_proposal_hidden_fields_item = default_proposal_hidden_fields_item_data.value
+                else:
+                    default_proposal_hidden_fields_item = default_proposal_hidden_fields_item_data.value
+
+                default_proposal_hidden_fields.append(default_proposal_hidden_fields_item)
 
         invitation_allowed_fields: Union[Unset, list[str]] = UNSET
         if not isinstance(self.invitation_allowed_fields, Unset):
@@ -1500,6 +1597,18 @@ class ConstanceSettingsRequestMultipart:
 
         arrow_billing_check_interval_hours = self.arrow_billing_check_interval_hours
 
+        metrics_late_data_days = self.metrics_late_data_days
+
+        metrics_max_series_per_resource_metric = self.metrics_max_series_per_resource_metric
+
+        metrics_max_points_per_request = self.metrics_max_points_per_request
+
+        metrics_max_otlp_body_bytes = self.metrics_max_otlp_body_bytes
+
+        metrics_default_retention_policy = self.metrics_default_retention_policy
+
+        metrics_archive_grace_days = self.metrics_archive_grace_days
+
         usage_poll_record_retention_months = self.usage_poll_record_retention_months
 
         slurm_policy_evaluation_log_retention_days = self.slurm_policy_evaluation_log_retention_days
@@ -1574,6 +1683,8 @@ class ConstanceSettingsRequestMultipart:
 
         matrix_enabled = self.matrix_enabled
 
+        matrix_auto_create_project_rooms = self.matrix_auto_create_project_rooms
+
         matrix_homeserver_url = self.matrix_homeserver_url
 
         matrix_homeserver_public_url = self.matrix_homeserver_public_url
@@ -1586,23 +1697,31 @@ class ConstanceSettingsRequestMultipart:
 
         matrix_appservice_sender_localpart = self.matrix_appservice_sender_localpart
 
+        matrix_tokens_managed_by = self.matrix_tokens_managed_by
+
         matrix_history_export_enabled = self.matrix_history_export_enabled
 
         matrix_export_media = self.matrix_export_media
+
+        matrix_history_export_retention_days = self.matrix_history_export_retention_days
 
         matrix_user_registration_secret = self.matrix_user_registration_secret
 
         matrix_user_id_format = self.matrix_user_id_format
 
-        matrix_login_method = self.matrix_login_method
+        matrix_external_login_method: Union[Unset, str] = UNSET
+        if not isinstance(self.matrix_external_login_method, Unset):
+            matrix_external_login_method = self.matrix_external_login_method.value
 
-        matrix_oidc_provider_url = self.matrix_oidc_provider_url
+        matrix_sso_registration_method = self.matrix_sso_registration_method
 
         matrix_livekit_key = self.matrix_livekit_key
 
         matrix_livekit_secret = self.matrix_livekit_secret
 
         matrix_livekit_url = self.matrix_livekit_url
+
+        matrix_livekit_public_url = self.matrix_livekit_public_url
 
         site_agent_log_max_rows_per_identity = self.site_agent_log_max_rows_per_identity
 
@@ -1629,6 +1748,10 @@ class ConstanceSettingsRequestMultipart:
             field_dict["RANCHER_USERNAME_INPUT_LABEL"] = rancher_username_input_label
         if disclaimer_area_text is not UNSET:
             field_dict["DISCLAIMER_AREA_TEXT"] = disclaimer_area_text
+        if about_us_page_enabled is not UNSET:
+            field_dict["ABOUT_US_PAGE_ENABLED"] = about_us_page_enabled
+        if about_us_page_content is not UNSET:
+            field_dict["ABOUT_US_PAGE_CONTENT"] = about_us_page_content
         if site_address is not UNSET:
             field_dict["SITE_ADDRESS"] = site_address
         if site_email is not UNSET:
@@ -1679,6 +1802,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["TELEMETRY_URL"] = telemetry_url
         if telemetry_version is not UNSET:
             field_dict["TELEMETRY_VERSION"] = telemetry_version
+        if telemetry_deployment_id is not UNSET:
+            field_dict["TELEMETRY_DEPLOYMENT_ID"] = telemetry_deployment_id
         if check_for_updates is not UNSET:
             field_dict["CHECK_FOR_UPDATES"] = check_for_updates
         if script_run_mode is not UNSET:
@@ -1785,6 +1910,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["WALDUR_SUPPORT_ACTIVE_BACKEND_TYPE"] = waldur_support_active_backend_type
         if waldur_support_display_request_type is not UNSET:
             field_dict["WALDUR_SUPPORT_DISPLAY_REQUEST_TYPE"] = waldur_support_display_request_type
+        if waldur_support_issue_key_prefix is not UNSET:
+            field_dict["WALDUR_SUPPORT_ISSUE_KEY_PREFIX"] = waldur_support_issue_key_prefix
         if waldur_support_provider_routing_enabled is not UNSET:
             field_dict["WALDUR_SUPPORT_PROVIDER_ROUTING_ENABLED"] = waldur_support_provider_routing_enabled
         if waldur_support_auto_assign is not UNSET:
@@ -1817,6 +1944,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["ATLASSIAN_PERSONAL_ACCESS_TOKEN"] = atlassian_personal_access_token
         if atlassian_oauth2_client_id is not UNSET:
             field_dict["ATLASSIAN_OAUTH2_CLIENT_ID"] = atlassian_oauth2_client_id
+        if atlassian_oauth2_client_secret is not UNSET:
+            field_dict["ATLASSIAN_OAUTH2_CLIENT_SECRET"] = atlassian_oauth2_client_secret
         if atlassian_oauth2_access_token is not UNSET:
             field_dict["ATLASSIAN_OAUTH2_ACCESS_TOKEN"] = atlassian_oauth2_access_token
         if atlassian_oauth2_token_type is not UNSET:
@@ -1915,6 +2044,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["ENABLE_MOCK_COURSE_ACCOUNT_BACKEND"] = enable_mock_course_account_backend
         if proposal_review_duration is not UNSET:
             field_dict["PROPOSAL_REVIEW_DURATION"] = proposal_review_duration
+        if proposal_dashboard_reviews_due_within_days is not UNSET:
+            field_dict["PROPOSAL_DASHBOARD_REVIEWS_DUE_WITHIN_DAYS"] = proposal_dashboard_reviews_due_within_days
         if orcid_client_id is not UNSET:
             field_dict["ORCID_CLIENT_ID"] = orcid_client_id
         if orcid_client_secret is not UNSET:
@@ -1983,6 +2114,14 @@ class ConstanceSettingsRequestMultipart:
             field_dict["SCIM_INBOUND_ALLOWED_ATTRIBUTES"] = scim_inbound_allowed_attributes
         if scim_inbound_ssh_keys_enabled is not UNSET:
             field_dict["SCIM_INBOUND_SSH_KEYS_ENABLED"] = scim_inbound_ssh_keys_enabled
+        if scim_user_match_waldur_attribute is not UNSET:
+            field_dict["SCIM_USER_MATCH_WALDUR_ATTRIBUTE"] = scim_user_match_waldur_attribute
+        if scim_user_match_scim_attribute is not UNSET:
+            field_dict["SCIM_USER_MATCH_SCIM_ATTRIBUTE"] = scim_user_match_scim_attribute
+        if sram_integration_enabled is not UNSET:
+            field_dict["SRAM_INTEGRATION_ENABLED"] = sram_integration_enabled
+        if sram_placeholder_role_template is not UNSET:
+            field_dict["SRAM_PLACEHOLDER_ROLE_TEMPLATE"] = sram_placeholder_role_template
         if scim_pull_api_url is not UNSET:
             field_dict["SCIM_PULL_API_URL"] = scim_pull_api_url
         if scim_pull_api_key is not UNSET:
@@ -2005,6 +2144,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["OIDC_USER_FIELD"] = oidc_user_field
         if oidc_cache_timeout is not UNSET:
             field_dict["OIDC_CACHE_TIMEOUT"] = oidc_cache_timeout
+        if oidc_registration_method is not UNSET:
+            field_dict["OIDC_REGISTRATION_METHOD"] = oidc_registration_method
         if oidc_access_token_enabled is not UNSET:
             field_dict["OIDC_ACCESS_TOKEN_ENABLED"] = oidc_access_token_enabled
         if oidc_block_creation_of_uninvited_users is not UNSET:
@@ -2031,6 +2172,10 @@ class ConstanceSettingsRequestMultipart:
             field_dict["DEFAULT_OFFERING_USER_ATTRIBUTES"] = default_offering_user_attributes
         if default_call_user_attributes is not UNSET:
             field_dict["DEFAULT_CALL_USER_ATTRIBUTES"] = default_call_user_attributes
+        if default_proposal_required_fields is not UNSET:
+            field_dict["DEFAULT_PROPOSAL_REQUIRED_FIELDS"] = default_proposal_required_fields
+        if default_proposal_hidden_fields is not UNSET:
+            field_dict["DEFAULT_PROPOSAL_HIDDEN_FIELDS"] = default_proposal_hidden_fields
         if invitation_allowed_fields is not UNSET:
             field_dict["INVITATION_ALLOWED_FIELDS"] = invitation_allowed_fields
         if enabled_user_profile_attributes is not UNSET:
@@ -2211,6 +2356,18 @@ class ConstanceSettingsRequestMultipart:
             field_dict["ARROW_CONSUMPTION_SYNC_INTERVAL_HOURS"] = arrow_consumption_sync_interval_hours
         if arrow_billing_check_interval_hours is not UNSET:
             field_dict["ARROW_BILLING_CHECK_INTERVAL_HOURS"] = arrow_billing_check_interval_hours
+        if metrics_late_data_days is not UNSET:
+            field_dict["METRICS_LATE_DATA_DAYS"] = metrics_late_data_days
+        if metrics_max_series_per_resource_metric is not UNSET:
+            field_dict["METRICS_MAX_SERIES_PER_RESOURCE_METRIC"] = metrics_max_series_per_resource_metric
+        if metrics_max_points_per_request is not UNSET:
+            field_dict["METRICS_MAX_POINTS_PER_REQUEST"] = metrics_max_points_per_request
+        if metrics_max_otlp_body_bytes is not UNSET:
+            field_dict["METRICS_MAX_OTLP_BODY_BYTES"] = metrics_max_otlp_body_bytes
+        if metrics_default_retention_policy is not UNSET:
+            field_dict["METRICS_DEFAULT_RETENTION_POLICY"] = metrics_default_retention_policy
+        if metrics_archive_grace_days is not UNSET:
+            field_dict["METRICS_ARCHIVE_GRACE_DAYS"] = metrics_archive_grace_days
         if usage_poll_record_retention_months is not UNSET:
             field_dict["USAGE_POLL_RECORD_RETENTION_MONTHS"] = usage_poll_record_retention_months
         if slurm_policy_evaluation_log_retention_days is not UNSET:
@@ -2239,6 +2396,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["AFFILIATES_ENABLED"] = affiliates_enabled
         if matrix_enabled is not UNSET:
             field_dict["MATRIX_ENABLED"] = matrix_enabled
+        if matrix_auto_create_project_rooms is not UNSET:
+            field_dict["MATRIX_AUTO_CREATE_PROJECT_ROOMS"] = matrix_auto_create_project_rooms
         if matrix_homeserver_url is not UNSET:
             field_dict["MATRIX_HOMESERVER_URL"] = matrix_homeserver_url
         if matrix_homeserver_public_url is not UNSET:
@@ -2251,24 +2410,30 @@ class ConstanceSettingsRequestMultipart:
             field_dict["MATRIX_APPSERVICE_HS_TOKEN"] = matrix_appservice_hs_token
         if matrix_appservice_sender_localpart is not UNSET:
             field_dict["MATRIX_APPSERVICE_SENDER_LOCALPART"] = matrix_appservice_sender_localpart
+        if matrix_tokens_managed_by is not UNSET:
+            field_dict["MATRIX_TOKENS_MANAGED_BY"] = matrix_tokens_managed_by
         if matrix_history_export_enabled is not UNSET:
             field_dict["MATRIX_HISTORY_EXPORT_ENABLED"] = matrix_history_export_enabled
         if matrix_export_media is not UNSET:
             field_dict["MATRIX_EXPORT_MEDIA"] = matrix_export_media
+        if matrix_history_export_retention_days is not UNSET:
+            field_dict["MATRIX_HISTORY_EXPORT_RETENTION_DAYS"] = matrix_history_export_retention_days
         if matrix_user_registration_secret is not UNSET:
             field_dict["MATRIX_USER_REGISTRATION_SECRET"] = matrix_user_registration_secret
         if matrix_user_id_format is not UNSET:
             field_dict["MATRIX_USER_ID_FORMAT"] = matrix_user_id_format
-        if matrix_login_method is not UNSET:
-            field_dict["MATRIX_LOGIN_METHOD"] = matrix_login_method
-        if matrix_oidc_provider_url is not UNSET:
-            field_dict["MATRIX_OIDC_PROVIDER_URL"] = matrix_oidc_provider_url
+        if matrix_external_login_method is not UNSET:
+            field_dict["MATRIX_EXTERNAL_LOGIN_METHOD"] = matrix_external_login_method
+        if matrix_sso_registration_method is not UNSET:
+            field_dict["MATRIX_SSO_REGISTRATION_METHOD"] = matrix_sso_registration_method
         if matrix_livekit_key is not UNSET:
             field_dict["MATRIX_LIVEKIT_KEY"] = matrix_livekit_key
         if matrix_livekit_secret is not UNSET:
             field_dict["MATRIX_LIVEKIT_SECRET"] = matrix_livekit_secret
         if matrix_livekit_url is not UNSET:
             field_dict["MATRIX_LIVEKIT_URL"] = matrix_livekit_url
+        if matrix_livekit_public_url is not UNSET:
+            field_dict["MATRIX_LIVEKIT_PUBLIC_URL"] = matrix_livekit_public_url
         if site_agent_log_max_rows_per_identity is not UNSET:
             field_dict["SITE_AGENT_LOG_MAX_ROWS_PER_IDENTITY"] = site_agent_log_max_rows_per_identity
         if pat_enabled is not UNSET:
@@ -2303,6 +2468,12 @@ class ConstanceSettingsRequestMultipart:
 
         if not isinstance(self.disclaimer_area_text, Unset):
             files.append(("DISCLAIMER_AREA_TEXT", (None, str(self.disclaimer_area_text).encode(), "text/plain")))
+
+        if not isinstance(self.about_us_page_enabled, Unset):
+            files.append(("ABOUT_US_PAGE_ENABLED", (None, str(self.about_us_page_enabled).encode(), "text/plain")))
+
+        if not isinstance(self.about_us_page_content, Unset):
+            files.append(("ABOUT_US_PAGE_CONTENT", (None, str(self.about_us_page_content).encode(), "text/plain")))
 
         if not isinstance(self.site_address, Unset):
             files.append(("SITE_ADDRESS", (None, str(self.site_address).encode(), "text/plain")))
@@ -2431,6 +2602,9 @@ class ConstanceSettingsRequestMultipart:
 
         if not isinstance(self.telemetry_version, Unset):
             files.append(("TELEMETRY_VERSION", (None, str(self.telemetry_version).encode(), "text/plain")))
+
+        if not isinstance(self.telemetry_deployment_id, Unset):
+            files.append(("TELEMETRY_DEPLOYMENT_ID", (None, str(self.telemetry_deployment_id).encode(), "text/plain")))
 
         if not isinstance(self.check_for_updates, Unset):
             files.append(("CHECK_FOR_UPDATES", (None, str(self.check_for_updates).encode(), "text/plain")))
@@ -2680,6 +2854,14 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.waldur_support_issue_key_prefix, Unset):
+            files.append(
+                (
+                    "WALDUR_SUPPORT_ISSUE_KEY_PREFIX",
+                    (None, str(self.waldur_support_issue_key_prefix).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.waldur_support_provider_routing_enabled, Unset):
             files.append(
                 (
@@ -2759,6 +2941,14 @@ class ConstanceSettingsRequestMultipart:
         if not isinstance(self.atlassian_oauth2_client_id, Unset):
             files.append(
                 ("ATLASSIAN_OAUTH2_CLIENT_ID", (None, str(self.atlassian_oauth2_client_id).encode(), "text/plain"))
+            )
+
+        if not isinstance(self.atlassian_oauth2_client_secret, Unset):
+            files.append(
+                (
+                    "ATLASSIAN_OAUTH2_CLIENT_SECRET",
+                    (None, str(self.atlassian_oauth2_client_secret).encode(), "text/plain"),
+                )
             )
 
         if not isinstance(self.atlassian_oauth2_access_token, Unset):
@@ -2996,6 +3186,14 @@ class ConstanceSettingsRequestMultipart:
                 ("PROPOSAL_REVIEW_DURATION", (None, str(self.proposal_review_duration).encode(), "text/plain"))
             )
 
+        if not isinstance(self.proposal_dashboard_reviews_due_within_days, Unset):
+            files.append(
+                (
+                    "PROPOSAL_DASHBOARD_REVIEWS_DUE_WITHIN_DAYS",
+                    (None, str(self.proposal_dashboard_reviews_due_within_days).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.orcid_client_id, Unset):
             files.append(("ORCID_CLIENT_ID", (None, str(self.orcid_client_id).encode(), "text/plain")))
 
@@ -3155,6 +3353,35 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.scim_user_match_waldur_attribute, Unset):
+            files.append(
+                (
+                    "SCIM_USER_MATCH_WALDUR_ATTRIBUTE",
+                    (None, str(self.scim_user_match_waldur_attribute.value).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.scim_user_match_scim_attribute, Unset):
+            files.append(
+                (
+                    "SCIM_USER_MATCH_SCIM_ATTRIBUTE",
+                    (None, str(self.scim_user_match_scim_attribute).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.sram_integration_enabled, Unset):
+            files.append(
+                ("SRAM_INTEGRATION_ENABLED", (None, str(self.sram_integration_enabled).encode(), "text/plain"))
+            )
+
+        if not isinstance(self.sram_placeholder_role_template, Unset):
+            files.append(
+                (
+                    "SRAM_PLACEHOLDER_ROLE_TEMPLATE",
+                    (None, str(self.sram_placeholder_role_template).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.scim_pull_api_url, Unset):
             files.append(("SCIM_PULL_API_URL", (None, str(self.scim_pull_api_url).encode(), "text/plain")))
 
@@ -3191,6 +3418,11 @@ class ConstanceSettingsRequestMultipart:
 
         if not isinstance(self.oidc_cache_timeout, Unset):
             files.append(("OIDC_CACHE_TIMEOUT", (None, str(self.oidc_cache_timeout).encode(), "text/plain")))
+
+        if not isinstance(self.oidc_registration_method, Unset):
+            files.append(
+                ("OIDC_REGISTRATION_METHOD", (None, str(self.oidc_registration_method).encode(), "text/plain"))
+            )
 
         if not isinstance(self.oidc_access_token_enabled, Unset):
             files.append(
@@ -3290,6 +3522,40 @@ class ConstanceSettingsRequestMultipart:
                         (
                             "DEFAULT_CALL_USER_ATTRIBUTES",
                             (None, str(default_call_user_attributes_item_element.value).encode(), "text/plain"),
+                        )
+                    )
+
+        if not isinstance(self.default_proposal_required_fields, Unset):
+            for default_proposal_required_fields_item_element in self.default_proposal_required_fields:
+                if isinstance(default_proposal_required_fields_item_element, ProposalConfigurableFieldEnum):
+                    files.append(
+                        (
+                            "DEFAULT_PROPOSAL_REQUIRED_FIELDS",
+                            (None, str(default_proposal_required_fields_item_element.value).encode(), "text/plain"),
+                        )
+                    )
+                else:
+                    files.append(
+                        (
+                            "DEFAULT_PROPOSAL_REQUIRED_FIELDS",
+                            (None, str(default_proposal_required_fields_item_element.value).encode(), "text/plain"),
+                        )
+                    )
+
+        if not isinstance(self.default_proposal_hidden_fields, Unset):
+            for default_proposal_hidden_fields_item_element in self.default_proposal_hidden_fields:
+                if isinstance(default_proposal_hidden_fields_item_element, ProposalConfigurableFieldEnum):
+                    files.append(
+                        (
+                            "DEFAULT_PROPOSAL_HIDDEN_FIELDS",
+                            (None, str(default_proposal_hidden_fields_item_element.value).encode(), "text/plain"),
+                        )
+                    )
+                else:
+                    files.append(
+                        (
+                            "DEFAULT_PROPOSAL_HIDDEN_FIELDS",
+                            (None, str(default_proposal_hidden_fields_item_element.value).encode(), "text/plain"),
                         )
                     )
 
@@ -3960,6 +4226,43 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.metrics_late_data_days, Unset):
+            files.append(("METRICS_LATE_DATA_DAYS", (None, str(self.metrics_late_data_days).encode(), "text/plain")))
+
+        if not isinstance(self.metrics_max_series_per_resource_metric, Unset):
+            files.append(
+                (
+                    "METRICS_MAX_SERIES_PER_RESOURCE_METRIC",
+                    (None, str(self.metrics_max_series_per_resource_metric).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.metrics_max_points_per_request, Unset):
+            files.append(
+                (
+                    "METRICS_MAX_POINTS_PER_REQUEST",
+                    (None, str(self.metrics_max_points_per_request).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.metrics_max_otlp_body_bytes, Unset):
+            files.append(
+                ("METRICS_MAX_OTLP_BODY_BYTES", (None, str(self.metrics_max_otlp_body_bytes).encode(), "text/plain"))
+            )
+
+        if not isinstance(self.metrics_default_retention_policy, Unset):
+            files.append(
+                (
+                    "METRICS_DEFAULT_RETENTION_POLICY",
+                    (None, str(self.metrics_default_retention_policy).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.metrics_archive_grace_days, Unset):
+            files.append(
+                ("METRICS_ARCHIVE_GRACE_DAYS", (None, str(self.metrics_archive_grace_days).encode(), "text/plain"))
+            )
+
         if not isinstance(self.usage_poll_record_retention_months, Unset):
             files.append(
                 (
@@ -4100,6 +4403,14 @@ class ConstanceSettingsRequestMultipart:
         if not isinstance(self.matrix_enabled, Unset):
             files.append(("MATRIX_ENABLED", (None, str(self.matrix_enabled).encode(), "text/plain")))
 
+        if not isinstance(self.matrix_auto_create_project_rooms, Unset):
+            files.append(
+                (
+                    "MATRIX_AUTO_CREATE_PROJECT_ROOMS",
+                    (None, str(self.matrix_auto_create_project_rooms).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.matrix_homeserver_url, Unset):
             files.append(("MATRIX_HOMESERVER_URL", (None, str(self.matrix_homeserver_url).encode(), "text/plain")))
 
@@ -4131,6 +4442,11 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.matrix_tokens_managed_by, Unset):
+            files.append(
+                ("MATRIX_TOKENS_MANAGED_BY", (None, str(self.matrix_tokens_managed_by).encode(), "text/plain"))
+            )
+
         if not isinstance(self.matrix_history_export_enabled, Unset):
             files.append(
                 (
@@ -4141,6 +4457,14 @@ class ConstanceSettingsRequestMultipart:
 
         if not isinstance(self.matrix_export_media, Unset):
             files.append(("MATRIX_EXPORT_MEDIA", (None, str(self.matrix_export_media).encode(), "text/plain")))
+
+        if not isinstance(self.matrix_history_export_retention_days, Unset):
+            files.append(
+                (
+                    "MATRIX_HISTORY_EXPORT_RETENTION_DAYS",
+                    (None, str(self.matrix_history_export_retention_days).encode(), "text/plain"),
+                )
+            )
 
         if not isinstance(self.matrix_user_registration_secret, Unset):
             files.append(
@@ -4153,12 +4477,20 @@ class ConstanceSettingsRequestMultipart:
         if not isinstance(self.matrix_user_id_format, Unset):
             files.append(("MATRIX_USER_ID_FORMAT", (None, str(self.matrix_user_id_format).encode(), "text/plain")))
 
-        if not isinstance(self.matrix_login_method, Unset):
-            files.append(("MATRIX_LOGIN_METHOD", (None, str(self.matrix_login_method).encode(), "text/plain")))
-
-        if not isinstance(self.matrix_oidc_provider_url, Unset):
+        if not isinstance(self.matrix_external_login_method, Unset):
             files.append(
-                ("MATRIX_OIDC_PROVIDER_URL", (None, str(self.matrix_oidc_provider_url).encode(), "text/plain"))
+                (
+                    "MATRIX_EXTERNAL_LOGIN_METHOD",
+                    (None, str(self.matrix_external_login_method.value).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.matrix_sso_registration_method, Unset):
+            files.append(
+                (
+                    "MATRIX_SSO_REGISTRATION_METHOD",
+                    (None, str(self.matrix_sso_registration_method).encode(), "text/plain"),
+                )
             )
 
         if not isinstance(self.matrix_livekit_key, Unset):
@@ -4169,6 +4501,11 @@ class ConstanceSettingsRequestMultipart:
 
         if not isinstance(self.matrix_livekit_url, Unset):
             files.append(("MATRIX_LIVEKIT_URL", (None, str(self.matrix_livekit_url).encode(), "text/plain")))
+
+        if not isinstance(self.matrix_livekit_public_url, Unset):
+            files.append(
+                ("MATRIX_LIVEKIT_PUBLIC_URL", (None, str(self.matrix_livekit_public_url).encode(), "text/plain"))
+            )
 
         if not isinstance(self.site_agent_log_max_rows_per_identity, Unset):
             files.append(
@@ -4219,6 +4556,10 @@ class ConstanceSettingsRequestMultipart:
         rancher_username_input_label = d.pop("RANCHER_USERNAME_INPUT_LABEL", UNSET)
 
         disclaimer_area_text = d.pop("DISCLAIMER_AREA_TEXT", UNSET)
+
+        about_us_page_enabled = d.pop("ABOUT_US_PAGE_ENABLED", UNSET)
+
+        about_us_page_content = d.pop("ABOUT_US_PAGE_CONTENT", UNSET)
 
         site_address = d.pop("SITE_ADDRESS", UNSET)
 
@@ -4296,6 +4637,8 @@ class ConstanceSettingsRequestMultipart:
         telemetry_url = d.pop("TELEMETRY_URL", UNSET)
 
         telemetry_version = d.pop("TELEMETRY_VERSION", UNSET)
+
+        telemetry_deployment_id = d.pop("TELEMETRY_DEPLOYMENT_ID", UNSET)
 
         check_for_updates = d.pop("CHECK_FOR_UPDATES", UNSET)
 
@@ -4617,6 +4960,8 @@ class ConstanceSettingsRequestMultipart:
 
         waldur_support_display_request_type = d.pop("WALDUR_SUPPORT_DISPLAY_REQUEST_TYPE", UNSET)
 
+        waldur_support_issue_key_prefix = d.pop("WALDUR_SUPPORT_ISSUE_KEY_PREFIX", UNSET)
+
         waldur_support_provider_routing_enabled = d.pop("WALDUR_SUPPORT_PROVIDER_ROUTING_ENABLED", UNSET)
 
         waldur_support_auto_assign = d.pop("WALDUR_SUPPORT_AUTO_ASSIGN", UNSET)
@@ -4648,6 +4993,8 @@ class ConstanceSettingsRequestMultipart:
         atlassian_personal_access_token = d.pop("ATLASSIAN_PERSONAL_ACCESS_TOKEN", UNSET)
 
         atlassian_oauth2_client_id = d.pop("ATLASSIAN_OAUTH2_CLIENT_ID", UNSET)
+
+        atlassian_oauth2_client_secret = d.pop("ATLASSIAN_OAUTH2_CLIENT_SECRET", UNSET)
 
         atlassian_oauth2_access_token = d.pop("ATLASSIAN_OAUTH2_ACCESS_TOKEN", UNSET)
 
@@ -4752,6 +5099,8 @@ class ConstanceSettingsRequestMultipart:
 
         proposal_review_duration = d.pop("PROPOSAL_REVIEW_DURATION", UNSET)
 
+        proposal_dashboard_reviews_due_within_days = d.pop("PROPOSAL_DASHBOARD_REVIEWS_DUE_WITHIN_DAYS", UNSET)
+
         orcid_client_id = d.pop("ORCID_CLIENT_ID", UNSET)
 
         orcid_client_secret = d.pop("ORCID_CLIENT_SECRET", UNSET)
@@ -4843,6 +5192,19 @@ class ConstanceSettingsRequestMultipart:
 
         scim_inbound_ssh_keys_enabled = d.pop("SCIM_INBOUND_SSH_KEYS_ENABLED", UNSET)
 
+        _scim_user_match_waldur_attribute = d.pop("SCIM_USER_MATCH_WALDUR_ATTRIBUTE", UNSET)
+        scim_user_match_waldur_attribute: Union[Unset, SCIMUSERMATCHWALDURATTRIBUTEEnum]
+        if isinstance(_scim_user_match_waldur_attribute, Unset):
+            scim_user_match_waldur_attribute = UNSET
+        else:
+            scim_user_match_waldur_attribute = SCIMUSERMATCHWALDURATTRIBUTEEnum(_scim_user_match_waldur_attribute)
+
+        scim_user_match_scim_attribute = d.pop("SCIM_USER_MATCH_SCIM_ATTRIBUTE", UNSET)
+
+        sram_integration_enabled = d.pop("SRAM_INTEGRATION_ENABLED", UNSET)
+
+        sram_placeholder_role_template = d.pop("SRAM_PLACEHOLDER_ROLE_TEMPLATE", UNSET)
+
         scim_pull_api_url = d.pop("SCIM_PULL_API_URL", UNSET)
 
         scim_pull_api_key = d.pop("SCIM_PULL_API_KEY", UNSET)
@@ -4879,6 +5241,8 @@ class ConstanceSettingsRequestMultipart:
         oidc_user_field = d.pop("OIDC_USER_FIELD", UNSET)
 
         oidc_cache_timeout = d.pop("OIDC_CACHE_TIMEOUT", UNSET)
+
+        oidc_registration_method = d.pop("OIDC_REGISTRATION_METHOD", UNSET)
 
         oidc_access_token_enabled = d.pop("OIDC_ACCESS_TOKEN_ENABLED", UNSET)
 
@@ -4951,6 +5315,60 @@ class ConstanceSettingsRequestMultipart:
             )
 
             default_call_user_attributes.append(default_call_user_attributes_item)
+
+        default_proposal_required_fields = []
+        _default_proposal_required_fields = d.pop("DEFAULT_PROPOSAL_REQUIRED_FIELDS", UNSET)
+        for default_proposal_required_fields_item_data in _default_proposal_required_fields or []:
+
+            def _parse_default_proposal_required_fields_item(
+                data: object,
+            ) -> Union[BlankEnum, ProposalConfigurableFieldEnum]:
+                try:
+                    if not isinstance(data, str):
+                        raise TypeError()
+                    default_proposal_required_fields_item_type_0 = ProposalConfigurableFieldEnum(data)
+
+                    return default_proposal_required_fields_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, str):
+                    raise TypeError()
+                default_proposal_required_fields_item_type_1 = BlankEnum(data)
+
+                return default_proposal_required_fields_item_type_1
+
+            default_proposal_required_fields_item = _parse_default_proposal_required_fields_item(
+                default_proposal_required_fields_item_data
+            )
+
+            default_proposal_required_fields.append(default_proposal_required_fields_item)
+
+        default_proposal_hidden_fields = []
+        _default_proposal_hidden_fields = d.pop("DEFAULT_PROPOSAL_HIDDEN_FIELDS", UNSET)
+        for default_proposal_hidden_fields_item_data in _default_proposal_hidden_fields or []:
+
+            def _parse_default_proposal_hidden_fields_item(
+                data: object,
+            ) -> Union[BlankEnum, ProposalConfigurableFieldEnum]:
+                try:
+                    if not isinstance(data, str):
+                        raise TypeError()
+                    default_proposal_hidden_fields_item_type_0 = ProposalConfigurableFieldEnum(data)
+
+                    return default_proposal_hidden_fields_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, str):
+                    raise TypeError()
+                default_proposal_hidden_fields_item_type_1 = BlankEnum(data)
+
+                return default_proposal_hidden_fields_item_type_1
+
+            default_proposal_hidden_fields_item = _parse_default_proposal_hidden_fields_item(
+                default_proposal_hidden_fields_item_data
+            )
+
+            default_proposal_hidden_fields.append(default_proposal_hidden_fields_item)
 
         invitation_allowed_fields = []
         _invitation_allowed_fields = d.pop("INVITATION_ALLOWED_FIELDS", UNSET)
@@ -5267,6 +5685,18 @@ class ConstanceSettingsRequestMultipart:
 
         arrow_billing_check_interval_hours = d.pop("ARROW_BILLING_CHECK_INTERVAL_HOURS", UNSET)
 
+        metrics_late_data_days = d.pop("METRICS_LATE_DATA_DAYS", UNSET)
+
+        metrics_max_series_per_resource_metric = d.pop("METRICS_MAX_SERIES_PER_RESOURCE_METRIC", UNSET)
+
+        metrics_max_points_per_request = d.pop("METRICS_MAX_POINTS_PER_REQUEST", UNSET)
+
+        metrics_max_otlp_body_bytes = d.pop("METRICS_MAX_OTLP_BODY_BYTES", UNSET)
+
+        metrics_default_retention_policy = d.pop("METRICS_DEFAULT_RETENTION_POLICY", UNSET)
+
+        metrics_archive_grace_days = d.pop("METRICS_ARCHIVE_GRACE_DAYS", UNSET)
+
         usage_poll_record_retention_months = d.pop("USAGE_POLL_RECORD_RETENTION_MONTHS", UNSET)
 
         slurm_policy_evaluation_log_retention_days = d.pop("SLURM_POLICY_EVALUATION_LOG_RETENTION_DAYS", UNSET)
@@ -5392,6 +5822,8 @@ class ConstanceSettingsRequestMultipart:
 
         matrix_enabled = d.pop("MATRIX_ENABLED", UNSET)
 
+        matrix_auto_create_project_rooms = d.pop("MATRIX_AUTO_CREATE_PROJECT_ROOMS", UNSET)
+
         matrix_homeserver_url = d.pop("MATRIX_HOMESERVER_URL", UNSET)
 
         matrix_homeserver_public_url = d.pop("MATRIX_HOMESERVER_PUBLIC_URL", UNSET)
@@ -5404,23 +5836,34 @@ class ConstanceSettingsRequestMultipart:
 
         matrix_appservice_sender_localpart = d.pop("MATRIX_APPSERVICE_SENDER_LOCALPART", UNSET)
 
+        matrix_tokens_managed_by = d.pop("MATRIX_TOKENS_MANAGED_BY", UNSET)
+
         matrix_history_export_enabled = d.pop("MATRIX_HISTORY_EXPORT_ENABLED", UNSET)
 
         matrix_export_media = d.pop("MATRIX_EXPORT_MEDIA", UNSET)
+
+        matrix_history_export_retention_days = d.pop("MATRIX_HISTORY_EXPORT_RETENTION_DAYS", UNSET)
 
         matrix_user_registration_secret = d.pop("MATRIX_USER_REGISTRATION_SECRET", UNSET)
 
         matrix_user_id_format = d.pop("MATRIX_USER_ID_FORMAT", UNSET)
 
-        matrix_login_method = d.pop("MATRIX_LOGIN_METHOD", UNSET)
+        _matrix_external_login_method = d.pop("MATRIX_EXTERNAL_LOGIN_METHOD", UNSET)
+        matrix_external_login_method: Union[Unset, MatrixExternalLoginMethodEnum]
+        if isinstance(_matrix_external_login_method, Unset):
+            matrix_external_login_method = UNSET
+        else:
+            matrix_external_login_method = MatrixExternalLoginMethodEnum(_matrix_external_login_method)
 
-        matrix_oidc_provider_url = d.pop("MATRIX_OIDC_PROVIDER_URL", UNSET)
+        matrix_sso_registration_method = d.pop("MATRIX_SSO_REGISTRATION_METHOD", UNSET)
 
         matrix_livekit_key = d.pop("MATRIX_LIVEKIT_KEY", UNSET)
 
         matrix_livekit_secret = d.pop("MATRIX_LIVEKIT_SECRET", UNSET)
 
         matrix_livekit_url = d.pop("MATRIX_LIVEKIT_URL", UNSET)
+
+        matrix_livekit_public_url = d.pop("MATRIX_LIVEKIT_PUBLIC_URL", UNSET)
 
         site_agent_log_max_rows_per_identity = d.pop("SITE_AGENT_LOG_MAX_ROWS_PER_IDENTITY", UNSET)
 
@@ -5440,6 +5883,8 @@ class ConstanceSettingsRequestMultipart:
             homeport_url=homeport_url,
             rancher_username_input_label=rancher_username_input_label,
             disclaimer_area_text=disclaimer_area_text,
+            about_us_page_enabled=about_us_page_enabled,
+            about_us_page_content=about_us_page_content,
             site_address=site_address,
             site_email=site_email,
             site_phone=site_phone,
@@ -5464,6 +5909,7 @@ class ConstanceSettingsRequestMultipart:
             enable_issues_for_user_ssh_key_changes=enable_issues_for_user_ssh_key_changes,
             telemetry_url=telemetry_url,
             telemetry_version=telemetry_version,
+            telemetry_deployment_id=telemetry_deployment_id,
             check_for_updates=check_for_updates,
             script_run_mode=script_run_mode,
             docker_client=docker_client,
@@ -5517,6 +5963,7 @@ class ConstanceSettingsRequestMultipart:
             waldur_support_enabled=waldur_support_enabled,
             waldur_support_active_backend_type=waldur_support_active_backend_type,
             waldur_support_display_request_type=waldur_support_display_request_type,
+            waldur_support_issue_key_prefix=waldur_support_issue_key_prefix,
             waldur_support_provider_routing_enabled=waldur_support_provider_routing_enabled,
             waldur_support_auto_assign=waldur_support_auto_assign,
             waldur_support_auto_assign_strategy=waldur_support_auto_assign_strategy,
@@ -5532,6 +5979,7 @@ class ConstanceSettingsRequestMultipart:
             atlassian_token=atlassian_token,
             atlassian_personal_access_token=atlassian_personal_access_token,
             atlassian_oauth2_client_id=atlassian_oauth2_client_id,
+            atlassian_oauth2_client_secret=atlassian_oauth2_client_secret,
             atlassian_oauth2_access_token=atlassian_oauth2_access_token,
             atlassian_oauth2_token_type=atlassian_oauth2_token_type,
             atlassian_verify_ssl=atlassian_verify_ssl,
@@ -5581,6 +6029,7 @@ class ConstanceSettingsRequestMultipart:
             enable_mock_service_account_backend=enable_mock_service_account_backend,
             enable_mock_course_account_backend=enable_mock_course_account_backend,
             proposal_review_duration=proposal_review_duration,
+            proposal_dashboard_reviews_due_within_days=proposal_dashboard_reviews_due_within_days,
             orcid_client_id=orcid_client_id,
             orcid_client_secret=orcid_client_secret,
             orcid_redirect_uri=orcid_redirect_uri,
@@ -5615,6 +6064,10 @@ class ConstanceSettingsRequestMultipart:
             scim_inbound_source_name=scim_inbound_source_name,
             scim_inbound_allowed_attributes=scim_inbound_allowed_attributes,
             scim_inbound_ssh_keys_enabled=scim_inbound_ssh_keys_enabled,
+            scim_user_match_waldur_attribute=scim_user_match_waldur_attribute,
+            scim_user_match_scim_attribute=scim_user_match_scim_attribute,
+            sram_integration_enabled=sram_integration_enabled,
+            sram_placeholder_role_template=sram_placeholder_role_template,
             scim_pull_api_url=scim_pull_api_url,
             scim_pull_api_key=scim_pull_api_key,
             scim_pull_source_name=scim_pull_source_name,
@@ -5626,6 +6079,7 @@ class ConstanceSettingsRequestMultipart:
             oidc_client_secret=oidc_client_secret,
             oidc_user_field=oidc_user_field,
             oidc_cache_timeout=oidc_cache_timeout,
+            oidc_registration_method=oidc_registration_method,
             oidc_access_token_enabled=oidc_access_token_enabled,
             oidc_block_creation_of_uninvited_users=oidc_block_creation_of_uninvited_users,
             oidc_block_creation_of_uninvited_users_response_message=oidc_block_creation_of_uninvited_users_response_message,
@@ -5638,6 +6092,8 @@ class ConstanceSettingsRequestMultipart:
             remote_eduteams_refresh_token=remote_eduteams_refresh_token,
             default_offering_user_attributes=default_offering_user_attributes,
             default_call_user_attributes=default_call_user_attributes,
+            default_proposal_required_fields=default_proposal_required_fields,
+            default_proposal_hidden_fields=default_proposal_hidden_fields,
             invitation_allowed_fields=invitation_allowed_fields,
             enabled_user_profile_attributes=enabled_user_profile_attributes,
             mandatory_user_attributes=mandatory_user_attributes,
@@ -5725,6 +6181,12 @@ class ConstanceSettingsRequestMultipart:
             arrow_consumption_sync_enabled=arrow_consumption_sync_enabled,
             arrow_consumption_sync_interval_hours=arrow_consumption_sync_interval_hours,
             arrow_billing_check_interval_hours=arrow_billing_check_interval_hours,
+            metrics_late_data_days=metrics_late_data_days,
+            metrics_max_series_per_resource_metric=metrics_max_series_per_resource_metric,
+            metrics_max_points_per_request=metrics_max_points_per_request,
+            metrics_max_otlp_body_bytes=metrics_max_otlp_body_bytes,
+            metrics_default_retention_policy=metrics_default_retention_policy,
+            metrics_archive_grace_days=metrics_archive_grace_days,
             usage_poll_record_retention_months=usage_poll_record_retention_months,
             slurm_policy_evaluation_log_retention_days=slurm_policy_evaluation_log_retention_days,
             federated_identity_sync_enabled=federated_identity_sync_enabled,
@@ -5739,21 +6201,25 @@ class ConstanceSettingsRequestMultipart:
             posix_id_pool_utilization_threshold=posix_id_pool_utilization_threshold,
             affiliates_enabled=affiliates_enabled,
             matrix_enabled=matrix_enabled,
+            matrix_auto_create_project_rooms=matrix_auto_create_project_rooms,
             matrix_homeserver_url=matrix_homeserver_url,
             matrix_homeserver_public_url=matrix_homeserver_public_url,
             matrix_homeserver_domain=matrix_homeserver_domain,
             matrix_appservice_as_token=matrix_appservice_as_token,
             matrix_appservice_hs_token=matrix_appservice_hs_token,
             matrix_appservice_sender_localpart=matrix_appservice_sender_localpart,
+            matrix_tokens_managed_by=matrix_tokens_managed_by,
             matrix_history_export_enabled=matrix_history_export_enabled,
             matrix_export_media=matrix_export_media,
+            matrix_history_export_retention_days=matrix_history_export_retention_days,
             matrix_user_registration_secret=matrix_user_registration_secret,
             matrix_user_id_format=matrix_user_id_format,
-            matrix_login_method=matrix_login_method,
-            matrix_oidc_provider_url=matrix_oidc_provider_url,
+            matrix_external_login_method=matrix_external_login_method,
+            matrix_sso_registration_method=matrix_sso_registration_method,
             matrix_livekit_key=matrix_livekit_key,
             matrix_livekit_secret=matrix_livekit_secret,
             matrix_livekit_url=matrix_livekit_url,
+            matrix_livekit_public_url=matrix_livekit_public_url,
             site_agent_log_max_rows_per_identity=site_agent_log_max_rows_per_identity,
             pat_enabled=pat_enabled,
             pat_max_lifetime_days=pat_max_lifetime_days,

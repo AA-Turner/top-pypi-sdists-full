@@ -20,8 +20,8 @@ def _get_kwargs(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -60,9 +60,17 @@ def _get_kwargs(
 
     params["category"] = category
 
-    params["cpu_family"] = cpu_family
+    json_cpu_family: Union[Unset, list[str]] = UNSET
+    if not isinstance(cpu_family, Unset):
+        json_cpu_family = cpu_family
 
-    params["cpu_microarchitecture"] = cpu_microarchitecture
+    params["cpu_family"] = json_cpu_family
+
+    json_cpu_microarchitecture: Union[Unset, list[str]] = UNSET
+    if not isinstance(cpu_microarchitecture, Unset):
+        json_cpu_microarchitecture = cpu_microarchitecture
+
+    params["cpu_microarchitecture"] = json_cpu_microarchitecture
 
     params["description"] = description
 
@@ -158,8 +166,8 @@ def sync_detailed(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -190,8 +198,8 @@ def sync_detailed(
         catalog_uuid (Union[Unset, UUID]):
         catalog_version (Union[Unset, str]):
         category (Union[Unset, str]):
-        cpu_family (Union[Unset, str]):
-        cpu_microarchitecture (Union[Unset, str]):
+        cpu_family (Union[Unset, list[str]]):
+        cpu_microarchitecture (Union[Unset, list[str]]):
         description (Union[Unset, str]):
         extension_name (Union[Unset, str]):
         extension_type (Union[Unset, str]):
@@ -262,8 +270,8 @@ def sync(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -294,8 +302,8 @@ def sync(
         catalog_uuid (Union[Unset, UUID]):
         catalog_version (Union[Unset, str]):
         category (Union[Unset, str]):
-        cpu_family (Union[Unset, str]):
-        cpu_microarchitecture (Union[Unset, str]):
+        cpu_family (Union[Unset, list[str]]):
+        cpu_microarchitecture (Union[Unset, list[str]]):
         description (Union[Unset, str]):
         extension_name (Union[Unset, str]):
         extension_type (Union[Unset, str]):
@@ -361,8 +369,8 @@ async def asyncio_detailed(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -393,8 +401,8 @@ async def asyncio_detailed(
         catalog_uuid (Union[Unset, UUID]):
         catalog_version (Union[Unset, str]):
         category (Union[Unset, str]):
-        cpu_family (Union[Unset, str]):
-        cpu_microarchitecture (Union[Unset, str]):
+        cpu_family (Union[Unset, list[str]]):
+        cpu_microarchitecture (Union[Unset, list[str]]):
         description (Union[Unset, str]):
         extension_name (Union[Unset, str]):
         extension_type (Union[Unset, str]):
@@ -463,8 +471,8 @@ async def asyncio(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -495,8 +503,8 @@ async def asyncio(
         catalog_uuid (Union[Unset, UUID]):
         catalog_version (Union[Unset, str]):
         category (Union[Unset, str]):
-        cpu_family (Union[Unset, str]):
-        cpu_microarchitecture (Union[Unset, str]):
+        cpu_family (Union[Unset, list[str]]):
+        cpu_microarchitecture (Union[Unset, list[str]]):
         description (Union[Unset, str]):
         extension_name (Union[Unset, str]):
         extension_type (Union[Unset, str]):
@@ -564,8 +572,8 @@ def sync_all(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -596,8 +604,8 @@ def sync_all(
         catalog_uuid (Union[Unset, UUID]):
         catalog_version (Union[Unset, str]):
         category (Union[Unset, str]):
-        cpu_family (Union[Unset, str]):
-        cpu_microarchitecture (Union[Unset, str]):
+        cpu_family (Union[Unset, list[str]]):
+        cpu_microarchitecture (Union[Unset, list[str]]):
         description (Union[Unset, str]):
         extension_name (Union[Unset, str]):
         extension_type (Union[Unset, str]):
@@ -703,8 +711,8 @@ async def asyncio_all(
     catalog_uuid: Union[Unset, UUID] = UNSET,
     catalog_version: Union[Unset, str] = UNSET,
     category: Union[Unset, str] = UNSET,
-    cpu_family: Union[Unset, str] = UNSET,
-    cpu_microarchitecture: Union[Unset, str] = UNSET,
+    cpu_family: Union[Unset, list[str]] = UNSET,
+    cpu_microarchitecture: Union[Unset, list[str]] = UNSET,
     description: Union[Unset, str] = UNSET,
     extension_name: Union[Unset, str] = UNSET,
     extension_type: Union[Unset, str] = UNSET,
@@ -735,8 +743,8 @@ async def asyncio_all(
         catalog_uuid (Union[Unset, UUID]):
         catalog_version (Union[Unset, str]):
         category (Union[Unset, str]):
-        cpu_family (Union[Unset, str]):
-        cpu_microarchitecture (Union[Unset, str]):
+        cpu_family (Union[Unset, list[str]]):
+        cpu_microarchitecture (Union[Unset, list[str]]):
         description (Union[Unset, str]):
         extension_name (Union[Unset, str]):
         extension_type (Union[Unset, str]):

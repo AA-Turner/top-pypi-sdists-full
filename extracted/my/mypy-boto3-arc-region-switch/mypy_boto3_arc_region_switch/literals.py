@@ -67,6 +67,7 @@ __all__ = (
     "RoutingControlStateChangeType",
     "ServiceName",
     "ServiceQuotaWarningStatusType",
+    "SsmSendCommandUngracefulBehaviorType",
     "StepStatusType",
     "UpdatePlanExecutionActionType",
     "UpdatePlanExecutionStepActionType",
@@ -110,6 +111,7 @@ ExecutionBlockTypeType = Literal[
     "RdsPromoteReadReplica",
     "RdsSwitchoverReadReplica",
     "Route53HealthCheck",
+    "SSMSendCommand",
 ]
 ExecutionEventTypeType = Literal[
     "executionBehaviorChangedToGraceful",
@@ -188,6 +190,7 @@ ServiceQuotaWarningStatusType = Literal[
     "maxRegionSwitchRequestsExceeded",
     "pending",
 ]
+SsmSendCommandUngracefulBehaviorType = Literal["skip"]
 StepStatusType = Literal[
     "canceled", "completed", "failed", "notStarted", "pendingApproval", "running", "skipped"
 ]
@@ -349,6 +352,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -423,6 +427,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -557,6 +562,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

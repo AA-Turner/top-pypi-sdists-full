@@ -2674,14 +2674,14 @@ class lighter(Exchange, ImplicitAPI):
         }
         return self.safe_string(statuses, status, status)
 
-    async def withdraw(self, code: str, amount: float, address: str, tag: Str = None, params: dict = {}) -> Transaction:
+    async def withdraw(self, code: str, amount: float, address: str, params: dict = {}) -> Transaction:
         """
         make a withdrawal
         :param str code: unified currency code
         :param float amount: the amount to withdraw
         :param str address: the address to withdraw to
-        :param str [tag]:
         :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.tag]: memo / destination tag, required for currencies in options['withdrawTagRequiredCurrencies']
         :param str [params.accountIndex]: account index
         :param str [params.apiKeyIndex]: api key index
         :param int [params.routeType]: wallet type, 0: perp, 1: spot, default is 0
@@ -2991,6 +2991,9 @@ class lighter(Exchange, ImplicitAPI):
             'api_key_index': apiKeyIndex,
             'account_index': accountIndex,
         }
+        if symbol is not None:
+            market = self.market(symbol)
+            signRaw['cancel_all_market_index'] = self.parse_to_int(market['id'])
         txType, txInfo = self.lighter_sign_cancel_all_orders(signer, self.extend(signRaw, paramsAccountIndex))
         return [txType, txInfo]
 
@@ -3020,17 +3023,25 @@ class lighter(Exchange, ImplicitAPI):
         """
         if self.markets is None:
             await self.load_markets()
-        if (timeout < 300000) or (timeout > 1296000000):
-            raise BadRequest(self.id + ' timeout should be between 5 minutes and 15 days.')
+        if timeout is None:
+            raise ArgumentsRequired(self.id + ' cancelAllOrdersAfter() requires a timeout argument')
+        isScheduled = (timeout != 0)
+        if isScheduled and ((timeout < 300000) or (timeout > 1296000000)):
+            raise BadRequest(self.id + ' timeout should be between 5 minutes and 15 days, or 0 to cancel the timer.')
         apiKeyIndex, paramsApiKeyIndex = self.handle_api_key_index(params, 'cancelOrder', 'apiKeyIndex', 'api_key_index')
         accountIndex, paramsAccountIndex = await self.handle_account_index(paramsApiKeyIndex, 'cancelAllOrdersAfter', 'accountIndex', 'account_index')
         strAccountIndex = self.number_to_string(accountIndex)
         strApiKeyIndex = self.number_to_string(apiKeyIndex)
         signer = await self.load_account(self.options['chainId'], self.get_lighter_private_key(strAccountIndex, strApiKeyIndex), strApiKeyIndex, strAccountIndex, paramsAccountIndex)
         nonce = await self.fetch_nonce(accountIndex, apiKeyIndex, paramsAccountIndex)
+        timeInForce = 2  # 0: IMMEDIATE 1: SCHEDULED 2: ABORT
+        cancelTime = 0
+        if isScheduled:
+            timeInForce = 1
+            cancelTime = self.sum(self.milliseconds(), timeout)
         signRaw = {
-            'time_in_force': 1,  # 0: IMMEDIATE 1: SCHEDULED 2: ABORT
-            'time': self.milliseconds() + timeout,  # if time_in_force is not IMMEDIATE, set the timestamp_ms here
+            'time_in_force': timeInForce,
+            'time': cancelTime,
             'nonce': nonce,
             'api_key_index': apiKeyIndex,
             'account_index': accountIndex,

@@ -129,7 +129,7 @@ def generate_containerlike_class():
     }
 
     # Deliberately starting from 0
-    for r in range(0, len(methods) + 1):
+    for r in range(len(methods) + 1):
         for selected_methods in sorted(
                 map(sorted, itertools.combinations(methods, r))):
 
@@ -140,7 +140,7 @@ def generate_containerlike_class():
                 @classmethod
                 def name(cls):
                     return "ContainerlikeClass:{}".format(
-                            ":".join(selected_methods))  # noqa: B023
+                            ":".join(selected_methods))  # ruff:ignore[function-uses-loop-variable]
 
             for method in selected_methods:
                 func = method_factory(method)
@@ -210,7 +210,7 @@ class BaseValueWalkerTestCase(unittest.TestCase):
         expected = [(label, self.value_string(container))]
         if isinstance(container, PudbMapping):
             expected.extend([(f"[{key!r}]", repr(container[key]))
-                             for key in container.keys()]
+                             for key in container]
                             or [self.EMPTY_ITEM])
             self.class_counts["mappings"] += 1
         elif isinstance(container, PudbSequence):
@@ -356,7 +356,7 @@ class ValueWalkerTest(BaseValueWalkerTestCase):
                 generate_containerlike_class()):
             label = containerlike_class.name()
             value = containerlike_class(zip(string.ascii_lowercase,
-                                            range(3, 10)))
+                                            range(3, 10), strict=False))
             self.assert_walks_contents(container=value, label=label)
             class_count = cls_idx + 1
 

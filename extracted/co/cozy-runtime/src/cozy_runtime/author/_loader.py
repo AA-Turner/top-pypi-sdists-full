@@ -26,6 +26,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal, NoReturn, Protocol, TypeVar, cast, final, runtime_checkable
@@ -41,6 +42,14 @@ V = TypeVar("V")
 
 Mode = Literal["derive", "serve"]
 Custody = Literal["canonical", "local"]
+
+#: The factory call executing on this context, if any. It precedes the fill, so a write to a
+#: destination it registered initializes rather than transforms checkpoint values (§1.1).
+CONSTRUCTION: ContextVar[object | None] = ContextVar("construction", default=None)
+
+#: Told each object the fill wrote. The weight plane installs its own tensors in place of the
+#: construction's placeholders, and those are the checkpoint destinations from then on (§1.1).
+FILLED: ContextVar[Callable[[object], None] | None] = ContextVar("filled", default=None)
 
 
 # ---------------------------------------------------------------------- tensor schema
@@ -740,6 +749,7 @@ class Loader:
                 else {key: spec.dtype for key, spec in self._artifact.tensor_schema.items()},
                 bound=self._backend.bound,
             )
+        construction = CONSTRUCTION.set(object())
         try:
             obj = factory(config)
         except Exception as exc:
@@ -748,6 +758,8 @@ class Loader:
                     f"{self._artifact.unnormalized}; {type(exc).__name__}: {exc}"
                 ) from exc
             raise
+        finally:
+            CONSTRUCTION.reset(construction)
         _legs.append(("factory", round((time.perf_counter() - _t0) * 1000, 1)))
         _t0 = time.perf_counter()
         if not isinstance(obj, t):
@@ -873,6 +885,8 @@ class Loader:
         except Exception:
             self._backend.poison(done)
             raise
+        if (filled := FILLED.get()) is not None:
+            filled(obj)
         return len(done), total
 
 

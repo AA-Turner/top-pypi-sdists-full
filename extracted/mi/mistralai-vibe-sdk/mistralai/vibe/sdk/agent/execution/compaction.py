@@ -5,6 +5,8 @@ running ``agent.compaction`` entry (``begin_compaction``), and running the summa
 call to finalize it as completed/failed (``run_compaction``).
 """
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -12,9 +14,14 @@ from pydantic import BaseModel
 from mistralai.vibe.sdk.agent.execution.completion_request_telemetry import (
     emit_completion_request_sent,
 )
+from mistralai.vibe.sdk.execution_record.projections.completion_request import (
+    DEFAULT_MAX_TOOL_RESULT_CHARS,
+    MIN_MAX_TOOL_RESULT_CHARS,
+)
 from mistralai.vibe.sdk.execution_record.snapshots import make_snapshot_entry
 from mistralai.vibe.sdk.execution_record.state import (
     ContentBlock,
+    HistoryEntry,
     MessageEntry,
     MessageEntryPayload,
     StateEntry,
@@ -43,6 +50,7 @@ from mistralai.vibe.sdk.providers.completion.types import (
     COMPLETION_REQUEST_KIND_COMPACTION,
     AgentCompactionSentinelContent,
     CompactionAnnotation,
+    CompletionRequest,
 )
 from mistralai.vibe.sdk.providers.completion.usage import TokenUsage
 
@@ -54,6 +62,7 @@ __all__ = [
 
 COMPACTION_STREAM_NAME = "compaction"
 COMPACTION_USER_MESSAGE_MAX_TOKENS = 20_000
+MIN_COMPACTION_TOOL_RESULT_CHARS = MIN_MAX_TOOL_RESULT_CHARS
 _TRUNCATION_MARKER = "\n...[truncated]...\n"
 
 DEFAULT_COMPACTION_PROMPT = """\
@@ -120,6 +129,93 @@ class CompactionResult(BaseModel):
     usage: TokenUsage | None = None
 
 
+@dataclass(frozen=True)
+class _CompactionRecoveryPlan:
+    """Immutable plan for reducing one oversized compaction request."""
+
+    history: tuple[HistoryEntry, ...]
+    visible_history_start: int
+    turns_to_trim: int = 1
+    max_tool_result_chars: int = DEFAULT_MAX_TOOL_RESULT_CHARS
+
+    @classmethod
+    def from_state(cls, state: TaskState) -> "_CompactionRecoveryPlan":
+        return cls(
+            history=tuple(state.history),
+            visible_history_start=latest_compaction_sentinel_index(state) + 1,
+        )
+
+    def after_overflow(
+        self,
+        projected_tool_result_chars: Sequence[int],
+    ) -> "_CompactionRecoveryPlan | None":
+        trimmed_history = _without_oldest_complete_turns(
+            self.history,
+            count=self.turns_to_trim,
+            start_index=self.visible_history_start,
+        )
+        if trimmed_history is not None:
+            return _CompactionRecoveryPlan(
+                history=trimmed_history,
+                visible_history_start=self.visible_history_start,
+                turns_to_trim=self.turns_to_trim * 2,
+                max_tool_result_chars=self.max_tool_result_chars,
+            )
+
+        largest_projected_tool_result = max(projected_tool_result_chars, default=0)
+        if largest_projected_tool_result <= MIN_COMPACTION_TOOL_RESULT_CHARS:
+            return None
+        next_max_tool_result_chars = max(
+            MIN_COMPACTION_TOOL_RESULT_CHARS,
+            min(
+                self.max_tool_result_chars // 2,
+                largest_projected_tool_result - 1,
+            ),
+        )
+        return _CompactionRecoveryPlan(
+            history=self.history,
+            visible_history_start=self.visible_history_start,
+            turns_to_trim=self.turns_to_trim,
+            max_tool_result_chars=next_max_tool_result_chars,
+        )
+
+
+@dataclass(frozen=True)
+class _CompactionAttemptResult:
+    state: TaskState
+    usage: TokenUsage | None
+
+
+async def _run_compaction_attempt(
+    completion: CompletionModel,
+    request_state: TaskState,
+    request: CompletionRequest,
+) -> _CompactionAttemptResult:
+    """Run one projected compaction request and collect its final state and usage."""
+    await emit_completion_request_sent(model=completion.model, request=request)
+    current_state = request_state
+    latest_usage: TokenUsage | None = None
+    async for new_state, _tool_calls, usage in stream_states(
+        request_state, completion.complete(request)
+    ):
+        current_state = new_state
+        if usage is not None:
+            latest_usage = usage
+
+    return _CompactionAttemptResult(
+        state=current_state,
+        usage=latest_usage,
+    )
+
+
+def _projected_tool_result_chars(request: CompletionRequest) -> tuple[int, ...]:
+    return tuple(
+        len(message.content)
+        for message in request.messages
+        if message.role == "tool" and isinstance(message.content, str)
+    )
+
+
 async def compact_conversation(
     completion: CompletionModel,
     state: TaskState,
@@ -135,35 +231,84 @@ async def compact_conversation(
             content=content_blocks(prompt_text),
         )
     )
-    request_state = state.model_copy(update={"history": [*state.history, prompt_entry]})
     if request_metadata is None:
         # Direct calls build from ambient context; effects pass serialized request metadata.
         with observability_context(call_type="secondary_call", message_id=state.id):
             request_metadata = RequestMetadata.build_from_context()
-    request = build_completion_request_from_state(
-        request_state,
-        {},
-        metadata=request_metadata,
-        request_kind=COMPLETION_REQUEST_KIND_COMPACTION,
-    )
-    await emit_completion_request_sent(model=completion.model, request=request)
-    current_state = request_state
-    latest_usage: TokenUsage | None = None
+    recovery_plan = _CompactionRecoveryPlan.from_state(state)
+    while True:
+        request_state = state.model_copy(update={"history": [*recovery_plan.history, prompt_entry]})
+        request = build_completion_request_from_state(
+            request_state,
+            {},
+            metadata=request_metadata,
+            request_kind=COMPLETION_REQUEST_KIND_COMPACTION,
+            max_tool_result_chars=recovery_plan.max_tool_result_chars,
+        )
+        projected_tool_result_chars = _projected_tool_result_chars(request)
 
-    async for new_state, _tool_calls, usage in stream_states(
-        request_state, completion.complete(request)
-    ):
-        current_state = new_state
-        if usage is not None:
-            latest_usage = usage
+        try:
+            attempt = await _run_compaction_attempt(completion, request_state, request)
+            break
+        except Exception as exc:
+            if not (
+                isinstance(exc, CompletionContextTooLargeError) or is_context_too_large_error(exc)
+            ):
+                raise
+            next_plan = recovery_plan.after_overflow(projected_tool_result_chars)
+            if next_plan is None:
+                raise
+            recovery_plan = next_plan
 
     summary = ""
-    for entry in reversed(current_state.history):
+    for entry in reversed(attempt.state.history):
         if isinstance(entry, MessageEntry) and entry.payload.role == "assistant":
             summary = content_text(entry.payload.content)
             break
 
-    return CompactionResult(summary=summary, usage=latest_usage)
+    return CompactionResult(summary=summary, usage=attempt.usage)
+
+
+def _without_oldest_complete_turns(
+    history: Sequence[HistoryEntry],
+    *,
+    count: int,
+    start_index: int = 0,
+) -> tuple[HistoryEntry, ...] | None:
+    """Remove up to ``count`` oldest turns without orphaning tool results."""
+    turn_start = next(
+        (
+            index
+            for index, entry in enumerate(history[start_index:], start=start_index)
+            if not (isinstance(entry, MessageEntry) and entry.payload.role == "system")
+        ),
+        None,
+    )
+    if turn_start is None:
+        return None
+
+    turn_end: int | None = None
+    turns_removed = 0
+    for index in range(turn_start + 1, len(history)):
+        entry = history[index]
+        if not (isinstance(entry, MessageEntry) and entry.payload.role == "user"):
+            continue
+        turn_end = index
+        turns_removed += 1
+        if turns_removed >= count:
+            break
+
+    if turn_end is None:
+        return None
+
+    return tuple(
+        entry
+        for index, entry in enumerate(history)
+        if not (
+            turn_start <= index < turn_end
+            and not (isinstance(entry, MessageEntry) and entry.payload.role == "system")
+        )
+    )
 
 
 def _latest_user_message_index(state: TaskState) -> int | None:
@@ -279,13 +424,14 @@ def _content_with_middle_truncated_text(
 
 
 def has_compactable_history(state: TaskState) -> bool:
-    """True when there is non-system history before the latest user message."""
+    """True when meaningful history exists besides the latest user message."""
     suffix_start_index = _latest_user_message_index(state)
     if suffix_start_index is None:
         return False
 
-    for index in range(suffix_start_index):
-        entry = state.history[index]
+    for index, entry in enumerate(state.history):
+        if index == suffix_start_index:
+            continue
         if not (isinstance(entry, MessageEntry) and entry.payload.role == "system"):
             return True
     return False

@@ -24,7 +24,7 @@ from __future__ import annotations
 import calendar
 import datetime
 import re
-from typing import Callable, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from typing_extensions import Unpack
 
@@ -35,6 +35,9 @@ from .ExpressionParser import ExpressionParser
 from .GetText import GetText
 from .Options import Options
 from .StringBuilder import StringBuilder
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class OptionsKwargs(TypedDict, total=False):
@@ -244,9 +247,11 @@ class ExpressionDescriptor:
 
         """
         seconds_expression = self._expression_parts[0]
+        hour_expression = self._expression_parts[2]
+        is_hour_range = "-" in hour_expression and not any(char in hour_expression for char in ("/", ","))
 
         def get_description_format(s: str) -> str:
-            if s == "0" and seconds_expression == "":
+            if s == "0" and seconds_expression == "" and not is_hour_range:
                 return ""
 
             try:
@@ -339,7 +344,9 @@ class ExpressionDescriptor:
         # rather than a within-week one ("every 2 days of the week, Monday through Friday"): a day
         # list always, or a range whose step is >= its size (so at most one day per range fires).
         dow_expression = self._expression_parts[5]
-        if "/" in dow_expression:
+        # A step followed by more list items (e.g. 1-3/2,5) only applies to its own item,
+        # so it's described as a list below
+        if "/" in dow_expression and dow_expression.split("/", 1)[1].isdigit():
             base, step = dow_expression.split("/", 1)
             day_description = None
             if "," in base:
@@ -354,7 +361,10 @@ class ExpressionDescriptor:
                 )
             elif "-" in base:
                 range_start, range_end = base.split("-")
-                if int(step) >= int(range_end) - int(range_start) + 1:
+                # The parser stores a Sunday of 7 as 0, so a range ending in 0 (e.g. 1-7)
+                # really ends at 7 and must not count as an empty range.
+                range_size = (int(range_end) or 7) - int(range_start) + 1
+                if int(step) >= range_size:
                     if int(range_end) == 6:
                         # A single day with a step normalises to <day>-6 (e.g. FRI/2 -> 5-6/2), so an
                         # end of 6 means a single day, not a real range; show the start day alone
@@ -608,6 +618,9 @@ class ExpressionDescriptor:
         """
         sub_segments = segment.split("/")
         step_description = get_interval_description_format(sub_segments[1]).format(sub_segments[1])
+        # Some fields' interval formats start with ", " (", every 2 days"), which would
+        # leave a dangling separator once the list is wrapped in the field's format
+        step_description = step_description.removeprefix(", ")
         if "-" in sub_segments[0]:
             between_desc = self.generate_between_segment_description(
                 sub_segments[0], get_range_format, get_single_item_description,

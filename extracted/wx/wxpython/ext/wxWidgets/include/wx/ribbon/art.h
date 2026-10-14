@@ -327,6 +327,16 @@ public:
                         wxRibbonBar* wnd,
                         const wxRect& rect) = 0;
 
+    // This one is not pure virtual for compatibility with the existing art
+    // providers: it returns false if it is not implemented, in which case a
+    // default key tip badge is drawn by the caller.
+    virtual bool DrawKeyTip(
+                        wxDC& WXUNUSED(dc),
+                        wxWindow* WXUNUSED(wnd),
+                        const wxRect& WXUNUSED(rect),
+                        const wxString& WXUNUSED(keytip))
+                        { return false; }
+
     virtual void GetBarTabWidth(
                         wxReadOnlyDC& dc,
                         wxWindow* wnd,
@@ -425,6 +435,9 @@ public:
 class WXDLLIMPEXP_RIBBON wxRibbonMSWArtProvider : public wxRibbonArtProvider
 {
 public:
+    // Derived classes overriding SetColourScheme() should pass false here and
+    // set their own colour scheme in their constructor, as the scheme set from
+    // here can't use the overridden version of SetColourScheme().
     wxRibbonMSWArtProvider(bool set_colour_scheme = true);
     virtual ~wxRibbonMSWArtProvider();
 
@@ -543,6 +556,12 @@ public:
                         wxRibbonBar* wnd,
                         const wxRect& rect) override;
 
+    bool DrawKeyTip(
+                    wxDC& dc,
+                    wxWindow* wnd,
+                    const wxRect& rect,
+                    const wxString& keytip) override;
+
     void GetBarTabWidth(
                         wxReadOnlyDC& dc,
                         wxWindow* wnd,
@@ -633,6 +652,11 @@ public:
     wxRect GetRibbonHelpButtonArea(const wxRect& rect) override;
 
 protected:
+    // Colour scheme used by default, see UpdateColoursFromSystem().
+    static void GetDefaultColourScheme(wxColour& primary,
+                                       wxColour& secondary,
+                                       wxColour& tertiary);
+
     void ReallyDrawTabSeparator(wxWindow* wnd, const wxRect& rect, double visibility);
     void DrawPartialPageBackground(wxDC& dc, wxWindow* wnd, const wxRect& rect,
         bool allow_hovered = true);
@@ -644,6 +668,9 @@ protected:
     void DrawDropdownArrow(wxDC& dc, int x, int y, const wxColour& colour);
     void DrawGalleryBackgroundCommon(wxDC& dc, wxRibbonGallery* wnd,
                         const wxRect& rect);
+    // Picks the button bar label colour appropriate for the given
+    // wxRIBBON_BUTTONBAR_BUTTON_* state flags.
+    wxColour GetButtonBarLabelColour(long state) const;
     virtual void DrawGalleryButton(wxDC& dc, wxRect rect,
         wxRibbonGalleryButtonState state, wxBitmapBundle* bundles, wxWindow* wnd);
     void DrawButtonBarButtonForeground(
@@ -667,10 +694,6 @@ protected:
     wxBitmapBundle m_gallery_extension_bundle[4];
     wxBitmapBundle m_toolbar_drop_bundle;
     wxBitmapBundle m_panel_extension_bundle[2];
-    wxBitmapBundle m_ribbon_toggle_up_bundle[2];
-    wxBitmapBundle m_ribbon_toggle_down_bundle[2];
-    wxBitmapBundle m_ribbon_toggle_pin_bundle[2];
-    wxBitmapBundle m_ribbon_bar_help_button_bundle[2];
 
     wxColour m_primary_scheme_colour;
     wxColour m_secondary_scheme_colour;
@@ -678,6 +701,7 @@ protected:
 
     wxColour m_button_bar_label_colour;
     wxColour m_button_bar_label_disabled_colour;
+    wxColour m_button_bar_active_label_colour;
     wxColour m_tab_label_colour;
     wxColour m_tab_active_label_colour;
     wxColour m_tab_hover_label_colour;

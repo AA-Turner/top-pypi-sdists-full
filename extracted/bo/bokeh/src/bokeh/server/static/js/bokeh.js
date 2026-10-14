@@ -736,7 +736,7 @@
 },
 /* version.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.version = "3.10.0";
+    exports.version = "3.10.1";
 },
 /* embed/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -1705,6 +1705,7 @@
     exports.head = head;
     exports.last = last;
     exports.copy = copy;
+    exports.inplace_filter = inplace_filter;
     exports.concat = concat;
     exports.nth = nth;
     exports.zip = zip;
@@ -1786,6 +1787,20 @@
     }
     function copy(array) {
         return slice.call(array);
+    }
+    function inplace_filter(array, pred) {
+        const n = array.length;
+        let k = 0;
+        for (let i = 0; i < n; i++) {
+            const value = array[i];
+            if (pred(value, i)) {
+                if (k != i) {
+                    array[k] = value;
+                }
+                k++;
+            }
+        }
+        array.splice(k);
     }
     function concat(arrays) {
         return [].concat(...arrays);
@@ -4577,18 +4592,33 @@
         _from_css_array(colors) {
             const n = colors.length;
             const array = new types_1.RGBAArray(4 * n);
+            const cache = new Map();
             let j = 0;
-            for (const color of colors) {
-                const [r, g, b, a] = (0, color_1.color2rgba)(color);
-                array[j++] = r;
-                array[j++] = g;
-                array[j++] = b;
-                array[j++] = a;
+            for (let i = 0; i < n; i++) {
+                const color = colors[i];
+                const rgba = (typeof color === "string" || typeof color === "number")
+                    ? this._get_cached_color(color, cache) : (0, color_1.color2rgba)(color);
+                array[j++] = rgba[0];
+                array[j++] = rgba[1];
+                array[j++] = rgba[2];
+                array[j++] = rgba[3];
             }
             return new types_1.ColorArray(array.buffer);
         }
         vector(values) {
             return new uniforms_1.ColorUniformVector(values);
+        }
+        _get_cached_color(color, cache) {
+            const MAX_CACHE_SIZE = 4096;
+            const cached = cache.get(color);
+            if (cached !== undefined) {
+                return cached;
+            }
+            const rgba = (0, color_1.color2rgba)(color);
+            if (cache.size < MAX_CACHE_SIZE) {
+                cache.set(color, rgba);
+            }
+            return rgba;
         }
     }
     exports.ColorSpec = ColorSpec;
@@ -6092,12 +6122,22 @@
         }
         select(array) {
             (0, assert_1.assert)(this.size <= array.length, "Size mismatch");
-            const n = this.count;
-            const result = new array.constructor(n);
-            const indices = this.ones();
-            let i = 0;
-            for (let j = 0; j < indices.length; j++) {
-                result[i++] = array[indices[j]];
+            const { _array, _nwords, count, size } = this;
+            const result = new array.constructor(count);
+            let r = 0;
+            for (let k = 0, i = 0; i < _nwords; i++) {
+                const word = _array[i];
+                if (word == 0) {
+                    k += BitSet._word_length;
+                }
+                else {
+                    for (let j = 0; j < BitSet._word_length && k < size; j++, k++) {
+                        // collect element if corresponding bit is 1
+                        if (((word >>> j) & 0b1) == 0b1) {
+                            result[r++] = array[k];
+                        }
+                    }
+                }
             }
             return result;
         }
@@ -13755,7 +13795,9 @@
                 logging_1.logger.warn(`${this}.remove(): view was already destroyed`);
                 return;
             }
-            this.disconnect_signals();
+            if (this._signals_connected) {
+                this.disconnect_signals();
+            }
             this._abort_controller.abort(view_removed);
             for (const view of this.children_views()) {
                 view?.remove();
@@ -13830,8 +13872,12 @@
         get is_idle() {
             return this.has_finished();
         }
-        connect_signals() { }
+        _signals_connected = false;
+        connect_signals() {
+            this._signals_connected = true;
+        }
         disconnect_signals() {
+            this._signals_connected = false;
             signaling_1.Signal.disconnect_receiver(this);
         }
         on_change(properties, fn) {
@@ -14170,7 +14216,71 @@
         view.connect_signals();
         return view;
     }
+    const _states = new WeakMap();
+    function _state(view_storage) {
+        let state = _states.get(view_storage);
+        if (state == null) {
+            state = { pending: new Map(), desired: new Set(), baseline: new Set() };
+            _states.set(view_storage, state);
+        }
+        return state;
+    }
+    function _reorder(view_storage, order) {
+        for (const model of order) {
+            const view = view_storage.get(model);
+            if (view != null) {
+                view_storage.delete(model);
+                view_storage.set(model, view);
+            }
+        }
+    }
+    async function _build_into(view_storage, state, model, options, cls) {
+        try {
+            const view = await _build_view(cls(model), model, options);
+            if (state.desired.has(model)) {
+                view_storage.set(model, view);
+                // Connected before returning, i.e. before anything else gets to run, so
+                // that `view_storage` never holds a view that hasn't been connected yet.
+                // An overlapping call's `to_remove` diff can see anything in there, and
+                // remove() assumes connect_signals() already ran.
+                view.connect_signals();
+                return { view, stored: true };
+            }
+            else {
+                // Nothing wants this model any more, but the call that dropped it couldn't
+                // see this build in progress, so cleaning up is up to us. Never connected,
+                // so that connect_signals() side effects (e.g. an async continuation that
+                // lands on this view later) can't outlive a view nothing asked for.
+                view.remove();
+                return { view, stored: false };
+            }
+        }
+        finally {
+            state.pending.delete(model);
+        }
+    }
+    /**
+     * Builds views for `models` into `view_storage` and removes views of models
+     * that aren't wanted any more.
+     *
+     * Overlapping calls on the same `view_storage` cooperate: a model is built at
+     * most once, by whichever call got to it first, and a call wanting a model
+     * somebody else is already building waits for that build instead of starting a
+     * second one. So once this resolves, every requested model that is still wanted
+     * has a connected view in `view_storage`.
+     *
+     * Models are processed in request order, waiting included, so a view is never
+     * initialized ahead of a view requested before it.
+     *
+     * A build belongs to the model, not to the call that started it, and never
+     * waits on a call, so waiting can't cycle and a failing model doesn't poison
+     * unrelated models: whatever is still wanted can be built by a later call. The
+     * one thing this can't support is a view whose (lazy) initialization asks the
+     * same `view_storage` for its own model, which would wait for itself.
+     */
     async function build_views(view_storage, models, options = { parent: null }, cls = (model) => model.default_view) {
+        const state = _state(view_storage);
+        state.desired = new Set(models);
         const to_remove = (0, array_1.difference)([...view_storage.keys()], models);
         const removed_views = [];
         for (const model of to_remove) {
@@ -14181,15 +14291,61 @@
                 view.remove();
             }
         }
-        const created_views = [];
-        const new_models = models.filter((model) => !view_storage.has(model));
-        for (const model of new_models) {
-            const view = await _build_view(cls(model), model, options);
-            view_storage.set(model, view);
-            created_views.push(view);
+        if (state.pending.size == 0) {
+            state.baseline = new Set(view_storage.keys());
         }
-        for (const view of created_views) {
-            view.connect_signals();
+        const { baseline } = state;
+        const built = [];
+        let failure = null;
+        try {
+            for (const model of models) {
+                if (view_storage.has(model) || !state.desired.has(model)) {
+                    // Either already built, or a later call has stopped wanting it, in which
+                    // case building it would just be followed by tearing it down again.
+                    continue;
+                }
+                const pending = state.pending.get(model);
+                if (pending != null) {
+                    // Somebody got here first. Wait for their build, both to not build a
+                    // second view for this model, and to keep the rest of our batch behind
+                    // this model's initialization.
+                    await pending;
+                    continue;
+                }
+                // Registered before awaiting anything, so an overlapping call is
+                // guaranteed to find this build instead of starting its own. The build
+                // clears its own entry as it settles, so a failed one is never left
+                // around for a later call to inherit.
+                const build = _build_into(view_storage, state, model, options, cls);
+                state.pending.set(model, build);
+                const { view, stored } = await build;
+                if (stored) {
+                    built.push([model, view]);
+                }
+                else {
+                    removed_views.push(view);
+                }
+            }
+        }
+        catch (error) {
+            failure = error;
+        }
+        _reorder(view_storage, [...state.desired].filter((model) => !baseline.has(model)));
+        if (state.pending.size == 0) {
+            // Run fully settled: let the next one snapshot afresh, and stop retaining
+            // models that are long gone.
+            state.baseline = new Set();
+        }
+        const created_views = [];
+        for (const [model, view] of built) {
+            // An overlapping call may have removed this view while we built the rest of
+            // the batch, in which case it's destroyed and not ours to report.
+            if (view_storage.get(model) === view) {
+                created_views.push(view);
+            }
+        }
+        if (failure != null) {
+            throw failure;
         }
         return {
             created: created_views,
@@ -14197,6 +14353,9 @@
         };
     }
     function remove_views(view_storage) {
+        // Nothing is wanted any more, so that a build still in flight tears its view
+        // down instead of storing and connecting it into a storage nobody owns.
+        _state(view_storage).desired = new Set();
         for (const [model, view] of view_storage) {
             view.remove();
             view_storage.delete(model);
@@ -14330,9 +14489,12 @@
             ctx.save();
             if (hidpi) {
                 ctx.scale(pixel_ratio, pixel_ratio);
+            }
+            // Clear before shifting pixel centers so no ink remains along the edges.
+            this.clear();
+            if (hidpi) {
                 ctx.translate(0.5, 0.5);
             }
-            this.clear();
             return ctx;
         }
         clear() {
@@ -20223,6 +20385,14 @@
                 default_span,
                 only_visible,
             ], () => this._invalidate_dataranges());
+            // once auto-ranged, explicitly setting start or end (e.g. from a callback) overrides
+            // auto-ranging, the same as interactive updates do, until the range is reset
+            const { start, end } = this.properties;
+            this.on_change([start, end], () => {
+                if (this._plot_bounds.size != 0) {
+                    this.have_updated_interactively = true;
+                }
+            });
         }
         _invalidate_dataranges() {
             this.have_updated_interactively = false;
@@ -20431,6 +20601,8 @@
                     new_range.end = end;
                 }
                 this.setv(new_range);
+                // auto-ranging's own update isn't an explicit one (see connect_signals())
+                this.have_updated_interactively = false;
                 needs_emit = false;
             }
             if (needs_emit) {
@@ -20803,6 +20975,19 @@
         _update_menu_items() {
             this._menu_items = this._compute_menu_items();
         }
+        async _rebuild_menu_views() {
+            const menus = this.menu_items
+                .filter((item) => item instanceof menu_item_1.MenuItem)
+                .map((item) => item.menu)
+                .filter((menu) => menu != null);
+            await (0, build_views_1.build_views)(this._menu_views, menus, { parent: this });
+        }
+        _rebuilding = Promise.resolve();
+        _update_menu() {
+            this._update_menu_items();
+            // serialized: interleaved build_views() can remove views a later call created
+            this._rebuilding = this._rebuilding.then(() => this._rebuild_menu_views());
+        }
         get is_empty() {
             return this.menu_items.length == 0;
         }
@@ -20812,16 +20997,12 @@
         }
         async lazy_initialize() {
             await super.lazy_initialize();
-            const menus = this.menu_items
-                .filter((item) => item instanceof menu_item_1.MenuItem)
-                .map((item) => item.menu)
-                .filter((menu) => menu != null);
-            await (0, build_views_1.build_views)(this._menu_views, menus, { parent: this });
+            await this._rebuild_menu_views();
         }
         connect_signals() {
             super.connect_signals();
             const { items } = this.model.properties;
-            this.on_change(items, () => this._update_menu_items());
+            this.on_change(items, () => this._update_menu());
         }
         prevent_hide;
         _open = false;
@@ -20889,7 +21070,7 @@
                     const shortcut_el = (0, dom_1.div)({ class: menus.shortcut }, item.shortcut);
                     const chevron_el = (0, dom_1.div)({ class: menus.chevron });
                     const icon_el = (() => {
-                        const { icon } = item;
+                        const icon = to_val(item.icon);
                         if (icon != null) {
                             const icon_el = (0, dom_1.div)({ class: menus.icon });
                             (0, resolve_1.apply_icon)(icon_el, icon);
@@ -20899,8 +21080,8 @@
                             return null;
                         }
                     })();
-                    const item_el = (0, dom_1.div)({ class: menus.item, title: item.tooltip, tabIndex: 0 }, check_el, icon_el, label_el, shortcut_el, chevron_el);
-                    const has_menu = item.menu != null && !this._menu_views.get(item.menu).is_empty;
+                    const item_el = (0, dom_1.div)({ class: menus.item, title: to_val(item.tooltip), tabIndex: 0 }, check_el, icon_el, label_el, shortcut_el, chevron_el);
+                    const has_menu = item.menu != null && this._menu_views.get(item.menu)?.is_empty === false;
                     item_el.classList.toggle(menus.menu, has_menu);
                     item_el.classList.toggle(menus.disabled, to_val(item.disabled));
                     if (item.checked != null) {
@@ -20909,14 +21090,12 @@
                     }
                     const show_submenu = (item) => {
                         if (item.menu != null) {
-                            const menu_view = this._menu_views.get(item.menu);
-                            menu_view._show_submenu(item_el);
+                            this._menu_views.get(item.menu)?._show_submenu(item_el);
                         }
                     };
                     const hide_submenu = (item) => {
                         if (item.menu != null) {
-                            const menu_view = this._menu_views.get(item.menu);
-                            menu_view.hide();
+                            this._menu_views.get(item.menu)?.hide();
                         }
                     };
                     function is_target(event) {
@@ -21040,9 +21219,9 @@
         static {
             this.define(({ Bool, Str, Nullable, AnyRef, Ref, Func, Func0, Or }) => ({
                 checked: [Nullable(Or(Bool, Func0(Bool))), null],
-                icon: [Nullable(kinds_1.IconLike), null],
+                icon: [Nullable(Or(kinds_1.IconLike, Func0(Nullable(kinds_1.IconLike)))), null],
                 label: [Str],
-                tooltip: [Nullable(Str), null],
+                tooltip: [Nullable(Or(Str, Func0(Nullable(Str)))), null],
                 shortcut: [Nullable(Str), null],
                 menu: [Nullable(AnyRef()), null],
                 disabled: [Or(Bool, Func0(Bool)), false],
@@ -23496,6 +23675,31 @@
     const selection_1 = require(144) /* ../selections/selection */;
     const data_source_1 = require(146) /* ./data_source */;
     class ColumnarDataSource extends data_source_1.DataSource {
+        _selection_sync = true;
+        _with_selection_sync(sync, fn) {
+            const previous = this._selection_sync;
+            this._selection_sync = sync ?? true;
+            try {
+                return fn();
+            }
+            finally {
+                this._selection_sync = previous;
+            }
+        }
+        setv(changed_attrs, options = {}) {
+            if ("data" in changed_attrs) {
+                this._with_selection_sync(options.sync, () => super.setv(changed_attrs, options));
+            }
+            else {
+                super.setv(changed_attrs, options);
+            }
+        }
+        stream_to(prop, new_data, rollover, options = {}) {
+            this._with_selection_sync(options.sync, () => super.stream_to(prop, new_data, rollover, options));
+        }
+        patch_to(prop, patches, options = {}) {
+            this._with_selection_sync(options.sync, () => super.patch_to(prop, patches, options));
+        }
         get_array(key) {
             const data = (0, object_1.dict)(this.data);
             let column = data.get(key);
@@ -23576,6 +23780,49 @@
         }
         set(name, column) {
             (0, object_1.dict)(this.data).set(name, column);
+        }
+        connect_signals() {
+            super.connect_signals();
+            const prune_selection = () => this._prune_selection();
+            this.connect(this.properties.data.change, prune_selection);
+            this.connect(this.streaming, prune_selection);
+            this.connect(this.patching, prune_selection);
+        }
+        _prune_selection() {
+            const { selected } = this;
+            const length = this.get_length();
+            if (length == null) {
+                return;
+            }
+            const in_bounds = (index) => 0 <= index && index < length;
+            const updates = {};
+            const prune = (values, predicate) => {
+                const array = Array.from(values);
+                const previous_length = array.length;
+                (0, array_1.inplace_filter)(array, predicate);
+                return array.length == previous_length ? null : array;
+            };
+            const indices = prune(selected.indices, in_bounds);
+            if (indices != null) {
+                updates.indices = indices;
+            }
+            const line_indices = prune(selected.line_indices, in_bounds);
+            if (line_indices != null) {
+                updates.line_indices = line_indices;
+            }
+            const multiline_entries = [...selected.multiline_indices];
+            const previous_multiline_size = multiline_entries.length;
+            (0, array_1.inplace_filter)(multiline_entries, ([index]) => in_bounds(index));
+            if (multiline_entries.length != previous_multiline_size) {
+                updates.multiline_indices = new Map(multiline_entries);
+            }
+            const image_indices = prune(selected.image_indices, ({ index }) => in_bounds(index));
+            if (image_indices != null) {
+                updates.image_indices = image_indices;
+            }
+            if ((0, object_1.entries)(updates).length != 0) {
+                selected.setv(updates, { check_eq: false, sync: this._selection_sync });
+            }
         }
         get_column(name) {
             const data = (0, object_1.dict)(this.data);
@@ -37328,7 +37575,7 @@
         async fetch() {
             this.status = "loading";
             try {
-                const mathjax = await (0, modules_1.load_module)(Promise.resolve().then(() => __importStar(require(806) /* ./mathjax */)));
+                const mathjax = await (0, modules_1.load_module)(Promise.resolve().then(() => __importStar(require(809) /* ./mathjax */)));
                 this.status = mathjax == null ? "failed" : "loaded";
                 this._mathjax = mathjax;
                 this.ready.emit();
@@ -40019,7 +40266,7 @@
             const { has_webgl } = this;
             this.map_data();
             // all_indices is in full data space, indices is converted to subset space by mask_data (that may use the spatial index)
-            const all_indices = this.all_indices.ones();
+            const all_indices = this.model.view.indices_array;
             let indices = this._update_masked_indices().ones();
             // selected is in full set space
             const { selected } = this.model.data_source;
@@ -41751,7 +41998,7 @@
     const assert_1 = require(13) /* ../../core/util/assert */;
     class StepView extends xy_glyph_1.XYGlyphView {
         async load_glglyph() {
-            const { StepGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(679) /* ./webgl/step */));
+            const { StepGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(682) /* ./webgl/step */));
             return StepGL;
         }
         _bounds(bounds) {
@@ -42617,8 +42864,9 @@
             this.define(({ Ref }) => ({
                 filter: [Ref(filter_1.Filter), () => new all_indices_1.AllIndices()],
             }));
-            this.internal(({ Ref, Nullable }) => ({
+            this.internal(({ Ref, Nullable, Array, Int }) => ({
                 indices: [Ref(types_1.Indices)],
+                indices_array: [Array(Int), () => []],
                 indices_map: [Ref(indices_1.SubsetIndexMapper), () => new indices_1.SubsetIndexMapper(0)],
                 masked: [Nullable(Ref(types_1.Indices)), null],
             }));
@@ -42647,11 +42895,12 @@
             const filtered = this.filter.compute_indices(source);
             indices.intersect(filtered);
             this.indices = indices;
+            this.indices_array = indices.ones();
             // reuse mapper if possible
             if (size !== this.indices_map.size) {
                 this.indices_map = new indices_1.SubsetIndexMapper(size);
             }
-            this.indices_map.set_subset(indices.ones());
+            this.indices_map.set_subset(this.indices_array);
         }
         /** @deprecated */
         get filters() {
@@ -45460,6 +45709,9 @@
         aligns = { left: true, right: true, top: true, bottom: true };
         min_border = { left: 0, top: 0, right: 0, bottom: 0 };
         padding = { left: 0, top: 0, right: 0, bottom: 0 };
+        // Borders imposed by an aligning parent, so that this layout's frame can line
+        // up with its neighbours' without its own borders having to shrink.
+        align_border = { left: 0, top: 0, right: 0, bottom: 0 };
         center_border_width = 0;
         _measure(viewport) {
             viewport = new types_1.Sizeable({
@@ -45467,13 +45719,13 @@
                 height: this.sizing.height_policy == "fixed" || viewport.height == Infinity ? this.sizing.height : viewport.height,
             });
             const left_hint = this.left_panel.measure({ width: 0, height: viewport.height });
-            const left = Math.max(left_hint.width, this.min_border.left) + this.padding.left;
+            const left = Math.max(Math.max(left_hint.width, this.min_border.left) + this.padding.left, this.align_border.left);
             const right_hint = this.right_panel.measure({ width: 0, height: viewport.height });
-            const right = Math.max(right_hint.width, this.min_border.right) + this.padding.right;
+            const right = Math.max(Math.max(right_hint.width, this.min_border.right) + this.padding.right, this.align_border.right);
             const top_hint = this.top_panel.measure({ width: viewport.width, height: 0 });
-            const top = Math.max(top_hint.height, this.min_border.top) + this.padding.top;
+            const top = Math.max(Math.max(top_hint.height, this.min_border.top) + this.padding.top, this.align_border.top);
             const bottom_hint = this.bottom_panel.measure({ width: viewport.width, height: 0 });
-            const bottom = Math.max(bottom_hint.height, this.min_border.bottom) + this.padding.bottom;
+            const bottom = Math.max(Math.max(bottom_hint.height, this.min_border.bottom) + this.padding.bottom, this.align_border.bottom);
             const center_viewport = new types_1.Sizeable(viewport).shrink_by({ left, right, top, bottom });
             const center = this.center_panel.measure(center_viewport);
             const width = left + center.width + right;
@@ -47968,7 +48220,12 @@
             super.connect_signals();
             this.connect(this.model.change, () => this.rerender());
             const { items } = this.model.properties;
-            this.on_transitive_change(items, () => this._render_items(), { recursive: true });
+            this.on_transitive_change(items, () => {
+                this._render_items();
+                // Refresh the measured size before the queued paint checks side layout.
+                this.update_position();
+                this.request_paint();
+            }, { recursive: true });
         }
         _bbox = new bbox_1.BBox();
         get bbox() {
@@ -48037,6 +48294,7 @@
                 const labels = item.get_labels_list_from_label_prop();
                 for (const label of labels) {
                     const glyph = this.plot_view.canvas.create_layer();
+                    glyph.resize(this.model.glyph_width, this.model.glyph_height);
                     glyph.el.classList.add(legend_css.glyph);
                     const glyph_el = glyph.canvas;
                     const label_el = (0, dom_1.div)({ class: legend_css.label }, `${label}`);
@@ -48399,11 +48657,28 @@
         update_position() {
             if (this.is_visible) {
                 const { x, y } = this.css_position;
+                // A legend in a side panel is positioned relative to that panel, so one
+                // larger than the panel would paint outside the plot and overlap whatever
+                // component sits next to it. Constrain it to the panel instead; an
+                // oversized legend is then clipped at its far edge. Only the panel's
+                // spanning axis is capped, because `SideLayout` derives the other one
+                // from the legend's measured size and capping that would freeze it.
+                // A named location also insets the legend by `margin`, which would shift
+                // a full span box back out of the panel, so the cap has to allow for it.
+                // A numeric location is an explicit coordinate and takes no margin.
+                const { panel } = this;
+                const in_side_panel = this.layout != null && panel != null;
+                const margin = (0, types_1.isString)(this.model.location) ? this.model.margin : 0;
+                const constraint = !in_side_panel ? "" : `
+        ${panel.is_horizontal ? "max-width" : "max-height"}: calc(100% - ${(0, dom_1.px)(2 * margin)});
+        clip-path: inset(-1px);
+      `;
                 this.position.replace(`
       :host {
-        position: ${this.layout != null ? "relative" : "absolute"};
+        position: ${in_side_panel ? "relative" : "absolute"};
         left: ${x};
         top:  ${y};
+        ${constraint}
       }
       `);
             }
@@ -51208,9 +51483,9 @@
         button_view;
         menu_item() {
             const item = new menus_1.MenuItem({
-                icon: this.computed_icon,
+                icon: () => this.computed_icon ?? null,
                 label: this.tool_name,
-                tooltip: this.tooltip != this.tool_name ? this.tooltip : undefined,
+                tooltip: () => this.tooltip != this.tool_name ? this.tooltip : null,
                 checked: () => this.active,
                 disabled: () => this.disabled,
                 action: () => this.active = !this.active,
@@ -52314,9 +52589,10 @@
                 }
                 else {
                     const icon_el = (() => {
-                        if (item.icon != null) {
+                        const icon = (0, types_1.isString)(item.icon) ? item.icon : item.icon?.() ?? null;
+                        if (icon != null) {
                             const el = (0, dom_1.div)({ class: menus.menu_icon });
-                            (0, resolve_1.apply_icon)(el, item.icon);
+                            (0, resolve_1.apply_icon)(el, icon);
                             return el;
                         }
                         else {
@@ -52326,7 +52602,8 @@
                     const checked = (0, types_1.isBoolean)(item.checked) ? item.checked : item.checked?.();
                     const active = checked ?? false ? menus.active : null;
                     const label = this.labels ? item.label : null;
-                    el = (0, dom_1.div)({ class: [active], title: item.tooltip, tabIndex: 0 }, icon_el, label);
+                    const tooltip = (0, types_1.isString)(item.tooltip) ? item.tooltip : item.tooltip?.() ?? null;
+                    el = (0, dom_1.div)({ class: [active], title: tooltip, tabIndex: 0 }, icon_el, label);
                     if ((0, types_1.isPlainObject)(item)) {
                         if (item.class != null) {
                             el.classList.add(item.class);
@@ -53192,10 +53469,10 @@
             const bottom = layout.bottom_panel.measure({ width: Infinity, height: Infinity });
             const left = layout.left_panel.measure({ width: Infinity, height: Infinity });
             const right = layout.right_panel.measure({ width: Infinity, height: Infinity });
-            const top_height = max(top.height, layout.min_border.top);
-            const bottom_height = max(bottom.height, layout.min_border.bottom);
-            const left_width = max(left.width, layout.min_border.left);
-            const right_width = max(right.width, layout.min_border.right);
+            const top_height = max(top.height, layout.min_border.top, layout.align_border.top);
+            const bottom_height = max(bottom.height, layout.min_border.bottom, layout.align_border.bottom);
+            const left_width = max(left.width, layout.min_border.left, layout.align_border.left);
+            const right_width = max(right.width, layout.min_border.right, layout.align_border.right);
             this._computed_style.replace(`
       :host {
         grid-template-rows: ${top_height}px ${frame.height} ${bottom_height}px;
@@ -53877,6 +54154,10 @@
         }
         return null;
     }
+    // Shrink the shared canvas when it is more than 8× oversized in area or either
+    // dimension — enough headroom to retain capacity across typical mixed-size
+    // plot sequences, while reclaiming GPU memory after a large one-off paint.
+    const WEBGL_CANVAS_SHRINK_FACTOR = 8;
     const global_webgl = (() => {
         let _global_webgl;
         return async () => {
@@ -53898,6 +54179,28 @@
         ui_event_bus;
         _size = new dom_2.InlineStyleSheet("", "size");
         touch_action = new dom_2.InlineStyleSheet("", "touch-action");
+        /** Resize a canvas, setting the shrinking dimension first to minimize
+         *  the transient intermediate area. Only assigns when the value changes. */
+        _resize_canvas(canvas, w, h) {
+            if (h < canvas.height && w > canvas.width) {
+                // Height shrinks while width grows — set height first
+                if (canvas.height !== h) {
+                    canvas.height = h;
+                }
+                if (canvas.width !== w) {
+                    canvas.width = w;
+                }
+            }
+            else {
+                // Width shrinks (or both shrink/grow together) — set width first
+                if (canvas.width !== w) {
+                    canvas.width = w;
+                }
+                if (canvas.height !== h) {
+                    canvas.height = h;
+                }
+            }
+        }
         initialize() {
             super.initialize();
             this.underlays_el = (0, dom_1.div)({ class: canvas_css.layer });
@@ -53988,17 +54291,38 @@
             // Prepare WebGL for a drawing pass
             const { webgl } = this;
             if (webgl != null) {
-                // Sync canvas size
-                const { width, height } = this.bbox;
-                webgl.canvas.width = this.pixel_ratio * width;
-                webgl.canvas.height = this.pixel_ratio * height;
+                // Retain capacity for mixed-size plots, but shrink if disproportionately oversized
+                const { canvas } = webgl;
+                const gl = canvas.getContext("webgl");
+                const max_size = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+                const width = Math.min(this.primary.canvas.width, max_size);
+                const height = Math.min(this.primary.canvas.height, max_size);
+                if (width > 0 && height > 0) {
+                    if (canvas.width * canvas.height > WEBGL_CANVAS_SHRINK_FACTOR * width * height ||
+                        canvas.width > WEBGL_CANVAS_SHRINK_FACTOR * width ||
+                        canvas.height > WEBGL_CANVAS_SHRINK_FACTOR * height) {
+                        this._resize_canvas(canvas, width, height);
+                    }
+                }
+                if (canvas.width < width || canvas.height < height) {
+                    this._resize_canvas(canvas, Math.max(canvas.width, width), Math.max(canvas.height, height));
+                    // Browsers also limit the area of drawing buffers, so fall back to this plot's size if exceeded
+                    if (gl.drawingBufferWidth < canvas.width || gl.drawingBufferHeight < canvas.height) {
+                        this._resize_canvas(canvas, width, height);
+                    }
+                }
+                // Match the canvas to the drawing buffer the browser actually allocated
+                const { drawingBufferWidth, drawingBufferHeight } = gl;
+                if (drawingBufferWidth < canvas.width || drawingBufferHeight < canvas.height) {
+                    this._resize_canvas(canvas, drawingBufferWidth, drawingBufferHeight);
+                }
+                this._clear_webgl();
                 const { x: sx, y: sy, width: w, height: h } = frame_box;
                 const { xview, yview } = this.bbox;
                 const vx = xview.compute(sx);
                 const vy = yview.compute(sy + h);
                 const ratio = this.pixel_ratio;
                 webgl.regl_wrapper.set_scissor(ratio * vx, ratio * vy, ratio * w, ratio * h);
-                this._clear_webgl();
             }
         }
         blit_webgl(ctx) {
@@ -54010,8 +54334,11 @@
                 // ctx.globalCompositeOperation = "source-over"  -> OK; is the default
                 logging_1.logger.debug("Blitting WebGL canvas");
                 ctx.restore();
-                ctx.drawImage(webgl.canvas, 0, 0);
-                // Set back hidpi transform
+                // GL draws into the viewport in the bottom-left corner of the shared canvas
+                const { width, height } = this.primary.canvas;
+                const { width: vw = 0, height: vh = 0 } = webgl.regl_wrapper.viewport;
+                ctx.drawImage(webgl.canvas, 0, webgl.canvas.height - vh, vw, vh, 0, 0, width, height);
+                // Set back the HiDPI transform
                 ctx.save();
                 if (this.model.hidpi) {
                     const ratio = this.pixel_ratio;
@@ -54025,8 +54352,8 @@
             const { webgl } = this;
             if (webgl != null) {
                 // Prepare GL for drawing
-                const { regl_wrapper, canvas } = webgl;
-                regl_wrapper.clear(canvas.width, canvas.height);
+                const { width, height } = this.primary.canvas;
+                webgl.regl_wrapper.clear(width, height);
             }
         }
         compose() {
@@ -54790,8 +55117,12 @@
         }
         connect_signals() {
             super.connect_signals();
+            // items only change when the toolbar's tool composition does; everything
+            // else about an item (icon, checked, disabled) is resolved at render time
             const { toolbar } = this.model.properties;
-            this.on_transitive_change(toolbar, () => this._update_menu_items());
+            this.on_transitive_change(toolbar, () => this._update_menu(), {
+                signal: (obj) => obj.properties.tools.change,
+            });
         }
     }
     exports.ToolMenuView = ToolMenuView;
@@ -56629,10 +56960,9 @@
         async _compile_module() {
             const url = URL.createObjectURL(new Blob([this.code], { type: "text/javascript" }));
             try {
-                // XXX: eval() to work around transpilation to require()
+                // Indirect eval keeps import() native when the classic bundle is transpiled to CommonJS.
                 // https://github.com/microsoft/TypeScript/issues/43329
-                const module = await eval(`import("${url}")`);
-                // TODO const module = await import(`${url}`)
+                const module = await globalThis.eval(`import("${url}")`);
                 if ((0, types_1.isFunction)(module.default)) {
                     return module.default;
                 }
@@ -61294,7 +61624,7 @@
     }
     class NgonView extends radial_glyph_1.RadialGlyphView {
         async load_glglyph() {
-            const { NgonGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(677) /* ./webgl/ngon */));
+            const { NgonGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(680) /* ./webgl/ngon */));
             return NgonGL;
         }
         _paint(ctx, indices, data) {
@@ -61428,7 +61758,7 @@
     const assert_1 = require(13) /* ../../core/util/assert */;
     class PatchesView extends glyph_1.GlyphView {
         async load_glglyph() {
-            const { PatchesGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(675) /* ./webgl/patches */));
+            const { PatchesGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(678) /* ./webgl/patches */));
             return PatchesGL;
         }
         _project_data() {
@@ -61830,7 +62160,7 @@
     const { abs, sqrt } = Math;
     class RectView extends center_rotatable_1.CenterRotatableView {
         async load_glglyph() {
-            const { RectGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(678) /* ./webgl/rect */));
+            const { RectGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(681) /* ./webgl/rect */));
             return RectGL;
         }
         _set_data(indices) {
@@ -62049,7 +62379,7 @@
     }
     class ScatterView extends marker_1.MarkerView {
         async load_glglyph() {
-            const { MultiMarkerGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(676) /* ./webgl/multi_marker */));
+            const { MultiMarkerGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(679) /* ./webgl/multi_marker */));
             return MultiMarkerGL;
         }
         _compute_can_use_webgl() {
@@ -63253,7 +63583,7 @@
     const arrayable_1 = require(14) /* ../../core/util/arrayable */;
     class WedgeView extends xy_glyph_1.XYGlyphView {
         async load_glglyph() {
-            const { WedgeGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(680) /* ./webgl/wedge */));
+            const { WedgeGL } = await Promise.resolve().then(() => tslib_1.__importStar(require(683) /* ./webgl/wedge */));
             return WedgeGL;
         }
         _index_data(index) {
@@ -63825,6 +64155,12 @@
         _intrinsic_display() {
             return { inner: this.model.flow_mode, outer: "flex" };
         }
+        measure_layout() {
+            if (this.layout instanceof alignments_1.GridAlignmentLayout) {
+                this.layout.align_borders();
+            }
+            super.measure_layout();
+        }
         _update_layout() {
             super._update_layout();
             this.style.append(":host", {
@@ -63914,6 +64250,7 @@
 /* models/layouts/alignments.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const layoutable_1 = require(137) /* ../../core/layout/layoutable */;
+    const border_1 = require(342) /* ../../core/layout/border */;
     const bbox_1 = require(62) /* ../../core/util/bbox */;
     const assert_1 = require(13) /* ../../core/util/assert */;
     const { max } = Math;
@@ -63922,6 +64259,45 @@
         constructor(children) {
             super();
             this.children = children;
+        }
+        /**
+         * Raise every child's borders to the largest in its row and column, so that
+         * aligning the frames cannot take space a child needs for its own borders.
+         */
+        align_borders() {
+            const { children } = this;
+            const rows = Array.from({ length: children.nrows }, () => ({ top: 0, bottom: 0 }));
+            const cols = Array.from({ length: children.ncols }, () => ({ left: 0, right: 0 }));
+            children.foreach(({ r0, c0, r1, c1 }, { layout, model }) => {
+                // `layout.visible` is only updated after measuring, so it can be stale here.
+                if (!(layout instanceof border_1.BorderLayout) || !model.visible) {
+                    return;
+                }
+                // A child's measurement must not carry the previous pass's borders, or
+                // they could never shrink again.
+                layout.align_border = { left: 0, top: 0, right: 0, bottom: 0 };
+                const { inner } = layout.measure({ width: Infinity, height: Infinity });
+                if (inner != null) {
+                    rows[r0].top = max(rows[r0].top, inner.top);
+                    rows[r1].bottom = max(rows[r1].bottom, inner.bottom);
+                    cols[c0].left = max(cols[c0].left, inner.left);
+                    cols[c1].right = max(cols[c1].right, inner.right);
+                }
+            });
+            children.foreach(({ r0, c0, r1, c1 }, { layout }) => {
+                if (!(layout instanceof border_1.BorderLayout)) {
+                    return;
+                }
+                // A side opted out of alignment keeps the border it measured for
+                // itself, matching which sides `_set_geometry` goes on to align.
+                const { aligns } = layout;
+                layout.align_border = {
+                    left: aligns.left ? cols[c0].left : 0,
+                    right: aligns.right ? cols[c1].right : 0,
+                    top: aligns.top ? rows[r0].top : 0,
+                    bottom: aligns.bottom ? rows[r1].bottom : 0,
+                };
+            });
         }
         _measure(_viewport) {
             return { width: 0, height: 0 };
@@ -64087,6 +64463,12 @@
         }
         _intrinsic_display() {
             return { inner: this.model.flow_mode, outer: "grid" };
+        }
+        measure_layout() {
+            if (this.layout instanceof alignments_1.GridAlignmentLayout) {
+                this.layout.align_borders();
+            }
+            super.measure_layout();
         }
         _update_layout() {
             super._update_layout();
@@ -64537,11 +64919,8 @@
                 document.removeEventListener("scroll", this._scroll_listener, { capture: true });
                 delete this._scroll_listener;
             }
-            super.disconnect_signals();
-        }
-        remove() {
             this._observer.disconnect();
-            super.remove();
+            super.disconnect_signals();
         }
         stylesheets() {
             return [...super.stylesheets(), tooltips_css_1.default, icons_css_1.default];

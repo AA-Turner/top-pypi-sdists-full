@@ -36,35 +36,55 @@ fn create_http_client() -> Result<reqwest::blocking::Client> {
 }
 
 pub fn run(py: Python<'_>, agent: PyroscopeAgentBuilder) -> Result<()> {
-    let mut guard = STATE.mutex().lock()?;
-    match *guard {
-        State::Idle => {}
-        State::Busy => return Err(PyroscopeError::ConcurrentOperation),
-        State::Running(_) => return Err(PyroscopeError::AgentAlreadyRunning),
+    // Don't hold STATE while starting: future start code may run Python and yield the GIL to a thread that then blocks on STATE.
+    {
+        let mut guard = STATE.mutex().lock()?;
+        match *guard {
+            State::Idle => {}
+            State::Busy => return Err(PyroscopeError::ConcurrentOperation),
+            State::Running(_) => return Err(PyroscopeError::AgentAlreadyRunning),
+        }
+        *guard = State::Busy;
     }
+
     let mem_config = agent.config.mem_config.clone();
-    let start_agent = || -> Result<PyroscopeAgent> {
+    let stack_config = agent.config.stack_config.clone();
+    let sample_rate = agent.config.sample_rate;
+
+    let started = (|| -> Result<PyroscopeAgent> {
+        memory::start(py, &mem_config).map_err(|err| {
+            PyroscopeError::new(&format!("failed to start memory profiler: {err}"))
+        })?;
+        crate::stack::start(py, &stack_config, sample_rate).map_err(|err| {
+            PyroscopeError::new(&format!("failed to start CPU stack sampler: {err}"))
+        })?;
         // Create the client only after the Idle check, so an already-running or
         // busy agent doesn't build (and, on macOS, spawn a thread for) a client
         // that would just be thrown away.
         let http_client = create_http_client()?;
         agent.build(http_client)?.start()
-    };
+    })();
 
-    memory::start(py, &mem_config)
-        .map_err(|err| PyroscopeError::new(&format!("failed to start memory profiler: {err}")))?;
-
-    let agent = start_agent();
-    match agent {
+    match started {
         Ok(agent) => {
-            *guard = State::Running(Box::new(agent));
+            *STATE.mutex().lock()? = State::Running(Box::new(agent));
             Ok(())
         }
         Err(err) => {
-            memory::stop(py);
+            stop_profilers(py);
+            *STATE.mutex().lock()? = State::Idle;
             Err(err)
         }
     }
+}
+
+/// Whole-agent teardown, and the only caller of `encode::interner::clear()`:
+/// a per-profiler stop cannot know whether another profiler still holds
+/// interned string indices.
+pub fn stop_profilers(py: Python<'_>) {
+    memory::stop(py);
+    crate::stack::stop(py);
+    crate::encode::interner::clear();
 }
 
 pub fn add_thread_tag(tid: ThreadId, tag: Tag) -> Result<()> {
@@ -116,7 +136,7 @@ pub fn stop(py: Python<'_>) -> Result<()> {
     //   _native::__pyfunction_drop_agent
     // so run it on a fresh thread via no_dispatch_semaphore.
     let res = py.detach(|| forksafety::no_dispatch_semaphore(|| agent.stop()));
-    crate::memory::stop(py);
+    stop_profilers(py);
     *STATE.mutex().lock()? = State::Idle;
     res
 }

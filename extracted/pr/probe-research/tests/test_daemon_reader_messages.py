@@ -265,6 +265,7 @@ def test_the_shutdown_drain_reads_the_reader_stream_too(env):
 
 
 def test_the_audit_report_reaches_the_writer_as_a_reader_message(env, monkeypatch):
+    pytest.importorskip("pydantic_ai")  # the audit lane needs the `daemon` extra
     monkeypatch.setenv(mailbox.ENV_READS, "on")
     w = worker_mod.Worker(env)
     audit_mod.AuditLane(w).report("Deleted the #856 line.")
@@ -443,6 +444,19 @@ def test_the_transcript_copy_of_a_delivery_is_not_read_again():
     assert later.text == "[Probe] A later wording"
 
 
+def test_the_transcript_copy_of_a_run_alert_is_not_read_again():
+    """A run alert reaches the writer from the claim log too (`run_alerts.py`
+    records it as published): its hook-context copy and its Stop wake are cut."""
+    alert = mailbox.TEXT_ALERT.format(message="digits-svm (digits-svm-7) crashed at step 900 after 2h: OOM.")
+    attachment = {"type": "attachment", "attachment": {"type": "hook_additional_context", "content": [alert]}}
+    wake = {"type": "user", "origin": {"kind": "task-notification"}, "message": {"content": (
+        "<task-notification>\n<summary>Stop hook feedback</summary>\n</task-notification>\n<system-reminder>\n"
+        f"Stop hook blocking error from command \"Stop\": {alert}\n</system-reminder>")}}
+    cc = ClaudeCode()
+    assert cc.parse_line(attachment, stream="main", offset=1) == []
+    assert cc.parse_line(wake, stream="main", offset=2) == []
+
+
 # ---------------------------------------------------------------------------
 # How a bite shows them, and what the window counts.
 # ---------------------------------------------------------------------------
@@ -513,3 +527,22 @@ def test_a_store_from_the_released_cli_gains_the_column_and_its_index(tmp_path):
     (old,) = again.events_between(1)
     assert old.source is None and again.shown_turn_sizes()[0][2] == bite_mod.HARNESS_SHOWN_CHARS + 40
     assert re.search(r"COVERING INDEX events_sizes_source\b", _explain_shown_turn_sizes(again))
+
+
+def test_a_store_from_before_the_tail_guard_still_catches_the_next_sweep(env):
+    """An older build saved the cursor and inode but no tail: the first read
+    takes the tail where the cursor is, so a log made again later (often on the
+    same inode) is still read from its start."""
+    _post(mailbox.Kind.MESSAGE, "old", by="PostToolUse")
+    w = worker_mod.Worker(env)
+    w.read_new()
+    w.store.set_fact(worker_mod.READER_LOG_TAIL, None)  # as an older build left it
+    w.read_new()  # nothing new: the guard is taken here
+    assert w.store.fact(worker_mod.READER_LOG_TAIL)["at"] == w.store.cursor(READER_STREAM)[1]
+    mailbox.claim_log_path(SID).unlink()
+    for path in mailbox.claimed_dir(SID).glob("*.json"):
+        path.unlink()
+    fresh = [_post(mailbox.Kind.MESSAGE, f"fresh {i}", by="PostToolUse") for i in range(3)]
+    w.read_new()
+    assert _reader_texts(w)[1:] == [m.rendered() for m in fresh]
+

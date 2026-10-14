@@ -1,0 +1,403 @@
+#!/usr/bin/env python3
+#---------------------------------------------------------------------------
+# Name:        unittests/type_checks/check_stubs.py
+# Purpose:     Sanity checks for the generated wx/*.pyi type stubs
+#
+# License:     wxWindows License
+#---------------------------------------------------------------------------
+"""
+Checks for the generated wx/*.pyi type stubs. Run this after the etg step,
+usually with "python build.py check_stubs". The type checkers used are in the
+"typecheck" dependency group (pip install --group typecheck).
+
+The checks are:
+
+  1. Syntax: every stub file must parse cleanly, without even warnings.
+
+  2. Baseline: mypy, pyright, ty and pyrefly are run over the stubs, and the
+     number of errors of each kind in each stub file must match what is
+     recorded in baseline.json. New errors fail the check, and so do fixed
+     ones, so the improvement gets locked in. After an intended change, run
+     this script with --update-baseline and commit the new baseline.json.
+
+  3. Cases: the files in the test_cases folder use the stubs like user code
+     would, with assert_type() calls and "# type: ignore[...]" comments on
+     lines that are expected to fail. ty doesn't honor the error codes of
+     the other checkers, so those lines also need a "# ty: ignore[...]".
+     All the checkers must accept the cases without any errors, including
+     unused ignores.
+
+With --stubtest, the stubs are instead compared with the wx package itself,
+using mypy's stubtest, so this needs a built wx. That is whichever wx Python
+imports, either installed or built in place in the source tree. The known
+differences are listed in stubtest_allowlist_common.txt, which is maintained
+by hand, and stubtest_allowlist.txt, which is updated by running with
+--stubtest --update-allowlist. Allowlist entries that no longer match fail
+the check too.
+
+The settings for each type checker are in the config files in this folder.
+To run one by hand, from the top of the source tree, use that file and pass
+it the stubs and the cases, for example:
+
+  mypy --config-file unittests/type_checks/mypy.ini wx/*.pyi unittests/type_checks/test_cases
+  pyright --project unittests/type_checks/pyrightconfig.json wx/*.pyi unittests/type_checks/test_cases
+  ty check --config-file unittests/type_checks/ty.toml wx/*.pyi unittests/type_checks/test_cases
+  pyrefly check --config unittests/type_checks/pyrefly.toml wx/*.pyi unittests/type_checks/test_cases
+"""
+
+import argparse
+import ast
+import collections
+import glob
+import json
+import os
+import re
+import site
+import subprocess
+import sys
+import sysconfig
+import warnings
+
+HERE = os.path.abspath(os.path.dirname(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+BASELINE = os.path.join(HERE, 'baseline.json')
+STUBTEST_ALLOWLISTS = [os.path.join(HERE, 'stubtest_allowlist_common.txt'),
+                       os.path.join(HERE, 'stubtest_allowlist.txt')]
+CASES = os.path.join(HERE, 'test_cases')
+# Overrides that don't match their base class are mostly part of the C++ API
+# being wrapped, so they are not something that can be fixed in the stubs.
+UNTRACKED = {
+    'mypy': {'override'},
+    'pyright': {'reportIncompatibleMethodOverride',
+                'reportIncompatibleVariableOverride'},
+    'ty': {'invalid-method-override'},
+    'pyrefly': {'bad-override', 'bad-override-param-name',
+                'bad-override-mutable-attribute'},
+}
+
+Error = collections.namedtuple('Error', 'tool file line code message')
+
+#---------------------------------------------------------------------------
+
+def stubFiles():
+    """The generated stubs in wx/, and any others in its subpackages"""
+    files = sorted(glob.glob(os.path.join(ROOT, 'wx', '*.pyi')))
+    if not files:
+        sys.exit('No wx/*.pyi files found. Run "python build.py etg" first.')
+    return files + sorted(glob.glob(os.path.join(ROOT, 'wx', '*', '**', '*.pyi'), recursive=True))
+
+
+def caseFiles():
+    return sorted(glob.glob(os.path.join(CASES, '*.py')))
+
+
+def checkSyntax(files):
+    failures = []
+    for filename in files:
+        with open(filename, encoding='utf-8') as f:
+            source = f.read()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            try:
+                ast.parse(source, filename)
+            except (SyntaxError, SyntaxWarning) as exc:
+                failures.append(f'{os.path.relpath(filename, ROOT)}: {exc}')
+    return failures
+
+
+def displayName(filename):
+    """Files are shown relative to ROOT, like wx/core.pyi"""
+    return os.path.relpath(os.path.join(ROOT, filename), ROOT).replace(os.sep, '/')
+
+
+def runTool(cmd):
+    try:
+        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                              encoding='utf-8')
+    except FileNotFoundError:
+        sys.exit(f'Unable to run {cmd[0]}')
+    if 'No module named' in proc.stderr:
+        sys.exit(f'{proc.stderr.strip()}\n'
+                 'Install the type checkers with: pip install --group typecheck')
+    return proc
+
+
+def runMypy(files):
+    cmd = [sys.executable, '-m', 'mypy', '--config-file', os.path.join(HERE, 'mypy.ini'),
+           '--output', 'json', '--no-error-summary'] + files
+    proc = runTool(cmd)
+    errors = []
+    for line in proc.stdout.splitlines():
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        if item['severity'] != 'error':
+            continue
+        errors.append(Error('mypy', displayName(item['file']), item['line'],
+                            item['code'] or 'misc', item['message']))
+    if proc.returncode not in (0, 1) or (proc.returncode and not errors):
+        sys.exit(f'mypy failed to run:\n{proc.stdout}{proc.stderr}')
+    return errors
+
+
+def runPyright(files):
+    cmd = [sys.executable, '-m', 'pyright', '--project', os.path.join(HERE, 'pyrightconfig.json'),
+           '--outputjson'] + files
+    proc = runTool(cmd)
+    try:
+        result = json.loads(proc.stdout)
+    except ValueError:
+        sys.exit(f'pyright failed to run:\n{proc.stdout}{proc.stderr}')
+    errors = []
+    for item in result['generalDiagnostics']:
+        if item['severity'] != 'error':
+            continue
+        errors.append(Error('pyright', displayName(item['file']),
+                            item['range']['start']['line'] + 1,
+                            item.get('rule', 'error'), item['message']))
+    return errors
+
+
+def runTy(files):
+    # The GitLab Code Quality format is ty's only JSON output
+    cmd = [sys.executable, '-m', 'ty', 'check', '--config-file', os.path.join(HERE, 'ty.toml'),
+           '--output-format', 'gitlab'] + files
+    proc = runTool(cmd)
+    try:
+        result = json.loads(proc.stdout)
+    except ValueError:
+        sys.exit(f'ty failed to run:\n{proc.stdout}{proc.stderr}')
+    errors = []
+    for item in result:
+        if item['severity'] not in ('major', 'critical', 'blocker'):
+            continue
+        code = item['check_name']
+        message = item['description'].removeprefix(f'{code}: ')
+        location = item['location']
+        errors.append(Error('ty', displayName(location['path']),
+                            location['positions']['begin']['line'], code, message))
+    return errors
+
+
+def runPyrefly(files):
+    cmd = [sys.executable, '-m', 'pyrefly', 'check', '--config', os.path.join(HERE, 'pyrefly.toml'),
+           '--output-format', 'json'] + files
+    proc = runTool(cmd)
+    try:
+        result = json.loads(proc.stdout)
+    except ValueError:
+        sys.exit(f'pyrefly failed to run:\n{proc.stdout}{proc.stderr}')
+    errors = []
+    for item in result['errors']:
+        if item['severity'] != 'error':
+            continue
+        errors.append(Error('pyrefly', displayName(item['path']),
+                            item['line'], item['name'], item['concise_description']))
+    return errors
+
+
+def tally(errors):
+    counts = {}
+    for e in errors:
+        if e.code in UNTRACKED[e.tool]:
+            continue
+        fileCounts = counts.setdefault(e.tool, {}).setdefault(e.file, {})
+        fileCounts[e.code] = fileCounts.get(e.code, 0) + 1
+    # sort everything, so the baseline file is stable and diffs are readable
+    return {tool: {f: dict(sorted(codes.items())) for f, codes in sorted(files.items())}
+            for tool, files in sorted(counts.items())}
+
+
+def flatten(counts):
+    return {(tool, f, code): n
+            for tool, files in counts.items()
+            for f, codes in files.items()
+            for code, n in codes.items()}
+
+
+def compareBaseline(errors, baseline):
+    current = flatten(tally(errors))
+    expected = flatten(baseline)
+    worse = sorted(k for k in current if current[k] > expected.get(k, 0))
+    better = sorted(k for k in expected if expected[k] > current.get(k, 0))
+
+    for key in worse:
+        tool, f, code = key
+        print(f'\n{tool} {f} [{code}]: {current[key]} errors, '
+              f'baseline is {expected.get(key, 0)}')
+        matching = [e for e in errors if (e.tool, e.file, e.code) == key]
+        for e in matching[:25]:
+            print(f'    {e.file}:{e.line}: {e.message}')
+        if len(matching) > 25:
+            print(f'    ... and {len(matching) - 25} more')
+    if better:
+        print('\nFewer errors than the baseline expects:')
+        for key in better:
+            tool, f, code = key
+            print(f'    {tool} {f} [{code}]: {current.get(key, 0)} errors, '
+                  f'baseline is {expected[key]}')
+    if worse or better:
+        print('\nIf these changes are expected, run this script with '
+              '--update-baseline and commit the result.')
+    return not (worse or better)
+
+
+def findRuntimeWx():
+    """The folder containing the wx package that Python imports"""
+    proc = subprocess.run([sys.executable, '-c', 'import wx; print(wx.__file__)'],
+                          capture_output=True, text=True, cwd=HERE)
+    if proc.returncode:
+        sys.exit(f'Unable to import wx, which stubtest needs:\n{proc.stderr}')
+    return os.path.dirname(os.path.dirname(os.path.abspath(proc.stdout.strip())))
+
+
+def isSitePackages(path):
+    paths = site.getsitepackages() + [site.getusersitepackages()]
+    paths += [sysconfig.get_path('purelib'), sysconfig.get_path('platlib')]
+    return any(os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(p))
+               for p in paths)
+
+
+def importableModules(root):
+    """The wx modules that have stubs and can be imported on this platform"""
+    modules = []
+    for name in sorted(glob.glob(os.path.join(root, 'wx', '**', '*.pyi'), recursive=True)):
+        name = os.path.relpath(name, root)[:-4].replace(os.sep, '.')
+        if name in ('wx.__init__', 'wx.__version__', 'wx.siplib'):
+            continue
+        proc = subprocess.run([sys.executable, '-c', f'import {name}'],
+                              capture_output=True, cwd=HERE)
+        if proc.returncode == 0:
+            modules.append(name)
+    return modules
+
+
+# The categories that the generated allowlist is grouped in, matched against
+# stubtest's messages.
+ALLOWLIST_CATEGORIES = [
+    (r"is not present at runtime",
+     "Not present at runtime, at least on this platform"),
+    (r"is not present in stub",
+     "Missing from the stubs"),
+    (r"read-only at runtime",
+     "Read-only at runtime"),
+    (r"", "Other differences"),
+]
+
+
+def runStubtest(update):
+    root = findRuntimeWx()
+    modules = importableModules(root)
+    print(f'Running stubtest with the wx package in {root}...')
+    cmd = [sys.executable, '-m', 'mypy.stubtest', '--concise',
+           '--mypy-config-file', os.path.join(HERE, 'stubtest.ini')]
+    allowlists = STUBTEST_ALLOWLISTS[:1] if update else STUBTEST_ALLOWLISTS
+    for name in allowlists:
+        cmd += ['--allowlist', name]
+    env = dict(os.environ)
+    if not isSitePackages(root):
+        # mypy finds installed packages by itself, but needs to be told where
+        # one built in the source tree is
+        env['MYPYPATH'] = root
+    proc = subprocess.run(cmd + modules, capture_output=True, text=True,
+                          encoding='utf-8', cwd=HERE, env=env)
+    if 'No module named' in proc.stderr:
+        sys.exit(f'{proc.stderr.strip()}\n'
+                 'Install the type checkers with: pip install --group typecheck')
+
+    if not update:
+        print(proc.stdout + proc.stderr)
+        print('OK' if proc.returncode == 0 else
+              'FAILED\nIf these differences are expected, run this script with '
+              '--stubtest --update-allowlist and commit the result.')
+        return proc.returncode
+
+    groups = {title: [] for _, title in ALLOWLIST_CATEGORIES}
+    for line in proc.stdout.splitlines():
+        name, _, message = line.partition(' ')
+        if not name.startswith('wx.'):
+            continue
+        for pattern, title in ALLOWLIST_CATEGORIES:
+            if re.search(pattern, message):
+                groups[title].append(name)
+                break
+    with open(STUBTEST_ALLOWLISTS[1], 'w') as f:
+        f.write('# Known differences between the stubs and the wx package, found by\n'
+                '# stubtest. This file is generated by check_stubs.py --stubtest\n'
+                '# --update-allowlist, so edit stubtest_allowlist_common.txt instead.\n')
+        for title, names in groups.items():
+            if names:
+                f.write(f'\n# {title}\n')
+                f.write(''.join(re.escape(name) + '\n' for name in sorted(set(names))))
+    print(f'Updated {os.path.relpath(STUBTEST_ALLOWLISTS[1], ROOT)}')
+    return 0
+
+
+def printErrors(errors):
+    for e in errors:
+        print(f'    {e.file}:{e.line}: [{e.tool}:{e.code}] {e.message}')
+
+#---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--update-baseline', action='store_true',
+                        help='write the current stub error counts to baseline.json')
+    parser.add_argument('--stubtest', action='store_true',
+                        help='compare the stubs with a built wx, instead of the other checks')
+    parser.add_argument('--update-allowlist', action='store_true',
+                        help='with --stubtest, write the differences found to stubtest_allowlist.txt')
+    options = parser.parse_args()
+    if options.stubtest:
+        return runStubtest(options.update_allowlist)
+
+    stubs = stubFiles()
+    print('Checking stub syntax...')
+    failures = checkSyntax(stubs + caseFiles())
+    if failures:
+        print('\n'.join(failures))
+        return 1
+
+    cases = caseFiles()
+    errors = []
+    for name, run in [('mypy', runMypy), ('pyright', runPyright),
+                      ('ty', runTy), ('pyrefly', runPyrefly)]:
+        print(f'Running {name}...')
+        errors += run(stubs + cases)
+
+    caseNames = {displayName(name) for name in cases}
+    caseErrors = [e for e in errors if e.file in caseNames]
+    stubErrors = [e for e in errors if e.file.startswith('wx/')]
+    otherErrors = [e for e in errors if e not in caseErrors and e not in stubErrors]
+
+    ok = True
+    if otherErrors:
+        print('\nUnexpected errors:')
+        printErrors(otherErrors)
+        ok = False
+
+    if options.update_baseline:
+        with open(BASELINE, 'w') as f:
+            json.dump(tally(stubErrors), f, indent=2)
+            f.write('\n')
+        print(f'Updated {os.path.relpath(BASELINE, ROOT)}')
+    else:
+        with open(BASELINE) as f:
+            baseline = json.load(f)
+        ok = compareBaseline(stubErrors, baseline) and ok
+
+    if caseErrors:
+        print('\nErrors in the type checking test cases:')
+        printErrors(caseErrors)
+        ok = False
+
+    total = sum(1 for e in stubErrors if e.code not in UNTRACKED[e.tool])
+    print(f'\n{total} known errors in the stubs, {len(caseErrors)} errors in the cases.')
+    print('OK' if ok else 'FAILED')
+    return 0 if ok else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

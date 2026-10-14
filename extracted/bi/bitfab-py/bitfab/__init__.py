@@ -84,6 +84,7 @@ from bitfab.labels import (
     LabelStatus,
     LabelUpdate,
     TraceLabels,
+    Verdict,
 )
 from bitfab.mock_override import (
     NO_MOCK_OVERRIDE,
@@ -309,6 +310,7 @@ __all__ = [
     "TraceTarget",
     "TraceTargetOccurrence",
     "TracesClient",
+    "Verdict",
     "finalizers",
     "flush_traces",
     "get_current_replay_branch",

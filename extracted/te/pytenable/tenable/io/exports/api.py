@@ -3,7 +3,7 @@ Exports
 =======
 
 The following methods allow for interaction into the Tenable Vulnerability Management
-:devportal:`exports <exports>` API endpoints.
+:devportal:`exports <exports-vulns-request-export>` API endpoints.
 
 Methods available on ``tio.exports``:
 
@@ -60,7 +60,7 @@ class ExportsAPI(APIEndpoint):
         Submit new export job for the specified datatype.
 
         API Documentation for the job listings for
-        :devportal:`assets <exports-assets-request-export>`,
+        :devportal:`assets <export-assets-v2>`,
         :devportal:`compliance <io-exports-compliance-create>`, and
         :devportal:`vulnerabilities <exports-vulns-request-export>` datatypes.
         """
@@ -348,7 +348,7 @@ class ExportsAPI(APIEndpoint):
         """
         Initiate an asset export.
 
-        :devportal:`API Documentation <exports-assets-request-export>`
+        :devportal:`API Documentation <export-assets-v2>`
 
         Args:
             last_scan_id:
@@ -390,9 +390,11 @@ class ExportsAPI(APIEndpoint):
             sources:
                 Only assets with a source matching one of these source values
                 will be returned.  Note that this value is case-sensitive.
-            tags (list[tuple[str, str]], optional):
+            tags (list[tuple[str, str | list[str]]], optional):
                 A list of tag pairs to filter the results on.  The tag pairs
-                should be presented as ``('CATEGORY', 'VALUE')``.
+                should be presented as ``('CATEGORY', 'VALUE')`` or
+                ``('CATEGORY', ['VALUE1', 'VALUE2'])``.  Values for the same
+                category are combined.
             uuid:
                 A predefined export UUID to use for generating an
                 ExportIterator.  Using this parameter will ignore all of the
@@ -498,7 +500,7 @@ class ExportsAPI(APIEndpoint):
         """
         Initiate an asset v2 export.
 
-        :devportal:`API Documentation <exports-v2-assets-request-export>`
+        :devportal:`API Documentation <export-assets-v2>`
 
         Args:
             last_scan_id:
@@ -695,7 +697,9 @@ class ExportsAPI(APIEndpoint):
                 list of states, such as open, reopened and fixed.
             tags:
                 A list of tag pairs to filter the results on.  The tag pairs should be
-                presented as ``('CATEGORY', ['VALUE'])``.
+                presented as ``('CATEGORY', 'VALUE')`` or
+                ``('CATEGORY', ['VALUE1', 'VALUE2'])``.  Values for the same category
+                are combined.
             network_id:
                 Returns Compliance findings for the specified network ID.
             num_findings:
@@ -761,6 +765,9 @@ class ExportsAPI(APIEndpoint):
         *,
         num_assets: int = 500,
         include_unlicensed: bool = True,
+        include_plugin_output: bool | None = None,
+        include_software_vulns: bool | None = None,
+        properties: list[str] | None = None,
         since: datetime | int | None = None,
         first_found: datetime | int | None = None,
         first_seen: datetime | int | None = None,
@@ -808,6 +815,19 @@ class ExportsAPI(APIEndpoint):
         | None = None,
         weaponization: list[
             Literal['apt', 'botnet', 'malware', 'ransomware', 'rootkit']
+        ]
+        | None = None,
+        zero_day: bool | None = None,
+        software_vulns_potential: bool | None = None,
+        software_vulns_potential_reasons: list[
+            Literal[
+                'Managed',
+                'Component',
+                'Config Required',
+                'Low Fidelity',
+                'Incomplete Version',
+                'Backported',
+            ]
         ]
         | None = None,
         tags: list[tuple[str, list[str] | str]] | None = None,
@@ -903,9 +923,24 @@ class ExportsAPI(APIEndpoint):
                 CIDR range specified.
             tags:
                 A list of tag pairs to filter the results on.  The tag pairs should be
-                presented as ``('CATEGORY', 'VALUE')``.
+                presented as ``('CATEGORY', 'VALUE')`` or
+                ``('CATEGORY', ['VALUE1', 'VALUE2'])``.  Values for the same category
+                are combined.
             include_unlicensed:
                 Should findings for unlicensed assets that be included in the results?
+            include_plugin_output:
+                Should each exported finding include its plugin output?  If omitted,
+                the API includes it.  Set to ``False`` to leave out the ``output``
+                property, which can make large exports much smaller.
+            include_software_vulns:
+                Should each exported finding include its ``software_vulns`` list?
+                The list attributes the finding to software packages and marks each
+                association as confirmed or potential.  If omitted, the API leaves
+                it out.
+            properties:
+                Property names to include in each exported finding. If omitted,
+                all available properties are returned. The server always includes
+                its core identifying properties regardless of this selection.
             num_assets:
                 As findings are grouped by asset, how many assets's findings should
                 exist within each data chunk?
@@ -950,6 +985,26 @@ class ExportsAPI(APIEndpoint):
                 vulnerabilities are vulnerabilities that are ready for use in a
                 particular type of attack. Supported values are ``apt``, ``botnet``,
                 ``malware``, ``ransomware``, ``rootkit``.
+            zero_day:
+                Returns findings by zero-day status, meaning vulnerabilities with no
+                official patch or fix available when they were disclosed.  Zero-day
+                status comes from the CVEs on each finding's plugin, so ``True`` and
+                ``False`` aren't complements.  Findings whose plugin has no CVEs
+                match neither value, and findings whose plugin has several CVEs can
+                match both.  Omit the filter to return every finding.
+            software_vulns_potential:
+                Returns only potential vulnerabilities when ``True``, meaning ones
+                whose presence on the affected software package can't be confirmed
+                with certainty, or only confirmed ones when ``False``.  If omitted,
+                both are returned.  The filter works with or without
+                ``include_software_vulns``; set that to ``True`` to see each
+                finding's classification and potential reasons in the results.
+            software_vulns_potential_reasons:
+                Returns findings with a software vulnerability classified as
+                potential for one of these reasons.  Supported values are
+                ``Managed``, ``Component``, ``Config Required``, ``Low Fidelity``,
+                ``Incomplete Version``, and ``Backported``; any casing is accepted.
+                Cannot be combined with ``software_vulns_potential=False``.
 
         Examples:
 
@@ -971,6 +1026,21 @@ class ExportsAPI(APIEndpoint):
             >>> vulns = tio.exports.vulns(
             ...     tags=[('Region', 'Chicago')]
             ... )
+
+            Exporting findings without their plugin output:
+
+            >>> vulns = tio.exports.vulns(include_plugin_output=False)
+
+            Exporting potential software vulnerabilities with their package data:
+
+            >>> vulns = tio.exports.vulns(
+            ...     include_software_vulns=True,
+            ...     software_vulns_potential=True,
+            ... )
+
+            Exporting zero-day findings:
+
+            >>> vulns = tio.exports.vulns(zero_day=True)
         """
         return self._export(
             export_type='vulns',
@@ -983,6 +1053,9 @@ class ExportsAPI(APIEndpoint):
             payload=models.VulnerabilityExportV1(
                 num_assets=num_assets,
                 include_unlicensed=include_unlicensed,
+                include_plugin_output=include_plugin_output,
+                include_software_vulns=include_software_vulns,
+                properties=properties,
                 filters=models.VulnerabilityExportFiltersV1(
                     since=since,
                     first_found=first_found,
@@ -1013,6 +1086,9 @@ class ExportsAPI(APIEndpoint):
                     vpr_v2_score=vpr_v2_score,  # ty: ignore[invalid-argument-type]
                     vpr_threat_intensity=vpr_threat_intensity,
                     weaponization=weaponization,
+                    zero_day=zero_day,
+                    software_vulns_potential=software_vulns_potential,
+                    software_vulns_potential_reasons=software_vulns_potential_reasons,
                     tags=tags,
                 ),
             ).model_dump(mode='json', exclude_none=True),
@@ -1023,6 +1099,7 @@ class ExportsAPI(APIEndpoint):
         *,
         num_assets: int = 500,
         include_unlicensed: bool = True,
+        properties: list[str] | None = None,
         since: datetime | int | None = None,
         first_found: datetime | int | None = None,
         last_fixed: datetime | int | None = None,
@@ -1162,6 +1239,19 @@ class ExportsAPI(APIEndpoint):
             include_unlicensed:
                 Should findings for assets that are not licensed be included in
                 the results?
+            properties:
+                Property names to include in each exported finding.  If omitted,
+                all available properties are returned.  The server always includes
+                its core identifying properties regardless of this selection.
+
+                The values are the request-side names listed in
+                `Select Vulnerability Export Properties
+                <https://developer.tenable.com/docs/select-vulnerability-export-properties>`_.
+                Exported findings keep
+                the field names of a full export, so some returned names differ
+                from the requested ones (for example, ``asset.name`` is returned as
+                ``asset.fqdn``).  The API rejects unknown names, which raises a
+                :obj:`~tenable.errors.BadRequestError`.
             num_assets:
                 As findings are grouped by asset, how many assets' findings
                 should exist within each data chunk.
@@ -1191,13 +1281,19 @@ class ExportsAPI(APIEndpoint):
             Iterating over the results of a WAS vuln export:
             >>> from tenable.io import TenableIO
             >>> tio = TenableIO("<apiKey>", "secret")
-            >>> for vuln in tio.exports.was_vulns():
+            >>> for vuln in tio.exports.was():
             ...     print(vuln)
 
             Getting findings that have been observed within the last 24 hours
             >>> import arrow
             >>> vulns = tio.exports.was(
             ...     since=int(arrow.now().shift(days=-1).timestamp())
+            ... )
+
+            Exporting only selected properties for each finding
+            >>> vulns = tio.exports.was(
+            ...     properties=['url', 'severity', 'state', 'asset.name'],
+            ...     severity=['high', 'critical'],
             ... )
         """
         return self._export(
@@ -1211,6 +1307,7 @@ class ExportsAPI(APIEndpoint):
             payload=models.WASExportV1(
                 num_assets=num_assets,
                 include_unlicensed=include_unlicensed,
+                properties=properties,
                 filters=models.WASExportFiltersV1(
                     since=since,
                     first_found=first_found,

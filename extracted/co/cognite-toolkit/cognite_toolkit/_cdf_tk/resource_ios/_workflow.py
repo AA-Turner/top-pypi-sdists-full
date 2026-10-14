@@ -123,7 +123,9 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
             yield WorkflowOrchestrationAcl(actions=sorted(actions), scope=scope)
 
     @classmethod
-    def get_id(cls, item: WorkflowRequest | WorkflowResponse | dict) -> ExternalId:
+    def get_id(cls, item: WorkflowRequest | WorkflowResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         if item.external_id is None:
@@ -158,11 +160,12 @@ class WorkflowIO(ResourceIO[ExternalId, WorkflowRequest, WorkflowResponse, Workf
     def update(self, items: Sequence[WorkflowRequest]) -> list[WorkflowResponse]:
         return self.client.tool.workflows.update(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.workflows.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -221,7 +224,11 @@ class WorkflowVersionIO(
         yield from ()
 
     @classmethod
-    def get_id(cls, item: WorkflowVersionRequest | WorkflowVersionResponse | dict) -> WorkflowVersionId:
+    def get_id(
+        cls, item: WorkflowVersionRequest | WorkflowVersionResponse | WorkflowVersionId | dict
+    ) -> WorkflowVersionId:
+        if isinstance(item, WorkflowVersionId):
+            return item
         if isinstance(item, dict):
             if missing := tuple(k for k in ("workflowExternalId", "version") if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
@@ -445,11 +452,12 @@ class WorkflowVersionIO(
     def update(self, items: Sequence[WorkflowVersionRequest]) -> list[WorkflowVersionResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: Sequence[WorkflowVersionId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.versions.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[WorkflowVersionId]) -> list[WorkflowVersionId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.workflows.versions.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -531,7 +539,9 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         return "workflow triggers"
 
     @classmethod
-    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | dict) -> ExternalId:
+    def get_id(cls, item: WorkflowTriggerRequest | WorkflowTriggerResponse | ExternalId | dict) -> ExternalId:
+        if isinstance(item, ExternalId):
+            return item
         if isinstance(item, dict):
             return ExternalId(external_id=item["externalId"])
         return ExternalId(external_id=item.external_id)
@@ -568,11 +578,11 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
                     to_pause.append(external_id)
                 elif item.is_paused is False and created_item.is_paused:
                     to_resume.append(external_id)
-        if to_pause and Flags.V09.is_enabled():
+        if to_pause:
             self.client.tool.workflows.triggers.pause(to_pause)
             for external_id in to_pause:
                 created[external_id].is_paused = True
-        if to_resume and Flags.V09.is_enabled():
+        if to_resume:
             self.client.tool.workflows.triggers.resume(to_resume)
             for external_id in to_resume:
                 created[external_id].is_paused = False
@@ -601,11 +611,12 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
     def update(self, items: Sequence[WorkflowTriggerRequest]) -> list[WorkflowTriggerResponse]:
         return self._upsert(items)
 
-    def delete(self, ids: Sequence[ExternalId]) -> int:
-        if not ids:
-            return 0
-        self.client.tool.workflows.triggers.delete(list(ids))
-        return len(ids)
+    def delete(self, ids: Sequence[ExternalId]) -> list[ExternalId]:
+        id_list = list(ids)
+        if not id_list:
+            return []
+        self.client.tool.workflows.triggers.delete(id_list)
+        return id_list
 
     def _iterate(
         self,
@@ -672,10 +683,8 @@ class WorkflowTriggerIO(ResourceIO[ExternalId, WorkflowTriggerRequest, WorkflowT
         # Remove response-only fields
         dumped.pop("createdTime", None)
         dumped.pop("lastUpdatedTime", None)
-        if Flags.V09.is_enabled() and local and "isPaused" not in local and resource.is_paused is False:
+        if local and "isPaused" not in local and resource.is_paused is False:
             # Remove isPaused as it is set to the default value from the serves.
-            dumped.pop("isPaused", None)
-        elif not Flags.V09.is_enabled():
             dumped.pop("isPaused", None)
 
         # Remove input if None to match local format

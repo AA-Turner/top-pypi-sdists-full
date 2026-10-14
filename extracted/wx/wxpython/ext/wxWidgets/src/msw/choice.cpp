@@ -214,21 +214,27 @@ wxChoice::GetClassDefaultAttributes(wxWindowVariant WXUNUSED(variant))
 
 void wxChoice::MSWGetDarkModeSupport(MSWDarkModeSupport& support) const
 {
-    support.themeName = L"CFD";
+    // Theme DarkMode_DarkTheme looks good, so use it if available. Theme
+    // "CFD" works well on older Windows versions although the border is a bit
+    // light.
+    if ( wxMSWDarkMode::HasDarkTheme() )
+        support.themeName = L"DarkMode_DarkTheme";
+    else
+        support.themeName = L"CFD";
 }
 
-void wxChoice::MSWSetDarkOrLightMode(SetMode setmode)
+void wxChoice::MSWSetDarkOrLightMode()
 {
-    wxChoiceBase::MSWSetDarkOrLightMode(setmode);
+    wxChoiceBase::MSWSetDarkOrLightMode();
 
     // Update scroll bar.
     WinStruct<COMBOBOXINFO> info;
     if ( ::GetComboBoxInfo(GetHwnd(), &info) && info.hwndList )
     {
         // The default theme does not look good on starting with Windows 11
-        // build 26300.8553. DarkMode_DarkTheme looks OK and was available
-        // starting with Windows 11 build 26200.
-        if ( wxCheckOsVersion(10, 0, 26200) )
+        // build 26300.8553. DarkMode_DarkTheme looks OK, but is always dark, so
+        // don't use it in light mode or the scrollbar would be dark in it too.
+        if ( wxMSWDarkMode::IsActive() && wxMSWDarkMode::HasDarkTheme() )
             wxMSWDarkMode::AllowForWindow(info.hwndList, L"DarkMode_DarkTheme");
         else
             wxMSWDarkMode::AllowForWindow(info.hwndList);
@@ -371,6 +377,11 @@ int wxChoice::FindString(const wxString& s, bool bCase) const
 void wxChoice::SetString(unsigned int n, const wxString& s)
 {
     wxCHECK_RET( IsValid(n), wxT("invalid item index in wxChoice::SetString") );
+
+    // don't do anything if the string doesn't change, deleting and inserting
+    // the item back below is not free and also results in flicker
+    if ( s == GetString(n) )
+        return;
 
     // we have to delete and add back the string as there is no way to change a
     // string in place

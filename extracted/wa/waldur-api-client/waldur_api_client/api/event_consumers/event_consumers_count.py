@@ -1,23 +1,47 @@
 from http import HTTPStatus
 from typing import Any, Union
+from uuid import UUID
 
 import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.backend_resource_req_o_enum import BackendResourceReqOEnum
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    params["is_global"] = is_global
+
+    json_o: Union[Unset, list[str]] = UNSET
+    if not isinstance(o, Unset):
+        json_o = []
+        for o_item_data in o:
+            o_item = o_item_data.value
+            json_o.append(o_item)
+
+    params["o"] = json_o
 
     params["page"] = page
 
     params["page_size"] = page_size
+
+    params["user_username"] = user_username
+
+    json_user_uuid: Union[Unset, str] = UNSET
+    if not isinstance(user_uuid, Unset):
+        json_user_uuid = str(user_uuid)
+    params["user_uuid"] = json_user_uuid
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -59,14 +83,22 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -77,8 +109,12 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        is_global=is_global,
+        o=o,
         page=page,
         page_size=page_size,
+        user_username=user_username,
+        user_uuid=user_uuid,
     )
 
     response = client.get_httpx_client().request(
@@ -91,14 +127,22 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -110,22 +154,34 @@ def sync(
 
     return sync_detailed(
         client=client,
+        is_global=is_global,
+        o=o,
         page=page,
         page_size=page_size,
+        user_username=user_username,
+        user_uuid=user_uuid,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -136,8 +192,12 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        is_global=is_global,
+        o=o,
         page=page,
         page_size=page_size,
+        user_username=user_username,
+        user_uuid=user_uuid,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -148,14 +208,22 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    is_global: Union[Unset, bool] = UNSET,
+    o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    user_username: Union[Unset, str] = UNSET,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        is_global (Union[Unset, bool]):
+        o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        user_username (Union[Unset, str]):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -168,7 +236,11 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            is_global=is_global,
+            o=o,
             page=page,
             page_size=page_size,
+            user_username=user_username,
+            user_uuid=user_uuid,
         )
     ).parsed

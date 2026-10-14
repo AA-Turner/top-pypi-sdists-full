@@ -435,6 +435,9 @@ class Scale(torch.nn.Module):  # type: ignore[misc,name-defined]
         super().__init__()
         self.weight = torch.nn.Parameter(torch.empty(width, dtype=torch.float16))
 
+    def forward(self, x: Any) -> Any:
+        return x * torch.rsqrt(x.float().pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
+
 
 class SiblingBlock(Block):
     """Reads its sub-modules' weights itself: a norm scale, and a whole projection."""
@@ -1334,6 +1337,147 @@ def test_an_op_out_of_memory_spares_the_components_not_in_use(
     residency.unpark()
 
 
+@on_gpu
+def test_torch_is_held_above_the_drivers_floor_without_a_cap(card: Any) -> None:
+    """Run 5422 (8 GB laptop): with the card at 10 MB free the driver could not allocate its
+    own fault buffers (NV_ERR_NO_MEMORY) and libcuda faulted the executor. Torch is held to
+    what the driver has free above the floor, cap or none: past it, torch runs out of memory
+    (which the plane recovers from), never the driver."""
+    weights = card.weights
+    torch.cuda.empty_cache()
+    free, _ = torch.cuda.mem_get_info()
+    weights.set_floor(free - (64 << 20))
+    try:
+        weights.limit_torch()
+        with pytest.raises(torch.OutOfMemoryError):
+            torch.empty(256 << 20, dtype=torch.uint8, device="cuda")
+        small = torch.empty(16 << 20, dtype=torch.uint8, device="cuda")
+        del small
+    finally:
+        weights.set_floor(-1)
+        weights.limit_torch()
+        torch.cuda.empty_cache()
+    torch.empty(256 << 20, dtype=torch.uint8, device="cuda")
+
+
+class Flat(Stack):
+    """A component that declares no blocks, as SeedVR2's NaDiT declares none."""
+
+    _no_split_modules = None
+
+
+@on_gpu
+def test_a_component_without_blocks_streams_inside_an_owners_cap(tmp_path: Path) -> None:
+    """Run 5424: SeedVR2's 6.4 GB DiT declares no blocks, so it was one region on an 8 GB card,
+    leased for its whole stage; nothing could unmap it, and the first activation that did not
+    fit beside it was refused. A component without blocks pages at the sub-block grain: its
+    ops between regions (`x * norm`, `tanh`) run out of memory at the cap, its weights leave
+    for them, and it computes the same bits inside the cap."""
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(-1, pinned=1 << 30)
+    model = load(weights, write_checkpoint(tmp_path)[0], "flat", factory=Flat)
+    component = model.residency.components["stack"]
+    assert component.fine and len(component.blocks) == 2 * BLOCKS
+    x = torch.randn(1 << 15, HIDDEN, device="cuda", dtype=torch.float16)  # 128 MiB each
+
+    def recovered(x: Any) -> list[Any]:
+        with weights.recovering():
+            return run(model, x, passes=1)
+
+    torch.cuda.reset_peak_memory_stats()
+    live = torch.cuda.memory_allocated()
+    uncapped = [t.cpu() for t in recovered(x)]  # off the card: its bytes are no room
+    measured = torch.cuda.max_memory_allocated() - live
+    model.residency.unpark()
+    weights.set_budget(0)
+    torch.cuda.empty_cache()
+    weights.measure_context()
+    context = max(weights.context_bytes, 0)
+    # Room for the activations and a margin, not for the weights beside them as well (what
+    # torch holds live, not its cache: earlier tests' segments are no room).
+    cap = context + torch.cuda.memory_allocated() + measured + weight_policy.MARGIN
+    assert component.layout.total > weight_policy.MARGIN
+    weights.activation.clear()  # unmeasured: the stage keeps every weight it can
+    retries = weights.facts().oom_retries
+    torch.cuda.reset_peak_memory_stats()
+    weights.set_cap(cap)
+    try:
+        weights.set_budget(-1)
+        capped = [t.cpu() for t in recovered(x)]
+        peak = torch.cuda.max_memory_reserved()
+        facts = weights.facts()
+    finally:
+        weights.set_cap(-1)
+    del x
+    torch.cuda.empty_cache()
+    # It gave weights back for its activations: unmapped on an out-of-memory, or streamed.
+    gave = facts.oom_retries > retries or facts.committed_bytes < component.layout.total
+    assert gave and facts.modes["stack.grain"] == "sub-block"
+    assert peak + context <= cap
+    assert same(uncapped, capped)
+
+
+class Twice(Block):
+    """Its projection called twice in a row, as SeedVR2 calls a shared-weight projection once
+    for video and once for text."""
+
+    def forward(self, x: Any) -> Any:
+        return x + torch.tanh(self.out(torch.tanh(self.proj(self.proj(x * self.norm)))))
+
+
+class FlatTwice(Flat):
+    def __init__(self) -> None:
+        super().__init__()
+        self.blocks = torch.nn.ModuleList([Twice() for _ in range(BLOCKS)])
+
+
+@on_gpu
+def test_a_module_called_again_right_after_itself_streams_once(tmp_path: Path) -> None:
+    """Run 5540: SeedVR2's shared-weight projections are called twice in a row. The cursor
+    served the second call by skipping a whole pass, copying every block and handing it on
+    unread: 300 GB of copies in one 17-frame window. A block not due within the cursor's
+    window is filled on demand instead, and the stream copies each pass about once."""
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(1 << 30, pinned=1 << 30)
+    model = load(weights, write_checkpoint(tmp_path)[0], "twice", factory=FlatTwice)
+    layout: weight_policy.Layout = model.residency.components["stack"].layout
+    x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+    resident = run(model, x)
+    model.residency.unpark()
+    weights.set_budget(layout.common + 4 * layout.largest)
+    run(model, x, passes=2)  # the order is learned, then streamed
+    before = weights.facts().h2d_bytes
+    streamed = run(model, x)
+    assert weights.facts().streamed["stack"].resident_blocks < len(layout.blocks)
+    per_pass = (weights.facts().h2d_bytes - before) / 3
+    assert per_pass < 2 * layout.total, per_pass / layout.total
+    assert same(resident, streamed)
+
+
+@on_gpu
+def test_a_stage_with_no_component_known_in_use_spares_them_all(tmp_path: Path) -> None:
+    """Run 5439: no block of the stage had run, so nothing was known to be in use, and the
+    stage's components kept their weights while an op could not get memory. Not knowing which
+    is in use, every one the op does not read gives its weights back; a read maps them again
+    for that op, and the results are the same bits."""
+    weights, residency, modules = scoped(tmp_path)
+    scope = ("encoder", "stack")
+    x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+    encoder, stack = residency.components["encoder"], residency.components["stack"]
+    residency.admit("run", scope)
+    try:
+        with torch.inference_mode():
+            reference = modules["stack"](modules["encoder"](x))
+            mapped = weights.facts().committed_bytes
+            assert residency._spare({"another construction/vae"}, {})
+            assert encoder.spared and stack.spared
+            assert weights.facts().committed_bytes < mapped
+            assert torch.equal(modules["stack"](modules["encoder"](x)), reference)
+    finally:
+        residency.release("run", scope)
+    residency.unpark()
+
+
 @on_card
 def test_an_idle_construction_gives_room_and_returns_from_the_pinned_tier(card: Any) -> None:
     weights = card.weights
@@ -1647,6 +1791,41 @@ def test_one_gpu_of_a_group_never_runs_a_block_twice(tmp_path: Path) -> None:
     assert weights.facts().oom_retries > retries
     assert weights.resident_bytes(idle.residency.components["stack"]) < held
     assert same(list(resident), list(squeezed)) and calls["block"] == 6
+
+
+@on_card
+def test_a_group_gpus_denoise_keeps_a_resident_set_after_a_one_pass_warm_up(card: Any) -> None:
+    """Run 2963 (H3 on 2x A40): the leader GPU ran the whole denoise with every DiT block
+    streamed through a window of two, nothing resident, while the other GPU kept half the
+    blocks on the card. Placed again at its second pass, the stage was judged run-once
+    because the component's last stage (the warm-up) had made one pass. A stage on its
+    second pass is cyclic."""
+    weights = card.weights
+    model = load(weights, card.checkpoint, "leader")
+    x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+
+    def staged(method: str, passes: int) -> list[Any]:
+        model.residency.admit(method, ("stack",))
+        try:
+            with torch.inference_mode():
+                return [model.stack(x) for _ in range(passes)]
+        finally:
+            model.residency.release(method, ("stack",))
+
+    weights.set_budget(1 << 30)
+    resident = staged("reference", 3)
+    model.residency.open_attempt()
+    weights.grouped = True
+    weights.activation.clear()  # a fresh executor's first request: nothing measured
+    layout: weight_policy.Layout = model.residency.components["stack"].layout
+    weights.set_budget(layout.common + (BLOCKS // 2 + 2) * layout.largest)
+    staged("warm", 1)
+    # The warm-up's first launches (library workspaces) are not the denoise's activations.
+    weights.activation.clear()
+    denoised = staged("denoise", 3)
+    kept = weights.facts().streamed["stack"].resident_blocks
+    assert 0 < kept < BLOCKS, kept
+    assert same(resident, denoised)
 
 
 @on_card

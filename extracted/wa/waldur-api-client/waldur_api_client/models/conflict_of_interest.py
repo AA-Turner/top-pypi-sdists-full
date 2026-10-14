@@ -46,6 +46,7 @@ class ConflictOfInterest:
         evidence_description (str):
         evidence_data (ConflictOfInterestEvidenceData): Structured evidence: {"papers": [...], "affiliation_overlap":
             {...}}
+        status (ConflictOfInterestStatusEnum):
         status_display (str):
         reviewed_by (Union[None, str]):
         reviewed_by_name (str):
@@ -55,7 +56,6 @@ class ConflictOfInterest:
         conflicting_organization (Union[None, str]):
         conflicting_organization_name (str):
         created (datetime.datetime):
-        status (Union[Unset, ConflictOfInterestStatusEnum]):
         review_notes (Union[Unset, str]):
         management_plan (Union[Unset, str]): If waived, how is it managed
     """
@@ -81,6 +81,7 @@ class ConflictOfInterest:
     detected_at: datetime.datetime
     evidence_description: str
     evidence_data: "ConflictOfInterestEvidenceData"
+    status: ConflictOfInterestStatusEnum
     status_display: str
     reviewed_by: Union[None, str]
     reviewed_by_name: str
@@ -90,7 +91,6 @@ class ConflictOfInterest:
     conflicting_organization: Union[None, str]
     conflicting_organization_name: str
     created: datetime.datetime
-    status: Union[Unset, ConflictOfInterestStatusEnum] = UNSET
     review_notes: Union[Unset, str] = UNSET
     management_plan: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -139,6 +139,8 @@ class ConflictOfInterest:
 
         evidence_data = self.evidence_data.to_dict()
 
+        status = self.status.value
+
         status_display = self.status_display
 
         reviewed_by: Union[None, str]
@@ -163,10 +165,6 @@ class ConflictOfInterest:
         conflicting_organization_name = self.conflicting_organization_name
 
         created = self.created.isoformat()
-
-        status: Union[Unset, str] = UNSET
-        if not isinstance(self.status, Unset):
-            status = self.status.value
 
         review_notes = self.review_notes
 
@@ -197,6 +195,7 @@ class ConflictOfInterest:
                 "detected_at": detected_at,
                 "evidence_description": evidence_description,
                 "evidence_data": evidence_data,
+                "status": status,
                 "status_display": status_display,
                 "reviewed_by": reviewed_by,
                 "reviewed_by_name": reviewed_by_name,
@@ -208,8 +207,6 @@ class ConflictOfInterest:
                 "created": created,
             }
         )
-        if status is not UNSET:
-            field_dict["status"] = status
         if review_notes is not UNSET:
             field_dict["review_notes"] = review_notes
         if management_plan is not UNSET:
@@ -269,6 +266,8 @@ class ConflictOfInterest:
 
         evidence_data = ConflictOfInterestEvidenceData.from_dict(d.pop("evidence_data"))
 
+        status = ConflictOfInterestStatusEnum(d.pop("status"))
+
         status_display = d.pop("status_display")
 
         def _parse_reviewed_by(data: object) -> Union[None, str]:
@@ -315,13 +314,6 @@ class ConflictOfInterest:
 
         created = isoparse(d.pop("created"))
 
-        _status = d.pop("status", UNSET)
-        status: Union[Unset, ConflictOfInterestStatusEnum]
-        if isinstance(_status, Unset):
-            status = UNSET
-        else:
-            status = ConflictOfInterestStatusEnum(_status)
-
         review_notes = d.pop("review_notes", UNSET)
 
         management_plan = d.pop("management_plan", UNSET)
@@ -348,6 +340,7 @@ class ConflictOfInterest:
             detected_at=detected_at,
             evidence_description=evidence_description,
             evidence_data=evidence_data,
+            status=status,
             status_display=status_display,
             reviewed_by=reviewed_by,
             reviewed_by_name=reviewed_by_name,
@@ -357,7 +350,6 @@ class ConflictOfInterest:
             conflicting_organization=conflicting_organization,
             conflicting_organization_name=conflicting_organization_name,
             created=created,
-            status=status,
             review_notes=review_notes,
             management_plan=management_plan,
         )

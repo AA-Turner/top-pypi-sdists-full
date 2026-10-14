@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_twingate
-Version: 5.0.3
+Version: 5.1.0
 Summary: A Pulumi package for creating and managing Twingate cloud resources.
 Home-page: https://www.twingate.com
 License: Apache-2.0

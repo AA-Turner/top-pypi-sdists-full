@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.583"
+version = "0.5.586"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }
@@ -76,7 +76,7 @@ dependencies = [
     # actions.register_node is imported at module scope and first shipped in 0.1.22.
     "matrx-graph>=0.2.295",
     # tools.implementations imports the browser implementation eagerly.
-    "matrx-scraper[browser,files]>=0.2.378",
+    "matrx-scraper[browser,files]>=0.2.380",
     # matrx-runtime (the Request Management Layer): the conversation executor
     # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
     # one conversation = one global_execution. ai → runtime is the acyclic edge.

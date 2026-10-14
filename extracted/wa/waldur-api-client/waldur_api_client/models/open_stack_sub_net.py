@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.core_states import CoreStates
+from ..models.ipv_6_mode import Ipv6Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -52,6 +53,8 @@ class OpenStackSubNet:
         access_url (Union[None, Unset, list[str], str]):
         tenant (Union[Unset, str]):
         tenant_name (Union[Unset, str]):
+        tenant_is_managed (Union[Unset, bool]): False when the subnet's network belongs to an OpenStack project that
+            Waldur does not manage and only reaches tenants through an RBAC share.
         network (Union[Unset, str]): Network to which this subnet belongs
         network_name (Union[Unset, str]):
         cidr (Union[Unset, str]):
@@ -59,11 +62,19 @@ class OpenStackSubNet:
         disable_gateway (Union[Unset, bool]): If True, no gateway IP address will be allocated
         allocation_pools (Union[Unset, list['OpenStackSubNetAllocationPool']]):
         ip_version (Union[Unset, int]): IP protocol version (4 or 6)
+        ipv6_ra_mode (Union[Ipv6Mode, None, Unset]): How the router advertises an IPv6 subnet. Set at creation only;
+            null for an IPv4 subnet.
+        ipv6_address_mode (Union[Ipv6Mode, None, Unset]): How instances on an IPv6 subnet get their address. Set at
+            creation only; null for an IPv4 subnet.
         enable_dhcp (Union[Unset, bool]): If True, DHCP service will be enabled on this subnet
         dns_nameservers (Union[Unset, list[str]]):
         host_routes (Union[Unset, list['OpenStackStaticRoute']]):
         is_connected (Union[Unset, bool]): Is subnet connected to the default tenant router.
         port_security_enabled (Union[Unset, bool]):
+        router (Union[None, Unset, str]): Router to attach the subnet to. Optional: when omitted Waldur picks a router
+            of the tenant itself. Cannot be changed here afterwards -- use the router's add/remove interface actions.
+        router_name (Union[None, Unset, str]):
+        router_uuid (Union[None, UUID, Unset]):
         marketplace_offering_uuid (Union[None, Unset, str]):
         marketplace_offering_name (Union[None, Unset, str]):
         marketplace_offering_type (Union[None, Unset, str]):
@@ -105,6 +116,7 @@ class OpenStackSubNet:
     access_url: Union[None, Unset, list[str], str] = UNSET
     tenant: Union[Unset, str] = UNSET
     tenant_name: Union[Unset, str] = UNSET
+    tenant_is_managed: Union[Unset, bool] = UNSET
     network: Union[Unset, str] = UNSET
     network_name: Union[Unset, str] = UNSET
     cidr: Union[Unset, str] = UNSET
@@ -112,11 +124,16 @@ class OpenStackSubNet:
     disable_gateway: Union[Unset, bool] = UNSET
     allocation_pools: Union[Unset, list["OpenStackSubNetAllocationPool"]] = UNSET
     ip_version: Union[Unset, int] = UNSET
+    ipv6_ra_mode: Union[Ipv6Mode, None, Unset] = UNSET
+    ipv6_address_mode: Union[Ipv6Mode, None, Unset] = UNSET
     enable_dhcp: Union[Unset, bool] = UNSET
     dns_nameservers: Union[Unset, list[str]] = UNSET
     host_routes: Union[Unset, list["OpenStackStaticRoute"]] = UNSET
     is_connected: Union[Unset, bool] = UNSET
     port_security_enabled: Union[Unset, bool] = UNSET
+    router: Union[None, Unset, str] = UNSET
+    router_name: Union[None, Unset, str] = UNSET
+    router_uuid: Union[None, UUID, Unset] = UNSET
     marketplace_offering_uuid: Union[None, Unset, str] = UNSET
     marketplace_offering_name: Union[None, Unset, str] = UNSET
     marketplace_offering_type: Union[None, Unset, str] = UNSET
@@ -212,6 +229,8 @@ class OpenStackSubNet:
 
         tenant_name = self.tenant_name
 
+        tenant_is_managed = self.tenant_is_managed
+
         network = self.network
 
         network_name = self.network_name
@@ -235,6 +254,22 @@ class OpenStackSubNet:
 
         ip_version = self.ip_version
 
+        ipv6_ra_mode: Union[None, Unset, str]
+        if isinstance(self.ipv6_ra_mode, Unset):
+            ipv6_ra_mode = UNSET
+        elif isinstance(self.ipv6_ra_mode, Ipv6Mode):
+            ipv6_ra_mode = self.ipv6_ra_mode.value
+        else:
+            ipv6_ra_mode = self.ipv6_ra_mode
+
+        ipv6_address_mode: Union[None, Unset, str]
+        if isinstance(self.ipv6_address_mode, Unset):
+            ipv6_address_mode = UNSET
+        elif isinstance(self.ipv6_address_mode, Ipv6Mode):
+            ipv6_address_mode = self.ipv6_address_mode.value
+        else:
+            ipv6_address_mode = self.ipv6_address_mode
+
         enable_dhcp = self.enable_dhcp
 
         dns_nameservers: Union[Unset, list[str]] = UNSET
@@ -255,6 +290,26 @@ class OpenStackSubNet:
         is_connected = self.is_connected
 
         port_security_enabled = self.port_security_enabled
+
+        router: Union[None, Unset, str]
+        if isinstance(self.router, Unset):
+            router = UNSET
+        else:
+            router = self.router
+
+        router_name: Union[None, Unset, str]
+        if isinstance(self.router_name, Unset):
+            router_name = UNSET
+        else:
+            router_name = self.router_name
+
+        router_uuid: Union[None, Unset, str]
+        if isinstance(self.router_uuid, Unset):
+            router_uuid = UNSET
+        elif isinstance(self.router_uuid, UUID):
+            router_uuid = str(self.router_uuid)
+        else:
+            router_uuid = self.router_uuid
 
         marketplace_offering_uuid: Union[None, Unset, str]
         if isinstance(self.marketplace_offering_uuid, Unset):
@@ -381,6 +436,8 @@ class OpenStackSubNet:
             field_dict["tenant"] = tenant
         if tenant_name is not UNSET:
             field_dict["tenant_name"] = tenant_name
+        if tenant_is_managed is not UNSET:
+            field_dict["tenant_is_managed"] = tenant_is_managed
         if network is not UNSET:
             field_dict["network"] = network
         if network_name is not UNSET:
@@ -395,6 +452,10 @@ class OpenStackSubNet:
             field_dict["allocation_pools"] = allocation_pools
         if ip_version is not UNSET:
             field_dict["ip_version"] = ip_version
+        if ipv6_ra_mode is not UNSET:
+            field_dict["ipv6_ra_mode"] = ipv6_ra_mode
+        if ipv6_address_mode is not UNSET:
+            field_dict["ipv6_address_mode"] = ipv6_address_mode
         if enable_dhcp is not UNSET:
             field_dict["enable_dhcp"] = enable_dhcp
         if dns_nameservers is not UNSET:
@@ -405,6 +466,12 @@ class OpenStackSubNet:
             field_dict["is_connected"] = is_connected
         if port_security_enabled is not UNSET:
             field_dict["port_security_enabled"] = port_security_enabled
+        if router is not UNSET:
+            field_dict["router"] = router
+        if router_name is not UNSET:
+            field_dict["router_name"] = router_name
+        if router_uuid is not UNSET:
+            field_dict["router_uuid"] = router_uuid
         if marketplace_offering_uuid is not UNSET:
             field_dict["marketplace_offering_uuid"] = marketplace_offering_uuid
         if marketplace_offering_name is not UNSET:
@@ -543,6 +610,8 @@ class OpenStackSubNet:
 
         tenant_name = d.pop("tenant_name", UNSET)
 
+        tenant_is_managed = d.pop("tenant_is_managed", UNSET)
+
         network = d.pop("network", UNSET)
 
         network_name = d.pop("network_name", UNSET)
@@ -569,6 +638,40 @@ class OpenStackSubNet:
 
         ip_version = d.pop("ip_version", UNSET)
 
+        def _parse_ipv6_ra_mode(data: object) -> Union[Ipv6Mode, None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                ipv6_ra_mode_type_0 = Ipv6Mode(data)
+
+                return ipv6_ra_mode_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[Ipv6Mode, None, Unset], data)
+
+        ipv6_ra_mode = _parse_ipv6_ra_mode(d.pop("ipv6_ra_mode", UNSET))
+
+        def _parse_ipv6_address_mode(data: object) -> Union[Ipv6Mode, None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                ipv6_address_mode_type_0 = Ipv6Mode(data)
+
+                return ipv6_address_mode_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[Ipv6Mode, None, Unset], data)
+
+        ipv6_address_mode = _parse_ipv6_address_mode(d.pop("ipv6_address_mode", UNSET))
+
         enable_dhcp = d.pop("enable_dhcp", UNSET)
 
         dns_nameservers = []
@@ -592,6 +695,41 @@ class OpenStackSubNet:
         is_connected = d.pop("is_connected", UNSET)
 
         port_security_enabled = d.pop("port_security_enabled", UNSET)
+
+        def _parse_router(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        router = _parse_router(d.pop("router", UNSET))
+
+        def _parse_router_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        router_name = _parse_router_name(d.pop("router_name", UNSET))
+
+        def _parse_router_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                router_uuid_type_0 = UUID(data)
+
+                return router_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        router_uuid = _parse_router_uuid(d.pop("router_uuid", UNSET))
 
         def _parse_marketplace_offering_uuid(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -734,6 +872,7 @@ class OpenStackSubNet:
             access_url=access_url,
             tenant=tenant,
             tenant_name=tenant_name,
+            tenant_is_managed=tenant_is_managed,
             network=network,
             network_name=network_name,
             cidr=cidr,
@@ -741,11 +880,16 @@ class OpenStackSubNet:
             disable_gateway=disable_gateway,
             allocation_pools=allocation_pools,
             ip_version=ip_version,
+            ipv6_ra_mode=ipv6_ra_mode,
+            ipv6_address_mode=ipv6_address_mode,
             enable_dhcp=enable_dhcp,
             dns_nameservers=dns_nameservers,
             host_routes=host_routes,
             is_connected=is_connected,
             port_security_enabled=port_security_enabled,
+            router=router,
+            router_name=router_name,
+            router_uuid=router_uuid,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,
             marketplace_offering_type=marketplace_offering_type,

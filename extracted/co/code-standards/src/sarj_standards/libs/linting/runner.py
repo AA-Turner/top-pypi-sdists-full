@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
 
 from sarj_standards.libs.filesystem import is_link_like
 
-from . import textlint
+from . import library_policy, textlint
 
 
 if TYPE_CHECKING:
@@ -222,6 +222,12 @@ def _run_tool(
     if not files or selected == frozenset():
         return 0
     checker, registry = _load_tool(package)
+    if selected is None and package == "sarj_python_lint":
+        from sarj_python_lint.rule_base import Rule  # ruff: ignore[import-outside-top-level]
+
+        registry = {
+            name: rule for name, rule in registry.items() if not issubclass(rule, Rule) or rule.enabled_by_default
+        }
     if selected is not None:
         registry = _select_rules(registry, selected)
     return _run(checker, registry, files, extra_args=extra_args)
@@ -285,7 +291,7 @@ def _validated_inputs(files: Sequence[str], *, policy: Policy | None) -> list[tu
 
 def accepts_hook_path(path: Path, *, root: Path | None = None) -> bool:
     return (
-        _owns_path(path)
+        (_owns_path(path) or (root is not None and library_policy.accepts_path(path, root)))
         and not _is_skill_artifact(path)
         and not _is_ignored_path(path, root=root)
         and not _is_conventionally_generated(path)

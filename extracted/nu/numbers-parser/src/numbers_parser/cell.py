@@ -83,6 +83,7 @@ __all__ = [
     "BulletedTextCell",
     "Cell",
     "CellBorder",
+    "Comment",
     "CustomFormatting",
     "DateCell",
     "DurationCell",
@@ -606,6 +607,16 @@ class MergeAnchor:
 
 
 @dataclass
+class Comment:
+    """A comment associated with a cell."""
+
+    author: str
+    text: str
+    creation_date: datetime
+    replies: list[Comment] = field(default_factory=list)
+
+
+@dataclass
 class CellStorageFlags:
     _string_id: int = None
     _rich_id: int = None
@@ -623,12 +634,11 @@ class CellStorageFlags:
     _duration_format_id: int = None
     _text_format_id: int = None
     _bool_format_id: int = None
+    _comment_id: int = None
     _extra_bits: int = 0
 
     def __repr__(self) -> str:
-        fields = [
-            f"{k[1:]}={v}" for k, v in asdict(self).items() if k.endswith("_id") and v is not None
-        ]
+        fields = [f"{k[1:]}={v}" for k, v in asdict(self).items() if v is not None]
         return ", ".join([x for x in fields if x if not None])
 
     def flags(self):
@@ -844,6 +854,13 @@ class Cell(CellStorageFlags, Cacheable):
             stacklevel=2,
         )
 
+    @property
+    def comments(self) -> list[Comment]:
+        """Return a list of (comment, author) tuples for the cell."""
+        if self._comment_id is None:
+            return []
+        return self._model.table_comments(self._table_id, self._comment_id)
+
     @classmethod
     def _empty_cell(cls, table_id: int, row: int, col: int, model: object):
         return Cell._from_storage(table_id, row, col, EMPTY_STORAGE_BUFFER, model)
@@ -860,7 +877,9 @@ class Cell(CellStorageFlags, Cacheable):
     @classmethod
     def _from_value(cls, row: int, col: int, value):
         # TODO: write needs to retain/init the border
-        if isinstance(value, str):
+        if value is None:
+            cell = EmptyCell(row, col)
+        elif isinstance(value, str):
             cell = TextCell(row, col, value)
         elif isinstance(value, bool):
             cell = BoolCell(row, col, value)
@@ -881,7 +900,7 @@ class Cell(CellStorageFlags, Cacheable):
             cell = DurationCell(row, col, value)
         else:
             msg = "Can't determine cell type from type " + type(value).__name__
-            raise ValueError(msg)  # noqa: TRY004
+            raise ValueError(msg)
 
         return cell
 
@@ -954,7 +973,9 @@ class Cell(CellStorageFlags, Cacheable):
             storage_flags._text_format_id, offset = unpack_int(buffer, offset)
         if flags & 0x40000:
             storage_flags._bool_format_id, offset = unpack_int(buffer, offset)
-        # Skip 0x80000 (comment_id) and 0x100000 (import_warning_id)
+        if flags & 0x80000:
+            storage_flags._comment_id, offset = unpack_int(buffer, offset)
+        # Skip 0x100000 (import_warning_id)
 
         cell_type = buffer[1]
         if cell_type == TSTArchives.genericCellType:
@@ -1119,25 +1140,18 @@ class Cell(CellStorageFlags, Cacheable):
             )
             return None
 
-        # TODO: reason about these bits more as this is entirely built from a
-        #       scikit DecisionTreeClassifier based on observations of available
-        #       Numbers documents. A side-effect of this approach is that it
-        #       converts Automatic cells into standard cells which feels wrong.
-        #
-        # self._extra_bits = sum(
-        #     1 << bit
-        #     for value, bit in (
-        #         (self._num_format_id, 0),
-        #         (self._currency_format_id, 1),
-        #         (self._duration_format_id, 2),
-        #         (self._date_format_id, 3),
-        #         (self._bool_format_id, 5),
-        #         (self._text_format_id, 7),
-        #         (self._currency_format_id, 11),
-        #         (self._formula_id, 15),
-        #     )
-        #     if value is not None
-        # )
+        for field_id, bit in (
+            (self._num_format_id, 0),
+            (self._currency_format_id, 1),
+            (self._duration_format_id, 2),
+            (self._date_format_id, 3),
+            (self._bool_format_id, 5),
+            (self._text_format_id, 7),
+            (self._currency_format_id, 11),
+            (self._formula_id, 15),
+        ):
+            if field_id is not None:
+                self._extra_bits |= 1 << bit
 
         storage = bytearray(12)
         storage[0] = 5
@@ -1205,14 +1219,10 @@ class Cell(CellStorageFlags, Cacheable):
             flags |= 0x40000
             length += 4
             storage += pack("<i", self._bool_format_id)
-
-        # TODO: pack extra_bits for newly created cells.
-        #       0x0001 - number
-        #       0x0002 - currency
-        #       0x0004 - duration
-        #       0x0008 - datetime
-        #       0x0020 - bool
-        #       0x0080 - string
+        if self._comment_id is not None:
+            flags |= 0x80000
+            length += 4
+            storage += pack("<i", self._comment_id)
 
         storage[8:12] = pack("<i", flags)
         if len(storage) < 32:
@@ -1865,7 +1875,10 @@ def _decode_number_format(  # noqa: PLR0912
         dec_pad = None
     dec_width = num_decimals
 
-    (integer, decimal) = str(float(value)).split(".")
+    value = round(float(value), num_decimals) if num_decimals > 0 else round(float(value))
+
+    # Custom formats have a maximum of 10 decimals
+    (integer, decimal) = f"{value:.10f}".split(".")
     if num_decimals > 0:
         integer = int(integer)
         decimal = round(float(f"0.{decimal}"), num_decimals)
@@ -1936,10 +1949,16 @@ def _decode_number_format(  # noqa: PLR0912
         elif dec_pad == CellPadding.SPACE and decimal == 0 and num_integers > 0:
             formatted_value += ".".ljust(dec_width + 1)
         elif dec_pad == CellPadding.SPACE:
-            decimal_str = str(decimal)[2:]
+            if "e" in str(decimal):
+                decimal_str = f"{decimal:.{num_decimals}f}"[2:]
+            else:
+                decimal_str = str(decimal)[2:]
             formatted_value += "." + decimal_str.ljust(dec_width)
         elif decimal or num_integers == 0:
-            formatted_value += "." + str(decimal)[2:]
+            if "e" in str(decimal):
+                formatted_value += "." + f"{decimal:.{num_decimals}f}"[2:]
+            else:
+                formatted_value += "." + str(decimal)[2:]
 
     formatted_value = custom_format_string.replace(format_spec, formatted_value)
     return sign + _expand_quotes(formatted_value)
@@ -2051,10 +2070,10 @@ def _format_base(value: float, number_format) -> str:
 
 
 def _format_fraction_parts_to(whole: int, numerator: int, denominator: int):
-    if whole > 0:
+    if whole != 0:
         if numerator == 0:
             return str(whole)
-        return f"{whole} {numerator}/{denominator}"
+        return f"{whole} {abs(numerator)}/{denominator}"
     if numerator == 0:
         return "0"
     if numerator == denominator:

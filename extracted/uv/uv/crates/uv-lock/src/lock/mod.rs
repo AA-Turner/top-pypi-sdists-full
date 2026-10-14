@@ -47,6 +47,7 @@ use uv_distribution_types::{
 use uv_fs::{PortablePath, PortablePathBuf, Simplified, normalize_path, try_relative_to_if};
 use uv_git::{RepositoryReference, ResolvedRepositoryReference};
 use uv_git_types::{GitLfs, GitOid, GitReference, GitUrl, GitUrlParseError};
+use uv_macros::DebugNoInline;
 use uv_normalize::{DEV_DEPENDENCIES, DefaultGroups, ExtraName, GroupName, PackageName};
 use uv_pep440::{Version, VersionSpecifiers};
 use uv_pep508::{
@@ -9807,7 +9808,7 @@ impl std::fmt::Display for WheelTagHint {
 /// For example, if there are two or more duplicative distributions given
 /// to `Lock::new`, then an error is returned. It's likely that the fault
 /// is with the caller somewhere in such cases.
-#[derive(Debug, thiserror::Error)]
+#[derive(DebugNoInline, thiserror::Error)]
 enum LockErrorKind {
     /// An error that occurs when collecting dependency-group settings.
     #[error(transparent)]
@@ -10370,6 +10371,10 @@ fn is_wheel_unreachable_for_marker(
     marker: &UniversalMarker,
     tags: Option<&Tags>,
 ) -> bool {
+    // TODO(konsti): Include wheel variants in lockfiles when supported.
+    if filename.variant().is_some() {
+        return true;
+    }
     if let Some(tags) = tags
         && !filename.compatibility(tags).is_compatible()
     {

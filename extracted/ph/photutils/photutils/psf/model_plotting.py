@@ -1,6 +1,6 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-Tools for plotting Gridded PSF models.
+Tools for plotting gridded PSF models.
 """
 
 import numpy as np
@@ -16,21 +16,23 @@ def _plot_grid_docstring(func):
         Parameters
         ----------
         ax : `matplotlib.axes.Axes` or `None`, optional
-            The matplotlib axes on which to plot. If `None`, then the
-            current `~matplotlib.axes.Axes` instance is used.
+            The matplotlib axes on which to plot. If `None`, a new
+            figure and axes are created.
 
-        vmax_scale : float, optional
+        vmax_scale : float or `None`, optional
             Scale factor to apply to the image stretch limits. This
-            value is multiplied by the peak ePSF value to determine the
-            plotting ``vmax``. The defaults are 1.0 for plotting the
-            ePSF data and 0.03 for plotting the ePSF difference data
-            (``deltas=True``). If ``deltas=True``, the ``vmin`` is set
-            to ``-vmax``. If ``deltas=False`` the ``vmin`` is set to
-            ``vmax`` / 1e4.
+            value is multiplied by the maximum of the plotted data (the
+            ePSF data, or the ePSF differences if ``deltas=True``) to
+            determine the plotting ``vmax``. If `None`, the value is 1.0
+            for the ePSF data and 0.03 for the ePSF differences. If
+            ``deltas=True``, ``vmin`` is set to ``-vmax``. Otherwise
+            ``vmin`` is set to ``vmax / 1e4``.
 
         peak_norm : bool, optional
             Whether to normalize the ePSF data by the peak value. The
-            default shows the ePSF flux per pixel.
+            default shows the ePSF flux per pixel. If ``deltas=True``,
+            the differences are divided by the peak of the average
+            ePSF.
 
         deltas : bool, optional
             Set to `True` to show the differences between each ePSF
@@ -45,17 +47,24 @@ def _plot_grid_docstring(func):
         divider_color, divider_ls : str, optional
             Matplotlib color and linestyle options for the divider
             lines between ePSFs. These keywords have no effect unless
-            ``show_dividers=True``.
+            ``dividers=True``.
 
         figsize : (float, float), optional
-            The figure (width, height) in inches.
+            The figure (width, height) in inches. It is used only if
+            ``ax`` is `None`.
 
         Returns
         -------
         fig : `matplotlib.figure.Figure`
-            The matplotlib figure object. This will be the current
-            figure if ``ax=None``. Use ``fig.savefig()`` to save the
-            figure to a file.
+            The matplotlib figure object. This is a new figure if
+            ``ax=None``, otherwise the figure of ``ax``. Use
+            ``fig.savefig()`` to save the figure to a file.
+
+        Raises
+        ------
+        ValueError
+            If ``deltas=True`` and all ePSFs in the grid are blank (all
+            pixels are zero).
 
         Notes
         -----
@@ -96,12 +105,12 @@ class _ModelGridPlotter:
         reshaped_data : `numpy.ndarray`
             The 2D array of ePSF data.
         """
-        nypsfs = self.model._ygrid.shape[0]
-        nxpsfs = self.model._xgrid.shape[0]
+        ny_grid = self.model._ygrid.shape[0]
+        nx_grid = self.model._xgrid.shape[0]
         ny, nx = self.model.data.shape[1:]
-        return (data.reshape(nypsfs, nxpsfs, ny, nx)
+        return (data.reshape(ny_grid, nx_grid, ny, nx)
                 .transpose([0, 2, 1, 3])
-                .reshape(nypsfs * ny, nxpsfs * nx))
+                .reshape(ny_grid * ny, nx_grid * nx))
 
     @_plot_grid_docstring
     def plot_grid(self, *, ax=None, vmax_scale=None, peak_norm=False,
@@ -110,16 +119,27 @@ class _ModelGridPlotter:
         import matplotlib.pyplot as plt
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-        data = self.model.data.copy()
+        data = self.model.data.astype(float)
         if deltas:
             # Compute mean ignoring any blank (all zeros) ePSFs.
-            # This is the case for MIRI with its non-square FOV.
+            # This is the case for MIRI with its nonsquare FOV.
             mask = np.zeros(data.shape[0], dtype=bool)
             for i, arr in enumerate(data):
                 if np.count_nonzero(arr) == 0:
                     mask[i] = True
-            data -= np.mean(data[~mask], axis=0)
+            if mask.all():
+                msg = ('deltas cannot be computed because all ePSFs '
+                       'in the grid are blank (all pixels are zero)')
+                raise ValueError(msg)
+            mean_epsf = np.mean(data[~mask], axis=0)
+            data -= mean_epsf
             data[mask] = 0.0
+            # For peak normalization, use the peak of the mean ePSF so
+            # that the differences are relative to the average ePSF
+            # peak
+            peak = mean_epsf.max()
+        else:
+            peak = data.max()
 
         data = self._reshape_grid(data)
 
@@ -131,9 +151,9 @@ class _ModelGridPlotter:
         else:
             fig = ax.get_figure()
 
-        if peak_norm and data.max() != 0:
-            # normalize relative to peak
-            data /= data.max()
+        if peak_norm and peak != 0:
+            # Normalize relative to peak
+            data /= peak
 
         if deltas:
             if vmax_scale is None:
@@ -151,10 +171,10 @@ class _ModelGridPlotter:
         # Set up the coordinate axes to later set tick labels based on
         # detector ePSF coordinates. This sets up axes to have, behind the
         # scenes, the ePSFs centered at integer coords 0, 1, 2, 3 etc.
-        # extent order: left, right, bottom, top
-        nypsfs = self.model._ygrid.shape[0]
-        nxpsfs = self.model._xgrid.shape[0]
-        extent = [-0.5, nxpsfs - 0.5, -0.5, nypsfs - 0.5]
+        # Extent order: left, right, bottom, top
+        ny_grid = self.model._ygrid.shape[0]
+        nx_grid = self.model._xgrid.shape[0]
+        extent = [-0.5, nx_grid - 0.5, -0.5, ny_grid - 0.5]
 
         axim = ax.imshow(data, extent=extent, norm=norm, cmap=cmap,
                          origin='lower')
@@ -165,17 +185,17 @@ class _ModelGridPlotter:
         if self.model.meta.get('detector', '') == 'NRCSW':
             xticklabels = list(xticklabels[0:5]) * 4
             yticklabels = list(yticklabels[0:5]) * 2
-        ax.set_xticks(np.arange(nxpsfs))
+        ax.set_xticks(np.arange(nx_grid))
         ax.set_xticklabels(xticklabels)
         ax.set_xlabel('ePSF location in detector X pixels')
-        ax.set_yticks(np.arange(nypsfs))
+        ax.set_yticks(np.arange(ny_grid))
         ax.set_yticklabels(yticklabels)
         ax.set_ylabel('ePSF location in detector Y pixels')
 
         if dividers:
-            for ix in range(nxpsfs - 1):
+            for ix in range(nx_grid - 1):
                 ax.axvline(ix + 0.5, color=divider_color, ls=divider_ls)
-            for iy in range(nypsfs - 1):
+            for iy in range(ny_grid - 1):
                 ax.axhline(iy + 0.5, color=divider_color, ls=divider_ls)
 
         instrument = self.model.meta.get('instrument', '')
@@ -193,9 +213,12 @@ class _ModelGridPlotter:
         if isinstance(filtername, (tuple, list, np.ndarray)):
             filtername = filtername[0]
 
-        title = f'{instrument} {detector} {filtername}'
-        if title != '':
-            # add extra space at end
+        # Join only the metadata values that are present so that
+        # missing values do not leave stray spaces in the title
+        title = ' '.join(str(value) for value in
+                         (instrument, detector, filtername) if value)
+        if title:
+            # Add extra space at end
             title += ' '
 
         if deltas:
@@ -222,17 +245,17 @@ class _ModelGridPlotter:
         if self.model.meta.get('detector', '') == 'NRCSW':
             # NIRCam NRCSW STDPSF files contain all detectors.
             # The plot gets extra divider lines and SCA name labels.
-            nxpsfs = len(self.model._xgrid)
-            nypsfs = len(self.model._ygrid)
-            ax.axhline(nypsfs / 2 - 0.5, color='orange')
+            nx_grid = len(self.model._xgrid)
+            ny_grid = len(self.model._ygrid)
+            ax.axhline(ny_grid / 2 - 0.5, color='orange')
             for i in range(1, 4):
-                ax.axvline(nxpsfs / 4 * i - 0.5, color='orange')
+                ax.axvline(nx_grid / 4 * i - 0.5, color='orange')
 
             det_labels = [['A1', 'A3', 'B4', 'B2'], ['A2', 'A4', 'B3', 'B1']]
             for i in range(2):
                 for j in range(4):
-                    ax.text(j * nxpsfs / 4 - 0.45,
-                            (i + 1) * nypsfs / 2 - 0.55,
+                    ax.text(j * nx_grid / 4 - 0.45,
+                            (i + 1) * ny_grid / 2 - 0.55,
                             det_labels[i][j], color='orange',
                             verticalalignment='top', fontsize=12)
 

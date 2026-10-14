@@ -208,6 +208,7 @@ private:
         if ( m_renderer )
         {
             wxGraphicsContext* ctx = m_renderer->CreateContext(pdc);
+            gdc.SetTextForeground(GetForegroundColour());
             gdc.SetBackground(GetBackgroundColour());
             gdc.SetGraphicsContext(ctx);
         }
@@ -268,7 +269,7 @@ private:
         }
 
         const wxCoord heightHdr = renderer.GetHeaderButtonHeight(this);
-        const wxCoord width = 15*GetCharWidth();
+        const wxCoord width = 10 * GetCharWidth();
 
         const wxHeaderSortIconType
             hdrSortIcon = m_useIcon ? wxHDR_SORT_ICON_UP
@@ -286,15 +287,28 @@ private:
         // Note that we need to use GetDefault() explicitly to show the default
         // implementation.
         dc.DrawText("DrawHeaderButton() (default)", x1, y);
-        wxRendererNative::GetDefault().DrawHeaderButton(this, dc,
-                                  wxRect(x2, y, width, heightHdr), m_flags,
+        wxRendererNative& rendererDefault = wxRendererNative::GetDefault();
+        rendererDefault.DrawHeaderButton(this, dc,
+                                  wxRect(x2, y, width, heightHdr), m_flags | wxCONTROL_SPECIAL,
                                   hdrSortIcon, &hdrParams);
+        rendererDefault.DrawHeaderButton(this, dc,
+                                  wxRect(x2 + width, y, width, heightHdr), m_flags,
+                                  wxHDR_SORT_ICON_NONE, &hdrParams);
+        rendererDefault.DrawHeaderButton(this, dc,
+                                  wxRect(x2 + width * 2, y, width, heightHdr), m_flags | wxCONTROL_DIRTY,
+                                  wxHDR_SORT_ICON_NONE, &hdrParams);
         y += lineHeight + heightHdr;
 
         dc.DrawText("DrawHeaderButton() (overridden)", x1, y);
         renderer.DrawHeaderButton(this, dc,
-                                  wxRect(x2, y, width, heightHdr), m_flags,
+                                  wxRect(x2, y, width, heightHdr), m_flags | wxCONTROL_SPECIAL,
                                   hdrSortIcon, &hdrParams);
+        renderer.DrawHeaderButton(this, dc,
+                                  wxRect(x2 + width, y, width, heightHdr), m_flags,
+                                  wxHDR_SORT_ICON_NONE, &hdrParams);
+        renderer.DrawHeaderButton(this, dc,
+                                  wxRect(x2 + width * 2, y, width, heightHdr), m_flags | wxCONTROL_DIRTY,
+                                  wxHDR_SORT_ICON_NONE, &hdrParams);
         y += lineHeight + heightHdr;
 
         dc.DrawText("DrawCheckBox()", x1, y);
@@ -655,7 +669,7 @@ MyFrame::MyFrame()
 
     m_panel = new MyPanel(this);
 
-    SetClientSize(600, 600);
+    SetClientSize(FromDIP(wxSize(600, 620)));
 
 #if wxUSE_STATUSBAR
     // create a status bar just for fun (by default with 1 pane only)

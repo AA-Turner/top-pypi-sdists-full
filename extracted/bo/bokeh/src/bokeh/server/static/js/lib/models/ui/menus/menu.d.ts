@@ -15,6 +15,9 @@ export declare class MenuView extends UIElementView {
     get menu_items(): MenuItemLike[];
     protected _compute_menu_items(): MenuItemLike[];
     protected _update_menu_items(): void;
+    protected _rebuild_menu_views(): Promise<void>;
+    private _rebuilding;
+    protected _update_menu(): void;
     get is_empty(): boolean;
     initialize(): void;
     lazy_initialize(): Promise<void>;

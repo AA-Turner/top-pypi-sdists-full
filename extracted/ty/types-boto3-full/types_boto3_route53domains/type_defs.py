@@ -30,6 +30,7 @@ from .literals import (
     OperationStatusType,
     OperationTypeType,
     OperatorType,
+    PriceTypeType,
     ReachabilityStatusType,
     SortOrderType,
     StatusFlagType,
@@ -82,6 +83,8 @@ __all__ = (
     "GetContactReachabilityStatusResponseTypeDef",
     "GetDomainDetailRequestTypeDef",
     "GetDomainDetailResponseTypeDef",
+    "GetDomainPricesRequestTypeDef",
+    "GetDomainPricesResponseTypeDef",
     "GetDomainSuggestionsRequestTypeDef",
     "GetDomainSuggestionsResponseTypeDef",
     "GetOperationDetailRequestTypeDef",
@@ -172,6 +175,12 @@ class CheckDomainAvailabilityRequestTypeDef(TypedDict):
     IdnLangCode: NotRequired[str]
 
 
+class PriceWithCurrencyTypeDef(TypedDict):
+    Price: float
+    Currency: str
+    PriceType: NotRequired[PriceTypeType]
+
+
 class CheckDomainTransferabilityRequestTypeDef(TypedDict):
     DomainName: str
     AuthCode: NotRequired[str]
@@ -223,16 +232,6 @@ class DnssecKeyTypeDef(TypedDict):
     Id: NotRequired[str]
 
 
-class PriceWithCurrencyTypeDef(TypedDict):
-    Price: float
-    Currency: str
-
-
-class DomainSuggestionTypeDef(TypedDict):
-    DomainName: NotRequired[str]
-    Availability: NotRequired[str]
-
-
 class DomainSummaryTypeDef(TypedDict):
     DomainName: NotRequired[str]
     AutoRenew: NotRequired[bool]
@@ -267,10 +266,15 @@ class NameserverOutputTypeDef(TypedDict):
     GlueIps: NotRequired[list[str]]
 
 
+class GetDomainPricesRequestTypeDef(TypedDict):
+    DomainName: str
+
+
 class GetDomainSuggestionsRequestTypeDef(TypedDict):
     DomainName: str
     SuggestionCount: int
     OnlyAvailable: bool
+    OnlyStandardPrices: NotRequired[bool]
 
 
 class GetOperationDetailRequestTypeDef(TypedDict):
@@ -333,12 +337,6 @@ class RejectDomainTransferFromAnotherAwsAccountRequestTypeDef(TypedDict):
     DomainName: str
 
 
-class RenewDomainRequestTypeDef(TypedDict):
-    DomainName: str
-    CurrentExpiryYear: int
-    DurationInYears: NotRequired[int]
-
-
 class ResendContactReachabilityEmailRequestTypeDef(TypedDict):
     domainName: NotRequired[str]
 
@@ -376,11 +374,6 @@ class AssociateDelegationSignerToDomainResponseTypeDef(TypedDict):
 
 class CancelDomainTransferToAnotherAwsAccountResponseTypeDef(TypedDict):
     OperationId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CheckDomainAvailabilityResponseTypeDef(TypedDict):
-    Availability: DomainAvailabilityType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -494,10 +487,39 @@ class ViewBillingResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CheckDomainAvailabilityResponseTypeDef(TypedDict):
+    Availability: DomainAvailabilityType
+    Price: PriceWithCurrencyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DomainPriceTypeDef(TypedDict):
+    Name: NotRequired[str]
+    RegistrationPrice: NotRequired[PriceWithCurrencyTypeDef]
+    TransferPrice: NotRequired[PriceWithCurrencyTypeDef]
+    RenewalPrice: NotRequired[PriceWithCurrencyTypeDef]
+    ChangeOwnershipPrice: NotRequired[PriceWithCurrencyTypeDef]
+    RestorationPrice: NotRequired[PriceWithCurrencyTypeDef]
+
+
+class DomainSuggestionTypeDef(TypedDict):
+    DomainName: NotRequired[str]
+    Availability: NotRequired[str]
+    Price: NotRequired[PriceWithCurrencyTypeDef]
+
+
 class CheckDomainTransferabilityResponseTypeDef(TypedDict):
     Transferability: DomainTransferabilityTypeDef
     Message: str
+    Price: PriceWithCurrencyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RenewDomainRequestTypeDef(TypedDict):
+    DomainName: str
+    CurrentExpiryYear: int
+    DurationInYears: NotRequired[int]
+    Consent: NotRequired[ConsentTypeDef]
 
 
 class ContactDetailOutputTypeDef(TypedDict):
@@ -532,20 +554,6 @@ class ContactDetailTypeDef(TypedDict):
     Email: NotRequired[str]
     Fax: NotRequired[str]
     ExtraParams: NotRequired[Sequence[ExtraParamTypeDef]]
-
-
-class DomainPriceTypeDef(TypedDict):
-    Name: NotRequired[str]
-    RegistrationPrice: NotRequired[PriceWithCurrencyTypeDef]
-    TransferPrice: NotRequired[PriceWithCurrencyTypeDef]
-    RenewalPrice: NotRequired[PriceWithCurrencyTypeDef]
-    ChangeOwnershipPrice: NotRequired[PriceWithCurrencyTypeDef]
-    RestorationPrice: NotRequired[PriceWithCurrencyTypeDef]
-
-
-class GetDomainSuggestionsResponseTypeDef(TypedDict):
-    SuggestionsList: list[DomainSuggestionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDomainsResponseTypeDef(TypedDict):
@@ -629,6 +637,22 @@ class UpdateTagsForDomainRequestTypeDef(TypedDict):
 NameserverUnionTypeDef = Union[NameserverTypeDef, NameserverOutputTypeDef]
 
 
+class GetDomainPricesResponseTypeDef(TypedDict):
+    DomainPrice: DomainPriceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListPricesResponseTypeDef(TypedDict):
+    Prices: list[DomainPriceTypeDef]
+    NextPageMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDomainSuggestionsResponseTypeDef(TypedDict):
+    SuggestionsList: list[DomainSuggestionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetDomainDetailResponseTypeDef(TypedDict):
     DomainName: str
     Nameservers: list[NameserverOutputTypeDef]
@@ -660,12 +684,6 @@ class GetDomainDetailResponseTypeDef(TypedDict):
 ContactDetailUnionTypeDef = Union[ContactDetailTypeDef, ContactDetailOutputTypeDef]
 
 
-class ListPricesResponseTypeDef(TypedDict):
-    Prices: list[DomainPriceTypeDef]
-    NextPageMarker: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class UpdateDomainNameserversRequestTypeDef(TypedDict):
     DomainName: str
     Nameservers: Sequence[NameserverUnionTypeDef]
@@ -685,6 +703,7 @@ class RegisterDomainRequestTypeDef(TypedDict):
     PrivacyProtectTechContact: NotRequired[bool]
     BillingContact: NotRequired[ContactDetailUnionTypeDef]
     PrivacyProtectBillingContact: NotRequired[bool]
+    Consent: NotRequired[ConsentTypeDef]
 
 
 class TransferDomainRequestTypeDef(TypedDict):
@@ -702,6 +721,7 @@ class TransferDomainRequestTypeDef(TypedDict):
     PrivacyProtectTechContact: NotRequired[bool]
     BillingContact: NotRequired[ContactDetailUnionTypeDef]
     PrivacyProtectBillingContact: NotRequired[bool]
+    Consent: NotRequired[ConsentTypeDef]
 
 
 class UpdateDomainContactRequestTypeDef(TypedDict):

@@ -69,12 +69,6 @@ def col(column_name: t.Union[ColumnOrName, t.Any]) -> Column:
 def lit(value: t.Optional[t.Any] = None) -> Column:
     if isinstance(value, str):
         return Column(expression.Literal.string(value))
-    if isinstance(value, float) and value in {float("inf"), float("-inf")}:
-        return Column(
-            expression.cast(
-                expression.Literal.string(str(value)), to=expression.DataType.Type.FLOAT
-            )
-        )
     return Column(value)
 
 
@@ -2172,11 +2166,14 @@ def array_insert(
     value = value if isinstance(value, Column) else lit(value)
     if isinstance(pos, int):
         pos = lit(pos)
-    return Column.invoke_expression_over_column(
-        col,
-        expression.ArrayInsert,
-        expression=value.column_expression,
-        position=Column.ensure_col(pos).column_expression,
+    return Column(
+        expression.ArrayInsert(
+            this=Column.ensure_col(col).column_expression,
+            position=Column.ensure_col(pos).column_expression,
+            expression=value.column_expression,
+            # Spark positions are 1-based, matching how SQLGlot parses Spark's ARRAY_INSERT
+            offset=1,
+        )
     )
 
 

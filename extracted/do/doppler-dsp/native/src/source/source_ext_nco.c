@@ -41,13 +41,20 @@ NCOObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 NCOObj_init (NCOObject *self, PyObject *args, PyObject *kwds)
 {
-  static char  *kwlist[]  = { "norm_freq", "nmax", NULL };
-  double        norm_freq = 0.0;
-  unsigned long nmax_raw  = 0;
+  static char *kwlist[]  = { "norm_freq", "nmax", NULL };
+  double       norm_freq = 0.0;
+  long long    nmax_raw  = 0;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|dk", kwlist, &norm_freq,
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|dL", kwlist, &norm_freq,
                                     &nmax_raw))
     return -1;
+  if (nmax_raw < 0 || nmax_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "nmax: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)nmax_raw, (long long)0, (long long)UINT32_MAX);
+      return -1;
+    }
   uint32_t nmax = (uint32_t)nmax_raw;
   self->handle  = dp_nco_create (norm_freq, nmax);
   if (!self->handle)
@@ -424,17 +431,20 @@ NCOObj_steps_u32_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char   *_kwlist[] = { "ctrl", "out", NULL };
-  PyObject      *ctrl_obj  = NULL;
-  PyArrayObject *ctrl_arr  = NULL;
-  PyObject      *out_obj   = NULL;
+  static char *_kwlist[] = { "ctrl", "out", NULL };
+  PyObject    *ctrl_obj  = NULL;
+  PyObject    *out_obj   = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &ctrl_obj,
                                     &out_obj))
     return NULL;
-  ctrl_arr
+  PyArrayObject *ctrl_arr
       = jm_array_arg (ctrl_obj, NPY_DOUBLE, NPY_ARRAY_C_CONTIGUOUS, "ctrl");
   if (!ctrl_arr)
-    return NULL;
+    {
+      return NULL;
+    }
+  const double *ctrl     = (const double *)PyArray_DATA (ctrl_arr);
+  size_t        ctrl_len = (size_t)PyArray_SIZE (ctrl_arr);
   if (out_obj && out_obj != Py_None)
     {
       /* Require the exact dtype AND C-contiguity — either mismatch makes
@@ -471,10 +481,9 @@ NCOObj_steps_u32_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (ctrl_arr);
           return NULL;
         }
-      size_t n_out = dp_nco_steps_u32_ctrl (
-          self->handle, (const double *)PyArray_DATA (ctrl_arr),
-          (size_t)PyArray_SIZE (ctrl_arr), (uint32_t *)PyArray_DATA (out_arr),
-          _cap);
+      size_t n_out
+          = dp_nco_steps_u32_ctrl (self->handle, ctrl, ctrl_len,
+                                   (uint32_t *)PyArray_DATA (out_arr), _cap);
       Py_DECREF (ctrl_arr);
       if ((size_t)(n_out) > (size_t)(_cap))
         {
@@ -522,10 +531,9 @@ NCOObj_steps_u32_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (ctrl_arr);
       return NULL;
     }
-  uint32_t *_d0   = (uint32_t *)PyArray_DATA ((PyArrayObject *)arr0);
-  size_t    n_out = dp_nco_steps_u32_ctrl (
-      self->handle, (const double *)PyArray_DATA (ctrl_arr),
-      (size_t)PyArray_SIZE (ctrl_arr), _d0, _cap);
+  uint32_t *_d0 = (uint32_t *)PyArray_DATA ((PyArrayObject *)arr0);
+  size_t    n_out
+      = dp_nco_steps_u32_ctrl (self->handle, ctrl, ctrl_len, _d0, _cap);
   Py_DECREF (ctrl_arr);
   if ((size_t)(n_out) > (size_t)(_cap))
     {
@@ -573,17 +581,20 @@ NCOObj_steps_u32_scaled_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char   *_kwlist[] = { "ctrl", "out", NULL };
-  PyObject      *ctrl_obj  = NULL;
-  PyArrayObject *ctrl_arr  = NULL;
-  PyObject      *out_obj   = NULL;
+  static char *_kwlist[] = { "ctrl", "out", NULL };
+  PyObject    *ctrl_obj  = NULL;
+  PyObject    *out_obj   = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &ctrl_obj,
                                     &out_obj))
     return NULL;
-  ctrl_arr
+  PyArrayObject *ctrl_arr
       = jm_array_arg (ctrl_obj, NPY_DOUBLE, NPY_ARRAY_C_CONTIGUOUS, "ctrl");
   if (!ctrl_arr)
-    return NULL;
+    {
+      return NULL;
+    }
+  const double *ctrl     = (const double *)PyArray_DATA (ctrl_arr);
+  size_t        ctrl_len = (size_t)PyArray_SIZE (ctrl_arr);
   if (out_obj && out_obj != Py_None)
     {
       /* Require the exact dtype AND C-contiguity — either mismatch makes
@@ -621,8 +632,7 @@ NCOObj_steps_u32_scaled_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       size_t n_out = dp_nco_steps_u32_scaled_ctrl (
-          self->handle, (const double *)PyArray_DATA (ctrl_arr),
-          (size_t)PyArray_SIZE (ctrl_arr), (uint32_t *)PyArray_DATA (out_arr),
+          self->handle, ctrl, ctrl_len, (uint32_t *)PyArray_DATA (out_arr),
           _cap);
       Py_DECREF (ctrl_arr);
       if ((size_t)(n_out) > (size_t)(_cap))
@@ -672,10 +682,9 @@ NCOObj_steps_u32_scaled_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (ctrl_arr);
       return NULL;
     }
-  uint32_t *_d0   = (uint32_t *)PyArray_DATA ((PyArrayObject *)arr0);
-  size_t    n_out = dp_nco_steps_u32_scaled_ctrl (
-      self->handle, (const double *)PyArray_DATA (ctrl_arr),
-      (size_t)PyArray_SIZE (ctrl_arr), _d0, _cap);
+  uint32_t *_d0 = (uint32_t *)PyArray_DATA ((PyArrayObject *)arr0);
+  size_t    n_out
+      = dp_nco_steps_u32_scaled_ctrl (self->handle, ctrl, ctrl_len, _d0, _cap);
   Py_DECREF (ctrl_arr);
   if ((size_t)(n_out) > (size_t)(_cap))
     {
@@ -710,17 +719,20 @@ NCOObj_steps_u32_ovf_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  static char   *_kwlist[] = { "ctrl", NULL };
-  PyObject      *ctrl_obj  = NULL;
-  PyArrayObject *ctrl_arr  = NULL;
+  static char *_kwlist[] = { "ctrl", NULL };
+  PyObject    *ctrl_obj  = NULL;
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O", _kwlist, &ctrl_obj))
     return NULL;
-  ctrl_arr
+  PyArrayObject *ctrl_arr
       = jm_array_arg (ctrl_obj, NPY_DOUBLE, NPY_ARRAY_C_CONTIGUOUS, "ctrl");
   if (!ctrl_arr)
-    return NULL;
-  size_t _need = (size_t)PyArray_SIZE (ctrl_arr);
-  size_t _cap  = dp_nco_steps_u32_ovf_ctrl_max_out (self->handle);
+    {
+      return NULL;
+    }
+  const double *ctrl     = (const double *)PyArray_DATA (ctrl_arr);
+  size_t        ctrl_len = (size_t)PyArray_SIZE (ctrl_arr);
+  size_t        _need    = (size_t)PyArray_SIZE (ctrl_arr);
+  size_t        _cap     = dp_nco_steps_u32_ovf_ctrl_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
   size_t _adim_need = (size_t)(_cap);
@@ -743,11 +755,10 @@ NCOObj_steps_u32_ovf_ctrl (NCOObject *self, PyObject *args, PyObject *kwds)
       Py_DECREF (ctrl_arr);
       return NULL;
     }
-  uint32_t *_d0   = (uint32_t *)PyArray_DATA ((PyArrayObject *)arr0);
-  uint8_t  *_d1   = (uint8_t *)PyArray_DATA ((PyArrayObject *)arr1);
-  size_t    n_out = dp_nco_steps_u32_ovf_ctrl (
-      self->handle, (const double *)PyArray_DATA (ctrl_arr),
-      (size_t)PyArray_SIZE (ctrl_arr), _d0, _d1, _cap);
+  uint32_t *_d0 = (uint32_t *)PyArray_DATA ((PyArrayObject *)arr0);
+  uint8_t  *_d1 = (uint8_t *)PyArray_DATA ((PyArrayObject *)arr1);
+  size_t n_out  = dp_nco_steps_u32_ovf_ctrl (self->handle, ctrl, ctrl_len, _d0,
+                                             _d1, _cap);
   Py_DECREF (ctrl_arr);
   if ((size_t)(n_out) > (size_t)(_cap))
     {
@@ -851,7 +862,6 @@ NCO_getprop_norm_freq (NCOObject *self, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  /* <<IMPLEMENT: return the computed or stored value>> */
   return PyFloat_FromDouble (dp_nco_get_norm_freq (self->handle));
 }
 static int
@@ -877,7 +887,6 @@ NCO_getprop_phase (NCOObject *self, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  /* <<IMPLEMENT: return the computed or stored value>> */
   return PyLong_FromUnsignedLong (
       (unsigned long)dp_nco_get_phase (self->handle));
 }
@@ -889,9 +898,16 @@ NCO_setprop_phase (NCOObject *self, PyObject *value, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return -1;
     }
-  unsigned long v_raw = 0UL;
-  if (!PyArg_Parse (value, "k", &v_raw))
+  long long v_raw = 0LL;
+  if (!PyArg_Parse (value, "L", &v_raw))
     return -1;
+  if (v_raw < 0 || v_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "phase: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)v_raw, (long long)0, (long long)UINT32_MAX);
+      return -1;
+    }
   uint32_t v = (uint32_t)v_raw;
   dp_nco_set_phase (self->handle, v);
   return 0;
@@ -904,7 +920,6 @@ NCO_getprop_phase_inc (NCOObject *self, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  /* <<IMPLEMENT: return the computed or stored value>> */
   return PyLong_FromUnsignedLong (
       (unsigned long)dp_nco_get_phase_inc (self->handle));
 }
@@ -1322,9 +1337,11 @@ static PyMethodDef NCOObj_methods[] = {
   { "get_state", (PyCFunction)NCOObj_get_state, METH_NOARGS,
     "Serialize this object's mutable state to bytes.\n"
     "\n"
-    "Captures exactly the state that evolves as the object runs, so a blob\n"
-    "taken now and restored later resumes from this point. Construction\n"
-    "parameters are not included: restore into an object built the same way.\n"
+    "Captures the state that evolves as the object runs, including any value\n"
+    "a setter changed after construction, so a blob taken now and restored\n"
+    "later resumes from this point. Construction parameters are not\n"
+    "restored: restore into an object built the same way. A core may check\n"
+    "some of them and refuse a blob built differently.\n"
     "\n"
     "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
     "implementation detail of the C core and is not a stable format across\n"
@@ -1339,10 +1356,12 @@ static PyMethodDef NCOObj_methods[] = {
   { "set_state", (PyCFunction)NCOObj_set_state, METH_O,
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
-    "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()`\n"
-    "before the blob is handed to the C core, and the core may reject it as\n"
-    "well.\n"
+    "Overwrites the live state in place, including any value a setter\n"
+    "changed after construction. Construction parameters are not restored:\n"
+    "restore into an object built the same way. Length is validated against\n"
+    "`state_bytes()` before the blob is handed to the C core, which may\n"
+    "reject it too: a core may check some construction parameters and refuse\n"
+    "a blob built differently.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"

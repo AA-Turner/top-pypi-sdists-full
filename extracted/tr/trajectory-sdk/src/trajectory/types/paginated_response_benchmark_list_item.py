@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.benchmarks.benchmark_list_item import BenchmarkListItem
 
 
-class PaginatedResponseBenchmarkListItem(BaseModel):
+class PaginatedResponseBenchmarkListItem(SyncPage[BenchmarkListItem]):
   items: list[BenchmarkListItem]
 
   next_cursor: str | None = None

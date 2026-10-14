@@ -8,8 +8,13 @@
  *
  * 1. https://www.131002.net/siphash/siphash24.c
  * 2. https://www.131002.net/siphash/
+ *
+ * SPDX-License-Identifier: CC0-1.0
  * --------------------------------------------------------------------------
  * HISTORY:
+ *
+ * 2020-10-03  (Sebastian Pipping)
+ *   - Drop support for Visual Studio 9.0/2008 and earlier
  *
  * 2019-08-03  (Sebastian Pipping)
  *   - Mark part of sip24_valid as to be excluded from clang-format
@@ -96,15 +101,8 @@
 #define SIPHASH_H
 
 #include <stddef.h> /* size_t */
-
-#if defined(_WIN32) && defined(_MSC_VER) && (_MSC_VER < 1600)
-/* For vs2003/7.1 up to vs2008/9.0; _MSC_VER 1600 is vs2010/10.0 */
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#else
-#  include <stdint.h> /* uint64_t uint32_t uint8_t */
-#endif
+#include <stdint.h> /* uint64_t uint32_t uint8_t */
+#include "fallthrough.h"
 
 /*
  * Workaround to not require a C++11 compiler for using ULL suffix
@@ -239,25 +237,25 @@ sip24_final(struct siphash *H) {
   switch (left) {
   case 7:
     b |= (uint64_t)H->buf[6] << 48;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 6:
     b |= (uint64_t)H->buf[5] << 40;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 5:
     b |= (uint64_t)H->buf[4] << 32;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 4:
     b |= (uint64_t)H->buf[3] << 24;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 3:
     b |= (uint64_t)H->buf[2] << 16;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 2:
     b |= (uint64_t)H->buf[1] << 8;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 1:
     b |= (uint64_t)H->buf[0] << 0;
-    /* fall through */
+    EXPAT_FALLTHROUGH;
   case 0:
     break;
   }

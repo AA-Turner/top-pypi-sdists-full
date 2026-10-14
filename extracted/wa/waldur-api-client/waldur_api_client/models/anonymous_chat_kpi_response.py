@@ -30,6 +30,10 @@ class AnonymousChatKpiResponse:
         satisfaction_rate (float): positive / (positive + negative); null when no human feedback.
         clicks_total (int):
         click_through_rate (float): clicks / interactions; null when no interactions.
+        clarification_requests_total (int): Interactions where the assistant asked a clarifying question (ask_user)
+            instead of recommending.
+        clarification_rate (Union[None, float]): clarification_requests_total / interactions_total; null when no
+            interactions.
         input_tokens_total (int): Prompt tokens summed over the filtered turns. Turns recorded before per-interaction
             token capture contribute nothing, so this understates spend on historical data.
         output_tokens_total (int): Completion tokens summed over the filtered turns.
@@ -58,6 +62,8 @@ class AnonymousChatKpiResponse:
     satisfaction_rate: float
     clicks_total: int
     click_through_rate: float
+    clarification_requests_total: int
+    clarification_rate: Union[None, float]
     input_tokens_total: int
     output_tokens_total: int
     reviewed_total: int
@@ -89,6 +95,11 @@ class AnonymousChatKpiResponse:
         clicks_total = self.clicks_total
 
         click_through_rate = self.click_through_rate
+
+        clarification_requests_total = self.clarification_requests_total
+
+        clarification_rate: Union[None, float]
+        clarification_rate = self.clarification_rate
 
         input_tokens_total = self.input_tokens_total
 
@@ -146,6 +157,8 @@ class AnonymousChatKpiResponse:
                 "satisfaction_rate": satisfaction_rate,
                 "clicks_total": clicks_total,
                 "click_through_rate": click_through_rate,
+                "clarification_requests_total": clarification_requests_total,
+                "clarification_rate": clarification_rate,
                 "input_tokens_total": input_tokens_total,
                 "output_tokens_total": output_tokens_total,
                 "reviewed_total": reviewed_total,
@@ -194,6 +207,15 @@ class AnonymousChatKpiResponse:
         clicks_total = d.pop("clicks_total")
 
         click_through_rate = d.pop("click_through_rate")
+
+        clarification_requests_total = d.pop("clarification_requests_total")
+
+        def _parse_clarification_rate(data: object) -> Union[None, float]:
+            if data is None:
+                return data
+            return cast(Union[None, float], data)
+
+        clarification_rate = _parse_clarification_rate(d.pop("clarification_rate"))
 
         input_tokens_total = d.pop("input_tokens_total")
 
@@ -263,6 +285,8 @@ class AnonymousChatKpiResponse:
             satisfaction_rate=satisfaction_rate,
             clicks_total=clicks_total,
             click_through_rate=click_through_rate,
+            clarification_requests_total=clarification_requests_total,
+            clarification_rate=clarification_rate,
             input_tokens_total=input_tokens_total,
             output_tokens_total=output_tokens_total,
             reviewed_total=reviewed_total,

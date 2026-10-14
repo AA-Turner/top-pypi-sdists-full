@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: photutils
-Version: 3.0.0
+Version: 3.1.0
 Summary: An Astropy package for source detection and photometry
 Author-email: Photutils Developers <astropy.team@gmail.com>
 License-Expression: BSD-3-Clause
@@ -14,30 +14,38 @@ Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Astronomy
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
-Requires-Dist: astropy>=6.1.4
+Requires-Dist: astropy>=7.0
 Requires-Dist: numpy>=2.0
-Requires-Dist: scipy>=1.13
+Requires-Dist: scipy>=1.15.0
 Provides-Extra: all
+Requires-Dist: asdf>=3.3; extra == "all"
+Requires-Dist: asdf-astropy>=0.10; extra == "all"
 Requires-Dist: bottleneck>=1.4; extra == "all"
-Requires-Dist: gwcs>=0.20; extra == "all"
-Requires-Dist: matplotlib>=3.9; extra == "all"
+Requires-Dist: gwcs>=0.22; extra == "all"
+Requires-Dist: matplotlib>=3.10; extra == "all"
 Requires-Dist: rasterio>=1.4; extra == "all"
-Requires-Dist: regions>=0.9; extra == "all"
-Requires-Dist: scikit-image>=0.23; extra == "all"
-Requires-Dist: shapely>=2.0; extra == "all"
-Requires-Dist: tqdm>=4.66; extra == "all"
+Requires-Dist: regions>=0.10; extra == "all"
+Requires-Dist: shapely>=2.1; extra == "all"
+Requires-Dist: tqdm>=4.67; extra == "all"
 Provides-Extra: test
-Requires-Dist: pytest-astropy>=0.11; extra == "test"
-Requires-Dist: pytest-xdist>=3.5; extra == "test"
-Requires-Dist: tox>=4.12; extra == "test"
+Requires-Dist: asdf>=3.3; extra == "test"
+Requires-Dist: asdf-astropy>=0.10; extra == "test"
+Requires-Dist: pytest-asdf-plugin; extra == "test"
+Requires-Dist: pytest>=8.0; extra == "test"
+Requires-Dist: pytest-astropy-header>=0.2.2; extra == "test"
+Requires-Dist: pytest-doctestplus>=1.4; extra == "test"
+Requires-Dist: pytest-filter-subpackage>=0.2; extra == "test"
+Requires-Dist: pytest-remotedata>=0.4.1; extra == "test"
+Requires-Dist: pytest-xdist>=3.7; extra == "test"
+Requires-Dist: tox>=4.18; extra == "test"
 Provides-Extra: docs
 Requires-Dist: photutils[all]; extra == "docs"
 Requires-Dist: sphinx>=8.2; extra == "docs"
-Requires-Dist: sphinx-astropy[confv2]>=1.9.1; extra == "docs"
-Requires-Dist: sphinx_design>=0.6; extra == "docs"
+Requires-Dist: sphinx-astropy[confv3]>=1.11; extra == "docs"
+Requires-Dist: sphinx_design>=0.7; extra == "docs"
 Requires-Dist: sphinx-reredirects>=1.1; extra == "docs"
 Provides-Extra: dev
 Requires-Dist: photutils[docs,test]; extra == "dev"
@@ -64,8 +72,8 @@ for astronomical image analysis.
 
 Please see the `online documentation
 <https://photutils.readthedocs.io>`_ for `installation instructions
-<https://photutils.readthedocs.io/en/stable/getting_started/install.html>`_ and usage
-information.
+<https://photutils.readthedocs.io/en/stable/getting_started/install.html>`_
+and usage information.
 
 
 Citing Photutils
@@ -84,9 +92,7 @@ the following acknowledgment::
 where (Bradley et al. <YEAR>) is a citation to the `Zenodo record
 <https://doi.org/10.5281/zenodo.596036>`_ of the Photutils
 version that was used. We also encourage citations in the
-main text wherever appropriate. Please see the `CITATION
-<https://github.com/astropy/photutils/blob/main/photutils/CITATION.rst>`_
-file for details and an example BibTeX entry.
+main text wherever appropriate.
 
 
 License

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pudb
-Version: 2025.1.5
+Version: 2026.1
 Summary: A full-screen, console-based Python debugger
 Author-email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT
@@ -21,7 +21,7 @@ Classifier: Topic :: System :: Recovery Tools
 Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.8
+Requires-Python: ~=3.10
 Requires-Dist: jedi<1,>=0.18
 Requires-Dist: packaging>=20.0
 Requires-Dist: pygments>=2.19

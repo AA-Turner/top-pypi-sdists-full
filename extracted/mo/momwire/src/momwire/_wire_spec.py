@@ -321,6 +321,18 @@ def _vertex_key(pl):
     return tuple(tuple(v) for v in np.round(np.asarray(pl, dtype=float), 9))
 
 
+def _vertex_keys(pls):
+    """Every polyline's `_vertex_key` at once when they all share one shape,
+    else ``None`` (momwire#1420). One `np.round` over the stack rounds each
+    coordinate exactly as the per-wire call does; the keys hold Python
+    floats where `_vertex_key`'s hold numpy scalars of the same values, which
+    hash and compare identically, so the buckets are the same buckets."""
+    if not pls or any(pl.ndim != 2 or pl.shape != pls[0].shape for pl in pls):
+        return None
+    rounded = np.round(np.array(pls), 9).tolist()
+    return [tuple(tuple(v) for v in verts) for verts in rounded]
+
+
 def find_duplicated_wires(wires_polylines):
     """``[(input index, twin input index, reversed)]`` for every wire whose
     polyline repeats an earlier one's, vertex for vertex, in either
@@ -347,10 +359,11 @@ def find_duplicated_wires(wires_polylines):
         return []
     tol = 1e-12 * max(1.0, max(float(np.max(np.abs(pl))) for pl in good))
     seen, out = {}, []
+    keys = _vertex_keys(pls)
     for i, pl in enumerate(pls):
         if pl.ndim != 2:
             continue  # malformed; the caller's own shape check names it
-        verts = _vertex_key(pl)
+        verts = keys[i] if keys is not None else _vertex_key(pl)
         key = min(verts, verts[::-1])
         if key in seen:
             first = seen[key]
@@ -752,6 +765,29 @@ def _segment_lengths(polyline, npe):
     return np.repeat(lengths / np.asarray(npe, dtype=float), np.asarray(npe))
 
 
+def _straight_segment_lengths(wires_polylines, n_per_edge_per_wire):
+    """`_segment_lengths` of every wire, from one array expression, when every
+    wire is a single straight edge (every EZNEC card); else ``None``
+    (momwire#1420). The edge length is `np.linalg.norm`'s own
+    ``sqrt(add.reduce(d * d, axis=1))`` and each segment that length over the
+    edge's count, so every entry is the per-wire call's, bit for bit."""
+    pls = [np.asarray(pl, dtype=float) for pl in wires_polylines]
+    counts = [np.asarray(npe) for npe in n_per_edge_per_wire]
+    if (
+        not pls
+        or len(counts) != len(pls)
+        or any(pl.shape != (2, 3) for pl in pls)
+        or any(c.shape != (1,) for c in counts)
+    ):
+        return None
+    stacked = np.array(pls)
+    d = stacked[:, 1] - stacked[:, 0]
+    lengths = np.sqrt(np.add.reduce(d * d, axis=1))
+    n = np.array([c[0] for c in counts])
+    per = lengths / n.astype(float)
+    return [np.repeat(per[w : w + 1], counts[w]) for w in range(len(pls))]
+
+
 def gap_past_floor(polyline, npe, a, where, floor, depth):
     """``(fires, delta/a, span/a)`` for a gap at `where` on one wire: an
     arclength from the first vertex (None: the midpoint), or "start"/"end"
@@ -793,6 +829,13 @@ def gap_past_floor(polyline, npe, a, where, floor, depth):
     return all(n >= depth for n in sides), ratio, span
 
 
+_END_PORT_FEED = (
+    "A gap of fixed width is the end-port "
+    "feed: two facing wire ends driven through junction_ports "
+    "(momwire#1408)."
+)
+
+
 def advise_gap_mesh_floor(
     family,
     wires_polylines,
@@ -803,6 +846,7 @@ def advise_gap_mesh_floor(
     *,
     gap_model,
     exact_kernel=None,
+    fixed_gap_feed=True,
 ):
     """Warn `GapMeshFloor` once, naming every gap past the floor
     (`gap_past_floor` with this family's `GAP_DEPTH[gap_model]`).
@@ -817,6 +861,12 @@ def advise_gap_mesh_floor(
     for one that ran it. It never changes which gaps fire; the caller
     leaves the end ports out of `gaps` under the exact kernel
     (`solver_gaps(end_ports_are_gaps=False)`).
+
+    `fixed_gap_feed` (momwire#1433): whether the family can drive a gap of
+    fixed width -- the end-port feed, two facing wire ends through
+    `junction_ports` (`ExactKernelOption.EXACT_KERNEL_FIXED_GAP_FEED`). A
+    family that cannot (razor's feeds are knots) is told where one is
+    instead of being told to build it.
     """
     floor = GAP_FLOOR_EXTENDED if extended_kernel else GAP_FLOOR_REDUCED
     depth = GAP_DEPTH[gap_model]
@@ -864,10 +914,15 @@ def advise_gap_mesh_floor(
             "Under the exact ring kernel a zero-width gap has no limiting "
             "reactance: each halving of the segments at it adds about "
             "4 ln2 w eps0 a of susceptance, so the reactance keeps drifting "
-            "as the mesh is refined. A gap of fixed width is the end-port "
-            "feed: two facing wire ends driven through junction_ports "
-            "(momwire#1408). Advisory: nothing is remeshed. See "
-            "stevenmburns/momwire#959."
+            "as the mesh is refined. "
+            + (
+                _END_PORT_FEED
+                if fixed_gap_feed
+                else "This solver's feeds are zero-width knot gaps; a gap of "
+                "fixed width is bspline's end-port feed (two facing wire ends "
+                "driven through junction_ports, momwire#1408)."
+            )
+            + " Advisory: nothing is remeshed. See stevenmburns/momwire#959."
         )
     else:
         if exact_kernel is None:
@@ -875,11 +930,18 @@ def advise_gap_mesh_floor(
                 "An exact kernel with a fixed-width feed is momwire#1330, "
                 "open for this solver."
             )
-        else:
+        elif fixed_gap_feed:
             fix = (
                 "exact_kernel=True with an end-port feed (two facing wire "
                 "ends driven through junction_ports) converges at this "
                 "mesh (momwire#1408)."
+            )
+        else:
+            fix = (
+                "exact_kernel=True removes the collapse, but this solver's "
+                "knot gap has zero width, so its reactance still drifts "
+                "(about 4 ln2 w eps0 a of susceptance per halving); a gap of "
+                "fixed width is bspline's end-port feed (momwire#1408)."
             )
         text = (
             f"{family}: the impedance is unreliable at {where}. This "
@@ -906,8 +968,9 @@ class ShortSegments(UserWarning):
     remeshed or refused. Independent of `GapMeshFloor`, which is the stricter,
     gap-local floor for the delta-gap source; a deck can raise both.
 
-    SILENT where the exact ring kernel ran (bspline, `exact_kernel` True
-    after resolution -- momwire#1412). Every segment lies in a coaxial group
+    SILENT where the exact ring kernel ran (any family serving it --
+    `_exact_kernel_seam.ExactKernelOption` -- with `exact_kernel` True after
+    resolution; momwire#1412, measured on bspline). Every segment lies in a coaxial group
     (its own straight run at least), so its self and same-line pairs take
     the exact kernel, and those are the pairs the floor is about. The pairs
     it does not cover keep the thin-wire kernel, and short segments next to
@@ -936,11 +999,12 @@ def short_segment_wires(wires_polylines, n_per_edge_per_wire, radius_per_wire):
     segment under `SHORT_SEGMENT_FLOOR` radii, worst first. Reads the mesh the
     solver will solve: each edge split into its own segment count."""
     found = []
+    straight = _straight_segment_lengths(wires_polylines, n_per_edge_per_wire)
     for w, (pl, npe) in enumerate(zip(wires_polylines, n_per_edge_per_wire)):
         a = float(radius_per_wire[w])
         if a <= 0.0:
             continue
-        h = _segment_lengths(pl, npe)
+        h = straight[w] if straight is not None else _segment_lengths(pl, npe)
         limit = SHORT_SEGMENT_FLOOR * a * (1.0 - _SHORT_SEGMENT_SLACK)
         n_short = int(np.count_nonzero(h < limit))
         if n_short:

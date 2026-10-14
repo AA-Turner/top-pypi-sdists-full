@@ -10,6 +10,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from photutils.utils import ShepardIDWInterpolator as IDWInterp
+from photutils.utils.exceptions import PhotutilsDeprecationWarning
 
 SHAPE = (5, 5)
 DATA = np.ones(SHAPE) * 2.0
@@ -64,6 +65,35 @@ class TestShepardIDWInterpolator:
         f = IDWInterp(pos, val)
         assert_allclose(f([0.5, 0.5, 0.5]), 1.0)
 
+    @pytest.mark.parametrize(('coordinates', 'n_coords', 'coords_ndim'),
+                             [(np.arange(4.0), 4, 1),
+                              (np.zeros((7, 2)), 7, 2),
+                              (np.zeros((3, 4, 5)), 12, 5)])
+    def test_attributes(self, coordinates, n_coords, coords_ndim):
+        """
+        Test the number and dimension of the input coordinates.
+        """
+        values = np.ones(n_coords)
+        f = IDWInterp(coordinates, values)
+        assert f.n_coords == n_coords
+        assert f.coords_ndim == coords_ndim
+
+    def test_deprecated_attribute(self):
+        """
+        Test the deprecated ncoords attribute.
+        """
+        match = "The 'ncoords' attribute was deprecated"
+        with pytest.warns(PhotutilsDeprecationWarning, match=match):
+            assert self.f.ncoords == self.f.n_coords
+
+    def test_invalid_attribute(self):
+        """
+        Test that an unknown attribute raises AttributeError.
+        """
+        match = "object has no attribute 'invalid'"
+        with pytest.raises(AttributeError, match=match):
+            _ = self.f.invalid
+
     def test_no_coordinates(self):
         """
         Test that empty coordinates raises ValueError.
@@ -92,7 +122,7 @@ class TestShepardIDWInterpolator:
         """
         Test that negative weights raises ValueError.
         """
-        match = 'All weight values must be non-negative numbers'
+        match = 'All weight values must be nonnegative numbers'
         with pytest.raises(ValueError, match=match):
             IDWInterp(self.x, self.y, weights=-self.y)
 
@@ -103,6 +133,17 @@ class TestShepardIDWInterpolator:
         result = self.f(0.5, n_neighbors=1)
         assert np.isscalar(result)
         assert_allclose(result, 0.479334, rtol=3e-7)
+
+    def test_scalar_return_type(self):
+        """
+        Test that single-position calls return the same scalar type for
+        n_neighbors=1 and n_neighbors>1.
+        """
+        result1 = self.f(0.5, n_neighbors=1)
+        result8 = self.f(0.5, n_neighbors=8)
+        assert np.isscalar(result1)
+        assert np.isscalar(result8)
+        assert type(result1) is type(result8)
 
     def test_n_neighbors_negative(self):
         """
@@ -190,7 +231,7 @@ class TestShepardIDWInterpolator:
 
     def test_no_valid_distances(self):
         """
-        Test that NaN is returned when all distances are non-finite
+        Test that NaN is returned when all distances are nonfinite
         (dk.shape[0] == 0 after filtering).
         """
         coords = np.array([0.0, 1.0, 2.0])

@@ -21,6 +21,7 @@ export declare namespace CDSView {
     type Props = Model.Props & {
         filter: p.Property<Filter>;
         indices: p.Property<Indices>;
+        indices_array: p.Property<number[]>;
         indices_map: p.Property<SubsetIndexMapper>;
         masked: p.Property<Indices | null>;
     };

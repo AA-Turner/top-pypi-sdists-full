@@ -62,6 +62,13 @@ folds nothing, and no losing seed ever touches the lane-setter slots
 (``lane``/``actor``/``last_event_id``/``last_transition_at``/``force_count``).
 Rows sharing an ``event_id`` keep the first occurrence, except that rows which
 are all seeds keep the canonical-minimum one (file-order independent).
+
+Rollback-seed lane authority (spec-kitty#6061). A rollback-shaped seed (a
+``migration:`` restatement of a rejection) never takes a WP's lane against its
+real lifecycle: arriving, it must continue the lane in force (a loser still
+folds its payload); applied, it yields to a real event; and it never uses the
+forward-seed-setter exemption. Its one authority is over its bare sibling
+approval (spec-kitty-events#81), in either order and at an equal ``at``.
 """
 
 from __future__ import annotations
@@ -1105,8 +1112,9 @@ def _is_reconstruction_seed(event: StatusEvent) -> bool:
     A reconstruction seed is a best-effort restatement of a WP's historical
     state injected by a corpus migration (actor identity prefixed
     ``migration:``, e.g. ``migration:backfill_runtime_state``). It is NOT an
-    authoritative operator/agent decision. The distinction matters only in
-    :func:`_arbitrate_event` arm (ii): a seed that happens to be the current
+    authoritative operator/agent decision. The distinction matters in
+    :func:`_arbitrate_event` (both arms, see :func:`_same_timestamp_verdict` and
+    :func:`_continuity_exempt`) and in the payload fold: a seed that happens to be the current
     setter must not *reject* a later, causally-consistent real lifecycle
     transition the way a genuine decision (a cancel, a rejection, or any real
     forward step) does. The seed still sets its own lane when nothing
@@ -1114,6 +1122,56 @@ def _is_reconstruction_seed(event: StatusEvent) -> bool:
     exists (spec-kitty#5967 follow-up).
     """
     return actor_identity_str(event.actor).startswith(_RECONSTRUCTION_SEED_ACTOR_PREFIX)
+
+
+def _is_rollback_seed(event: StatusEvent) -> bool:
+    """Whether *event* is a reconstruction seed restating a rejection (a rollback)."""
+    return _is_reconstruction_seed(event) and _is_rollback_event(event)
+
+
+def _is_bare_sibling(
+    approval: StatusEvent, seed: StatusEvent, all_events: list[StatusEvent]
+) -> bool:
+    """Whether *approval* is the bare concurrent sibling of the rollback *seed*.
+
+    The spec-kitty-events#81 pair: a non-rollback ``-> approved`` that left the
+    same lane as the seed (both branched off one ``in_review``) and that nothing
+    real was ever built upon, i.e. no non-seed event of the WP leaves
+    ``approved`` after it in ``(at, event_id)`` order. Only this approval may
+    contest a rollback seed for the lane; an approval a real ``approved ->
+    done`` followed is a settled decision, not a sibling (spec-kitty#6061).
+    """
+    if (
+        _is_rollback_event(approval)
+        or approval.to_lane != Lane.APPROVED
+        or approval.from_lane != seed.from_lane
+    ):
+        return False
+    key = (approval.at, approval.event_id)
+    return not any(
+        ev.wp_id == approval.wp_id
+        and ev.from_lane == Lane.APPROVED
+        and not _is_reconstruction_seed(ev)
+        and (ev.at, ev.event_id) > key
+        for ev in all_events
+    )
+
+
+def _yields_to_real(
+    setter: StatusEvent, new_event: StatusEvent, all_events: list[StatusEvent]
+) -> bool:
+    """Whether the applied rollback seed *setter* yields the lane to *new_event*.
+
+    A rollback seed holds the lane only against its own bare sibling (and
+    against other seeds). A real event is judged as if the setter were a
+    forward seed: it neither loses to the seed's rollback authority (arm (i))
+    nor is dropped by the seed's lane (arm (ii)) (spec-kitty#6061, rule R2).
+    """
+    return (
+        _is_rollback_seed(setter)
+        and not _is_reconstruction_seed(new_event)
+        and not _is_bare_sibling(new_event, setter, all_events)
+    )
 
 
 def _claim_sidecar_writes(event: StatusEvent) -> dict[str, Any]:
@@ -1355,6 +1413,65 @@ def _should_apply_event(
     return _arbitrate_event(current_state, new_event, all_events) is _Arbitration.APPLY
 
 
+def _same_timestamp_verdict(
+    new_event: StatusEvent,
+    current_setter: StatusEvent | None,
+    all_events: list[StatusEvent],
+) -> _Arbitration | None:
+    """Arm (i): the same-``at`` rollback precedence verdict, or ``None`` if it abstains.
+
+    A rollback new event beats a forward setter, except that a rollback SEED
+    beats only its bare sibling (R1). A rollback setter beats a forward new
+    event, except an applied rollback seed that yields to a real event (R2).
+    Abstaining (``None``) leaves the event to arm (ii), so a rollback seed that
+    loses here still folds its payload as a continuity loser (spec-kitty#6058, spec-kitty#6061).
+    """
+    if current_setter is None:
+        return None
+    if _is_rollback_event(new_event):
+        if _is_rollback_event(current_setter):
+            return None
+        if not _is_reconstruction_seed(new_event) or _is_bare_sibling(
+            current_setter, new_event, all_events
+        ):
+            return _Arbitration.APPLY  # Rollback beats forward
+        return None
+    if _is_rollback_event(current_setter) and not _yields_to_real(
+        current_setter, new_event, all_events
+    ):
+        return _Arbitration.LOST_TO_ROLLBACK  # Forward does not beat rollback
+    return None
+
+
+def _continuity_exempt(
+    new_event: StatusEvent,
+    current_setter: StatusEvent,
+    all_events: list[StatusEvent],
+) -> bool:
+    """Arm (ii) exemptions: whether *new_event* may break ``from_lane`` continuity.
+
+    * A real rollback is authoritative and always applies.
+    * A rollback SEED is authoritative only against its bare sibling approval
+      or against an earlier rollback seed (R1); against any other setter it
+      must continue the lane in force.
+    * Any other seed never uses the forward-seed-setter exemption (R3).
+    * A real event is exempt when the setter is a forward seed (a best-effort
+      restatement, spec-kitty#5967) or an applied rollback seed that yields
+      to it (R2).
+    """
+    if _is_rollback_event(new_event):
+        if not _is_reconstruction_seed(new_event):
+            return True
+        return _is_rollback_seed(current_setter) or _is_bare_sibling(
+            current_setter, new_event, all_events
+        )
+    if _is_reconstruction_seed(new_event):
+        return False
+    if _is_reconstruction_seed(current_setter) and not _is_rollback_event(current_setter):
+        return True
+    return _yields_to_real(current_setter, new_event, all_events)
+
+
 def _arbitrate_event(
     current_state: dict[str, Any] | None,
     new_event: StatusEvent,
@@ -1370,10 +1487,13 @@ def _arbitrate_event(
 
     Implements rollback-aware precedence, in two arms:
 
-    (i) **Same-timestamp concurrency.** If the current state was set by a
-        forward transition and a concurrent (equal-``at``) rollback event
-        exists for the same WP, the rollback wins; conversely a concurrent
-        forward transition never overrides a rollback.
+    (i) **Same-timestamp concurrency** (:func:`_same_timestamp_verdict`). If the
+        current state was set by a forward transition and a concurrent
+        (equal-``at``) rollback event exists for the same WP, the rollback
+        wins; conversely a concurrent forward transition never overrides a
+        rollback. Reconstruction seeds are narrowed by spec-kitty#6061 (R1-R3):
+        a rollback seed beats a forward setter only at its bare sibling
+        approval, and an applied rollback seed yields to a real event.
 
     (ii) **Causal-concurrency precedence (#69), independent of ``at``.** A
          rollback is never overwritten by a *later* forward transition that
@@ -1386,7 +1506,9 @@ def _arbitrate_event(
          concurrent with it and is dropped regardless of wall-clock order.
          A genuine rework transition (e.g. ``planned -> claimed`` after a
          ``in_review -> planned`` rejection) has a matching ``from_lane`` and
-         is unaffected.
+         is unaffected. Reconstruction seeds are narrowed by spec-kitty#6061
+         (R1-R3, :func:`_continuity_exempt`): an applied rollback seed yields to
+         a later real event, so "never overwritten" holds for real rollbacks.
 
     If there is no current state, the event always applies. If neither arm
     fires, the later event wins naturally through sort order.
@@ -1399,21 +1521,10 @@ def _arbitrate_event(
     current_lane = current_state.get("lane")
     current_setter = _find_event_by_id(current_event_id, all_events)
 
-    # (i) Same-timestamp concurrency: check rollback precedence.
     if current_timestamp == new_event.at:
-        if (
-            _is_rollback_event(new_event)
-            and current_setter is not None
-            and not _is_rollback_event(current_setter)
-        ):
-            return _Arbitration.APPLY  # Rollback beats forward
-
-        if (
-            current_setter is not None
-            and _is_rollback_event(current_setter)
-            and not _is_rollback_event(new_event)
-        ):
-            return _Arbitration.LOST_TO_ROLLBACK  # Forward does not beat rollback
+        verdict = _same_timestamp_verdict(new_event, current_setter, all_events)
+        if verdict is not None:
+            return verdict
 
     # (ii) The current lane is never overwritten by a forward transition that
     # did not causally follow it (its ``from_lane`` != the current lane). Such
@@ -1423,59 +1534,37 @@ def _arbitrate_event(
     # #69 (the original narrow case): a stale approval carries
     # ``from_lane=in_review`` while an applied rollback already left the WP in
     # ``planned``/``in_progress``; the mismatch means it never followed the
-    # rollback. The same mismatch is the tell for two further hazards the
-    # rollback-setter-only form missed (#5967):
+    # rollback. The same mismatch is the tell for two further hazards (#5967):
     #   * a stale ``in_progress -> for_review`` after the lead's pushed
-    #     ``in_progress -> canceled`` (the current setter is a cancel, not a
-    #     rollback), and
+    #     ``in_progress -> canceled`` (the current setter is a cancel), and
     #   * a stale ``in_review -> approved`` after a rejection the implementer
-    #     has already reclaimed (the current setter is ``claimed ->
-    #     in_progress``, the rework claim, not the rollback itself).
-    # In every case the stale event's ``from_lane`` does not match the lane in
-    # force, so enforcing ``from_lane`` continuity for ALL non-rollback setters
-    # (not only a rollback setter) drops it without special-casing cancel or
-    # rework. A genuine forward step (``claimed -> in_progress`` whose
-    # ``from_lane`` IS the current ``claimed``) matches and is unaffected.
+    #     has already reclaimed (the current setter is the rework claim).
+    # Continuity is therefore enforced for ALL non-rollback setters, not only a
+    # rollback setter. ``force=True`` is the deliberate, reason-carrying
+    # break-glass override and is never dropped.
     #
-    # Exemptions, unchanged: a rollback event (``_is_rollback_event(new_event)``)
-    # is authoritative and always applies; ``force=True`` is the deliberate,
-    # reason-carrying break-glass override. The hazards are all *unforced*
-    # forward transitions, so neither exemption reopens them.
-    #
-    # Further exemption (spec-kitty#5967 follow-up): this drop fires only when the
-    # CURRENT SETTER is a genuine decision. A reconstruction SEED
-    # (``migration:`` actor, :func:`_is_reconstruction_seed`) is a best-effort
-    # restatement of historical state, not a decision, so it must not reject the
-    # WP's later recorded live lifecycle. A corpus backfill seeds e.g.
-    # ``planned -> claimed`` at the genesis instant; the real log then continues
-    # ``planned -> blocked -> ... -> approved``. Without this clause the seed
-    # (applied first by ``at``) becomes the current setter and every real step
-    # (``from_lane`` != the seeded lane) is dropped, stranding the WP at the
-    # seed's lane. The seed still stands when NO real transition supersedes it
-    # (it remains the current setter and nothing is dropped). The #5967 hazards
-    # keep their real-decision setters (a cancel, a rework claim), so this does
-    # not reopen them.
-    #
-    # The seed exemption is itself narrowed (spec-kitty#4941): it lifts the drop
-    # only for a seed that is a forward restatement, NOT for a seed that is a
-    # committed REJECTION (``_is_rollback_event``). A backfilled rejection cycle
-    # leaves the WP in ``in_progress``/``planned``/``claimed`` while the
-    # rejection itself branched off ``in_review``. A bare ``in_review ->
-    # approved`` approval with no rework between it and the rejection branches
-    # off that SAME ``in_review`` state -- it is causally concurrent with the
-    # rejection, not a rework following it, so arm (ii) must still drop it (the
-    # ``approval after rejection`` sibling of the #4990 ``rejection after
-    # approval`` mirror). A seed restating a rejection therefore keeps the
-    # rejection's authority; only a non-rejection seed (e.g. ``planned ->
-    # claimed``) yields to the real lifecycle. The #5967 cases are unaffected:
-    # their seeds (``planned -> claimed``) are not rollbacks, and their real
-    # setters (a cancel, a rework claim) are not seeds at all.
+    # Reconstruction seeds (``migration:`` actors) are best-effort restatements
+    # of history, not decisions, and are judged by :func:`_continuity_exempt`:
+    #   * spec-kitty#5967: a FORWARD seed as the setter (``planned -> claimed``
+    #     at genesis) must not strand the WP at its lane, so a real event is
+    #     exempt from continuity against it.
+    #   * spec-kitty#4941 / spec-kitty-events#81: a ROLLBACK seed restating a
+    #     rejection keeps authority over its bare sibling approval (both
+    #     branched off one ``in_review``), whatever the order.
+    #   * spec-kitty#6061: that authority goes no further. A rollback seed
+    #     ARRIVING must continue the lane in force (R1: a done, canceled or
+    #     reworked WP is never reopened; a loser still folds its payload); an
+    #     applied rollback seed as the SETTER yields to a real event like a
+    #     forward seed (R2); and a seed never rides the forward-seed-setter
+    #     exemption (R3). Rollback seed against rollback seed keeps its
+    #     earlier behaviour; forward seed against forward seed does not (R3).
+    # The #5967 hazards keep their real-decision setters (a cancel, a rework
+    # claim), so none of this reopens them.
     if (
         current_setter is not None
-        and not _is_rollback_event(new_event)
-        and not (_is_reconstruction_seed(current_setter) and not _is_rollback_event(current_setter))
         and not new_event.force
         and str(new_event.from_lane) != current_lane
+        and not _continuity_exempt(new_event, current_setter, all_events)
     ):
         return _Arbitration.LOST_ON_CONTINUITY
 
@@ -1591,6 +1680,33 @@ def _fold_transitions(sorted_events: list[StatusEvent]) -> dict[str, dict[str, A
         ):
             _fold_losing_seed(event, current, prov)
     return wp_states
+
+
+def _order_transitions(events: list[StatusEvent]) -> list[StatusEvent]:
+    """Sort by ``(at, event_id)``, except that a real ``approved -> X`` follows its approval.
+
+    A non-seed event leaving ``approved`` that shares its ``at`` with a non-seed
+    ``-> approved`` of the same WP causally follows it, so it sorts after the
+    approval even when its ``event_id`` is smaller; otherwise arm (ii) would drop
+    it for arriving while the WP is still ``in_review`` (spec-kitty-events#87).
+    """
+    approvals = {
+        (ev.wp_id, ev.at)
+        for ev in events
+        if ev.to_lane == Lane.APPROVED
+        and ev.from_lane != Lane.APPROVED
+        and not _is_reconstruction_seed(ev)
+    }
+    return sorted(
+        events,
+        key=lambda e: (
+            e.at,
+            e.from_lane == Lane.APPROVED
+            and (e.wp_id, e.at) in approvals
+            and not _is_reconstruction_seed(e),
+            e.event_id,
+        ),
+    )
 
 
 def _canonical_key(event: StatusEvent) -> str:
@@ -1841,7 +1957,7 @@ def reduce_parsed(
     unique_events = _dedup_transitions(transitions)
 
     # Step 2: Sort by (at, event_id) ascending
-    sorted_events = sorted(unique_events, key=lambda e: (e.at, e.event_id))
+    sorted_events = _order_transitions(unique_events)
 
     # Step 3 & 4: Iterate and apply events with rollback-aware precedence
     # The event's mission_slug is UNTRUSTED (verbatim from a status.events.jsonl

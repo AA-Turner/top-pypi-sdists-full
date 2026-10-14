@@ -5,11 +5,15 @@ Base class for profiles.
 
 import abc
 import warnings
+from functools import cached_property
 
+import astropy.units as u
 import numpy as np
-from astropy.utils import lazyproperty
 from astropy.utils.exceptions import AstropyUserWarning
 
+from photutils.aperture._common import validate_mask_method
+from photutils.aperture.core import _update_method_subpixels_docstring
+from photutils.aperture.photometry import AperturePhotometry
 from photutils.utils._deprecation import deprecated_positional_kwargs
 from photutils.utils._quantity_helpers import process_quantities
 from photutils.utils._stats import nanmax, nansum
@@ -17,64 +21,62 @@ from photutils.utils._stats import nanmax, nansum
 __all__ = ['ProfileBase']
 
 
+@_update_method_subpixels_docstring
 class ProfileBase(metaclass=abc.ABCMeta):
+    # numpydoc ignore: PR01,PR02,PR04,PR07
     """
     Abstract base class for profile classes.
 
     Parameters
     ----------
-    data : 2D `~numpy.ndarray`
+    data : 2D `~numpy.ndarray` or `~astropy.units.Quantity`
         The 2D data array. The data should be background-subtracted.
+        Nonfinite values (e.g., NaN or inf) in the ``data`` or
+        ``error`` array are automatically masked.
 
     xycen : tuple of 2 floats
         The ``(x, y)`` pixel coordinate of the source center.
 
-    radii : 1D float `~numpy.ndarray`
+    radii : 1D array_like of float
         An array of radii defining the profile apertures. ``radii`` must
         be strictly increasing with a minimum value greater than or
         equal to zero, and contain at least 2 values. The radial spacing
-        does not need to be constant. See the subclass documentation for
-        details on how ``radii`` is interpreted.
+        does not need to be constant. ``radii`` must be in pixels and
+        cannot be a `~astropy.units.Quantity`. See the subclass
+        documentation for details on how ``radii`` is interpreted.
 
-    error : 2D `~numpy.ndarray`, optional
+    error : 2D `~numpy.ndarray` or `~astropy.units.Quantity`, optional
         The 1-sigma errors of the input ``data``. ``error`` is assumed
         to include all sources of error, including the Poisson error of
         the sources (see `~photutils.utils.calc_total_error`). ``error``
-        must have the same shape as the input ``data``.
+        must have the same shape as the input ``data``. If ``data`` is a
+        `~astropy.units.Quantity`, then ``error`` must have the same
+        units.
 
     mask : 2D bool `~numpy.ndarray`, optional
         A boolean mask with the same shape as ``data`` where a `True`
         value indicates the corresponding element of ``data`` is masked.
         Masked data are excluded from all calculations.
 
-    method : {'exact', 'center', 'subpixel'}, optional
-        The method used to determine the overlap of the aperture on the
-        pixel grid:
+    <method_subpixels_descriptions>
 
-        * ``'exact'`` (default):
-          The exact fractional overlap of the aperture and each pixel is
-          calculated. The aperture weights will contain values between 0
-          and 1.
+    Raises
+    ------
+    TypeError
+        If ``radii`` is a `~astropy.units.Quantity`.
 
-        * ``'center'``:
-          A pixel is considered to be entirely in or out of the aperture
-          depending on whether its center is in or out of the aperture.
-          The aperture weights will contain values only of 0 (out) and 1
-          (in).
+    ValueError
+        If ``data`` is not a 2D array, if ``radii`` is not a 1D array
+        with at least two values, has a negative value, or is not
+        strictly increasing, if ``error`` or ``mask`` does not have the
+        same shape as ``data``, if ``data`` and ``error`` do not have
+        the same units, or if ``method`` or ``subpixels`` is invalid.
 
-        * ``'subpixel'``:
-          A pixel is divided into subpixels (see the ``subpixels``
-          keyword), each of which are considered to be entirely in or
-          out of the aperture depending on whether its center is in
-          or out of the aperture. If ``subpixels=1``, this method is
-          equivalent to ``'center'``. The aperture weights will contain
-          values between 0 and 1.
-
-    subpixels : int, optional
-        For the ``'subpixel'`` method, resample pixels by this factor
-        in each dimension. That is, each pixel is divided into
-        ``subpixels**2`` subpixels. This keyword is ignored unless
-        ``method='subpixel'``.
+    Warns
+    -----
+    `~astropy.utils.exceptions.AstropyUserWarning`
+        If the ``data`` or ``error`` array contains nonfinite values
+        that are not already masked by ``mask``.
     """
 
     # Define axis labels used by `~photutils.profiles.ProfileBase.plot`.
@@ -82,11 +84,22 @@ class ProfileBase(metaclass=abc.ABCMeta):
     _xlabel = 'Radius (pixels)'
     _ylabel = 'Profile'
 
+    # The user-facing name of the ``radii`` parameter, used in
+    # validation error messages. Subclasses that rename the parameter
+    # (e.g., ``half_sizes``) may override this.
+    _radii_name = 'radii'
+
     def __init__(self, data, xycen, radii, *, error=None, mask=None,
                  method='exact', subpixels=5):
 
         (data, error), unit = process_quantities((data, error),
                                                  ('data', 'error'))
+
+        if np.ndim(data) != 2:
+            msg = 'data must be a 2D array'
+            raise ValueError(msg)
+
+        validate_mask_method(method, subpixels, method_name='method')
 
         if error is not None and error.shape != data.shape:
             msg = 'error must have the same shape as data'
@@ -100,29 +113,43 @@ class ProfileBase(metaclass=abc.ABCMeta):
         self.mask = self._compute_mask(data, error, mask)
         self.method = method
         self.subpixels = subpixels
+
+        # The total normalization applied to the profile. This is the
+        # only mutable state of the class. All normalization-dependent
+        # attributes (e.g., ``profile``) are derived from immutable
+        # cached values divided by this value, and `normalize` and
+        # `unnormalize` update it with a single atomic attribute
+        # store, making the class safe for concurrent reads during
+        # normalization changes.
         self.normalization_value = 1.0
 
     def _validate_radii(self, radii):
         """
         Validate and return the radii array.
         """
+        name = self._radii_name
+        if isinstance(radii, u.Quantity):
+            msg = (f'{name} must be a plain array of pixel values, '
+                   'not a Quantity')
+            raise TypeError(msg)
+
         radii = np.array(radii)
         if radii.ndim != 1 or radii.size < 2:
-            msg = 'radii must be a 1D array and have at least two values'
+            msg = f'{name} must be a 1D array and have at least two values'
             raise ValueError(msg)
         if radii.min() < 0:
-            msg = 'minimum radii must be >= 0'
+            msg = f'minimum {name} must be >= 0'
             raise ValueError(msg)
 
         if not np.all(radii[1:] > radii[:-1]):
-            msg = 'radii must be strictly increasing'
+            msg = f'{name} must be strictly increasing'
             raise ValueError(msg)
 
         return radii
 
     def _compute_mask(self, data, error, mask):
         """
-        Compute the mask array, automatically masking non-finite data or
+        Compute the mask array, automatically masking nonfinite data or
         error values.
         """
         badmask = ~np.isfinite(data)
@@ -132,14 +159,14 @@ class ProfileBase(metaclass=abc.ABCMeta):
             if mask.shape != data.shape:
                 msg = 'mask must have the same shape as data'
                 raise ValueError(msg)
-            # Keep only non-finite values not already masked by the user
+            # Keep only nonfinite values not already masked by the user
             badmask &= ~mask
             combined_mask = mask | badmask  # all masked pixels
         else:
             combined_mask = badmask
 
         if np.any(badmask):
-            msg = ('Input data contains non-finite values (e.g., NaN '
+            msg = ('Input data contains nonfinite values (e.g., NaN '
                    'or inf) that were automatically masked.')
             warnings.warn(msg, AstropyUserWarning)
 
@@ -154,22 +181,48 @@ class ProfileBase(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def profile(self):
+    def _raw_profile(self):
         """
-        The radial profile as a 1D `~numpy.ndarray`.
+        The raw (unnormalized) profile as a 1D `~numpy.ndarray`, or a
+        `~astropy.units.Quantity` if the input ``data`` has units.
         """
 
     @property
     @abc.abstractmethod
-    def profile_error(self):
+    def _raw_profile_error(self):
         """
-        The profile errors as a 1D `~numpy.ndarray`.
+        The raw (unnormalized) profile errors as a 1D `~numpy.ndarray`,
+        or a `~astropy.units.Quantity` if the input ``data`` has units.
 
         If no ``error`` array was provided, an empty array with shape
         ``(0,)`` is returned.
         """
 
-    @lazyproperty
+    @property
+    def profile(self):
+        """
+        The profile as a 1D `~numpy.ndarray`, or a
+        `~astropy.units.Quantity` if the input ``data`` has units.
+
+        The returned values reflect the current profile normalization
+        (see `normalize`). A normalized profile of data with units is a
+        dimensionless `~astropy.units.Quantity`.
+        """
+        return self._raw_profile / self.normalization_value
+
+    @property
+    def profile_error(self):
+        """
+        The profile errors as a 1D `~numpy.ndarray`, or a
+        `~astropy.units.Quantity` if the input ``data`` has units.
+
+        The returned values reflect the current profile normalization
+        (see `normalize`). If no ``error`` array was provided, an empty
+        array with shape ``(0,)`` is returned.
+        """
+        return self._raw_profile_error / self.normalization_value
+
+    @cached_property
     def _circular_apertures(self):
         """
         A list of `~photutils.aperture.CircularAperture` objects.
@@ -189,55 +242,53 @@ class ProfileBase(metaclass=abc.ABCMeta):
     def _compute_photometry(self, apertures):
         """
         Compute aperture fluxes, flux errors, and areas for the given
-        apertures.
+        apertures using a single batched photometry call.
 
         Parameters
         ----------
         apertures : list
-            A list of aperture objects. Elements may be `None`, in which
-            case the corresponding flux, error, and area are set to
-            zero.
+            A list of aperture objects sharing the same position.
+            Leading elements may be `None` (e.g., for a zero radius), in
+            which case the corresponding flux, error, and area are set
+            to zero.
 
         Returns
         -------
-        flux : `~numpy.ndarray`
-            The aperture fluxes.
+        flux : `~numpy.ndarray` or `~astropy.units.Quantity`
+            The aperture fluxes. A `~astropy.units.Quantity` if the
+            input ``data`` has units.
 
-        flux_err : `~numpy.ndarray`
-            The aperture flux errors.
+        flux_err : `~numpy.ndarray` or `~astropy.units.Quantity`
+            The aperture flux errors, or an empty array if no ``error``
+            array was provided.
 
         areas : `~numpy.ndarray`
-            The aperture areas.
+            The aperture areas in pixels squared, without units.
         """
-        fluxes = []
-        flux_errs = []
-        areas = []
-        for aperture in apertures:
-            if aperture is None:
-                flux, flux_err = [0.0], [0.0]
-                area = 0.0
-            else:
-                flux, flux_err = aperture.do_photometry(
-                    self.data, error=self.error, mask=self.mask,
-                    method=self.method, subpixels=self.subpixels)
-                area = aperture.area_overlap(self.data, mask=self.mask,
-                                             method=self.method,
-                                             subpixels=self.subpixels)
-            fluxes.append(flux[0])
-            if self.error is not None:
-                flux_errs.append(flux_err[0])
-            areas.append(area)
+        n_none = sum(aperture is None for aperture in apertures)
+        result = AperturePhotometry(
+            self.data, apertures[n_none:], error=self.error,
+            mask=self.mask, method=self.method, subpixels=self.subpixels)
 
-        fluxes = np.array(fluxes)
-        flux_errs = np.array(flux_errs)
-        areas = np.array(areas)
+        fluxes = result.flux
+        areas = result.area.to_value(u.pix ** 2)
+        flux_errs = (result.flux_err if self.error is not None
+                     else np.array([]))
+
+        if n_none > 0:
+            zeros = np.zeros(n_none)
+            fluxes = np.concatenate((zeros, fluxes))
+            areas = np.concatenate((zeros, areas))
+            if self.error is not None:
+                flux_errs = np.concatenate((zeros, flux_errs))
+
         if self.unit is not None:
-            fluxes <<= self.unit
-            flux_errs <<= self.unit
+            fluxes = fluxes << self.unit
+            flux_errs = flux_errs << self.unit
 
         return fluxes, flux_errs, areas
 
-    @lazyproperty
+    @cached_property
     def _photometry(self):
         """
         The aperture fluxes, flux errors, and areas as a function of
@@ -250,6 +301,17 @@ class ProfileBase(metaclass=abc.ABCMeta):
         """
         Normalize the profile.
 
+        The profile errors (`profile_error`) are divided by the same
+        normalization value as the profile.
+
+        The normalization is computed from the raw (unnormalized)
+        profile values, so repeated calls do not accumulate. The
+        most recent call determines the normalization. Because both
+        normalization methods scale linearly with the profile values,
+        this is equivalent to normalizing an already-normalized profile.
+        NaN values in the profile are ignored when computing the maximum
+        or sum.
+
         Parameters
         ----------
         method : {'max', 'sum'}, optional
@@ -260,127 +322,49 @@ class ProfileBase(metaclass=abc.ABCMeta):
               1.
 
             * ``'sum'``:
-              The profile is normalized such that its sum (integral) is
-              1.
+              The profile is normalized such that the sum of its values
+              is 1.
+
+        Raises
+        ------
+        ValueError
+            If ``method`` is not ``'max'`` or ``'sum'``.
+
+        Warns
+        -----
+        `~astropy.utils.exceptions.AstropyUserWarning`
+            If the maximum or sum of the profile is not positive or is
+            nonfinite. In that case, the current normalization is left
+            unchanged.
         """
         if method == 'max':
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', RuntimeWarning)
-                normalization = nanmax(self.profile)
+            func = nanmax
         elif method == 'sum':
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', RuntimeWarning)
-                normalization = nansum(self.profile)
+            func = nansum
         else:
             msg = "invalid method, must be 'max' or 'sum'"
             raise ValueError(msg)
 
-        if normalization == 0 or not np.isfinite(normalization):
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            normalization = func(self._raw_profile)
+
+        if not (np.isfinite(normalization) and normalization > 0):
             msg = ('The profile cannot be normalized because the max or '
-                   'sum is zero or non-finite.')
+                   'sum is not positive or is nonfinite.')
             warnings.warn(msg, AstropyUserWarning)
         else:
-            # normalization_values accumulate if normalize is run
-            # multiple times (e.g., different methods)
-            self.normalization_value *= normalization
-
-            # Need to use __dict__ as these are lazy properties
-            self.__dict__['profile'] = self.profile / normalization
-            self.__dict__['profile_error'] = self.profile_error / normalization
-            self._normalize_hook(normalization)
-
-    def _normalize_hook(self, normalization):  # noqa: B027
-        """
-        Hook called by `normalize` after normalizing ``profile`` and
-        ``profile_error``.
-
-        This hook is only called when normalization succeeds (i.e., when
-        the normalization value is non-zero and finite).
-
-        Subclasses can override this to normalize additional lazy
-        properties (e.g., ``data_profile``).
-
-        Parameters
-        ----------
-        normalization : float
-            The normalization value applied to the profile.
-        """
+            # A single atomic attribute store. Concurrent readers see
+            # either the old or the new normalization, never a mixed
+            # state.
+            self.normalization_value = normalization
 
     def unnormalize(self):
         """
         Unnormalize the profile back to the original state before any
         calls to `normalize`.
         """
-        self.__dict__['profile'] = self.profile * self.normalization_value
-        self.__dict__['profile_error'] = (self.profile_error
-                                          * self.normalization_value)
-        self._unnormalize_hook()
         self.normalization_value = 1.0
-
-    def _unnormalize_hook(self):  # noqa: B027
-        """
-        Hook called by `unnormalize` after unnormalizing ``profile`` and
-        ``profile_error``, but before resetting ``normalization_value``.
-
-        Subclasses can override this to unnormalize additional lazy
-        properties (e.g., ``data_profile``).
-        """
-
-    @staticmethod
-    def _trim_to_monotonic(xarr, profile, name):
-        """
-        Trim arrays to the first monotonically increasing region.
-
-        This is used by interpolation methods that require a
-        monotonically increasing profile.
-
-        Parameters
-        ----------
-        xarr : 1D `~numpy.ndarray`
-            The x-axis values (e.g., radius or half-size).
-
-        profile : 1D `~numpy.ndarray`
-            The profile values.
-
-        name : str
-            A descriptive name for the profile used in the error
-            message.
-
-        Returns
-        -------
-        xarr, profile : tuple of `~numpy.ndarray`
-            The trimmed arrays.
-        """
-        finite_mask = np.isfinite(profile)
-        if not np.all(finite_mask):
-            # Keep only the leading finite segment
-            first_nonfinite = np.argmin(finite_mask)
-            xarr = xarr[:first_nonfinite]
-            profile = profile[:first_nonfinite]
-
-        # np.diff produces an array of length n-1: diff[i] represents
-        # the step from profile[i] to profile[i+1]. A value <= 0 means
-        # the profile stopped increasing at that step.
-        diff = np.diff(profile) <= 0
-        if np.any(diff):
-            # idx is an index into the *diff* array, not the profile
-            # array. diff[idx] <= 0 means the drop occurs between
-            # profile[idx] and profile[idx+1], so profile[idx] is
-            # the last good value. We therefore need profile[:idx+1]
-            # (inclusive) to retain it.
-            idx = np.argmax(diff)  # first non-monotonic step in diff-space
-            xarr = xarr[:idx + 1]
-            profile = profile[:idx + 1]
-
-        if len(xarr) < 2:
-            msg = (f'The {name} profile is not monotonically '
-                   'increasing even at the smallest values -- cannot '
-                   'interpolate. Try using different input values '
-                   '(especially the starting values) and/or using the '
-                   '"exact" aperture overlap method.')
-            raise ValueError(msg)
-
-        return xarr, profile
 
     def __repr__(self):
         cls_name = self.__class__.__name__
@@ -413,11 +397,19 @@ class ProfileBase(metaclass=abc.ABCMeta):
         if ax is None:
             ax = plt.gca()
 
-        lines = ax.plot(self.radius, self.profile, **kwargs)
+        profile = self.profile
+        unit = None
+        if isinstance(profile, u.Quantity):
+            unit = profile.unit
+            profile = profile.value
+
+        lines = ax.plot(self.radius, profile, **kwargs)
         ax.set_xlabel(self._xlabel)
         ylabel = self._ylabel
-        if self.unit is not None:
-            ylabel = f'{ylabel} ({self.unit})'
+        # A normalized profile is dimensionless, so the unit is
+        # included only when the profile has a physical unit
+        if unit is not None and unit != u.dimensionless_unscaled:
+            ylabel = f'{ylabel} ({unit})'
         ax.set_ylabel(ylabel)
 
         return lines
@@ -435,13 +427,20 @@ class ProfileBase(metaclass=abc.ABCMeta):
 
         **kwargs : dict, optional
             Any keyword arguments accepted by
-            `matplotlib.pyplot.fill_between`.
+            `matplotlib.pyplot.fill_between`. If ``facecolor`` is not
+            given, a semi-transparent gray is used.
 
         Returns
         -------
         poly : `matplotlib.collections.PolyCollection` or `None`
             A `~matplotlib.collections.PolyCollection` containing the
             plotted polygons, or `None` if no errors were input.
+
+        Warns
+        -----
+        `~astropy.utils.exceptions.AstropyUserWarning`
+            If no errors were input. In that case, nothing is plotted
+            and `None` is returned.
         """
         if len(self.profile_error) == 0:
             msg = 'Errors were not input'
@@ -464,8 +463,9 @@ class ProfileBase(metaclass=abc.ABCMeta):
 
         profile = self.profile
         profile_error = self.profile_error
-        if self.unit is not None:
+        if isinstance(profile, u.Quantity):
             profile = profile.value
+        if isinstance(profile_error, u.Quantity):
             profile_error = profile_error.value
         ymin = profile - profile_error
         ymax = profile + profile_error

@@ -11,6 +11,7 @@ Three orthogonal flags drive the run() lifecycle:
 - smart:      autoheal + AI-backed helpers enabled. Default "1"; run() hard-fails
               for a cloud target without lt_auth and warn-degrades locally.
 """
+import copy
 import os
 from typing import Any
 
@@ -70,9 +71,9 @@ _PROD_AUTOMIND_URL = "https://kaneai-api.lambdatest.com"
 #: a code change; the runtime tables raise UnsupportedOnPlatform until they ship.
 KNOWN_PLATFORMS = ("android", "ios")
 
-#: What a udid can name. Mirrors the runner's own vocabulary so a value can be
-#: handed straight through without translation.
-KNOWN_TARGET_KINDS = ("physical", "emulator", "simulator")
+#: What a session drives: an Android emulator, an iOS simulator, or a real
+#: Android / iOS device. The same four words a test file's `target:` uses.
+KNOWN_TARGETS = ("emulator", "simulator", "android", "ios")
 
 #: Which path serves a perception screenshot. "auto" tries the MJPEG stream where it
 #: can be reachable and falls back to the Appium screencap; "mjpeg" takes the stream
@@ -158,12 +159,13 @@ _config: dict[str, Any] = {
     "app_id": "",           # Android package now, iOS bundleId later — neutral by design
     "platform": "android",
     "udid": "",
-    # What KIND of target the udid names: "physical" | "emulator" | "simulator".
-    # The caller resolved this from real discovery (simctl lists simulators, an
-    # emulator-NNNN serial names an emulator), so it is authoritative where it is
-    # set. Empty means "not told" — the iOS web surface then resolves the kind
-    # itself, which is what keeps a standalone generated test correct.
-    "target_kind": "",
+    # What the udid names: "emulator" | "simulator" | "android" | "ios", the last
+    # two being real devices. The caller resolved this from real discovery
+    # (simctl lists simulators, an emulator-NNNN serial names an emulator), so it
+    # is authoritative where it is set. Empty means "not told" — the iOS web
+    # surface then resolves it itself, which is what keeps a standalone generated
+    # test correct.
+    "target": "",
     "device_name": "",
     "platform_version": "",
     "no_reset": True,
@@ -224,6 +226,10 @@ _config: dict[str, Any] = {
 }
 
 
+#: The dict as seeded above, before any configure() call.
+_seed: dict[str, Any] = copy.deepcopy(_config)
+
+
 # Keys explicitly set via configure()/set_value() — distinguishes "configured to a
 # falsy value" from "left at default" (needed for bool caps).
 _configured_keys: set = set()
@@ -243,6 +249,11 @@ def set_value(key: str, value):
 def was_set(key: str) -> bool:
     """Return True if key was explicitly written via set_value()/configure()."""
     return key in _configured_keys
+
+
+def seed_value(key: str):
+    """The value a key was seeded with at import. A fresh copy on every call."""
+    return copy.deepcopy(_seed[key])
 
 
 def platform() -> str:

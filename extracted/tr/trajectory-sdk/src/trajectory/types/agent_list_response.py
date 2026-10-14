@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from trajectory._models import BaseModel
+from trajectory._base_client import SyncPage
 from trajectory.types.agents.agent_response import AgentResponse
 
 
-class AgentListResponse(BaseModel):
+class AgentListResponse(SyncPage[AgentResponse]):
   """Named response schema for the agent list endpoint."""
 
   items: list[AgentResponse]

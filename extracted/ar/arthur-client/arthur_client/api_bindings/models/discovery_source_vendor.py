@@ -32,6 +32,7 @@ class DiscoverySourceVendor(str, Enum):
     AWS_BEDROCK = 'aws_bedrock'
     JAMF_PRO = 'jamf_pro'
     GCP_VERTEX = 'gcp_vertex'
+    GCP_COMPUTE_ENGINE = 'gcp_compute_engine'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

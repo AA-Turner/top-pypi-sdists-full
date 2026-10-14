@@ -1,0 +1,1929 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
+# cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True
+# cython: freethreading_compatible=True
+"""
+Tools to provide a batch driver for aperture statistics.
+
+For each source position, this module iterates over the aperture
+bounding box once and, using exactly the same per-pixel overlap
+arithmetic as the `photutils.geometry` grid functions (and the
+`~photutils.aperture._batch_photometry` driver), packs the unmasked
+"center"-method pixel values into a single buffer. The ``sum_method``
+aperture sum, error variance, and area are computed separately by
+``batch_aperture_sums``. The packed value buffer is then reduced lazily
+by the higher tiers (moments, median, and other order statistics)
+without creating per-source mask arrays or making per-source Python
+calls.
+
+The main source loop runs without the GIL and uses no global mutable
+state, so this module is safe to use from multiple threads, including on
+free-threaded Python builds.
+
+The image arrays of ``batch_aperture_gather`` are declared with fused
+types, so it reads a C-contiguous float32 or float64 data image and an
+int32 or intp segmentation image directly, without the caller making
+full-image copies. The data and segmentation dtypes are independent.
+Each pixel value is converted to double as it is read, which is exact,
+and all arithmetic is performed in double precision, so the results
+agree to within rounding for either input dtype.
+"""
+
+import numpy as np
+
+from photutils.aperture._batch_photometry import N_FLAG_COLS
+
+from photutils.aperture._batch_overlap cimport (
+    _CIRCLE, _CIRCULAR_ANNULUS, _ELLIPSE, _ELLIPTICAL_ANNULUS, _POLYGON,
+    _RECTANGLE, _RECTANGULAR_ANNULUS, _SEG_CORRECTED, _SEG_NEIGHBOR,
+    _SEG_UNCORRECTED, _circle_pixel_frac, _circular_annulus_pixel_frac,
+    _classify_seg_pixel, _ellipse_pixel_frac, _elliptical_annulus_pixel_frac,
+    _polygon_pixel_frac, _presize_packed_offsets, _rect_pixel_frac,
+    _rectangular_annulus_pixel_frac, _resolve_seg_pixel, _round_half_away,
+    _seg_method_active, _source_grid_setup, real_t, seg_t)
+from photutils.geometry._polygon_overlap cimport (convex_edge_normals,
+                                                  polygon_work_partition,
+                                                  polygon_work_size)
+from photutils.geometry.rectangle_overlap cimport rect_vertices
+
+__all__ = ['batch_aperture_gather', 'batch_moments', 'batch_sort_values',
+           'batch_order_stats', 'batch_minmax', 'batch_mean_var', 'batch_mad',
+           'batch_biweight', 'batch_gini', 'batch_sigma_clip_center',
+           'batch_sigma_clip_stats', 'batch_sigma_clip_sum']
+
+
+cdef extern from "math.h" nogil:
+    double sin(double x)
+    double cos(double x)
+    double sqrt(double x)
+    double fabs(double x)
+    double ceil(double x)
+    bint isfinite(double x)
+    const double NAN
+
+# Scale factor that converts the median absolute deviation to a robust
+# estimate of the standard deviation (1 / scipy.stats.norm.ppf(0.75)).
+# This must match ``astropy.stats.mad_std``.
+cdef double _MAD_STD_SCALE = 1.482602218505602
+
+
+cdef inline void _insertion_sort(double *a, Py_ssize_t lo,
+                                 Py_ssize_t hi) noexcept nogil:
+    """
+    Sort ``a[lo:hi]`` ascending in place by insertion (for short
+    ranges).
+    """
+    cdef Py_ssize_t i, j
+    cdef double v
+    for i in range(lo + 1, hi):
+        v = a[i]
+        j = i
+        while j > lo and v < a[j - 1]:
+            a[j] = a[j - 1]
+            j -= 1
+        a[j] = v
+
+
+cdef void _heapsort(double *a, Py_ssize_t lo, Py_ssize_t hi) noexcept nogil:
+    """
+    Sort ``a[lo:hi]`` ascending in place by heapsort (the introsort
+    fallback that bounds the worst case at O(n log n)).
+    """
+    cdef Py_ssize_t n = hi - lo
+    cdef Py_ssize_t start, root, child, end
+    cdef double v
+    # Build the max-heap, then repeatedly move the maximum to the end
+    start = n // 2 - 1
+    end = n
+    while True:
+        if start >= 0:
+            root = start
+            start -= 1
+        else:
+            end -= 1
+            if end == 0:
+                return
+            v = a[lo + end]
+            a[lo + end] = a[lo]
+            a[lo] = v
+            root = 0
+        # Sift the root down within the heap [0, end)
+        while True:
+            child = 2 * root + 1
+            if child >= end:
+                break
+            if child + 1 < end and a[lo + child] < a[lo + child + 1]:
+                child += 1
+            if a[lo + root] < a[lo + child]:
+                v = a[lo + root]
+                a[lo + root] = a[lo + child]
+                a[lo + child] = v
+                root = child
+            else:
+                break
+
+
+cdef void _introsort(double *a, Py_ssize_t lo, Py_ssize_t hi,
+                     int depth) noexcept nogil:
+    """
+    Sort ``a[lo:hi]`` ascending in place by introsort. This is a
+    median-of-three quicksort with Bentley-McIlroy three-way
+    partitioning, heapsort when the recursion depth budget is
+    exhausted, and insertion sort for short ranges.
+
+    The three-way partition keeps the two scanning indices of a Hoare
+    partition (so distinct keys sort as fast) but parks the elements
+    equal to the pivot at the ends of the range and swaps them into
+    the middle afterwards, so runs of equal values (e.g., quantized or
+    constant pixel values) are excluded from further sorting instead
+    of degrading to the quadratic-swap behavior of a two-way
+    partition. The smaller of the two remaining partitions is recursed
+    into and the larger is looped over, which bounds the recursion
+    depth by log2(n).
+    """
+    cdef Py_ssize_t i, j, k, p, q, mid, last
+    cdef double pivot, v
+    while hi - lo > 16:
+        if depth == 0:
+            _heapsort(a, lo, hi)
+            return
+        depth -= 1
+
+        # Median of three, moved to a[lo] as the pivot
+        last = hi - 1
+        mid = lo + (hi - lo) // 2
+        if a[mid] < a[lo]:
+            v = a[mid]
+            a[mid] = a[lo]
+            a[lo] = v
+        if a[last] < a[lo]:
+            v = a[last]
+            a[last] = a[lo]
+            a[lo] = v
+        if a[last] < a[mid]:
+            v = a[last]
+            a[last] = a[mid]
+            a[mid] = v
+        pivot = a[mid]
+        a[mid] = a[lo]
+        a[lo] = pivot
+
+        # Bentley-McIlroy partition: a[lo + 1:p + 1] and a[q:hi] hold
+        # the elements equal to the pivot found so far
+        i = lo
+        j = hi
+        p = lo
+        q = hi
+        while True:
+            i += 1
+            while a[i] < pivot:
+                if i == last:
+                    break
+                i += 1
+            j -= 1
+            while pivot < a[j]:
+                if j == lo:
+                    break
+                j -= 1
+            if i == j and a[i] == pivot:
+                p += 1
+                v = a[p]
+                a[p] = a[i]
+                a[i] = v
+            if i >= j:
+                break
+            v = a[i]
+            a[i] = a[j]
+            a[j] = v
+            if a[i] == pivot:
+                p += 1
+                v = a[p]
+                a[p] = a[i]
+                a[i] = v
+            if a[j] == pivot:
+                q -= 1
+                v = a[q]
+                a[q] = a[j]
+                a[j] = v
+
+        # Swap the parked equal elements into the middle, giving
+        # a[lo:j + 1] < pivot, a[j + 1:i] == pivot, a[i:hi] > pivot
+        i = j + 1
+        k = lo
+        while k <= p:
+            v = a[k]
+            a[k] = a[j]
+            a[j] = v
+            k += 1
+            j -= 1
+        k = last
+        while k >= q:
+            v = a[k]
+            a[k] = a[i]
+            a[i] = v
+            k -= 1
+            i += 1
+
+        if j + 1 - lo < hi - i:
+            _introsort(a, lo, j + 1, depth)
+            lo = i
+        else:
+            _introsort(a, i, hi, depth)
+            hi = j + 1
+    _insertion_sort(a, lo, hi)
+
+
+def _heapsort_values(double[::1] values):
+    """
+    Sort a 1D float64 array in place with the heapsort fallback of
+    ``_sort_doubles``.
+
+    The fallback runs only when the introsort recursion budget is
+    exhausted, which no ordinary input reaches, so this entry point
+    exists for the tests.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64 (C-contiguous, writable)
+        The values to sort in place.
+    """
+    if values.shape[0] > 1:
+        _heapsort(&values[0], 0, values.shape[0])
+
+
+cdef inline void _sort_doubles(double *a, Py_ssize_t n) noexcept nogil:
+    """
+    Sort ``n`` finite doubles ascending in place.
+
+    This replaces the C library ``qsort`` (whose comparison callback
+    cannot be inlined and costs an indirect call per comparison) with
+    an introsort whose comparisons compile to plain branches. The
+    values must be finite. The ordering of NaN values is unspecified.
+    """
+    cdef int depth = 0
+    cdef Py_ssize_t m = n
+    if n < 2:
+        return
+    while m > 1:
+        m >>= 1
+        depth += 1
+    _introsort(a, 0, n, 2 * depth)
+
+
+cdef inline double _median_sorted(double *s, Py_ssize_t n) noexcept nogil:
+    """
+    Median of an ascending-sorted buffer.
+
+    This matches ``np.median``.
+
+    Parameters
+    ----------
+    s : double *
+        The ascending-sorted buffer.
+
+    n : Py_ssize_t
+        The number of elements in ``s``.
+
+    Returns
+    -------
+    result : double
+        The median value.
+    """
+    if n % 2 == 1:
+        return s[n // 2]
+    return 0.5 * (s[n // 2 - 1] + s[n // 2])
+
+
+cdef inline double _mad_sorted(double *s, Py_ssize_t n) noexcept nogil:
+    """
+    Unscaled median absolute deviation of an ascending-sorted buffer
+    about its median.
+
+    The absolute deviations of the values below the median decrease
+    toward the median and those of the values at or above it increase
+    away from it, so the sorted deviations are the merge of two
+    ascending runs that start at the middle of the buffer. Walking the
+    merge to its middle element gives exactly the median that sorting
+    the deviations would give, in linear time and without a scratch
+    buffer.
+
+    Parameters
+    ----------
+    s : double *
+        The ascending-sorted buffer.
+
+    n : Py_ssize_t
+        The number of elements in ``s``. Must be positive.
+
+    Returns
+    -------
+    result : double
+        The unscaled median absolute deviation. Multiply by
+        ``_MAD_STD_SCALE`` to obtain `astropy.stats.mad_std`.
+    """
+    cdef double center = _median_sorted(s, n)
+    cdef Py_ssize_t half = n // 2
+    cdef Py_ssize_t lo = half - 1  # next element of the lower run
+    cdef Py_ssize_t hi = half  # next element of the upper run
+    cdef Py_ssize_t count = 0
+    cdef double dev_lo = 0.0, dev_hi = 0.0, prev = 0.0, cur = 0.0
+
+    # Emit the half + 1 smallest deviations, keeping the last two.
+    while count <= half:
+        if lo >= 0:
+            dev_lo = fabs(s[lo] - center)
+        if hi < n:
+            dev_hi = fabs(s[hi] - center)
+        prev = cur
+        if lo < 0 or (hi < n and dev_hi < dev_lo):
+            cur = dev_hi
+            hi += 1
+        else:
+            cur = dev_lo
+            lo -= 1
+        count += 1
+
+    if n % 2 == 1:
+        return cur
+    return 0.5 * (prev + cur)
+
+
+# Sigma-clip center/scale function codes (must match the ``cenfunc`` and
+# ``stdfunc`` mappings in ``ApertureStats`` and ``Background2D``).
+cdef enum:
+    _CEN_MEDIAN = 0
+    _CEN_MEAN = 1
+    _CEN_BIWEIGHT = 2
+    _STD_STD = 0
+    _STD_MADSTD = 1
+    _STD_BIWEIGHT = 2
+
+
+cdef inline void _sigma_clip_bounds(double *s, Py_ssize_t n,
+                                    double sigma_lower, double sigma_upper,
+                                    Py_ssize_t maxiters, int cenfunc_code,
+                                    int stdfunc_code, double *out_min,
+                                    double *out_max) noexcept nogil:
+    """
+    Compute the final sigma-clip bounds for one source.
+
+    Each iteration computes the center and scale of the values kept so
+    far and keeps the values within ``center - sigma_lower * scale`` and
+    ``center + sigma_upper * scale``, until an iteration drops nothing
+    or ``maxiters`` iterations have run. The returned bounds are those
+    of the final iteration, and a value ``v`` survives if ``not (v <
+    out_min) and not (v > out_max)``. The survivors are therefore all
+    of the values within the final bounds, for every center and scale
+    function. A value dropped in an earlier iteration survives again
+    when the final bounds admit it, which happens when the center moves
+    by more than the scale shrinks. If an iteration drops every value,
+    its bounds are final, in the same way as when it is the last allowed
+    iteration. The center always lies within the range of the values it
+    is computed from, so those bounds lie strictly between the smallest
+    and largest of them and every value is clipped. For an empty input,
+    the bounds are NaN.
+
+    Parameters
+    ----------
+    s : double *
+        The ascending-sorted values, as ``s[0:n]``.
+
+    n : Py_ssize_t
+        The number of values in ``s``.
+
+    sigma_lower, sigma_upper : double
+        The lower and upper clipping limits in units of the scale.
+
+    maxiters : Py_ssize_t
+        The maximum number of clipping iterations, or a negative value
+        to iterate until convergence.
+
+    cenfunc_code : int
+        The center function code (``_CEN_MEDIAN``, ``_CEN_MEAN``, or
+        ``_CEN_BIWEIGHT``).
+
+    stdfunc_code : int
+        The scale function code (``_STD_STD``, ``_STD_MADSTD``, or
+        ``_STD_BIWEIGHT``).
+
+    out_min, out_max : double *
+        Output. The final lower and upper value bounds.
+    """
+    cdef Py_ssize_t lo = 0, hi = n, new_lo, new_hi, cnt, i, iteration = 0
+    cdef Py_ssize_t nchanged = 1
+    cdef double cen, std, mu, ss, med2, mad2, minv, maxv
+    cdef bint biweight = (cenfunc_code == _CEN_BIWEIGHT
+                          or stdfunc_code == _STD_BIWEIGHT)
+
+    minv = NAN
+    maxv = NAN
+    mad2 = NAN
+    while nchanged != 0 and (maxiters < 0 or iteration < maxiters):
+        iteration += 1
+        cnt = hi - lo
+        if cnt == 0:
+            break
+
+        # The biweight center and scale need the median and the
+        # unscaled MAD of the current values
+        if biweight:
+            med2 = _median_sorted(&s[lo], cnt)
+            mad2 = _mad_sorted(&s[lo], cnt)
+
+        # Center.
+        if cenfunc_code == _CEN_MEDIAN:
+            cen = _median_sorted(&s[lo], cnt)
+        elif cenfunc_code == _CEN_BIWEIGHT:
+            # astropy biweight_location with the default tuning
+            # constant (c=6) and the median anchor. The median is
+            # returned for zero MAD.
+            if mad2 == 0.0:
+                cen = med2
+            else:
+                cen = _biweight_location_range(s, lo, hi, med2, 6.0,
+                                               mad2)
+        else:
+            mu = 0.0
+            for i in range(lo, hi):
+                mu += s[i]
+            cen = mu / cnt
+
+        # Scale.
+        if stdfunc_code == _STD_STD:
+            mu = 0.0
+            for i in range(lo, hi):
+                mu += s[i]
+            mu = mu / cnt
+            ss = 0.0
+            for i in range(lo, hi):
+                ss += (s[i] - mu) * (s[i] - mu)
+            std = sqrt(ss / cnt)
+        elif stdfunc_code == _STD_BIWEIGHT:
+            # astropy biweight_scale with the default tuning constant
+            # (c=9) and the median anchor. Zero is returned for zero
+            # MAD.
+            if mad2 == 0.0:
+                std = 0.0
+            else:
+                std = sqrt(_biweight_midvar_range(s, lo, hi, med2, 9.0,
+                                                  mad2))
+        else:
+            std = _mad_sorted(&s[lo], cnt) * _MAD_STD_SCALE
+
+        minv = cen - std * sigma_lower
+        maxv = cen + std * sigma_upper
+
+        new_lo = lo
+        while new_lo < hi and s[new_lo] < minv:
+            new_lo += 1
+        new_hi = hi
+        while new_hi > new_lo and s[new_hi - 1] > maxv:
+            new_hi -= 1
+        nchanged = (hi - lo) - (new_hi - new_lo)
+        lo = new_lo
+        hi = new_hi
+
+    out_min[0] = minv
+    out_max[0] = maxv
+
+
+def batch_aperture_gather(const real_t[:, ::1] data,
+                          const unsigned char[:, ::1] mask,
+                          const double[:, ::1] positions, int shape_code,
+                          const double[::1] params, double ext_x,
+                          double ext_y, double off_x, double off_y,
+                          const double[::1] local_bkg=None,
+                          const seg_t[:, ::1] segmentation=None,
+                          const Py_ssize_t[::1] labels=None,
+                          int seg_method=0, int mask_nonfinite=0):
+    """
+    Gather the "center"-method pixel values for many source positions.
+
+    For each position, the aperture bounding box is computed exactly as
+    in `photutils.aperture.BoundingBox.from_float`, and the per-pixel
+    overlap fractions are computed with exactly the same arithmetic as
+    the `photutils.geometry` grid functions, so the results match the
+    mask-based `~photutils.aperture.ApertureStats` code path.
+
+    The "center" aperture mask method (``use_exact=0``, ``subpixels=1``)
+    selects the unmasked pixel values used for the order and moment
+    statistics. Each survivor is packed into a contiguous buffer. The
+    ``sum_method`` aperture sum, error, and area are computed separately
+    by `~photutils.aperture._batch_photometry.batch_aperture_sums`.
+
+    Pixels that are masked or excluded by the segmentation masking are
+    skipped. With ``mask_nonfinite``, nonfinite ``data`` pixels are
+    skipped too, before any segmentation correction (matching the
+    mask-based path). The local background ``local_bkg[k]`` is
+    subtracted from each pixel value of source ``k``.
+
+    Parameters
+    ----------
+    data : 2D ndarray of float32 or float64 (C-contiguous)
+        The data array (background not yet subtracted).
+
+    mask : 2D ndarray of uint8 (C-contiguous) or `None`
+        A mask array where nonzero values indicate masked pixels. For
+        the flag counts, bit 1 (value 1) marks input-masked pixels. A
+        caller that does not use ``mask_nonfinite`` can set bit 2
+        (value 2) to mark the nonfinite data pixels itself. Any
+        nonzero value excludes the pixel.
+
+    positions : 2D ndarray of float64 (C-contiguous)
+        The ``(x, y)`` source positions with shape ``(n_sources, 2)``.
+
+    shape_code : int
+        The aperture shape code (see `_batch_photometry`).
+
+    params : 1D ndarray of float64 (C-contiguous)
+        The aperture shape parameters (see `_batch_photometry`).
+
+    ext_x, ext_y : float
+        The aperture bounding-box half-extents.
+
+    off_x, off_y : float
+        The (x, y) offset of the bounding-box center from each source
+        position (see `_batch_photometry`).
+
+    local_bkg : 1D ndarray of float64 (C-contiguous) or `None`, optional
+        The per-source local background to subtract. If `None`, no
+        background is subtracted.
+
+    segmentation : 2D ndarray of int32 or intp (C-contiguous) or `None`, \
+            optional
+        The segmentation image for segmentation-based masking.
+
+    labels : 1D ndarray of intp (C-contiguous) or `None`, optional
+        The per-source segmentation labels.
+
+    seg_method : int, optional
+        The segmentation masking method code (see `_batch_photometry`).
+        The default is 0.
+
+    mask_nonfinite : int, optional
+        If nonzero, nonfinite ``data`` pixels are skipped (in addition
+        to the ``mask`` pixels) before the segmentation masking is
+        applied, and they are counted in the ``FLAG_COL_NONFINITE_DATA``
+        column. A method-4 neighbor pixel whose mirror pixel is
+        nonfinite is then left uncorrected. When zero (default),
+        nonfinite data values are gathered like any other value.
+
+    Returns
+    -------
+    values : 1D ndarray of float64
+        The packed buffer of unmasked "center"-method pixel values
+        (background subtracted). The values for source ``k`` occupy
+        ``values[starts[k]:starts[k] + counts[k]]``.
+
+    local_x, local_y : 1D ndarray of int32
+        The packed pixel coordinates (relative to the clipped cutout
+        origin) corresponding to ``values``, used for the image moments.
+        Cutout coordinates always fit in 32 bits, and the narrower
+        dtype reduces the packed-buffer memory footprint.
+
+    starts : 1D ndarray of intp
+        The start offset into ``values`` for each source.
+
+    counts : 1D ndarray of intp
+        The number of unmasked "center"-method pixels for each source
+        (i.e., the center aperture area).
+
+    overlap : 1D ndarray of bool
+        Whether the aperture bounding box overlaps with the data.
+
+    flag_counts : 2D ndarray of intp
+        Per-source pixel counts for the quality flags, with one row per
+        source and the columns given by the module-level ``FLAG_COL_*``
+        constants in `photutils.aperture._batch_photometry`:
+
+        * ``FLAG_COL_N_PIXELS``: the number of nonzero-fraction pixels
+          inside the data
+        * ``FLAG_COL_MASKED``: the number of those pixels that are
+          input-masked
+        * ``FLAG_COL_NONFINITE_DATA``: the number of those pixels
+          excluded as nonfinite data (by ``mask_nonfinite`` or by mask
+          bit 2) that are not input-masked. Nonfinite values gathered
+          when ``mask_nonfinite`` is zero are not counted
+        * ``FLAG_COL_NONFINITE_ERROR``: always zero (this function does
+          not read error values)
+        * ``FLAG_COL_SEG``: the number of those unmasked pixels that
+          lie on a neighboring source (for method 3, on any labeled
+          source) and were excluded or corrected by the segmentation
+          masking. Background pixels excluded by method 2 are not
+          counted
+        * ``FLAG_COL_UNCORRECTED``: the number of those unmasked pixels
+          that could not be corrected by the segmentation masking
+        * ``FLAG_COL_VALID``: the number of gathered pixels, equal to
+          ``counts`` (unmasked, not excluded by the segmentation
+          masking, and finite when ``mask_nonfinite`` is nonzero)
+        * ``FLAG_COL_BBOX_CLIPPED``: a 0/1 indicator of whether the
+          bounding box is clipped by a data edge
+        * ``FLAG_COL_SEG_MASKED``: the number of those masked pixels
+          that lie on a neighboring source
+        * ``FLAG_COL_UNCORRECTED_MASKED``: the number of those masked
+          pixels whose mirror pixel was also unavailable
+
+        Rows are all zero where the aperture bounding box does not
+        overlap the data.
+    """
+    cdef Py_ssize_t n_src = positions.shape[0]
+    cdef Py_ssize_t ny_data = data.shape[0]
+    cdef Py_ssize_t nx_data = data.shape[1]
+
+    cdef bint has_mask = mask is not None
+    cdef bint has_bkg = local_bkg is not None
+    cdef bint has_seg = segmentation is not None
+    cdef Py_ssize_t lbl = 0
+    cdef bint seg_active = False
+
+    # Base pointers for the C-contiguous segmentation and mask planes,
+    # used by the shared per-pixel segmentation helper
+    cdef const seg_t *seg_ptr = NULL
+    cdef const unsigned char *mask_ptr = NULL
+    if has_seg:
+        seg_ptr = &segmentation[0, 0]
+    if has_mask:
+        mask_ptr = &mask[0, 0]
+
+    starts_arr = np.zeros(n_src, dtype=np.intp)
+    counts_arr = np.zeros(n_src, dtype=np.intp)
+    overlap_arr = np.zeros(n_src, dtype=np.uint8)
+    fcounts_arr = np.zeros((n_src, N_FLAG_COLS), dtype=np.intp)
+    cdef Py_ssize_t[::1] starts = starts_arr
+    cdef Py_ssize_t[::1] counts = counts_arr
+    cdef unsigned char[::1] overlap = overlap_arr
+    cdef Py_ssize_t[:, ::1] fcounts = fcounts_arr
+
+    # Aperture shape parameters (constant over all source positions)
+    cdef double r_in = 0.0, r_out = 0.0
+    cdef double rx_in = 0.0, ry_in = 0.0, rx_out = 0.0, ry_out = 0.0
+    cdef double theta = 0.0, cos_theta = 1.0, sin_theta = 0.0
+    cdef double hw_in = 0.0, hh_in = 0.0, hw_out = 0.0, hh_out = 0.0
+    cdef double bdx_in = 0.0, bdy_in = 0.0, bdx_out = 0.0, bdy_out = 0.0
+    cdef double poly_x_in[4]
+    cdef double poly_y_in[4]
+    cdef double poly_x_out[4]
+    cdef double poly_y_out[4]
+    cdef double buf_a_x[32]
+    cdef double buf_a_y[32]
+    cdef double buf_b_x[32]
+    cdef double buf_b_y[32]
+
+    # Working buffers for arbitrary-polygon apertures (see
+    # ``_batch_photometry``).
+    cdef int n_poly = 0, poly_buf_size = 0
+    cdef int is_poly_convex = 0
+    cdef Py_ssize_t pk
+    cdef double[::1] poly_work
+    cdef double *poly_x = NULL
+    cdef double *poly_y = NULL
+    cdef double *pbuf_a_x = NULL
+    cdef double *pbuf_a_y = NULL
+    cdef double *pbuf_b_x = NULL
+    cdef double *pbuf_b_y = NULL
+    cdef double *pedge_nx = NULL
+    cdef double *pedge_ny = NULL
+    cdef double *pedge_c = NULL
+
+    if shape_code == _CIRCLE:
+        r_out = params[0]
+    elif shape_code == _CIRCULAR_ANNULUS:
+        r_in = params[0]
+        r_out = params[1]
+    elif shape_code == _ELLIPSE:
+        rx_out = params[0]
+        ry_out = params[1]
+        theta = params[2]
+        cos_theta = cos(theta)
+        sin_theta = sin(theta)
+    elif shape_code == _ELLIPTICAL_ANNULUS:
+        rx_in = params[0]
+        ry_in = params[1]
+        rx_out = params[2]
+        ry_out = params[3]
+        theta = params[4]
+        cos_theta = cos(theta)
+        sin_theta = sin(theta)
+    elif shape_code == _RECTANGLE or shape_code == _RECTANGULAR_ANNULUS:
+        if shape_code == _RECTANGLE:
+            hw_out = 0.5 * params[0]
+            hh_out = 0.5 * params[1]
+            theta = params[2]
+        else:
+            hw_in = 0.5 * params[0]
+            hh_in = 0.5 * params[1]
+            hw_out = 0.5 * params[2]
+            hh_out = 0.5 * params[3]
+            theta = params[4]
+
+        cos_theta = cos(theta)
+        sin_theta = sin(theta)
+        rect_vertices(hw_out, hh_out, cos_theta, sin_theta, poly_x_out,
+                      poly_y_out)
+        bdx_out = hw_out * fabs(cos_theta) + hh_out * fabs(sin_theta)
+        bdy_out = hw_out * fabs(sin_theta) + hh_out * fabs(cos_theta)
+        if shape_code == _RECTANGULAR_ANNULUS:
+            rect_vertices(hw_in, hh_in, cos_theta, sin_theta, poly_x_in,
+                          poly_y_in)
+            bdx_in = hw_in * fabs(cos_theta) + hh_in * fabs(sin_theta)
+            bdy_in = hw_in * fabs(sin_theta) + hh_in * fabs(cos_theta)
+    elif shape_code == _POLYGON:
+        n_poly = params.shape[0] // 2
+        if n_poly < 3 or 2 * n_poly != params.shape[0]:
+            msg = ('polygon params must be the flattened (x, y) offsets '
+                   'of at least 3 vertices')
+            raise ValueError(msg)
+
+        # Single numpy block (kept alive by ``poly_work``) whose sizing
+        # and layout are shared with ``polygon_overlap_grid`` via
+        # ``polygon_work_size``/``polygon_work_partition``.
+        poly_work = np.empty(polygon_work_size(n_poly, &poly_buf_size),
+                             dtype=np.float64)
+        polygon_work_partition(&poly_work[0], n_poly, poly_buf_size,
+                               &poly_x, &poly_y, &pbuf_a_x, &pbuf_a_y,
+                               &pbuf_b_x, &pbuf_b_y, &pedge_nx, &pedge_ny,
+                               &pedge_c)
+        for pk in range(n_poly):
+            poly_x[pk] = params[2 * pk]
+            poly_y[pk] = params[2 * pk + 1]
+
+        is_poly_convex = convex_edge_normals(poly_x, poly_y, n_poly,
+                                             pedge_nx, pedge_ny, pedge_c)
+    else:
+        msg = f'Invalid shape_code: {shape_code}'
+        raise ValueError(msg)
+
+    cdef Py_ssize_t k, ix, iy, ix0, ix1, iy0, iy1
+    cdef Py_ssize_t ixmin, iymin
+    cdef Py_ssize_t six, siy, ccx = 0, ccy = 0
+    cdef double cx, cy, lbk
+    cdef double gxmin, gymin
+    cdef double dx, dy, pixel_radius, norm
+    cdef double pxmin, pymin, cfrac
+    cdef Py_ssize_t total = 0, pos
+    cdef Py_ssize_t n_pix, n_masked, n_nonfin, n_seg_px, n_uncorr, w_out
+    cdef Py_ssize_t n_seg_masked, n_unc_masked
+    cdef Py_ssize_t ixmax_full, iymax_full
+    cdef unsigned char mbits
+    cdef int pix_class
+
+    # Pass 1: size and offset the packed value buffer from the
+    # per-source clipped bounding-box areas (an upper bound on the
+    # number of "center"-method survivors). This performs only
+    # bounding-box arithmetic. It does not iterate over or evaluate
+    # individual pixels.
+    with nogil:
+        total = _presize_packed_offsets(positions, ext_x, ext_y, off_x, off_y,
+                                        nx_data, ny_data, starts)
+
+    values_arr = np.empty(total, dtype=np.float64)
+    lx_arr = np.empty(total, dtype=np.int32)
+    ly_arr = np.empty(total, dtype=np.int32)
+    cdef double[::1] values = values_arr
+    cdef int[::1] local_x = lx_arr
+    cdef int[::1] local_y = ly_arr
+
+    # Pass 2: iterate over each bounding box once and gather the
+    # "center"-method survivors into the packed buffer.
+    with nogil:
+        for k in range(n_src):
+            cx = positions[k, 0]
+            cy = positions[k, 1]
+            lbk = 0.0
+            if has_bkg:
+                lbk = local_bkg[k]
+            if has_seg:
+                lbl = labels[k]
+                seg_active = _seg_method_active(seg_method, lbl)
+                if seg_method == 4:
+                    # Center pixel for the symmetric 'correct' mirror
+                    ccx = _round_half_away(cx)
+                    ccy = _round_half_away(cy)
+
+            # Bounding box, overlap test, and pixel grid, replicated
+            # from the mask-based path (see ``_source_grid_setup``).
+            if not _source_grid_setup(cx, cy, ext_x, ext_y, off_x, off_y,
+                                      nx_data, ny_data, &gxmin, &gymin,
+                                      &dx, &dy, &pixel_radius, &norm, &ixmin,
+                                      &iymin, &ix0, &ix1, &iy0, &iy1):
+                continue
+            overlap[k] = 1
+
+            # Pixel values are loaded lazily (only for pixels inside
+            # the aperture).
+            n_pix = 0
+            n_masked = 0
+            n_nonfin = 0
+            n_seg_px = 0
+            n_uncorr = 0
+            n_seg_masked = 0
+            n_unc_masked = 0
+            pos = starts[k]
+            for iy in range(iy0, iy1):
+                pymin = gymin + (iy - iymin) * dy
+                for ix in range(ix0, ix1):
+                    pxmin = gxmin + (ix - ixmin) * dx
+                    if shape_code == _CIRCLE:
+                        cfrac = _circle_pixel_frac(
+                            pxmin, pymin, dx, dy, pixel_radius, r_out,
+                            0, 1)
+                    elif shape_code == _CIRCULAR_ANNULUS:
+                        cfrac = _circular_annulus_pixel_frac(
+                            pxmin, pymin, dx, dy, pixel_radius, r_in,
+                            r_out, 0, 1)
+                    elif shape_code == _ELLIPSE:
+                        cfrac = _ellipse_pixel_frac(
+                            pxmin, pymin, dx, dy, norm, rx_out, ry_out,
+                            cos_theta, sin_theta, 0, 1)
+                    elif shape_code == _ELLIPTICAL_ANNULUS:
+                        cfrac = _elliptical_annulus_pixel_frac(
+                            pxmin, pymin, dx, dy, norm, rx_in, ry_in,
+                            rx_out, ry_out, cos_theta, sin_theta, 0, 1)
+                    elif shape_code == _RECTANGLE:
+                        cfrac = _rect_pixel_frac(
+                            pxmin, pymin, dx, dy, pixel_radius, hw_out,
+                            hh_out, cos_theta, sin_theta, bdx_out,
+                            bdy_out, poly_x_out, poly_y_out, buf_a_x,
+                            buf_a_y, buf_b_x, buf_b_y, 0, 1)
+                    elif shape_code == _RECTANGULAR_ANNULUS:
+                        cfrac = _rectangular_annulus_pixel_frac(
+                            pxmin, pymin, dx, dy, pixel_radius, hw_in,
+                            hh_in, hw_out, hh_out, cos_theta, sin_theta,
+                            bdx_in, bdy_in, bdx_out, bdy_out, poly_x_in,
+                            poly_y_in, poly_x_out, poly_y_out, buf_a_x,
+                            buf_a_y, buf_b_x, buf_b_y, 0, 1)
+                    else:
+                        cfrac = _polygon_pixel_frac(
+                            pxmin, pymin, dx, dy, pixel_radius, poly_x,
+                            poly_y, n_poly, pedge_nx, pedge_ny, pedge_c,
+                            is_poly_convex, pbuf_a_x, pbuf_a_y, pbuf_b_x,
+                            pbuf_b_y, poly_buf_size, 0, 1)
+
+                    if cfrac <= 0.0:
+                        continue
+                    n_pix += 1
+
+                    # With ``mask_nonfinite``, an unmasked nonfinite
+                    # data pixel is treated as mask bit 2. Only the
+                    # aperture pixels are tested, so no full-image pass
+                    # is needed.
+                    mbits = mask[iy, ix] if has_mask else 0
+                    if (mask_nonfinite and mbits == 0
+                            and not isfinite(data[iy, ix])):
+                        mbits = 2
+                    if mbits != 0:
+                        if mbits & 1:
+                            n_masked += 1
+                        elif mbits & 2:
+                            n_nonfin += 1
+                        # Masked pixels never reach the segmentation
+                        # branch below, so count masked neighbor-segment
+                        # pixels (and their mirror availability) here
+                        # for callers that treat the mask and neighbor
+                        # overlays independently.
+                        if seg_active:
+                            pix_class = _classify_seg_pixel(
+                                seg_ptr, mask_ptr, nx_data,
+                                seg_method, lbl, ix, iy, ix0,
+                                ix1, iy0, iy1, ccx, ccy, &six,
+                                &siy)
+                            if (pix_class == _SEG_CORRECTED
+                                    and mask_nonfinite
+                                    and not isfinite(data[siy, six])):
+                                pix_class = _SEG_UNCORRECTED
+                            if pix_class in (_SEG_NEIGHBOR,
+                                             _SEG_CORRECTED,
+                                             _SEG_UNCORRECTED):
+                                n_seg_masked += 1
+                                if pix_class == _SEG_UNCORRECTED:
+                                    n_unc_masked += 1
+                        continue
+                    six = ix
+                    siy = iy
+                    if (seg_active
+                            and not _resolve_seg_pixel(
+                                seg_ptr, mask_ptr, nx_data, seg_method,
+                                lbl, ix, iy, ix0, ix1, iy0, iy1, ccx,
+                                ccy, &six, &siy, &n_seg_px, &n_uncorr)):
+                        continue
+                    # A corrected neighbor pixel is the only pixel
+                    # read from a different (mirror) pixel. A pixel
+                    # that mirrors onto itself is a neighbor, so it is
+                    # never corrected. A nonfinite mirror pixel leaves
+                    # the neighbor pixel uncorrected.
+                    if (mask_nonfinite and (six != ix or siy != iy)
+                            and not isfinite(data[siy, six])):
+                        n_uncorr += 1
+                        continue
+
+                    values[pos] = data[siy, six] - lbk
+                    local_x[pos] = <int>(ix - ix0)
+                    local_y[pos] = <int>(iy - iy0)
+                    pos += 1
+            counts[k] = pos - starts[k]
+
+            # Whether the bounding box is clipped by a data edge. The
+            # caller resolves this to the precise outside-weight test
+            # (nonzero aperture weights outside the data) only for these
+            # sources. Unclipped interior sources are exactly 0.
+            ixmax_full = <Py_ssize_t>ceil(cx + off_x + ext_x + 0.5)
+            iymax_full = <Py_ssize_t>ceil(cy + off_y + ext_y + 0.5)
+            if (ixmin < ix0 or ixmax_full > ix1
+                    or iymin < iy0 or iymax_full > iy1):
+                w_out = 1  # bounding box clipped by a data edge
+            else:
+                w_out = 0  # bounding box fully inside the data
+
+            fcounts[k, 0] = n_pix
+            fcounts[k, 1] = n_masked
+            fcounts[k, 2] = n_nonfin
+            fcounts[k, 4] = n_seg_px
+            fcounts[k, 5] = n_uncorr
+            fcounts[k, 6] = counts[k]
+            fcounts[k, 7] = w_out
+            fcounts[k, 8] = n_seg_masked
+            fcounts[k, 9] = n_unc_masked
+
+    return (values_arr, lx_arr, ly_arr, starts_arr, counts_arr,
+            overlap_arr.view(bool), fcounts_arr)
+
+
+def batch_moments(const double[::1] values, const int[::1] local_x,
+                  const int[::1] local_y,
+                  const Py_ssize_t[::1] starts,
+                  const Py_ssize_t[::1] counts, const double[::1] cx,
+                  const double[::1] cy):
+    """
+    Compute image moments up to 3rd order from a packed value buffer.
+
+    For each source ``k``, the ``(4, 4)`` moment matrix is
+
+    .. math::
+
+        M_{ij} = \\sum_p (y_p - c_y)^i \\, v_p \\, (x_p - c_x)^j
+
+    where the sum is over the packed pixels ``p`` of source ``k`` (the
+    slice ``[starts[k]:starts[k] + counts[k]]``), ``v_p`` is the pixel
+    value, ``(x_p, y_p)`` are its cutout coordinates, and ``(c_x, c_y) =
+    (cx[k], cy[k])``. This uses exactly the same definition as
+    `photutils.utils._moments.image_moments`, so passing ``cx = cy =
+    0`` gives the raw moments and passing the cutout centroid gives the
+    central moments.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64
+        The packed pixel values (see ``batch_aperture_gather``).
+
+    local_x, local_y : 1D ndarray of int32
+        The packed pixel cutout coordinates.
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset into ``values`` and the per-source
+        pixel count.
+
+    cx, cy : 1D ndarray of float64
+        The per-source ``(x, y)`` moment center.
+
+    Returns
+    -------
+    moments : 3D ndarray of float64
+        The ``(n_sources, 4, 4)`` image moments. Sources with no pixels
+        have all-zero moments.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    moments_arr = np.zeros((n_src, 4, 4), dtype=np.float64)
+    cdef double[:, :, ::1] moments = moments_arr
+
+    cdef Py_ssize_t k, p, i, j, start, count
+    cdef double cxk, cyk, val, dxp, dyp
+    cdef double px[4]
+    cdef double py[4]
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            cxk = cx[k]
+            cyk = cy[k]
+            for p in range(start, start + count):
+                val = values[p]
+                dxp = <double>local_x[p] - cxk
+                dyp = <double>local_y[p] - cyk
+                px[0] = 1.0
+                px[1] = dxp
+                px[2] = dxp * dxp
+                px[3] = px[2] * dxp
+                py[0] = 1.0
+                py[1] = dyp
+                py[2] = dyp * dyp
+                py[3] = py[2] * dyp
+                for i in range(4):
+                    for j in range(4):
+                        moments[k, i, j] += py[i] * val * px[j]
+
+    return moments_arr
+
+
+def batch_sort_values(const double[::1] values,
+                      const Py_ssize_t[::1] starts,
+                      const Py_ssize_t[::1] counts):
+    """
+    Sort each source's packed pixel values in ascending order.
+
+    For each source ``k`` the slice ``[starts[k]:starts[k] + counts[k]]``
+    of ``values`` is copied to the output buffer and sorted ascending.
+    The sorted buffer is shared by the order statistics (``min``,
+    ``max``, ``median``), ``mad_std``, and the biweight estimators, so
+    the per-source sort is performed only once.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64
+        The packed pixel values (see ``batch_aperture_gather``). All
+        values are assumed finite.
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset into ``values`` and the per-source
+        pixel count.
+
+    Returns
+    -------
+    sorted_values : 1D ndarray of float64
+        The packed buffer whose per-source slice is sorted ascending.
+        The ``starts`` and ``counts`` offsets are unchanged.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    out_arr = np.empty(values.shape[0], dtype=np.float64)
+    cdef double[::1] out = out_arr
+
+    cdef Py_ssize_t k, i, start, count
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            for i in range(count):
+                out[start + i] = values[start + i]
+            _sort_doubles(&out[start], count)
+
+    return out_arr
+
+
+def batch_order_stats(const double[::1] sorted_values,
+                      const Py_ssize_t[::1] starts,
+                      const Py_ssize_t[::1] counts):
+    """
+    Reduce a sorted packed buffer to the per-source min, max, and median.
+
+    The conventions match `numpy.min`, `numpy.max`, and `numpy.median`.
+    Sources with no pixels (``counts[k] == 0``) are set to NaN.
+
+    Parameters
+    ----------
+    sorted_values : 1D ndarray of float64
+        The packed per-source ascending-sorted values (see
+        ``batch_sort_values``).
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    Returns
+    -------
+    vmin, vmax, median : 1D ndarray of float64
+        The per-source statistics, each of shape ``(n_sources,)``.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    vmin_arr = np.full(n_src, np.nan, dtype=np.float64)
+    vmax_arr = np.full(n_src, np.nan, dtype=np.float64)
+    median_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] vmin = vmin_arr
+    cdef double[::1] vmax = vmax_arr
+    cdef double[::1] median = median_arr
+
+    cdef Py_ssize_t k, start, count
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            vmin[k] = sorted_values[start]
+            vmax[k] = sorted_values[start + count - 1]
+            median[k] = _median_sorted(&sorted_values[start], count)
+
+    return (vmin_arr, vmax_arr, median_arr)
+
+
+def batch_minmax(const double[::1] values,
+                 const Py_ssize_t[::1] starts,
+                 const Py_ssize_t[::1] counts):
+    """
+    Reduce a packed value buffer to the per-source minimum and maximum.
+
+    Unlike `batch_order_stats`, this does not need (or produce) the
+    sorted values, so it is the cheaper way to get only the extremes.
+    The conventions match `numpy.min` and `numpy.max`. Sources with no
+    pixels (``counts[k] == 0``) are set to NaN.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64
+        The packed pixel values (see ``batch_aperture_gather``). All
+        values are assumed finite.
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    Returns
+    -------
+    vmin, vmax : 1D ndarray of float64
+        The per-source minimum and maximum, each of shape
+        ``(n_sources,)``.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    vmin_arr = np.full(n_src, np.nan, dtype=np.float64)
+    vmax_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] vmin = vmin_arr
+    cdef double[::1] vmax = vmax_arr
+    cdef Py_ssize_t k, i, start, count
+    cdef double v, lo, hi
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            lo = values[start]
+            hi = lo
+            for i in range(start + 1, start + count):
+                v = values[i]
+                if v < lo:
+                    lo = v
+                elif v > hi:
+                    hi = v
+            vmin[k] = lo
+            vmax[k] = hi
+    return vmin_arr, vmax_arr
+
+
+def batch_mean_var(const double[::1] values,
+                   const Py_ssize_t[::1] starts,
+                   const Py_ssize_t[::1] counts):
+    """
+    Reduce a packed value buffer to the per-source mean and variance.
+
+    The conventions match `numpy.mean` and `numpy.var` (``ddof=0``). No
+    sort is required. Sources with no pixels (``counts[k] == 0``) are set
+    to NaN.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64
+        The packed pixel values (see ``batch_aperture_gather``).
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    Returns
+    -------
+    mean, var : 1D ndarray of float64
+        The per-source mean and population variance.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    mean_arr = np.full(n_src, np.nan, dtype=np.float64)
+    var_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] mean = mean_arr
+    cdef double[::1] var = var_arr
+
+    cdef Py_ssize_t k, i, start, count
+    cdef double m, ssum, dsum, dval
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            ssum = 0.0
+            for i in range(start, start + count):
+                ssum += values[i]
+            m = ssum / count
+            mean[k] = m
+            dsum = 0.0
+            for i in range(start, start + count):
+                dval = values[i] - m
+                dsum += dval * dval
+            var[k] = dsum / count
+
+    return (mean_arr, var_arr)
+
+
+def batch_mad(const double[::1] sorted_values,
+              const Py_ssize_t[::1] starts,
+              const Py_ssize_t[::1] counts):
+    """
+    Reduce a sorted packed buffer to the per-source median absolute
+    deviation.
+
+    The returned value is the (unscaled) median of the absolute
+    deviations from the per-source median. Multiply by the ``mad_std``
+    scale factor to obtain `astropy.stats.mad_std`. Sources with no
+    pixels (``counts[k] == 0``) are set to NaN.
+
+    Parameters
+    ----------
+    sorted_values : 1D ndarray of float64
+        The packed per-source ascending-sorted values (see
+        ``batch_sort_values``).
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    Returns
+    -------
+    mad : 1D ndarray of float64
+        The per-source unscaled median absolute deviation.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    mad_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] mad = mad_arr
+
+    cdef Py_ssize_t k, count
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            mad[k] = _mad_sorted(&sorted_values[starts[k]], count)
+
+    return mad_arr
+
+
+def batch_biweight(const double[::1] sorted_values,
+                   const Py_ssize_t[::1] starts,
+                   const Py_ssize_t[::1] counts,
+                   const double[::1] median, const double[::1] mad):
+    """
+    Reduce a packed buffer to the per-source biweight location and
+    midvariance.
+
+    The conventions match `astropy.stats.biweight_location` (``c=6``)
+    and `astropy.stats.biweight_midvariance` (``c=9``). The per-source
+    ``median`` and (unscaled) ``mad`` are reused from ``batch_order_stats``
+    and ``batch_mad``. Sources with no pixels (``counts[k] == 0``) are set
+    to NaN.
+
+    Parameters
+    ----------
+    sorted_values : 1D ndarray of float64
+        The packed per-source ascending-sorted values (see
+        ``batch_sort_values``). The estimators are order-independent, so
+        the sorted buffer is reused directly.
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    median : 1D ndarray of float64
+        The per-source median (see ``batch_order_stats``).
+
+    mad : 1D ndarray of float64
+        The per-source unscaled median absolute deviation (see
+        ``batch_mad``).
+
+    Returns
+    -------
+    biloc, bivar : 1D ndarray of float64
+        The per-source biweight location and midvariance.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    biloc_arr = np.full(n_src, np.nan, dtype=np.float64)
+    bivar_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] biloc = biloc_arr
+    cdef double[::1] bivar = bivar_arr
+
+    cdef Py_ssize_t k, i, start, count
+    cdef double med, madk, dval, uu, weight, num, den, u2, omu, f1, f2
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            med = median[k]
+            madk = mad[k]
+
+            if madk == 0.0:
+                biloc[k] = med
+                bivar[k] = 0.0
+                continue
+
+            num = 0.0
+            den = 0.0
+            f1 = 0.0
+            f2 = 0.0
+            for i in range(start, start + count):
+                dval = sorted_values[i] - med
+                uu = dval / (6.0 * madk)
+                if fabs(uu) < 1.0:
+                    weight = (1.0 - uu * uu)
+                    weight = weight * weight
+                    num += dval * weight
+                    den += weight
+                u2 = dval / (9.0 * madk)
+                u2 = u2 * u2
+                if u2 < 1.0:
+                    omu = 1.0 - u2
+                    f1 += dval * dval * omu * omu * omu * omu
+                    f2 += omu * (1.0 - 5.0 * u2)
+            biloc[k] = med + num / den
+            bivar[k] = count * f1 / (f2 * f2)
+
+    return (biloc_arr, bivar_arr)
+
+
+def batch_gini(const double[::1] values,
+               const Py_ssize_t[::1] starts,
+               const Py_ssize_t[::1] counts):
+    """
+    Reduce a packed value buffer to the per-source Gini coefficient.
+
+    The convention matches `photutils.morphology.gini`. Sources with no
+    pixels (``counts[k] == 0``) are set to NaN.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64
+        The packed pixel values (see ``batch_aperture_gather``). The
+        values need not be sorted. The absolute values are sorted
+        internally.
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    Returns
+    -------
+    gini : 1D ndarray of float64
+        The per-source Gini coefficient.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    gini_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] gini = gini_arr
+
+    cdef Py_ssize_t maxn = 0, k
+    for k in range(n_src):
+        if counts[k] > maxn:
+            maxn = counts[k]
+    if maxn == 0:
+        return gini_arr
+
+    work_arr = np.empty(maxn, dtype=np.float64)
+    cdef double[::1] w = work_arr
+
+    cdef Py_ssize_t i, start, count
+    cdef double gsum, meanabs, norm
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+
+            if count == 1:
+                gini[k] = 0.0
+                continue
+
+            for i in range(count):
+                w[i] = fabs(values[start + i])
+            _sort_doubles(&w[0], count)
+            gsum = 0.0
+            for i in range(count):
+                gsum += w[i]
+            meanabs = gsum / count
+            norm = meanabs * count * (count - 1)
+            if norm == 0.0:
+                gini[k] = 0.0
+            else:
+                gsum = 0.0
+                for i in range(count):
+                    gsum += (2.0 * i + 1.0 - count) * w[i]
+                gini[k] = gsum / norm
+
+    return gini_arr
+
+
+def batch_sigma_clip_center(const double[::1] values,
+                            const int[::1] local_x,
+                            const int[::1] local_y,
+                            const Py_ssize_t[::1] starts,
+                            const Py_ssize_t[::1] counts,
+                            double sigma_lower, double sigma_upper,
+                            Py_ssize_t maxiters, int cenfunc_code,
+                            int stdfunc_code):
+    """
+    Sigma-clip each source's packed center buffer.
+
+    For each source the packed pixel values (and their cutout
+    coordinates) are sigma-clipped (see ``_sigma_clip_bounds``), and
+    the surviving pixels are written to a new packed buffer that reuses
+    the input ``starts`` offsets. The output can be fed directly
+    to the packed-buffer reductions (e.g., ``batch_mean_var`` and
+    ``batch_moments``).
+
+    Because computing the clip bounds requires sorting each source's
+    values, the ascending-sorted surviving values are also returned
+    (the survivors form a contiguous window of the sorted buffer), so
+    callers do not need to sort the clipped values again for the
+    order statistics.
+
+    Parameters
+    ----------
+    values : 1D ndarray of float64
+        The packed center pixel values (see ``batch_aperture_gather``).
+
+    local_x, local_y : 1D ndarray of int32
+        The packed pixel cutout coordinates.
+
+    starts, counts : 1D ndarray of intp
+        The per-source start offset and pixel count.
+
+    sigma_lower, sigma_upper : float
+        The lower and upper clipping limits in units of the scale.
+
+    maxiters : int
+        The maximum number of clipping iterations, or a negative value
+        to iterate until convergence.
+
+    cenfunc_code, stdfunc_code : int
+        The center function code (0 = median, 1 = mean, 2 = biweight
+        location) and the scale function code (0 = std, 1 = mad_std,
+        2 = biweight scale).
+
+    Returns
+    -------
+    values, local_x, local_y, starts, counts : 1D ndarray
+        The clipped packed buffer (``starts`` is the input array,
+        unchanged) and the per-source surviving pixel counts.
+
+    sorted_values : 1D ndarray of float64
+        The packed buffer of ascending-sorted surviving values, using
+        the same ``starts`` offsets and ``counts`` lengths.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    out_values_arr = np.empty(values.shape[0], dtype=np.float64)
+    out_lx_arr = np.empty(values.shape[0], dtype=np.int32)
+    out_ly_arr = np.empty(values.shape[0], dtype=np.int32)
+    out_sorted_arr = np.empty(values.shape[0], dtype=np.float64)
+    counts2_arr = np.zeros(n_src, dtype=np.intp)
+    cdef double[::1] out_values = out_values_arr
+    cdef int[::1] out_lx = out_lx_arr
+    cdef int[::1] out_ly = out_ly_arr
+    cdef double[::1] out_sorted = out_sorted_arr
+    cdef Py_ssize_t[::1] counts2 = counts2_arr
+
+    cdef Py_ssize_t maxn = 0, k
+    for k in range(n_src):
+        if counts[k] > maxn:
+            maxn = counts[k]
+    if maxn == 0:
+        return (out_values_arr, out_lx_arr, out_ly_arr, np.asarray(starts),
+                counts2_arr, out_sorted_arr)
+
+    sort_arr = np.empty(maxn, dtype=np.float64)
+    cdef double[::1] s = sort_arr
+
+    cdef Py_ssize_t start, count, i, j, lo, hi
+    cdef double minv, maxv, v
+
+    with nogil:
+        for k in range(n_src):
+            count = counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            for i in range(count):
+                s[i] = values[start + i]
+            _sort_doubles(&s[0], count)
+            _sigma_clip_bounds(&s[0], count, sigma_lower, sigma_upper,
+                               maxiters, cenfunc_code, stdfunc_code,
+                               &minv, &maxv)
+            j = 0
+            for i in range(count):
+                v = values[start + i]
+                if not (v < minv) and not (v > maxv):
+                    out_values[start + j] = v
+                    out_lx[start + j] = local_x[start + i]
+                    out_ly[start + j] = local_y[start + i]
+                    j += 1
+            counts2[k] = j
+
+            # The survivors form a contiguous window of the sorted
+            # buffer (equal values always share the same fate). Emit
+            # them sorted so that callers do not need to sort the
+            # clipped values again.
+            lo = 0
+            hi = count
+            while lo < count and s[lo] < minv:
+                lo += 1
+            while hi > lo and s[hi - 1] > maxv:
+                hi -= 1
+            for i in range(lo, hi):
+                out_sorted[start + (i - lo)] = s[i]
+
+    return (out_values_arr, out_lx_arr, out_ly_arr, np.asarray(starts),
+            counts2_arr, out_sorted_arr)
+
+
+def batch_sigma_clip_sum(const double[::1] sum_values,
+                         const double[::1] sum_fracs,
+                         const double[::1] sum_errsq,
+                         const Py_ssize_t[::1] starts,
+                         const Py_ssize_t[::1] sum_counts,
+                         double sigma_lower, double sigma_upper,
+                         Py_ssize_t maxiters, int cenfunc_code,
+                         int stdfunc_code, int has_error):
+    """
+    Sigma-clip each source's packed ``sum_method`` member buffer.
+
+    The sum members are sigma-clipped (see ``_sigma_clip_bounds``) using
+    the unweighted, background-subtracted pixel values, and the aperture
+    sum, error variance, and area are recomputed over the surviving
+    members. Sources with no sum members have NaN outputs.
+
+    Parameters
+    ----------
+    sum_values, sum_fracs, sum_errsq : 1D ndarray of float64
+        The packed ``sum_method`` member values, overlap fractions, and
+        squared total errors (see
+        `~photutils.aperture._batch_photometry.batch_aperture_sums`
+        with ``emit_sum``).
+
+    starts, sum_counts : 1D ndarray of intp
+        The per-source start offset and member count.
+
+    sigma_lower, sigma_upper : float
+        The lower and upper clipping limits in units of the scale.
+
+    maxiters : int
+        The maximum number of clipping iterations, or a negative value
+        to iterate until convergence.
+
+    cenfunc_code, stdfunc_code : int
+        The center function code (0 = median, 1 = mean, 2 = biweight
+        location) and the scale function code (0 = std, 1 = mad_std,
+        2 = biweight scale).
+
+    has_error : int
+        Whether the squared errors are available.
+
+    Returns
+    -------
+    sum_aper, var_aper, sum_area : 1D ndarray of float64
+        The clipped aperture sum, error variance, and area. NaN where
+        there are no sum members.
+    """
+    cdef Py_ssize_t n_src = starts.shape[0]
+    sum_arr = np.full(n_src, np.nan, dtype=np.float64)
+    var_arr = np.full(n_src, np.nan, dtype=np.float64)
+    area_arr = np.full(n_src, np.nan, dtype=np.float64)
+    cdef double[::1] sum_aper = sum_arr
+    cdef double[::1] var_aper = var_arr
+    cdef double[::1] sum_area = area_arr
+
+    cdef Py_ssize_t maxn = 0, k
+    for k in range(n_src):
+        if sum_counts[k] > maxn:
+            maxn = sum_counts[k]
+    if maxn == 0:
+        return (sum_arr, var_arr, area_arr)
+
+    sort_arr = np.empty(maxn, dtype=np.float64)
+    cdef double[::1] s = sort_arr
+
+    cdef Py_ssize_t start, count, i
+    cdef double minv, maxv, v, frac, s_sum, s_area, s_var
+
+    with nogil:
+        for k in range(n_src):
+            count = sum_counts[k]
+            if count == 0:
+                continue
+            start = starts[k]
+            for i in range(count):
+                s[i] = sum_values[start + i]
+            _sort_doubles(&s[0], count)
+            _sigma_clip_bounds(&s[0], count, sigma_lower, sigma_upper,
+                               maxiters, cenfunc_code, stdfunc_code,
+                               &minv, &maxv)
+            s_sum = 0.0
+            s_area = 0.0
+            s_var = 0.0
+            for i in range(count):
+                v = sum_values[start + i]
+                if not (v < minv) and not (v > maxv):
+                    frac = sum_fracs[start + i]
+                    s_sum += v * frac
+                    s_area += frac
+                    if has_error:
+                        s_var += sum_errsq[start + i] * frac * frac
+            sum_aper[k] = s_sum
+            sum_area[k] = s_area
+            if has_error:
+                var_aper[k] = s_var
+
+    return (sum_arr, var_arr, area_arr)
+
+
+cdef inline double _biweight_location_range(double *s, Py_ssize_t lo,
+                                            Py_ssize_t hi, double anchor,
+                                            double c,
+                                            double mad) noexcept nogil:
+    """
+    Biweight location of the ascending-sorted values ``s[lo:hi]``.
+
+    The convention matches `astropy.stats.biweight_location` with
+    a scalar location anchor (``M``) and a nonzero unscaled median
+    absolute deviation (``mad``). The caller must handle the ``mad ==
+    0`` case (astropy returns the anchor). If every value is rejected
+    (``|u| >= 1``), NaN is returned via the IEEE 0/0 division, matching
+    astropy.
+
+    Parameters
+    ----------
+    s : double *
+        The ascending-sorted values.
+
+    lo, hi : Py_ssize_t
+        The half-open index range of the values to use.
+
+    anchor : double
+        The location anchor ``M`` (the median if not input).
+
+    c : double
+        The tuning constant.
+
+    mad : double
+        The unscaled median absolute deviation about the median.
+
+    Returns
+    -------
+    result : double
+        The biweight location.
+    """
+    cdef Py_ssize_t i
+    cdef double d, u, weight
+    cdef double num = 0.0, den = 0.0
+
+    for i in range(lo, hi):
+        d = s[i] - anchor
+        u = d / (c * mad)
+        if fabs(u) < 1.0:
+            weight = 1.0 - u * u
+            weight *= weight
+            num += d * weight
+            den += weight
+    return anchor + num / den
+
+
+cdef inline double _biweight_midvar_range(double *s, Py_ssize_t lo,
+                                          Py_ssize_t hi, double anchor,
+                                          double c,
+                                          double mad) noexcept nogil:
+    """
+    Biweight midvariance of the ascending-sorted values ``s[lo:hi]``.
+
+    The convention matches `astropy.stats.biweight_midvariance` with
+    ``modify_sample_size=False``, a scalar location anchor (``M``), and
+    a nonzero unscaled median absolute deviation (``mad``). The caller
+    must handle the ``mad == 0`` case (astropy returns 0). If every
+    value is rejected (``u**2 >= 1``), NaN is returned via the IEEE 0/0
+    division, matching astropy.
+
+    Parameters
+    ----------
+    s : double *
+        The ascending-sorted values.
+
+    lo, hi : Py_ssize_t
+        The half-open index range of the values to use.
+
+    anchor : double
+        The location anchor ``M`` (the median if not input).
+
+    c : double
+        The tuning constant.
+
+    mad : double
+        The unscaled median absolute deviation about the median.
+
+    Returns
+    -------
+    result : double
+        The biweight midvariance.
+    """
+    cdef Py_ssize_t i, cnt = hi - lo
+    cdef double d, u2, omu
+    cdef double f1 = 0.0, f2 = 0.0
+
+    for i in range(lo, hi):
+        d = s[i] - anchor
+        u2 = d / (c * mad)
+        u2 = u2 * u2
+        if u2 < 1.0:
+            omu = 1.0 - u2
+            f1 += d * d * omu * omu * omu * omu
+            f2 += omu * (1.0 - 5.0 * u2)
+    return cnt * f1 / (f2 * f2)
+
+
+def batch_sigma_clip_stats(double[:, ::1] sorted_data, double sigma_lower,
+                           double sigma_upper, Py_ssize_t maxiters,
+                           int cenfunc_code, int stdfunc_code,
+                           bint do_clip, bint compute_mad,
+                           bint compute_biloc, double biloc_c,
+                           double biloc_m, bint compute_biscale,
+                           double biscale_c, double biscale_m):
+    """
+    Compute fused sigma-clipped statistics for each row of a 2D array.
+
+    For each row, the non-NaN values are sigma-clipped (see
+    ``_sigma_clip_bounds``), and the mean, median, and population
+    standard deviation of the surviving values are computed directly,
+    without generating a clipped copy of the input. Optionally, the
+    MAD standard deviation (`astropy.stats.mad_std`), the biweight
+    location (`astropy.stats.biweight_location`), and the biweight scale
+    (`astropy.stats.biweight_scale`) are also computed.
+
+    Each row must be ascending-sorted with any NaN values placed last,
+    as done by `numpy.sort`. Sorting is delegated to the caller, whose
+    ``numpy.sort`` places the NaN values last for the large rows this
+    function is designed for. The input array is not modified.
+
+    The rows are typically the flattened pixels of the boxes of a
+    regular grid (e.g., the `~photutils.background.Background2D`
+    low-resolution mesh), with NaN values marking masked pixels.
+    Infinite values are not removed and give nonfinite statistics, so
+    the caller must replace them with NaN.
+
+    Parameters
+    ----------
+    sorted_data : 2D ndarray of float64
+        The row data, ascending-sorted along the last axis with NaN
+        values last. NaN values are ignored.
+
+    sigma_lower, sigma_upper : float
+        The lower and upper clipping limits in units of the scale.
+
+    maxiters : int
+        The maximum number of clipping iterations, or a negative value
+        to iterate until convergence.
+
+    cenfunc_code, stdfunc_code : int
+        The center function code (0 = median, 1 = mean, 2 = biweight
+        location) and the scale function code (0 = std, 1 = mad_std,
+        2 = biweight scale).
+
+    do_clip : bool
+        Whether to apply sigma clipping. If False, the statistics are
+        computed from all non-NaN values and the clipping parameters
+        are ignored.
+
+    compute_mad : bool
+        Whether to compute the MAD standard deviation. If False, the
+        returned ``madstd`` values are all NaN.
+
+    compute_biloc : bool
+        Whether to compute the biweight location
+        (`astropy.stats.biweight_location`). If False, the returned
+        ``biloc`` values are all NaN.
+
+    biloc_c, biloc_m : float
+        The biweight location tuning constant and scalar location
+        anchor (``M``). A NaN ``biloc_m`` means no anchor was input
+        (the median is used). Ignored if ``compute_biloc`` is False.
+
+    compute_biscale : bool
+        Whether to compute the biweight scale
+        (`astropy.stats.biweight_scale`). If False, the returned
+        ``biscale`` values are all NaN.
+
+    biscale_c, biscale_m : float
+        The biweight scale tuning constant and scalar location anchor
+        (``M``). A NaN ``biscale_m`` means no anchor was input (the
+        median is used). Ignored if ``compute_biscale`` is False.
+
+    Returns
+    -------
+    mean, median, std, madstd, biloc, biscale : 1D ndarray of float64
+        The per-row statistics of the surviving values. NaN for rows
+        with no surviving values.
+
+    n_kept : 1D ndarray of intp
+        The per-row number of surviving values.
+    """
+    cdef Py_ssize_t n_rows = sorted_data.shape[0]
+    cdef Py_ssize_t n_cols = sorted_data.shape[1]
+
+    mean_arr = np.full(n_rows, np.nan, dtype=np.float64)
+    median_arr = np.full(n_rows, np.nan, dtype=np.float64)
+    std_arr = np.full(n_rows, np.nan, dtype=np.float64)
+    madstd_arr = np.full(n_rows, np.nan, dtype=np.float64)
+    biloc_arr = np.full(n_rows, np.nan, dtype=np.float64)
+    biscale_arr = np.full(n_rows, np.nan, dtype=np.float64)
+    n_kept_arr = np.zeros(n_rows, dtype=np.intp)
+    cdef double[::1] mean_out = mean_arr
+    cdef double[::1] median_out = median_arr
+    cdef double[::1] std_out = std_arr
+    cdef double[::1] madstd_out = madstd_arr
+    cdef double[::1] biloc_out = biloc_arr
+    cdef double[::1] biscale_out = biscale_arr
+    cdef Py_ssize_t[::1] n_kept_out = n_kept_arr
+
+    if n_rows == 0 or n_cols == 0:
+        return (mean_arr, median_arr, std_arr, madstd_arr, biloc_arr,
+                biscale_arr, n_kept_arr)
+
+    cdef bint need_mad = compute_mad or compute_biloc or compute_biscale
+    cdef Py_ssize_t k, i, n, lo, hi, cnt
+    cdef double v, minv, maxv, mu, ss, med, madk, anchor
+    cdef double *s
+
+    with nogil:
+        for k in range(n_rows):
+            # The finite values are s[0:n] because NaN values sort last
+            n = n_cols
+            while n > 0:
+                v = sorted_data[k, n - 1]
+                if v == v:  # not NaN
+                    break
+                n -= 1
+            if n == 0:
+                continue
+            s = &sorted_data[k, 0]
+
+            lo = 0
+            hi = n
+            if do_clip:
+                _sigma_clip_bounds(s, n, sigma_lower, sigma_upper,
+                                   maxiters, cenfunc_code, stdfunc_code,
+                                   &minv, &maxv)
+                # A value survives if not (v < minv) and not (v > maxv).
+                # When the clip rejects every value, the bounds exclude
+                # all of them and cnt becomes 0.
+                while lo < n and s[lo] < minv:
+                    lo += 1
+                while hi > lo and s[hi - 1] > maxv:
+                    hi -= 1
+            cnt = hi - lo
+            if cnt == 0:
+                continue
+
+            mu = 0.0
+            for i in range(lo, hi):
+                mu += s[i]
+            mu /= cnt
+            ss = 0.0
+            for i in range(lo, hi):
+                ss += (s[i] - mu) * (s[i] - mu)
+            med = _median_sorted(&s[lo], cnt)
+
+            mean_out[k] = mu
+            std_out[k] = sqrt(ss / cnt)
+            median_out[k] = med
+            n_kept_out[k] = cnt
+
+            if need_mad:
+                # Unscaled MAD about the median of the survivors
+                madk = _mad_sorted(&s[lo], cnt)
+
+                if compute_mad:
+                    madstd_out[k] = madk * _MAD_STD_SCALE
+
+                if compute_biloc:
+                    anchor = biloc_m if biloc_m == biloc_m else med
+                    if madk == 0.0:
+                        # astropy returns the anchor for zero MAD
+                        biloc_out[k] = anchor
+                    else:
+                        biloc_out[k] = _biweight_location_range(
+                            s, lo, hi, anchor, biloc_c, madk)
+
+                if compute_biscale:
+                    anchor = biscale_m if biscale_m == biscale_m else med
+                    if madk == 0.0:
+                        # astropy returns zero variance for zero MAD
+                        biscale_out[k] = 0.0
+                    else:
+                        biscale_out[k] = sqrt(_biweight_midvar_range(
+                            s, lo, hi, anchor, biscale_c, madk))
+
+    return (mean_arr, median_arr, std_arr, madstd_arr, biloc_arr,
+            biscale_arr, n_kept_arr)

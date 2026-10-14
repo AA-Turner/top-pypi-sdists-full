@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.quota_config_pb2
+import sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_usage_pricer_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -19,15 +20,20 @@ class CalculateContractBudgetQuotasRequest(google.protobuf.message.Message):
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
     PROJECT_ID_FIELD_NUMBER: builtins.int
+    PRICED_USAGE_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
     project_id: builtins.int
+    @property
+    def priced_usage(self) -> sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_usage_pricer_pb2.UsagePricerResponse: ...
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
         project_id: builtins.int = ...,
+        priced_usage: sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_usage_pricer_pb2.UsagePricerResponse | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "project_id", b"project_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["priced_usage", b"priced_usage"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "priced_usage", b"priced_usage", "project_id", b"project_id"]) -> None: ...
 
 global___CalculateContractBudgetQuotasRequest = CalculateContractBudgetQuotasRequest
 

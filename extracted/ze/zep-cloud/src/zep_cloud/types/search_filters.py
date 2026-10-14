@@ -6,110 +6,78 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel, update_forward_refs
-from .date_filter import DateFilter
+from .date_filters import DateFilters
 from .property_filter import PropertyFilter
 
 
 class SearchFilters(UniversalBaseModel):
     connected_node_uuids: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of node UUIDs to filter edges on: an edge matches if its source OR
-    target node UUID is in this list. Applies to edges only; rejected on
-    requests whose result type contains no edges. Max 256 entries.
+    Include edges connected to any of these node UUIDs. Node search does not support this filter.
     """
 
-    created_at: typing.Optional[typing.List[typing.List[DateFilter]]] = pydantic.Field(default=None)
+    content_policy_violated: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    2D array of date filters for the created_at field.
-    The outer array elements are combined with OR logic.
-    The inner array elements are combined with AND logic.
-    Example: `[[{">", date1}, {"<", date2}], [{"=", date3}]]`
-    This translates to: `(created_at > date1 AND created_at < date2) OR (created_at = date3)`
+    Match episodes by their content-policy result. Supported only on episode search when the project setting include_policy_violating_episodes is true.
+    """
+
+    date_filters: typing.Optional[DateFilters] = pydantic.Field(default=None)
+    """
+    Filter results by temporal values.
     """
 
     edge_types: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of edge types to filter on
+    Include results with any of these edge types. Node search does not support this filter.
     """
 
     edge_uuids: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of edge UUIDs to filter on. Max 256 to align with graph-service filter limits.
-    """
-
-    episode_metadata_filters: typing.Optional["MetadataFilterGroup"] = pydantic.Field(default=None)
-    """
-    [Experimental] Episode metadata filter. Restricts results to edges/nodes derived from episodes
-    matching the metadata predicates. Uses explicit AND/OR groups. This feature is experimental and may change in future releases.
+    Include results with any of these edge UUIDs. Node search does not support this filter.
     """
 
     episode_uuids: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of episode UUIDs to filter on. An edge matches if it was derived
-    from any listed episode; a node matches if it is mentioned by any
-    listed episode. Valid for both edge and node result types. Max 256
-    entries.
+    Include results derived from any of these episode UUIDs.
     """
 
     exclude_edge_types: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of edge types to exclude from results
+    Exclude results with any of these edge types. Node search does not support this filter.
     """
 
     exclude_node_labels: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of node labels to exclude from results
+    Exclude nodes that have any of these labels. On an edge list, the API
+    excludes an edge when its source node or its target node has one of
+    these labels. Edge search does not support this filter.
     """
 
-    expired_at: typing.Optional[typing.List[typing.List[DateFilter]]] = pydantic.Field(default=None)
+    metadata_filters: typing.Optional["MetadataFilterGroup"] = pydantic.Field(default=None)
     """
-    2D array of date filters for the expired_at field.
-    The outer array elements are combined with OR logic.
-    The inner array elements are combined with AND logic.
-    Example: `[[{">", date1}, {"<", date2}], [{"=", date3}]]`
-    This translates to: `(expired_at > date1 AND expired_at < date2) OR (expired_at = date3)`
-    """
-
-    invalid_at: typing.Optional[typing.List[typing.List[DateFilter]]] = pydantic.Field(default=None)
-    """
-    2D array of date filters for the invalid_at field.
-    The outer array elements are combined with OR logic.
-    The inner array elements are combined with AND logic.
-    Example: `[[{">", date1}, {"<", date2}], [{"=", date3}]]`
-    This translates to: `(invalid_at > date1 AND invalid_at < date2) OR (invalid_at = date3)`
+    Filter results by episode metadata.
     """
 
     node_labels: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of node labels to filter on
+    Include only nodes that have at least one of these labels. On an edge
+    list, the source node and the target node of each edge must each have
+    at least one of these labels. Edge search does not support this filter.
     """
 
     property_filters: typing.Optional[typing.List[PropertyFilter]] = pydantic.Field(default=None)
     """
-    List of property filters to apply to nodes and edges
+    Filter results by node or edge properties.
     """
 
     source_node_uuids: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of node UUIDs to filter edges on: an edge matches if its source
-    node UUID is in this list. Applies to edges only; rejected on requests
-    whose result type contains no edges. Max 256 entries.
+    Include edges that start at any of these node UUIDs. Node search does not support this filter.
     """
 
     target_node_uuids: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    List of node UUIDs to filter edges on: an edge matches if its target
-    node UUID is in this list. Applies to edges only; rejected on requests
-    whose result type contains no edges. Max 256 entries.
-    """
-
-    valid_at: typing.Optional[typing.List[typing.List[DateFilter]]] = pydantic.Field(default=None)
-    """
-    2D array of date filters for the valid_at field.
-    The outer array elements are combined with OR logic.
-    The inner array elements are combined with AND logic.
-    Example: `[[{">", date1}, {"<", date2}], [{"=", date3}]]`
-    This translates to: `(valid_at > date1 AND valid_at < date2) OR (valid_at = date3)`
+    Include edges that end at any of these node UUIDs. Node search does not support this filter.
     """
 
     if IS_PYDANTIC_V2:
@@ -122,6 +90,6 @@ class SearchFilters(UniversalBaseModel):
             extra = pydantic.Extra.allow
 
 
-from .metadata_filter_group import MetadataFilterGroup  # noqa: E402, F401, I001
+from .metadata_filter_group import MetadataFilterGroup  # noqa: E402, I001
 
-update_forward_refs(SearchFilters)
+update_forward_refs(SearchFilters, MetadataFilterGroup=MetadataFilterGroup)

@@ -1825,6 +1825,9 @@ static void DcAttributes(wxDC& dc)
     wxDCFontChanger fontChanger(dc, font);
     wxDCPenChanger penChanger(dc, pen);
     wxDCBrushChanger brushChanger(dc, brush);
+    // wxDC may normalize the selected font, so remember the realized font
+    // to check that changing the clipping region leaves it unchanged.
+    wxFont dcFont = dc.GetFont();
     wxCoord chWidth = dc.GetCharWidth();
     wxCoord chHeight = dc.GetCharHeight();
     wxFontMetrics fm = dc.GetFontMetrics();
@@ -1832,7 +1835,7 @@ static void DcAttributes(wxDC& dc)
     dc.SetClippingRegion(10, 20, 30, 40);
     dc.DestroyClippingRegion();
 
-    CHECK(dc.GetFont() == font);
+    CHECK(dc.GetFont() == dcFont);
     CHECK(dc.GetPen() == pen);
     CHECK(dc.GetBrush() == brush);
     CHECK(dc.GetCharWidth() == chWidth);
@@ -3969,16 +3972,17 @@ TEST_CASE("ClippingBoxTestCase::wxPaintDC", "[clip][dc][paintdc]")
     // Ensure window is shown and large enough for testing
     wxTheApp->GetTopWindow()->Raise();
     REQUIRE(wxTheApp->GetTopWindow()->IsShown());
-    wxSize winSize = wxTheApp->GetTopWindow()->GetSize();
+    // Use client, not outer, size: decorations can eat more than the fixed
+    // margin below leaves room for (e.g. GTK3 client-side decorations).
+    wxSize winSize = wxTheApp->GetTopWindow()->GetClientSize();
     winSize.x = wxMax(winSize.x, s_dcSize.x + 50);
     winSize.y = wxMax(winSize.y, s_dcSize.y + 50);
-    wxTheApp->GetTopWindow()->SetSize(winSize);
-#if defined(__WXGTK__)
-    // Under wxGTK we need to have two children (at least) because if there
-    // is one child its paint area is set to fill the whole parent frame.
-    std::unique_ptr<wxWindow> w0(new wxWindow(wxTheApp->GetTopWindow(), wxID_ANY));
-#endif // wxGTK
-    std::unique_ptr<wxWindow> win(new wxWindow(wxTheApp->GetTopWindow(), wxID_ANY, wxPoint(0, 0)));
+    wxTheApp->GetTopWindow()->SetClientSize(winSize);
+    // We need to have two children (at least) because if there is only one,
+    // it is resized to fill the whole parent frame whenever the frame gets a
+    // size event, which can happen at any moment (and always does in wxGTK).
+    auto w0 = make_unique<wxWindow>(wxTheApp->GetTopWindow(), wxID_ANY);
+    auto win = make_unique<wxWindow>(wxTheApp->GetTopWindow(), wxID_ANY, wxPoint(0, 0));
     win->SetClientSize(s_dcSize);
 
     // Wait for the first paint event to be sure

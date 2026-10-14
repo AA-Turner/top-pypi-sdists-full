@@ -7,9 +7,6 @@ from trajectory.types.training_algorithm import TrainingAlgorithm
 
 
 class RunOptions(BaseModel):
-  retries: int | None = None
-  """Fresh attempts after failure; defaults to 0. Set 3 to retry three times."""
-
   intelligent_density_training: bool | None = None
   """Enable intelligent density training."""
 
@@ -54,7 +51,7 @@ class RunOptions(BaseModel):
   """Disable model thinking during training or evaluation."""
 
   num_steps: int | None = None
-  """Total optimizer step target, including steps restored from a checkpoint."""
+  """Number of optimizer steps to run."""
 
   train_batch_size: int | None = None
   """Eligible task-instance groups per optimizer update."""

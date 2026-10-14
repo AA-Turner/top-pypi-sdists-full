@@ -12,6 +12,8 @@
 
 #include "testprec.h"
 
+#include <memory>
+
 #if wxUSE_DATAVIEWCTRL
 
 
@@ -34,13 +36,12 @@ class DataViewCtrlTestCase
 {
 public:
     explicit DataViewCtrlTestCase(long style);
-    ~DataViewCtrlTestCase();
 
 protected:
     void TestSelectionFor0and1();
 
     // the dataview control itself
-    wxDataViewTreeCtrl *m_dvc;
+    std::unique_ptr<wxDataViewTreeCtrl> m_dvc;
 
     // and some of its items
     wxDataViewItem m_root,
@@ -73,11 +74,10 @@ class MultiColumnsDataViewCtrlTestCase
 {
 public:
     MultiColumnsDataViewCtrlTestCase();
-    ~MultiColumnsDataViewCtrlTestCase();
 
 protected:
     // the dataview control itself
-    wxDataViewListCtrl *m_dvc;
+    std::unique_ptr<wxDataViewListCtrl> m_dvc;
 
     // constants
     const wxSize m_size;
@@ -349,7 +349,6 @@ class DataViewCtrlWithCustomModelTestCase
 {
 public:
     DataViewCtrlWithCustomModelTestCase();
-    ~DataViewCtrlWithCustomModelTestCase();
 
 protected:
     enum wxItemExistence
@@ -390,7 +389,7 @@ protected:
     }
 
     // The dataview control.
-    wxDataViewCtrl *m_dvc;
+    std::unique_ptr<wxDataViewCtrl> m_dvc;
 
     // The dataview model.
     DataViewCtrlTestModel *m_model;
@@ -412,11 +411,11 @@ protected:
 
 DataViewCtrlTestCase::DataViewCtrlTestCase(long style)
 {
-    m_dvc = new wxDataViewTreeCtrl(wxTheApp->GetTopWindow(),
-                                   wxID_ANY,
-                                   wxDefaultPosition,
-                                   wxSize(400, 200),
-                                   style);
+    m_dvc = make_unique<wxDataViewTreeCtrl>(wxTheApp->GetTopWindow(),
+                                            wxID_ANY,
+                                            wxDefaultPosition,
+                                            wxSize(400, 200),
+                                            style);
 
     m_root = m_dvc->AppendContainer(wxDataViewItem(), "The root");
       m_child1 = m_dvc->AppendContainer(m_root, "child1");
@@ -429,16 +428,13 @@ DataViewCtrlTestCase::DataViewCtrlTestCase(long style)
     m_dvc->Update();
 }
 
-DataViewCtrlTestCase::~DataViewCtrlTestCase()
-{
-    delete m_dvc;
-}
 
 MultiColumnsDataViewCtrlTestCase::MultiColumnsDataViewCtrlTestCase()
     : m_size(200, 100),
       m_firstColumnWidth(50)
 {
-    m_dvc = new wxDataViewListCtrl(wxTheApp->GetTopWindow(), wxID_ANY);
+    m_dvc = make_unique<wxDataViewListCtrl>(wxTheApp->GetTopWindow(),
+                                            wxID_ANY);
 
     m_firstColumn =
         m_dvc->AppendTextColumn(wxString(), wxDATAVIEW_CELL_INERT, m_firstColumnWidth);
@@ -452,18 +448,14 @@ MultiColumnsDataViewCtrlTestCase::MultiColumnsDataViewCtrlTestCase()
     m_dvc->Update();
 }
 
-MultiColumnsDataViewCtrlTestCase::~MultiColumnsDataViewCtrlTestCase()
-{
-    delete m_dvc;
-}
 
 DataViewCtrlWithCustomModelTestCase::DataViewCtrlWithCustomModelTestCase()
 {
-    m_dvc = new wxDataViewCtrl(wxTheApp->GetTopWindow(),
-                               wxID_ANY,
-                               wxDefaultPosition,
-                               wxSize(400, 200),
-                               wxDV_SINGLE);
+    m_dvc = make_unique<wxDataViewCtrl>(wxTheApp->GetTopWindow(),
+                                        wxID_ANY,
+                                        wxDefaultPosition,
+                                        wxSize(400, 200),
+                                        wxDV_SINGLE);
 
     m_model = new DataViewCtrlTestModel();
     m_dvc->AssociateModel(m_model);
@@ -495,10 +487,6 @@ DataViewCtrlWithCustomModelTestCase::DataViewCtrlWithCustomModelTestCase()
     m_dvc->Update();
 }
 
-DataViewCtrlWithCustomModelTestCase::~DataViewCtrlWithCustomModelTestCase()
-{
-    delete m_dvc;
-}
 
 // ----------------------------------------------------------------------------
 // the tests themselves
@@ -870,16 +858,35 @@ TEST_CASE_METHOD(SingleSelectDataViewCtrlTestCase,
     if ( !EnableUITests() )
         return;
 
-    EventCounter keyEvents(m_dvc, wxEVT_KEY_DOWN);
+    wxUIActionSimulator sim;
+
+#ifdef __WXGTK__
+    wxRect rect;
+    // The native GTK control may not know row cell areas until its pending
+    // layout has run, so wait before using the item rectangle as click target.
+    REQUIRE( WaitFor("wxDataViewCtrl item to be realized", [this, &rect]() {
+        rect = m_dvc->GetItemRect(m_child1);
+        return !rect.IsEmpty();
+    }) );
+#else // !__WXGTK__
+    const wxRect rect = m_dvc->GetItemRect(m_child1);
+    REQUIRE( !rect.IsEmpty() );
+#endif // __WXGTK__/!__WXGTK__
+
+    // Click inside the control first: this mirrors real use and makes the
+    // following simulated key press reach the data view's main window.
+    sim.MouseMove(m_dvc->ClientToScreen(rect.GetPosition() + wxPoint(5, 5)));
+    wxYield();
+    sim.MouseClick();
+    wxYield();
 
     m_dvc->SetFocus();
     wxYield();
 
-    wxUIActionSimulator sim;
-    sim.Char(WXK_DOWN);
-    wxYield();
+    EventCounter keyEvents(m_dvc->GetMainWindow(), wxEVT_KEY_DOWN);
+    REQUIRE( sim.Char(WXK_DOWN) );
 
-    CHECK( keyEvents.GetCount() == 1 );
+    CHECK( keyEvents.WaitEvent() );
 }
 
 #endif // wxUSE_UIACTIONSIMULATOR

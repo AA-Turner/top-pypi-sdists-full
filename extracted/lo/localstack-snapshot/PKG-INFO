@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-snapshot
-Version: 0.3.5
+Version: 0.4.0
 Summary: Extracted snapshot testing lib for LocalStack
 Author-email: LocalStack Contributors <info@localstack.cloud>
 License: 
@@ -209,13 +209,12 @@ License:
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: jsonpath-ng>1.6
+Requires-Dist: jsonpath-ng>=1.9
 Requires-Dist: deepdiff
 Provides-Extra: dev
 Requires-Dist: black==26.5.1; extra == "dev"

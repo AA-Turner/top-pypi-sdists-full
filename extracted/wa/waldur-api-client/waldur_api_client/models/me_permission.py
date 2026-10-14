@@ -21,8 +21,8 @@ class MePermission:
         scope_type (Union[None, Unset, str]):
         scope_uuid (Union[Unset, UUID]):
         scope_name (Union[Unset, str]):
-        customer_uuid (Union[Unset, UUID]):
-        customer_name (Union[Unset, str]):
+        customer_uuid (Union[None, UUID, Unset]):
+        customer_name (Union[None, Unset, str]):
         project_uuid (Union[None, UUID, Unset]):
         resource_uuid (Union[None, UUID, Unset]):
         expiration_time (Union[None, Unset, datetime.datetime]):
@@ -33,8 +33,8 @@ class MePermission:
     scope_type: Union[None, Unset, str] = UNSET
     scope_uuid: Union[Unset, UUID] = UNSET
     scope_name: Union[Unset, str] = UNSET
-    customer_uuid: Union[Unset, UUID] = UNSET
-    customer_name: Union[Unset, str] = UNSET
+    customer_uuid: Union[None, UUID, Unset] = UNSET
+    customer_name: Union[None, Unset, str] = UNSET
     project_uuid: Union[None, UUID, Unset] = UNSET
     resource_uuid: Union[None, UUID, Unset] = UNSET
     expiration_time: Union[None, Unset, datetime.datetime] = UNSET
@@ -59,11 +59,19 @@ class MePermission:
 
         scope_name = self.scope_name
 
-        customer_uuid: Union[Unset, str] = UNSET
-        if not isinstance(self.customer_uuid, Unset):
+        customer_uuid: Union[None, Unset, str]
+        if isinstance(self.customer_uuid, Unset):
+            customer_uuid = UNSET
+        elif isinstance(self.customer_uuid, UUID):
             customer_uuid = str(self.customer_uuid)
+        else:
+            customer_uuid = self.customer_uuid
 
-        customer_name = self.customer_name
+        customer_name: Union[None, Unset, str]
+        if isinstance(self.customer_name, Unset):
+            customer_name = UNSET
+        else:
+            customer_name = self.customer_name
 
         project_uuid: Union[None, Unset, str]
         if isinstance(self.project_uuid, Unset):
@@ -145,14 +153,31 @@ class MePermission:
 
         scope_name = d.pop("scope_name", UNSET)
 
-        _customer_uuid = d.pop("customer_uuid", UNSET)
-        customer_uuid: Union[Unset, UUID]
-        if isinstance(_customer_uuid, Unset):
-            customer_uuid = UNSET
-        else:
-            customer_uuid = UUID(_customer_uuid)
+        def _parse_customer_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                customer_uuid_type_0 = UUID(data)
 
-        customer_name = d.pop("customer_name", UNSET)
+                return customer_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        customer_uuid = _parse_customer_uuid(d.pop("customer_uuid", UNSET))
+
+        def _parse_customer_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        customer_name = _parse_customer_name(d.pop("customer_name", UNSET))
 
         def _parse_project_uuid(data: object) -> Union[None, UUID, Unset]:
             if data is None:

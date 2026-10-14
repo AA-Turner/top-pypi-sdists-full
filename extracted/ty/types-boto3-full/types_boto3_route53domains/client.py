@@ -59,6 +59,8 @@ from .type_defs import (
     GetContactReachabilityStatusResponseTypeDef,
     GetDomainDetailRequestTypeDef,
     GetDomainDetailResponseTypeDef,
+    GetDomainPricesRequestTypeDef,
+    GetDomainPricesResponseTypeDef,
     GetDomainSuggestionsRequestTypeDef,
     GetDomainSuggestionsResponseTypeDef,
     GetOperationDetailRequestTypeDef,
@@ -303,6 +305,16 @@ class Route53DomainsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53domains/client/get_domain_detail.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53domains/client/#get_domain_detail)
+        """
+
+    def get_domain_prices(
+        self, **kwargs: Unpack[GetDomainPricesRequestTypeDef]
+    ) -> GetDomainPricesResponseTypeDef:
+        """
+        Returns the following prices for the specified domain:.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53domains/client/get_domain_prices.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53domains/client/#get_domain_prices)
         """
 
     def get_domain_suggestions(

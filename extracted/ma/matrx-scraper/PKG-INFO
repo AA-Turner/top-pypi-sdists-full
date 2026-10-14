@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-scraper
-Version: 0.2.378
+Version: 0.2.380
 Summary: Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -40,7 +40,7 @@ Requires-Dist: curl-cffi>=0.7; extra == 'all'
 Requires-Dist: datasketch>=1.6; extra == 'all'
 Requires-Dist: extruct>=0.18; extra == 'all'
 Requires-Dist: fastapi>=0.115; extra == 'all'
-Requires-Dist: matrx-connect>=0.1.215; extra == 'all'
+Requires-Dist: matrx-connect>=0.1.216; extra == 'all'
 Requires-Dist: matrx-files>=0.2.293; extra == 'all'
 Requires-Dist: matrx-files[ocr]>=0.2.293; extra == 'all'
 Requires-Dist: matrx-files[pdf]>=0.2.293; extra == 'all'
@@ -62,7 +62,7 @@ Provides-Extra: cloud-browser
 Requires-Dist: cryptography>=41; extra == 'cloud-browser'
 Requires-Dist: zstandard>=0.22; extra == 'cloud-browser'
 Provides-Extra: connect
-Requires-Dist: matrx-connect>=0.1.215; extra == 'connect'
+Requires-Dist: matrx-connect>=0.1.216; extra == 'connect'
 Provides-Extra: db
 Requires-Dist: matrx-files>=0.2.293; extra == 'db'
 Requires-Dist: matrx-orm>=3.1.227; extra == 'db'
@@ -92,7 +92,7 @@ Requires-Dist: cryptography>=41; extra == 'server'
 Requires-Dist: curl-cffi>=0.7; extra == 'server'
 Requires-Dist: extruct>=0.18; extra == 'server'
 Requires-Dist: fastapi>=0.115; extra == 'server'
-Requires-Dist: matrx-connect>=0.1.215; extra == 'server'
+Requires-Dist: matrx-connect>=0.1.216; extra == 'server'
 Requires-Dist: matrx-files>=0.2.293; extra == 'server'
 Requires-Dist: matrx-files[pdf]>=0.2.293; extra == 'server'
 Requires-Dist: matrx-orm>=3.1.227; extra == 'server'
@@ -110,7 +110,7 @@ Requires-Dist: curl-cffi>=0.7; extra == 'standalone'
 Requires-Dist: datasketch>=1.6; extra == 'standalone'
 Requires-Dist: extruct>=0.18; extra == 'standalone'
 Requires-Dist: fastapi>=0.115; extra == 'standalone'
-Requires-Dist: matrx-connect>=0.1.215; extra == 'standalone'
+Requires-Dist: matrx-connect>=0.1.216; extra == 'standalone'
 Requires-Dist: matrx-files>=0.2.293; extra == 'standalone'
 Requires-Dist: matrx-files[ocr]>=0.2.293; extra == 'standalone'
 Requires-Dist: matrx-files[pdf]>=0.2.293; extra == 'standalone'

@@ -6,6 +6,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.billing_unit import BillingUnit
+from ..models.plan_billing_mode import PlanBillingMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -31,6 +32,7 @@ class BaseProviderPlan:
         max_amount (Union[None, Unset, int]): Maximum number of plans that could be active. Plan is disabled when
             maximum amount is reached.
         archived (Union[Unset, bool]): Forbids creation of new resources.
+        billing_mode (Union[Unset, PlanBillingMode]):  Default: PlanBillingMode.INHERIT.
         is_active (Union[Unset, bool]):
         unit_price (Union[Unset, str]):
         unit (Union[Unset, BillingUnit]):
@@ -54,6 +56,7 @@ class BaseProviderPlan:
     article_code: Union[Unset, str] = UNSET
     max_amount: Union[None, Unset, int] = UNSET
     archived: Union[Unset, bool] = UNSET
+    billing_mode: Union[Unset, PlanBillingMode] = PlanBillingMode.INHERIT
     is_active: Union[Unset, bool] = UNSET
     unit_price: Union[Unset, str] = UNSET
     unit: Union[Unset, BillingUnit] = UNSET
@@ -90,6 +93,10 @@ class BaseProviderPlan:
             max_amount = self.max_amount
 
         archived = self.archived
+
+        billing_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.billing_mode, Unset):
+            billing_mode = self.billing_mode.value
 
         is_active = self.is_active
 
@@ -154,6 +161,8 @@ class BaseProviderPlan:
             field_dict["max_amount"] = max_amount
         if archived is not UNSET:
             field_dict["archived"] = archived
+        if billing_mode is not UNSET:
+            field_dict["billing_mode"] = billing_mode
         if is_active is not UNSET:
             field_dict["is_active"] = is_active
         if unit_price is not UNSET:
@@ -219,6 +228,13 @@ class BaseProviderPlan:
         max_amount = _parse_max_amount(d.pop("max_amount", UNSET))
 
         archived = d.pop("archived", UNSET)
+
+        _billing_mode = d.pop("billing_mode", UNSET)
+        billing_mode: Union[Unset, PlanBillingMode]
+        if isinstance(_billing_mode, Unset):
+            billing_mode = UNSET
+        else:
+            billing_mode = PlanBillingMode(_billing_mode)
 
         is_active = d.pop("is_active", UNSET)
 
@@ -286,6 +302,7 @@ class BaseProviderPlan:
             article_code=article_code,
             max_amount=max_amount,
             archived=archived,
+            billing_mode=billing_mode,
             is_active=is_active,
             unit_price=unit_price,
             unit=unit,

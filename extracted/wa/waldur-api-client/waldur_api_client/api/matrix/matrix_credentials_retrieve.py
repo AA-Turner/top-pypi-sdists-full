@@ -45,7 +45,9 @@ def sync_detailed(
 ) -> Response[MatrixCredentials]:
     """Get Matrix login credentials
 
-     Returns Matrix login credentials for the authenticated user based on the configured login method.
+     Returns what an external Matrix client needs to sign the authenticated user in, per
+    MATRIX_EXTERNAL_LOGIN_METHOD. Never a password or an access token: in password mode the user
+    generates a password with POST /api/matrix/credentials/password/.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -70,7 +72,9 @@ def sync(
 ) -> MatrixCredentials:
     """Get Matrix login credentials
 
-     Returns Matrix login credentials for the authenticated user based on the configured login method.
+     Returns what an external Matrix client needs to sign the authenticated user in, per
+    MATRIX_EXTERNAL_LOGIN_METHOD. Never a password or an access token: in password mode the user
+    generates a password with POST /api/matrix/credentials/password/.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -91,7 +95,9 @@ async def asyncio_detailed(
 ) -> Response[MatrixCredentials]:
     """Get Matrix login credentials
 
-     Returns Matrix login credentials for the authenticated user based on the configured login method.
+     Returns what an external Matrix client needs to sign the authenticated user in, per
+    MATRIX_EXTERNAL_LOGIN_METHOD. Never a password or an access token: in password mode the user
+    generates a password with POST /api/matrix/credentials/password/.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -114,7 +120,9 @@ async def asyncio(
 ) -> MatrixCredentials:
     """Get Matrix login credentials
 
-     Returns Matrix login credentials for the authenticated user based on the configured login method.
+     Returns what an external Matrix client needs to sign the authenticated user in, per
+    MATRIX_EXTERNAL_LOGIN_METHOD. Never a password or an access token: in password mode the user
+    generates a password with POST /api/matrix/credentials/password/.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

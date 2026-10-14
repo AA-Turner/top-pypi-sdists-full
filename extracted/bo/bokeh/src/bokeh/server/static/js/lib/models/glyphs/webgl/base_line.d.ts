@@ -4,9 +4,15 @@ import { Float32Buffer, NormalizedUint8Buffer, Uint8Buffer } from "./buffer";
 import type { ReglWrapper } from "./regl_wrap";
 import type { GlyphView } from "../glyph";
 import type * as visuals from "../../../core/visuals";
-import type { Framebuffer2D, Texture2D } from "regl";
+import type { BoundingBox, Framebuffer2D, Texture2D } from "regl";
 import type { Arrayable } from "../../../core/types";
 export type BaseLineVisuals = visuals.LineVector | visuals.LineScalar;
+export declare const LINE_AA_WIDTH = 1.5;
+export declare const LINE_MITER_LIMIT = 10;
+/** Extra screen-space padding needed to enclose a rendered line. A miter join
+ * can extend by half the line width times the miter limit, and antialiasing
+ * adds a fringe beyond that geometry. */
+export declare function line_bounds_padding(linewidth: number): number;
 export declare abstract class BaseLineGL extends BaseGLGlyph {
     readonly glyph: GlyphView;
     protected readonly _antialias: number;
@@ -25,7 +31,7 @@ export declare abstract class BaseLineGL extends BaseGLGlyph {
     protected _dash_offset?: Float32Buffer;
     constructor(regl_wrapper: ReglWrapper, glyph: GlyphView);
     abstract draw(_indices: number[], main_glyph: GlyphView, transform: Transform): void;
-    protected _draw_single(main_gl_glyph: BaseLineGL, transform: Transform, line_offset: number, point_offset: number, nsegments: number, framebuffer: Framebuffer2D | null, show?: Uint8Buffer | null): void;
+    protected _draw_single(main_gl_glyph: BaseLineGL, transform: Transform, line_offset: number, point_offset: number, nsegments: number, framebuffer: Framebuffer2D | null, show?: Uint8Buffer | null): BoundingBox;
     protected abstract _get_visuals(): BaseLineVisuals;
     protected abstract _set_data(data_changed: boolean): void;
     protected _set_length_single(length_so_far: Float32Array, points: Float32Array, show: Uint8Array): void;

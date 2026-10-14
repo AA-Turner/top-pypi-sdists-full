@@ -58,10 +58,10 @@ class OpenStackVolume:
         image_metadata (Union[Unset, str]): Metadata of the image this volume was created from
         image_name (Union[Unset, str]): Name of the image this volume was created from
         type_ (Union[None, Unset, str]): Type of the volume (e.g. SSD, HDD)
-        type_name (Union[Unset, str]):
+        type_name (Union[None, Unset, str]):
         runtime_state (Union[Unset, str]):
         availability_zone (Union[None, Unset, str]): Availability zone where this volume is located
-        availability_zone_name (Union[Unset, str]):
+        availability_zone_name (Union[None, Unset, str]):
         device (Union[Unset, str]): Name of volume as instance device e.g. /dev/vdb.
         action (Union[Unset, str]):
         action_details (Union[Unset, OpenStackVolumeActionDetails]):
@@ -118,10 +118,10 @@ class OpenStackVolume:
     image_metadata: Union[Unset, str] = UNSET
     image_name: Union[Unset, str] = UNSET
     type_: Union[None, Unset, str] = UNSET
-    type_name: Union[Unset, str] = UNSET
+    type_name: Union[None, Unset, str] = UNSET
     runtime_state: Union[Unset, str] = UNSET
     availability_zone: Union[None, Unset, str] = UNSET
-    availability_zone_name: Union[Unset, str] = UNSET
+    availability_zone_name: Union[None, Unset, str] = UNSET
     device: Union[Unset, str] = UNSET
     action: Union[Unset, str] = UNSET
     action_details: Union[Unset, "OpenStackVolumeActionDetails"] = UNSET
@@ -260,7 +260,11 @@ class OpenStackVolume:
         else:
             type_ = self.type_
 
-        type_name = self.type_name
+        type_name: Union[None, Unset, str]
+        if isinstance(self.type_name, Unset):
+            type_name = UNSET
+        else:
+            type_name = self.type_name
 
         runtime_state = self.runtime_state
 
@@ -270,7 +274,11 @@ class OpenStackVolume:
         else:
             availability_zone = self.availability_zone
 
-        availability_zone_name = self.availability_zone_name
+        availability_zone_name: Union[None, Unset, str]
+        if isinstance(self.availability_zone_name, Unset):
+            availability_zone_name = UNSET
+        else:
+            availability_zone_name = self.availability_zone_name
 
         device = self.device
 
@@ -653,7 +661,14 @@ class OpenStackVolume:
 
         type_ = _parse_type_(d.pop("type", UNSET))
 
-        type_name = d.pop("type_name", UNSET)
+        def _parse_type_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        type_name = _parse_type_name(d.pop("type_name", UNSET))
 
         runtime_state = d.pop("runtime_state", UNSET)
 
@@ -666,7 +681,14 @@ class OpenStackVolume:
 
         availability_zone = _parse_availability_zone(d.pop("availability_zone", UNSET))
 
-        availability_zone_name = d.pop("availability_zone_name", UNSET)
+        def _parse_availability_zone_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        availability_zone_name = _parse_availability_zone_name(d.pop("availability_zone_name", UNSET))
 
         device = d.pop("device", UNSET)
 

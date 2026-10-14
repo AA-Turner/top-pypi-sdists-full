@@ -4,7 +4,12 @@
 
 from libc.stdint cimport *
 from functools import lru_cache
-from bitarray import bitarray, frozenbitarray
+
+try:
+    from bitarray import bitarray, frozenbitarray
+except ImportError:
+    bitarray = frozenbitarray = None
+
 from .models import models, aliases
 
 cdef extern from '../../lib/crc-clmul/crc.h':
@@ -12,7 +17,8 @@ cdef extern from '../../lib/crc-clmul/crc.h':
         uint8_t width
         uint64_t poly
         bint refin, refout
-        uint64_t init, xorout, k1, k2
+        uint64_t init, xorout
+        uint64_t k1, k2, k3, k4, u
         uint64_t table[256]
         uint64_t combine_table[64]
 
@@ -20,11 +26,13 @@ cdef extern from '../../lib/crc-clmul/crc.h':
 
     cdef uint64_t crc_table(params_t *params, uint64_t crc, const unsigned char *buf, uint64_t len)
     cdef uint64_t crc_calc(params_t *params, uint64_t crc, const unsigned char *buf, uint64_t len)
-    cdef uint64_t crc_calc_bits(params_t *params, uint64_t crc, const unsigned char *buf, uint64_t len)
 
     cdef uint64_t crc_combine_constant(params_t *params, uint64_t len)
+    cdef uint64_t crc_combine(params_t *params, uint64_t crc, uint64_t crc2, uint64_t xp)
+
+cdef extern from 'bits.h':
+    cdef uint64_t crc_calc_bits(params_t *params, uint64_t crc, const unsigned char *buf, uint64_t len)
     cdef uint64_t crc_combine_constant_bits(params_t *params, uint64_t len)
-    cdef uint64_t crc_combine_fixed(params_t *params, uint64_t crc, uint64_t crc2, uint64_t xp)
 
 cdef class _CRC:
     cdef params_t params
@@ -33,14 +41,14 @@ cdef class _CRC:
         cdef uint8_t error
         self.params = crc_params(width, poly, init, refin, refout, xorout, check if check is not None else 0, &error)
 
-        if error & 1:
+        if error & 0x1:
             raise ValueError('CRC width should be between 1 and 64 bits')
 
         if check is not None and error & 0x20:
             raise ValueError('Invalid paramaters. check mismatch')
 
     def calc(self, data, init=None):
-        if isinstance(data, bitarray) or isinstance(data, frozenbitarray):
+        if bitarray and (isinstance(data, bitarray) or isinstance(data, frozenbitarray)):
             raise TypeError('Bitarray objects are not allowed, use calc_bits() instead')
 
         if isinstance(data, str):
@@ -56,13 +64,20 @@ cdef class _CRC:
         return crc_calc(&self.params, init, &view[0], len(view))
 
     def calc_bits(self, data, init=None):
+        if not bitarray:
+            raise ModuleNotFoundError('The bitarray module is required to use calc_bits()')
+
         if not isinstance(data, bitarray) and not isinstance(data, frozenbitarray):
             raise TypeError('Expected a bitarray object')
 
-        if self.params.refin and data.endian != 'little':
+        endian = data.endian
+        if callable(endian):
+            endian = endian()
+
+        if self.params.refin and endian != 'little':
             raise ValueError('A little endian bitarray object is expected for reflected CRCs')
 
-        if not self.params.refin and data.endian != 'big':
+        if not self.params.refin and endian != 'big':
             raise ValueError('A big endian bitarray object is expected for non-reflected CRCs')
 
         if init is None:
@@ -83,10 +98,10 @@ cdef class _CRC:
         return crc_combine_constant_bits(&self.params, length)
 
     def combine(self, crc1, crc2, length):
-        return crc_combine_fixed(&self.params, crc1, crc2, self._combine_constant(length))
+        return crc_combine(&self.params, crc1, crc2, self._combine_constant(length))
 
     def combine_bits(self, crc1, crc2, length):
-        return crc_combine_fixed(&self.params, crc1, crc2, self._combine_constant_bits(length))
+        return crc_combine(&self.params, crc1, crc2, self._combine_constant_bits(length))
 
     #byte-by-byte (for testing)
     def _calc_b(self, data):

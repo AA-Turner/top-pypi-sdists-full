@@ -1,3 +1,4 @@
+use derive_where::derive_where;
 use nom::{Parser, branch::alt, combinator::map, multi::fold_many0, sequence::preceded};
 
 use crate::{
@@ -6,7 +7,7 @@ use crate::{
 	context::Context,
 	error::ParseError,
 	grammar::Grammar,
-	node::{Node, SpannedNodes},
+	node::{Element, Node, ParsedNode, ParsedNodes, Sequence},
 	span::{Span, WithSpan},
 	unparse::Unparse,
 };
@@ -31,16 +32,23 @@ pub const INDENT_STEP: usize = 2;
 
 /// A list item represented by its [`Type`] and a Vec of [`Node`]s as content.
 ///
-/// List items will only ever contain [`Node::Paragraph`] as the first item and can only contain
-/// [`Node::Paragraph`] or [`Node::List`] as any additional content. However, changes to this are
+/// List items will only ever contain [`Element::Paragraph`] as the first item and can only contain
+/// [`Element::Paragraph`] or [`Element::List`] as any additional content. However, changes to this are
 /// not considered a breaking change.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Item<'data, S: Span> {
-	pub content: SpannedNodes<'data, S>,
+#[derive_where(Debug, Clone, PartialEq, Eq; N)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(bound(
+		serialize = "N: serde::Serialize",
+		deserialize = "N: serde::Deserialize<'de>"
+	))
+)]
+pub struct Item<S: Span, N> {
+	pub content: Sequence<S, N>,
 }
 
-impl<S> Unparse for Item<'_, S>
+impl<S> Unparse for Item<S, Node<'_, S>>
 where
 	S: Span,
 {
@@ -52,7 +60,7 @@ where
 fn content<'data, S, E>(
 	context: Context,
 	item_indent: usize,
-) -> impl Parser<Input<'data>, Output = SpannedNodes<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = ParsedNodes<'data, S>, Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -61,21 +69,24 @@ where
 		let context = context.clone();
 		let (data, first_content) =
 			// TODO: verify that InlineBlockRule is correct here (possibly should be BlockRule)
-			map(inline_block(context.clone().with_grammar(Grammar::Block)), Node::Paragraph).span().parse_complete(data)?;
+			map(inline_block(context.clone().with_grammar(Grammar::Block)), |content| ParsedNode::Element(Element::Paragraph(content))).span().parse_complete(data)?;
 
 		fold_many0(
 			preceded(
 				context.clone().line_prefix(),
 				alt((
 					// first check if the next item is indented enough to be considered a child list
-					map(indented(context.clone(), item_indent), Node::List).span(),
+					map(indented(context.clone(), item_indent), |list| {
+						ParsedNode::Element(Element::List(list))
+					})
+					.span(),
 					// then we can continue parsing current list items
 					map(
 						preceded(
 							indent(item_indent),
 							inline_block(context.with_grammar(Grammar::Block)),
 						),
-						Node::Paragraph,
+						|content| ParsedNode::Element(Element::Paragraph(content)),
 					)
 					.span(),
 				)),
@@ -96,7 +107,7 @@ where
 ///
 /// ```
 /// # use discord_markdown::{
-/// #    node::Node,
+/// #    node::{Element, ParsedNode},
 /// #    rule::RuleSet,
 /// #    block::list::item::{Item, item},
 /// # };
@@ -112,7 +123,9 @@ where
 /// assert_eq!(
 ///     item,
 ///     Item {
-///         content: spanned_vec![Node::Paragraph(spanned_vec![Node::Text("foo".into())])]
+///         content: spanned_vec![ParsedNode::Element(Element::Paragraph(spanned_vec![
+///             ParsedNode::Element(Element::Text("foo".into()))
+///         ]))]
 ///     }
 /// );
 /// ```
@@ -120,7 +133,7 @@ pub fn item<'data, S, E>(
 	context: Context,
 	indent_amount: usize,
 	parse_type: impl Parser<Input<'data>, Output = Type, Error = E>,
-) -> impl Parser<Input<'data>, Output = (Type, Item<'data, S>), Error = E>
+) -> impl Parser<Input<'data>, Output = (Type, Item<S, ParsedNode<'data, S>>), Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,

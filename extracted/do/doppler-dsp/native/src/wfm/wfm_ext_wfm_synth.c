@@ -44,18 +44,28 @@ _SynthEngine_init (_SynthEngineObject *self, PyObject *args, PyObject *kwds)
   double             fs           = 1000000.0;
   double             freq         = 0.0;
   double             snr          = 100.0;
-  unsigned long      seed_raw     = 0UL;
+  long long          seed_raw     = 0LL;
   int                sps          = 8;
   int                pn_length    = 7;
   unsigned long long pn_poly_raw  = 0ULL;
   const char        *lfsr_str     = "galois";
   double             f_end        = 0.0;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|ssdddkiiKsd", kwlist,
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|ssdddLiiKsd", kwlist,
                                     &type_str, &snr_mode_str, &fs, &freq, &snr,
                                     &seed_raw, &sps, &pn_length, &pn_poly_raw,
                                     &lfsr_str, &f_end))
     return -1;
+  /* `seed` is parsed wide and range-tested, not through `k`: `k` masks, so
+   * seed=2**32 + 5 built a synth seeded 5 and -1 one seeded 4294967295
+   * (#2276). */
+  if (seed_raw < 0 || seed_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "seed: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)seed_raw, (long long)0, (long long)UINT32_MAX);
+      return -1;
+    }
   int type = 0;
   if (strcmp (type_str, "tone") == 0)
     type = 0;
@@ -853,9 +863,11 @@ static PyMethodDef _SynthEngine_methods[] = {
   { "get_state", (PyCFunction)_SynthEngine_get_state, METH_NOARGS,
     "Serialize this object's mutable state to bytes.\n"
     "\n"
-    "Captures exactly the state that evolves as the object runs, so a blob\n"
-    "taken now and restored later resumes from this point. Construction\n"
-    "parameters are not included: restore into an object built the same way.\n"
+    "Captures the state that evolves as the object runs, including any value\n"
+    "a setter changed after construction, so a blob taken now and restored\n"
+    "later resumes from this point. Construction parameters are not\n"
+    "restored: restore into an object built the same way. A core may check\n"
+    "some of them and refuse a blob built differently.\n"
     "\n"
     "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
     "implementation detail of the C core and is not a stable format across\n"
@@ -870,10 +882,12 @@ static PyMethodDef _SynthEngine_methods[] = {
   { "set_state", (PyCFunction)_SynthEngine_set_state, METH_O,
     "Restore mutable state from a `get_state()` blob.\n"
     "\n"
-    "Overwrites the live state in place; the object keeps the parameters it\n"
-    "was constructed with. Length is validated against `state_bytes()` "
-    "before\n"
-    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "Overwrites the live state in place, including any value a setter\n"
+    "changed after construction. Construction parameters are not restored:\n"
+    "restore into an object built the same way. Length is validated against\n"
+    "`state_bytes()` before the blob is handed to the C core, which may\n"
+    "reject it too: a core may check some construction parameters and refuse\n"
+    "a blob built differently.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
     "length differs from `state_bytes()` or the core rejects it, and\n"

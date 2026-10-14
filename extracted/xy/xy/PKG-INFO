@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: xy
-Version: 0.0.7
+Version: 0.0.8
 Summary: Experimental Python charting engine with a native Rust core, binary columnar transport, and a GPU render client
 Project-URL: Repository, https://github.com/reflex-dev/xy
 Project-URL: Issues, https://github.com/reflex-dev/xy/issues

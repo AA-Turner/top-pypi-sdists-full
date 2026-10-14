@@ -15,6 +15,7 @@ wxWidgets API info which we need from them.
 import sys
 import os
 import pprint
+import re
 from typing import Optional
 import xml.etree.ElementTree as ET
 import copy
@@ -302,6 +303,7 @@ class FunctionDef(BaseDef, FixWxPrefix):
         self.transferThis = False     # ownership of 'this' pointer transferred to C++
         self.cppCode = None           # Use this code instead of the default wrapper
         self.noArgParser = False      # set the NoargParser annotation
+        self.canReturnNone = False    # a returned pointer can be NULL, for the type hints
         self.preMethodCode = None
 
         self.__dict__.update(kw)
@@ -316,8 +318,13 @@ class FunctionDef(BaseDef, FixWxPrefix):
         self.definition = element.find('definition').text
         self.argsString = element.find('argsstring').text
         self.checkDeprecated()
-        for node in element.findall('param'):
+        for idx, node in enumerate(element.findall('param')):
             p = ParamDef(node)
+            if not p.name and p.type != '...':
+                # wxWidgets gave no name for this param; make one up so the
+                # generated Python signature is syntactically valid.
+                p.name = '_param_%d' % idx
+                p.isNameFake = True
             self.items.append(p)
             # TODO: Look at self.detailedDoc and pull out any matching
             # parameter description items and assign that value as the
@@ -480,11 +487,15 @@ class FunctionDef(BaseDef, FixWxPrefix):
         params: list[Signature.Parameter] = []
         returns: list[str] = []
         if self.type and self.type != 'void':
-            returns.append(self.cleanType(self.type))
+            returnType = self.cleanType(self.type)
+            if self.canReturnNone:
+                returnType = f'Optional[{returnType}]'
+            returns.append(returnType)
 
         defValueMap = { 'true':  'True',
                         'false': 'False',
                         'NULL':  'None',
+                        'nullptr': 'None',
                         'wxString()': '""',
                         'wxArrayString()' : '[]',
                         'wxArrayInt()' : '[]',
@@ -505,6 +516,8 @@ class FunctionDef(BaseDef, FixWxPrefix):
                     arg = arg.split('=')[0].strip()
                     default = defValueMap.get(default, default)
                     default = self.fixWxPrefix(default, True)
+                # drop any SIP annotations, like /Transfer/
+                arg = re.sub(r'/\w+(=[^/]*)?/', '', arg).strip()
                 # now grab just the last word, it should be the variable name
                 # The rest will be the type information
                 arg_type, arg = arg.rsplit(None, 1)
@@ -532,7 +545,7 @@ class FunctionDef(BaseDef, FixWxPrefix):
                         default = param.default
                         default = defValueMap.get(default, default)
                         default = '|'.join([self.cleanName(x, True) for x in default.split('|')])
-                    params.append(P(s, param_type, default))
+                    params.append(P(s, param_type, default, is_fake=param.isNameFake))
                     if default == 'None':
                         params[-1].make_optional()
         if getattr(self, 'isCtor', False):
@@ -550,7 +563,7 @@ class FunctionDef(BaseDef, FixWxPrefix):
             return_type = returns[0]
         else:
             return_type = f"Tuple[{', '.join(returns)}]"
-        kind = MethodType.STATIC_METHOD if getattr(self, 'isStatic', False) else type(self)._default_method_type
+        kind = MethodType.STATIC_METHOD if getattr(self, 'isStatic', False) else self._default_method_type
         self.signature = Signature(name, *params, return_type=return_type, method_type=kind)
         self.pyArgsString = self.signature.args_string(False)
 
@@ -654,6 +667,7 @@ class ParamDef(BaseDef):
         self.transferThis = False     # ownership of 'this' pointer transferred to this arg
         self.keepReference = False    # an extra reference to the arg is held
         self.constrained = False      # limit auto-conversion of similar types (like float -> int)
+        self.isNameFake = False       # name was made up because wxWidgets didn't provide one
         self.__dict__.update(kw)
         if element is not None:
             self.extract(element)
@@ -875,6 +889,10 @@ class ClassDef(BaseDef):
         counts.
         """
         def countNonDefaultArgs(m):
+            if isinstance(m, CppMethodDef):
+                # These have their parameters in argsString instead of items
+                args = m.argsString[:m.argsString.rfind(')')].lstrip('(')
+                return sum(1 for arg in args.split(',') if arg.strip() and '=' not in arg)
             count = 0
             for p in m.items:
                 if not p.default and not p.ignored:
@@ -927,11 +945,11 @@ class ClassDef(BaseDef):
                         if m.ignored or m.isStatic:
                             continue
                         if prefix == 'Get':
-                            prop.getter = m.name
                             # Getters must be able to be called with no args, ensure
                             # that item has exactly zero args without a default value
                             if countNonDefaultArgs(m) != 0:
                                 continue
+                            prop.getter = m.name
                             ok = True
                             break
                         elif prefix == 'Set':
@@ -1375,6 +1393,7 @@ class PyCodeDef(BaseDef):
         super(PyCodeDef, self).__init__()
         self.code = code
         self.order = order
+        self.piOnly = False     # only for the .pyi type stubs, like typing helpers
         self.__dict__.update(kw)
 
 
@@ -1514,12 +1533,22 @@ class ModuleDef(BaseDef):
                 one.append(item)
         self.items = one + two + three
 
-        # give everything an isCore flag
+        self.updateModuleInfo()
+
+
+    def updateModuleInfo(self):
+        """
+        Give everything an isCore flag, and the name of the Python module it
+        goes in. This is done again just before the generators are run,
+        because items copied from other modules while tweaking will still have
+        the values for the module they came from.
+        """
         global _globalIsCore
         _globalIsCore = self.module == '_core'
+        pyModule = self.module[1:] if self.module.startswith('_') else self.module
         for item in self.allItems():
             item.isCore = _globalIsCore
-
+            item.pyModule = pyModule
 
 
     def addHeaderCode(self, code):
@@ -1648,6 +1677,7 @@ class ModuleDef(BaseDef):
         wrapped.
         """
         md = CppMethodDef(type, name, argsString, body, doc, **kw)
+        md._default_method_type = MethodType.FUNCTION
         self.items.append(md)
         return md
 
@@ -1658,6 +1688,7 @@ class ModuleDef(BaseDef):
         wrapped.
         """
         md = CppMethodDef_sip(type, name, argsString, body, doc, **kw)
+        md._default_method_type = MethodType.FUNCTION
         self.items.append(md)
         return md
 

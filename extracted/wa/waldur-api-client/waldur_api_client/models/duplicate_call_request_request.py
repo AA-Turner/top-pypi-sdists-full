@@ -21,6 +21,7 @@ class DuplicateCallRequestRequest:
         copy_resource_templates (Union[Unset, bool]):  Default: True.
         copy_role_mappings (Union[Unset, bool]):  Default: True.
         copy_applicant_visibility_config (Union[Unset, bool]):  Default: True.
+        copy_proposal_field_config (Union[Unset, bool]):  Default: True.
         copy_coi_configuration (Union[Unset, bool]):  Default: True.
         copy_matching_configuration (Union[Unset, bool]):  Default: True.
         copy_assignment_configuration (Union[Unset, bool]):  Default: True.
@@ -34,6 +35,7 @@ class DuplicateCallRequestRequest:
     copy_resource_templates: Union[Unset, bool] = True
     copy_role_mappings: Union[Unset, bool] = True
     copy_applicant_visibility_config: Union[Unset, bool] = True
+    copy_proposal_field_config: Union[Unset, bool] = True
     copy_coi_configuration: Union[Unset, bool] = True
     copy_matching_configuration: Union[Unset, bool] = True
     copy_assignment_configuration: Union[Unset, bool] = True
@@ -55,6 +57,8 @@ class DuplicateCallRequestRequest:
         copy_role_mappings = self.copy_role_mappings
 
         copy_applicant_visibility_config = self.copy_applicant_visibility_config
+
+        copy_proposal_field_config = self.copy_proposal_field_config
 
         copy_coi_configuration = self.copy_coi_configuration
 
@@ -83,6 +87,8 @@ class DuplicateCallRequestRequest:
             field_dict["copy_role_mappings"] = copy_role_mappings
         if copy_applicant_visibility_config is not UNSET:
             field_dict["copy_applicant_visibility_config"] = copy_applicant_visibility_config
+        if copy_proposal_field_config is not UNSET:
+            field_dict["copy_proposal_field_config"] = copy_proposal_field_config
         if copy_coi_configuration is not UNSET:
             field_dict["copy_coi_configuration"] = copy_coi_configuration
         if copy_matching_configuration is not UNSET:
@@ -111,6 +117,8 @@ class DuplicateCallRequestRequest:
 
         copy_applicant_visibility_config = d.pop("copy_applicant_visibility_config", UNSET)
 
+        copy_proposal_field_config = d.pop("copy_proposal_field_config", UNSET)
+
         copy_coi_configuration = d.pop("copy_coi_configuration", UNSET)
 
         copy_matching_configuration = d.pop("copy_matching_configuration", UNSET)
@@ -126,6 +134,7 @@ class DuplicateCallRequestRequest:
             copy_resource_templates=copy_resource_templates,
             copy_role_mappings=copy_role_mappings,
             copy_applicant_visibility_config=copy_applicant_visibility_config,
+            copy_proposal_field_config=copy_proposal_field_config,
             copy_coi_configuration=copy_coi_configuration,
             copy_matching_configuration=copy_matching_configuration,
             copy_assignment_configuration=copy_assignment_configuration,

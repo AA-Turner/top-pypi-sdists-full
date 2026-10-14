@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.rule_plan_attributes import RulePlanAttributes
     from ..models.rule_plan_limits import RulePlanLimits
+    from ..models.rule_user_claims import RuleUserClaims
 
 
 T = TypeVar("T", bound="Rule")
@@ -26,6 +27,8 @@ class Rule:
         customer_uuid (str):
         project_role_display_name (str):
         project_role_description (str):
+        customer_role_display_name (str):
+        customer_role_description (str):
         plan_name (str):
         offering_name (str):
         offering_uuid (UUID):
@@ -33,9 +36,23 @@ class Rule:
         category_url (str):
         user_affiliations (Union[Unset, list[str]]):
         user_email_patterns (Union[Unset, list[str]]):
+        user_identity_sources (Union[Unset, list[str]]):
+        user_nationalities (Union[Unset, list[str]]):
+        user_organization_types (Union[Unset, list[str]]):
+        user_assurance_levels (Union[Unset, list[str]]):
+        user_claims (Union[Unset, RuleUserClaims]): Identity provider claims the user must carry, as {"claim":
+            ["accepted", "values"]}. All claims must match; within one claim any value matches. A value ending in '*'
+            matches by prefix.
         customer (Union[None, Unset, str]):
         use_user_organization_as_customer_name (Union[Unset, bool]):
+        create_project (Union[Unset, bool]): Create (or join) a project for the matched user. Disable to grant only the
+            organization-level role.
+        project_name_template (Union[None, Unset, str]): Template for project name. Supports {username}, {email},
+            {full_name} variables
+        revoke_when_unmatched (Union[Unset, bool]): Revoke the roles this rule granted once the user stops matching it.
+            Off by default so enabling a rule cannot silently strip access that is already in use.
         project_role (Union[None, Unset, str]):
+        customer_role (Union[None, Unset, str]):
         plan (Union[None, Unset, str]):
         plan_attributes (Union[Unset, RulePlanAttributes]):
         plan_limits (Union[Unset, RulePlanLimits]):
@@ -48,6 +65,8 @@ class Rule:
     customer_uuid: str
     project_role_display_name: str
     project_role_description: str
+    customer_role_display_name: str
+    customer_role_description: str
     plan_name: str
     offering_name: str
     offering_uuid: UUID
@@ -55,9 +74,18 @@ class Rule:
     category_url: str
     user_affiliations: Union[Unset, list[str]] = UNSET
     user_email_patterns: Union[Unset, list[str]] = UNSET
+    user_identity_sources: Union[Unset, list[str]] = UNSET
+    user_nationalities: Union[Unset, list[str]] = UNSET
+    user_organization_types: Union[Unset, list[str]] = UNSET
+    user_assurance_levels: Union[Unset, list[str]] = UNSET
+    user_claims: Union[Unset, "RuleUserClaims"] = UNSET
     customer: Union[None, Unset, str] = UNSET
     use_user_organization_as_customer_name: Union[Unset, bool] = UNSET
+    create_project: Union[Unset, bool] = UNSET
+    project_name_template: Union[None, Unset, str] = UNSET
+    revoke_when_unmatched: Union[Unset, bool] = UNSET
     project_role: Union[None, Unset, str] = UNSET
+    customer_role: Union[None, Unset, str] = UNSET
     plan: Union[None, Unset, str] = UNSET
     plan_attributes: Union[Unset, "RulePlanAttributes"] = UNSET
     plan_limits: Union[Unset, "RulePlanLimits"] = UNSET
@@ -78,6 +106,10 @@ class Rule:
 
         project_role_description = self.project_role_description
 
+        customer_role_display_name = self.customer_role_display_name
+
+        customer_role_description = self.customer_role_description
+
         plan_name = self.plan_name
 
         offering_name = self.offering_name
@@ -96,6 +128,26 @@ class Rule:
         if not isinstance(self.user_email_patterns, Unset):
             user_email_patterns = self.user_email_patterns
 
+        user_identity_sources: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_identity_sources, Unset):
+            user_identity_sources = self.user_identity_sources
+
+        user_nationalities: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_nationalities, Unset):
+            user_nationalities = self.user_nationalities
+
+        user_organization_types: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_organization_types, Unset):
+            user_organization_types = self.user_organization_types
+
+        user_assurance_levels: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_assurance_levels, Unset):
+            user_assurance_levels = self.user_assurance_levels
+
+        user_claims: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.user_claims, Unset):
+            user_claims = self.user_claims.to_dict()
+
         customer: Union[None, Unset, str]
         if isinstance(self.customer, Unset):
             customer = UNSET
@@ -104,11 +156,27 @@ class Rule:
 
         use_user_organization_as_customer_name = self.use_user_organization_as_customer_name
 
+        create_project = self.create_project
+
+        project_name_template: Union[None, Unset, str]
+        if isinstance(self.project_name_template, Unset):
+            project_name_template = UNSET
+        else:
+            project_name_template = self.project_name_template
+
+        revoke_when_unmatched = self.revoke_when_unmatched
+
         project_role: Union[None, Unset, str]
         if isinstance(self.project_role, Unset):
             project_role = UNSET
         else:
             project_role = self.project_role
+
+        customer_role: Union[None, Unset, str]
+        if isinstance(self.customer_role, Unset):
+            customer_role = UNSET
+        else:
+            customer_role = self.customer_role
 
         plan: Union[None, Unset, str]
         if isinstance(self.plan, Unset):
@@ -135,6 +203,8 @@ class Rule:
                 "customer_uuid": customer_uuid,
                 "project_role_display_name": project_role_display_name,
                 "project_role_description": project_role_description,
+                "customer_role_display_name": customer_role_display_name,
+                "customer_role_description": customer_role_description,
                 "plan_name": plan_name,
                 "offering_name": offering_name,
                 "offering_uuid": offering_uuid,
@@ -146,12 +216,30 @@ class Rule:
             field_dict["user_affiliations"] = user_affiliations
         if user_email_patterns is not UNSET:
             field_dict["user_email_patterns"] = user_email_patterns
+        if user_identity_sources is not UNSET:
+            field_dict["user_identity_sources"] = user_identity_sources
+        if user_nationalities is not UNSET:
+            field_dict["user_nationalities"] = user_nationalities
+        if user_organization_types is not UNSET:
+            field_dict["user_organization_types"] = user_organization_types
+        if user_assurance_levels is not UNSET:
+            field_dict["user_assurance_levels"] = user_assurance_levels
+        if user_claims is not UNSET:
+            field_dict["user_claims"] = user_claims
         if customer is not UNSET:
             field_dict["customer"] = customer
         if use_user_organization_as_customer_name is not UNSET:
             field_dict["use_user_organization_as_customer_name"] = use_user_organization_as_customer_name
+        if create_project is not UNSET:
+            field_dict["create_project"] = create_project
+        if project_name_template is not UNSET:
+            field_dict["project_name_template"] = project_name_template
+        if revoke_when_unmatched is not UNSET:
+            field_dict["revoke_when_unmatched"] = revoke_when_unmatched
         if project_role is not UNSET:
             field_dict["project_role"] = project_role
+        if customer_role is not UNSET:
+            field_dict["customer_role"] = customer_role
         if plan is not UNSET:
             field_dict["plan"] = plan
         if plan_attributes is not UNSET:
@@ -165,6 +253,7 @@ class Rule:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.rule_plan_attributes import RulePlanAttributes
         from ..models.rule_plan_limits import RulePlanLimits
+        from ..models.rule_user_claims import RuleUserClaims
 
         d = dict(src_dict)
         name = d.pop("name")
@@ -181,6 +270,10 @@ class Rule:
 
         project_role_description = d.pop("project_role_description")
 
+        customer_role_display_name = d.pop("customer_role_display_name")
+
+        customer_role_description = d.pop("customer_role_description")
+
         plan_name = d.pop("plan_name")
 
         offering_name = d.pop("offering_name")
@@ -195,6 +288,21 @@ class Rule:
 
         user_email_patterns = cast(list[str], d.pop("user_email_patterns", UNSET))
 
+        user_identity_sources = cast(list[str], d.pop("user_identity_sources", UNSET))
+
+        user_nationalities = cast(list[str], d.pop("user_nationalities", UNSET))
+
+        user_organization_types = cast(list[str], d.pop("user_organization_types", UNSET))
+
+        user_assurance_levels = cast(list[str], d.pop("user_assurance_levels", UNSET))
+
+        _user_claims = d.pop("user_claims", UNSET)
+        user_claims: Union[Unset, RuleUserClaims]
+        if isinstance(_user_claims, Unset):
+            user_claims = UNSET
+        else:
+            user_claims = RuleUserClaims.from_dict(_user_claims)
+
         def _parse_customer(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -206,6 +314,19 @@ class Rule:
 
         use_user_organization_as_customer_name = d.pop("use_user_organization_as_customer_name", UNSET)
 
+        create_project = d.pop("create_project", UNSET)
+
+        def _parse_project_name_template(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        project_name_template = _parse_project_name_template(d.pop("project_name_template", UNSET))
+
+        revoke_when_unmatched = d.pop("revoke_when_unmatched", UNSET)
+
         def _parse_project_role(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -214,6 +335,15 @@ class Rule:
             return cast(Union[None, Unset, str], data)
 
         project_role = _parse_project_role(d.pop("project_role", UNSET))
+
+        def _parse_customer_role(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        customer_role = _parse_customer_role(d.pop("customer_role", UNSET))
 
         def _parse_plan(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -246,6 +376,8 @@ class Rule:
             customer_uuid=customer_uuid,
             project_role_display_name=project_role_display_name,
             project_role_description=project_role_description,
+            customer_role_display_name=customer_role_display_name,
+            customer_role_description=customer_role_description,
             plan_name=plan_name,
             offering_name=offering_name,
             offering_uuid=offering_uuid,
@@ -253,9 +385,18 @@ class Rule:
             category_url=category_url,
             user_affiliations=user_affiliations,
             user_email_patterns=user_email_patterns,
+            user_identity_sources=user_identity_sources,
+            user_nationalities=user_nationalities,
+            user_organization_types=user_organization_types,
+            user_assurance_levels=user_assurance_levels,
+            user_claims=user_claims,
             customer=customer,
             use_user_organization_as_customer_name=use_user_organization_as_customer_name,
+            create_project=create_project,
+            project_name_template=project_name_template,
+            revoke_when_unmatched=revoke_when_unmatched,
             project_role=project_role,
+            customer_role=customer_role,
             plan=plan,
             plan_attributes=plan_attributes,
             plan_limits=plan_limits,

@@ -119,10 +119,17 @@ class BaseAgent(ABC, Generic[ConfigT]):
                     return args[0]
         return AgentConfig
 
+    #: The distribution the agent is published as (``pyproject`` ``name``), when
+    #: it differs from the import package (``grok-build`` vs ``grok_build_agent``).
+    distribution: ClassVar[str | None] = None
+
     @classmethod
     def get_version(cls) -> str:
         """Get version from package metadata."""
-        for pkg_name in [cls.__module__.split(".")[0], f"plato-agent-{cls.name}"]:
+        candidates = [cls.__module__.split(".")[0], f"plato-agent-{cls.name}"]
+        if cls.distribution:
+            candidates.insert(0, cls.distribution)
+        for pkg_name in candidates:
             try:
                 return importlib.metadata.version(pkg_name)
             except importlib.metadata.PackageNotFoundError:

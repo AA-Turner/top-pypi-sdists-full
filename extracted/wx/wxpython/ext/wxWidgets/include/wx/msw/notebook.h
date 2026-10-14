@@ -139,7 +139,7 @@ protected:
   // common part of all ctors
   void Init();
 
-  virtual void MSWSetDarkOrLightMode(SetMode setmode) override;
+  virtual void MSWSetDarkOrLightMode() override;
 
   virtual int MSWGetToolTipMessage() const override;
 
@@ -201,6 +201,9 @@ private:
   //
   // It has the same semantics as HitTest().
   int MSWHitTestLeftRight(const wxPoint& pt, long *flags) const;
+
+  // Subclass the spin button if it exists.
+  void MSWSubclassSpin();
 
   wxDECLARE_DYNAMIC_CLASS_NO_COPY(wxNotebook);
   wxDECLARE_EVENT_TABLE();

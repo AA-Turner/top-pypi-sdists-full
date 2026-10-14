@@ -19,6 +19,8 @@ class ComponentStats:
         billing_type (str):
         usage (int):
         limit_usage (int):
+        usage_terminated (int): Part of usage that came from terminated resources.
+        limit_usage_terminated (int): Part of limit_usage that came from terminated resources.
         limit (int):
         offering_name (str):
         offering_uuid (UUID):
@@ -31,6 +33,8 @@ class ComponentStats:
     billing_type: str
     usage: int
     limit_usage: int
+    usage_terminated: int
+    limit_usage_terminated: int
     limit: int
     offering_name: str
     offering_uuid: UUID
@@ -51,6 +55,10 @@ class ComponentStats:
 
         limit_usage = self.limit_usage
 
+        usage_terminated = self.usage_terminated
+
+        limit_usage_terminated = self.limit_usage_terminated
+
         limit = self.limit
 
         offering_name = self.offering_name
@@ -68,6 +76,8 @@ class ComponentStats:
                 "billing_type": billing_type,
                 "usage": usage,
                 "limit_usage": limit_usage,
+                "usage_terminated": usage_terminated,
+                "limit_usage_terminated": limit_usage_terminated,
                 "limit": limit,
                 "offering_name": offering_name,
                 "offering_uuid": offering_uuid,
@@ -93,6 +103,10 @@ class ComponentStats:
 
         limit_usage = d.pop("limit_usage")
 
+        usage_terminated = d.pop("usage_terminated")
+
+        limit_usage_terminated = d.pop("limit_usage_terminated")
+
         limit = d.pop("limit")
 
         offering_name = d.pop("offering_name")
@@ -107,6 +121,8 @@ class ComponentStats:
             billing_type=billing_type,
             usage=usage,
             limit_usage=limit_usage,
+            usage_terminated=usage_terminated,
+            limit_usage_terminated=limit_usage_terminated,
             limit=limit,
             offering_name=offering_name,
             offering_uuid=offering_uuid,

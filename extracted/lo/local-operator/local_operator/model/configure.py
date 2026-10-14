@@ -4562,7 +4562,9 @@ class SessionStreamFn:
         """Whether ``provider`` still has spendable quota for ``model_id``.
 
         ``usable`` means at least one account still has remaining > 0
-        (healthy *or* reserve — reserve is still spendable). ``depleted``
+        (healthy *or* reserve — reserve is still spendable). Healthy also
+        includes explicitly payable balance-only credits: never require a
+        percentage to keep such an account on the route. ``depleted``
         means every account that answered is at 0%. ``unknown`` is fail-open:
         no endpoint, no report, or a fetch error, so the caller must not
         skip the target on a missing signal.
@@ -5329,6 +5331,17 @@ class SessionStreamFn:
                     )
                     await self._route_state.clear_settled("primary model still has quota")
                     return
+                # The last account's family depletion is still a definite
+                # verdict even when no fallback exists. Persist only its binding
+                # families; an account-wide block would hide payable shared
+                # credits from otherwise runnable models on this same login.
+                self._write_quota_block(
+                    self._auth_store,
+                    access.credential_id,
+                    storage,
+                    health,
+                    max(60_000, health.reset_after_ms or self.DEFAULT_USAGE_BLOCK_MS),
+                )
                 fallback = await self._first_available_fallback(
                     model,
                     reserve_percent=retry.usage_reserve_percent,
@@ -6243,7 +6256,18 @@ class SessionStreamFn:
         # Helpers may run before the user's first generation. They inherit the
         # established hard-fallback route but must not spend the user-message
         # boundary (which owns quota recovery and auto-effort classification).
-        if request.purpose == "turn":
+        #
+        # A recovery re-ask (``same_route_retry``) skips this preflight ON
+        # PURPOSE: its job here is to BLOCK a credential and activate a
+        # fallback route for the session, which is exactly the route REWRITE
+        # a recovery must never perform -- it goes back to the machine that
+        # served the failed turn. Nothing is bypassed by skipping it: the
+        # account's quota and auth constraints still land on the single wire
+        # attempt below (``stream_with_failover`` runs it with retry off, so
+        # no rotation, no chain), and an exhausted or disabled pinned route
+        # therefore stops the recovery with that failure as its reason
+        # instead of re-pointing the call at another credential or model.
+        if request.purpose == "turn" and not request.same_route_retry:
             await self.preflight_usage(request.model)
         # The binding boundary (``_note_serving_binding``): after the preflight
         # above has settled and pinned the session's credential, note it for the

@@ -180,6 +180,8 @@ class _Args:
     ratchet_cmd: str = ""
     baseline_cmd: str = ""
     selected_rules: list[RuleSelector] = field(default_factory=list)
+    test_value: bool = False
+    observation_base: str | None = None
     corpus_manifest: Path | None = None
     private_overlay: Path | None = None
     selector: RuleSelector | None = None
@@ -1128,15 +1130,6 @@ def cmd_check(args: _Args) -> int:
         if health_status:
             return health_status
         args.files = [path for path in args.files if runner.accepts_hook_path(Path(path), root=root)]
-        if not args.files and not scope.react_doctor_triggered:
-            return _run_canonical_check(
-                root,
-                (),
-                trusted=args.trust_repository_code,
-                staged=True,
-                jobs=args.jobs,
-                python_type_check=args.python_type_check,
-            )
     if args.output_format != "text":
         return _check_machine_output(args, root, scope)
     return _check_text_output(args, root, scope)
@@ -1160,6 +1153,11 @@ def _check_selected_rules(args: _Args, root: Path, scope: _CheckScope) -> int:
 
 
 def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
+    if args.staged and not args.files:
+        check_options: dict[str, bool] = {"trusted": args.trust_repository_code, "staged": True}
+        if scope.react_doctor_triggered:
+            check_options["react_doctor_triggered"] = True
+        return _run_canonical_check(root, (), jobs=args.jobs, python_type_check=args.python_type_check, **check_options)
     if scope.pull_request_scoped:
         adoption_report = _machine_adoption_gate(root)
         if adoption_report is not None:
@@ -1183,7 +1181,7 @@ def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
             )
     if not args.files:
         return cmd_verify(args)
-    check_options: dict[str, bool] = {
+    check_options = {
         "trusted": args.trust_repository_code,
         "staged": args.staged,
     }
@@ -1286,11 +1284,11 @@ def _check_machine_output(args: _Args, root: Path, scope: _CheckScope) -> int:
     args.external = True
     args.trust = "trusted" if args.trust_repository_code else "safe"
     args.analysis_mode = "policy"
-    if scope.repository_wide:
+    if scope.repository_wide and not args.staged:
         adoption_report = _machine_adoption_gate(root)
         if adoption_report is not None:
             return _emit_analysis_report(args, root, adoption_report)
-    if scope.pull_request_scoped and not args.files:
+    if (scope.pull_request_scoped or args.staged) and not args.files:
         from sarj_standards.api import (  # ruff: ignore[import-outside-top-level]
             AnalysisMode,
             Standards,
@@ -1303,6 +1301,7 @@ def _check_machine_output(args: _Args, root: Path, scope: _CheckScope) -> int:
             jobs=args.jobs,
             trust=TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE,
             mode=AnalysisMode.POLICY,
+            staged=args.staged,
             react_doctor_triggered=scope.react_doctor_triggered,
             python_type_check=args.python_type_check,
         )
@@ -1400,6 +1399,11 @@ def _run_canonical_check(
     rendered = to_text(report)
     if rendered:
         print(rendered, end="" if rendered.endswith("\n") else "\n")
+    if staged and report.diagnostics:
+        print(
+            "Agent: address the findings above. Run `code-standards fix --staged` for safe mechanical fixes, "
+            "review the changes, stage the intended edits, and retry the commit."
+        )
     return report.exit_code
 
 
@@ -1613,30 +1617,73 @@ def _object_table(value: object) -> dict[str, object] | None:
 
 def cmd_observe(args: _Args) -> int:
     from sarj_standards.api import AnalysisMode, Standards, TrustMode  # ruff: ignore[import-outside-top-level]
-    from sarj_standards.libs.linting.policy import warning_selectors  # ruff: ignore[import-outside-top-level]
+    from sarj_standards.libs.linting.external import UpstreamESLintRules  # ruff: ignore[import-outside-top-level]
+    from sarj_standards.libs.linting.test_value import UPSTREAM_RULES  # ruff: ignore[import-outside-top-level]
 
     root = _resolve_dest(args.dest)
     if _validate_analysis_output(args, root):
         return 2
-    warning_rules = warning_selectors()
-    invalid = sorted(set(args.selected_rules) - warning_rules)
-    if invalid:
-        rendered = ", ".join(map(str, invalid))
-        print(
-            f"error: observe accepts warning-stage rules only: {rendered}\n"
-            f"next: code-standards maintain rules stage-warning {invalid[0]}",
-            file=sys.stderr,
+    try:
+        selected_rules = _observation_rules(args)
+        files = _observation_paths(args, root)
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return _emit_analysis_report(args, root, _machine_input_error(root, str(exc)))
+    if files == []:
+        from sarj_standards.libs.diagnostics import (  # ruff: ignore[import-outside-top-level]
+            AnalysisReport,
+            Completion,
+            Conclusion,
         )
-        return 2
+
+        return _emit_analysis_report(args, root, AnalysisReport(root, Completion.COMPLETE, Conclusion.PASSED, ()))
     report = Standards(root).analyze(
-        args.files or None,
+        files,
         jobs=args.jobs,
-        external=any(selector.engine.value == "eslint" for selector in args.selected_rules),
+        external=args.test_value or any(selector.engine.value == "eslint" for selector in selected_rules),
         trust=TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE,
         mode=AnalysisMode.OBSERVE,
-        rules=args.selected_rules,
+        rules=selected_rules,
+        upstream_rules=UpstreamESLintRules(UPSTREAM_RULES, warning_only=True)
+        if args.test_value
+        else UpstreamESLintRules(),
     )
     return _emit_analysis_report(args, root, report)
+
+
+def _observation_rules(args: _Args) -> list[RuleSelector]:
+    from sarj_standards.libs.linting.policy import warning_selectors  # ruff: ignore[import-outside-top-level]
+    from sarj_standards.libs.linting.test_value import SELECTORS  # ruff: ignore[import-outside-top-level]
+
+    warning_rules = warning_selectors()
+    selected_rules = sorted(set(args.selected_rules) | (SELECTORS if args.test_value else frozenset()), key=str)
+    if not selected_rules:
+        msg = "observe requires --rule or --test-value"
+        raise ValueError(msg)
+    invalid = sorted(set(selected_rules) - warning_rules)
+    if invalid:
+        rendered = ", ".join(map(str, invalid))
+        msg = (
+            f"observe accepts warning-stage rules only: {rendered}; "
+            f"next: code-standards maintain rules stage-warning {invalid[0]}"
+        )
+        raise ValueError(msg)
+    return selected_rules
+
+
+def _observation_paths(args: _Args, root: Path) -> list[str] | None:
+    from sarj_standards.libs.linting.test_value import select_test_paths  # ruff: ignore[import-outside-top-level]
+
+    files = args.files or None
+    if args.observation_base is not None:
+        if args.files:
+            msg = "observe --base cannot be combined with explicit paths"
+            raise ValueError(msg)
+        files = _changed_file_paths(root, args.observation_base)
+    if args.test_value:
+        candidates = _selected_paths(root, files) if files is not None else _selected_paths(root, ["."])
+        return select_test_paths(root, candidates)
+    return files
 
 
 def _rule_evaluation_summary(report: object, selectors: Sequence[RuleSelector]) -> str:
@@ -2000,7 +2047,7 @@ def _staged_file_names(root: Path) -> list[str]:
         msg = "git is required for --staged"
         raise OSError(msg)
     completed = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv, no shell.
-        [git, "diff", "--cached", "--name-only", "--diff-filter=ACDMR", "-z"],
+        [git, "diff", "--cached", "--name-only", "-z"],
         cwd=root,
         check=True,
         capture_output=True,
@@ -2150,11 +2197,9 @@ def cmd_format(args: _Args) -> int:
         print("fix: run `code-standards doctor --repair`, then retry", file=sys.stderr)
         return 2 if any(finding.id in _INVALID_DOCTOR_IDS for finding in drifted) else 1
     if args.staged:
-        try:
-            args.files = _staged_files(root)
-        except (OSError, subprocess.SubprocessError) as exc:
-            print(f"error: cannot read staged files: {exc}", file=sys.stderr)
-            return 2
+        selection_status = _select_staged_fix(args, root)
+        if selection_status is not None:
+            return selection_status
     elif args.files:
         try:
             args.files = _selected_paths(root, args.files)
@@ -2169,6 +2214,27 @@ def cmd_format(args: _Args) -> int:
         else lifecycle.format_commands(ecosystems, root=root)
     )
     return lifecycle.execute(commands)
+
+
+def _select_staged_fix(args: _Args, root: Path) -> int | None:
+    try:
+        staged_names = _staged_file_names(root)
+        drifted = _unstaged_versions(root, staged_names)
+        if drifted:
+            print(
+                "error: --staged found files with unstaged content; stage the intended versions before fixing: "
+                + ", ".join(drifted),
+                file=sys.stderr,
+            )
+            return 2
+        args.files = _safe_staged_paths(root, staged_names)
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"error: cannot read staged files: {exc}", file=sys.stderr)
+        return 2
+    if not args.files:
+        print("No staged files to fix.")
+        return 0
+    return None
 
 
 def _staged_files(root: Path) -> list[str]:
@@ -3043,7 +3109,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             bool,
             typer.Option(
                 "--staged",
-                help="run custom rules on hook-supplied paths, or discover staged files when none are supplied",
+                help="run the complete gate on staged files; optional paths narrow the staged selection",
             ),
         ] = False,
         selected_rules: Annotated[
@@ -3094,9 +3160,15 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
         ctx: typer.Context,
         *,
         selected_rules: Annotated[
-            list[RuleSelector],
+            list[RuleSelector] | None,
             typer.Option("--rule", parser=_parse_rule_selector, help="canonical ENGINE:ID selector (repeatable)"),
-        ],
+        ] = None,
+        test_value: Annotated[
+            bool, typer.Option("--test-value", help="report the curated opt-in test-oracle advisories")
+        ] = False,
+        base: Annotated[
+            str | None, typer.Option("--base", help="observe existing paths changed from this Git base")
+        ] = None,
         output_format: Annotated[_DiagnosticFormat, typer.Option("--format")] = _DiagnosticFormat.TEXT,
         output: Annotated[Path | None, typer.Option("--output")] = None,
         trust_repository_code: Annotated[
@@ -3112,7 +3184,9 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             _Args(
                 dest=_command_root(ctx),
                 cmd="observe",
-                selected_rules=selected_rules,
+                selected_rules=selected_rules or [],
+                test_value=test_value,
+                observation_base=base,
                 output_format=output_format.value,
                 output=output if output is not None else None,
                 trust_repository_code=trust_repository_code,

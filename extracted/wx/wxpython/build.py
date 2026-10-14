@@ -14,8 +14,10 @@
 #----------------------------------------------------------------------
 
 import sys
+import concurrent.futures
 import glob
 import hashlib
+import json
 import optparse
 import os
 import re
@@ -34,10 +36,7 @@ import warnings
 from pathlib import Path
 from shutil import which
 
-try:
-    from setuptools.modified import newer, newer_group
-except ImportError:
-    from distutils.dep_util import newer, newer_group
+from setuptools.modified import newer, newer_group
 
 from buildtools.config  import Config, msg, opj, posixjoin, loadETG, etg2sip, findCmd, \
                                phoenixDir, wxDir, copyIfNewer, copyFile, \
@@ -140,11 +139,11 @@ Usage: ./build.py [command(s)] [options]
       sdist_demo    Build a tarball containing just the demo and samples folders
       bdist         Create a binary tarball release of wxPython Phoenix
       bdist_docs    Build a tarball containing the documentation
-      bdist_egg     Build a Python egg.  Requires magic.
-      bdist_wheel   Build a Python wheel.  Requires magic.
 
       test          Run the unit test suite
       test_*        Run just the one named test module
+      check_stubs   Check the generated .pyi type stubs with several type checkers
+      stubtest      Compare the .pyi type stubs with the built wx package
 
       clean_wx      Clean the wx parts of the build
       clean_py      Clean the wxPython parts of the build
@@ -433,11 +432,10 @@ def makeOptionParser():
 
         ("no_magic",       (False, "Do NOT use the magic that will enable the wxWidgets "
                                    "libraries to be bundled with wxPython. (Such as when "
-                                   "using an uninstalled wx/wxPython from the build dir, "
-                                   "or when distributing wxPython as an egg.)  When using "
-                                   "this flag you should either build with an already "
-                                   "installed wxWidgets, or allow this script to build and "
-                                   "install wxWidgets independently of wxPython.")),
+                                   "using an uninstalled wx/wxPython from the build dir.)  "
+                                   "When using this flag you should either build with an "
+                                   "already installed wxWidgets, or allow this script to "
+                                   "build and install wxWidgets independently of wxPython.")),
 
         ("build_dir",      ("",    "Directory to store wx build files. (Not used on Windows)")),
         ("prefix",         ("",    "Prefix value to pass to the wx build.")),
@@ -456,8 +454,8 @@ def makeOptionParser():
         ("cairo",          (False, "Allow Cairo use with wxGraphicsContext (Windows only)")),
         ("x64",            (False, "Use and build for the 64bit version of Python on Windows")),
         ("jom",            (False, "Use jom instead of nmake for the wxMSW build")),
-        ("pytest_timeout", ("0",   "Timeout, in seconds, for stopping stuck test cases. (Currently not working as expected, so disabled by default.)")),
-        ("pytest_jobs",    ("",    "Number of parallel processes py.test should run")),
+        ("pytest_timeout", ("",    "Timeout, in seconds, for stopping stuck test cases. Overrides the default set in pyproject.toml; use 0 to disable.")),
+        ("pytest_jobs",    ("",    "Number of parallel processes py.test should run. Overrides the default (auto) set in pyproject.toml.")),
         ("docker_img",     ("all", "Comma separated list of image tags to use for the build_docker command. Defaults to \"all\"")),
         ("dump_waf_log",   (False, "If the waf build tool fails then using this option will cause waf's configure log to be printed")),
         ("regenerate_sysconfig", (False, "Waf uses Python's sysconfig and related tools to configure the build. In some cases that info can be incorrect, so this option regenerates it. Must have write access to Python's lib folder.")),
@@ -1124,7 +1122,85 @@ def cmd_version(options, args):
     print(cfg.VERSION)
 
 
+def _mergeParallelEtgOutput(parallelDir, scriptsRunInOrder):
+    """
+    Merge the per-script itemToModuleMap.json and .pyi contributions that
+    etg scripts wrote to parallelDir (see etgtools.generators.etgParallelOutputDir)
+    back into the real, shared files. The .pyi sections are applied in
+    scriptsRunInOrder so the result matches what a sequential run would have
+    produced.
+    """
+    from etgtools.item_module_map import ItemModuleMap
+    from etgtools.pi_generator import PiWrapperGenerator, checkAndWriteHeader, \
+                                       header_pyi, typing_imports, phoenixRoot
+
+    mapFile = ItemModuleMap().fileName
+    merged = {}
+    if os.path.isfile(mapFile):
+        with open(mapFile, 'rt', encoding='utf-8') as fid:
+            merged = json.load(fid) or {}
+    for script in scriptsRunInOrder:
+        scriptId = os.path.splitext(os.path.basename(script))[0]
+        partial = opj(parallelDir, 'itemmap', scriptId + '.json')
+        if not os.path.exists(partial):
+            continue
+        with open(partial, 'rt', encoding='utf-8') as fid:
+            merged.update(json.load(fid))
+    with open(mapFile, 'wt', encoding='utf-8') as fid:
+        json.dump(merged, fid, sort_keys=True, indent=0, separators=(',', ':'))
+
+    piGen = PiWrapperGenerator()
+    for script in scriptsRunInOrder:
+        scriptId = os.path.splitext(os.path.basename(script))[0]
+        partial = opj(parallelDir, 'pyi', scriptId + '.json')
+        if not os.path.exists(partial):
+            continue
+        with open(partial, 'rt', encoding='utf-8') as fid:
+            data = json.load(fid)
+        name = data['module']
+        if name.startswith('_'):
+            name = name[1:]
+        destFile_pyi = os.path.join(phoenixRoot, 'wx', name) + '.pyi'
+        checkAndWriteHeader(destFile_pyi, header_pyi, data['docstring'])
+        piGen.writeSection(destFile_pyi, 'typing-imports', typing_imports, at_end=False)
+        piGen.writeSection(destFile_pyi, data['section'], data['text'])
+
+
+def _runEtgScripts(options, scripts, flags, env=None, quiet=False):
+    """
+    Run etg scripts concurrently. If quiet, their output is only shown if
+    they fail.
+    """
+    if not scripts:
+        return
+    maxWorkers = int(options.jobs) if options.jobs else max(2, numCPUs())
+    maxWorkers = min(maxWorkers, len(scripts))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=maxWorkers) as executor:
+        futures = [executor.submit(runcmd, '"%s" %s %s' % (PYTHON, script, flags),
+                                   getOutput=quiet, env=env)
+                   for script in scripts]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()  # re-raises on failure
+
+
+def _runEtgScriptsParallel(options, scripts, flags):
+    """
+    Run etg scripts concurrently. Only safe for --nodoc runs: that skips
+    the order-sensitive doc cross-referencing in the sphinx doc generator,
+    leaving the .pyi writer and itemToModuleMap.json as the only shared
+    state, both of which are made parallel-safe via etgParallelOutputDir()
+    (see etgtools/pi_generator.py and etgtools/item_module_map.py) and
+    merged back in afterwards.
+    """
+    with tempfile.TemporaryDirectory(prefix='etg_parallel_') as parallelDir:
+        env = dict(os.environ, WXPY_ETG_PARALLEL_DIR=parallelDir)
+        _runEtgScripts(options, scripts, flags, env)
+        _mergeParallelEtgOutput(parallelDir, scripts)
+
+
 def cmd_etg(options, args):
+    from etgtools import typeinfo
+
     cmdTimer = CommandTimer('etg')
     cfg = Config()
     assert os.path.exists(cfg.DOXY_XML_DIR), "Doxygen XML folder not found: " + cfg.DOXY_XML_DIR
@@ -1143,8 +1219,8 @@ def cmd_etg(options, args):
         etgfiles.remove(core_file)
         etgfiles.insert(0, core_file)
 
+    allDeps = {}
     for script in etgfiles:
-        sipfile = etg2sip(script)
         deps = [script]
         ns = loadETG(script)
         if hasattr(ns, 'ETGFILES'):
@@ -1153,9 +1229,37 @@ def cmd_etg(options, args):
             deps += ns.DEPENDS
         if hasattr(ns, 'OTHERDEPS'):
             deps += ns.OTHERDEPS
+        allDeps[script] = deps
 
-        # run the script only if any dependencies are newer
-        if newer_group(deps, sipfile):
+    def scriptId(script):
+        return os.path.splitext(os.path.basename(script))[0]
+
+    # The first pass collects the type info that scripts need from each
+    # other, for any scripts that have changed. See etgtools/typeinfo.py
+    toRun = [script for script in etgfiles
+             if newer_group(allDeps[script], typeinfo.scriptInfoFile(scriptId(script)))]
+    # The second pass runs these scripts too, which will show any warnings
+    _runEtgScripts(options, toRun, flags + ' --typeinfo', quiet=True)
+    typeinfo.mergeScriptInfo([scriptId(script) for script in etgfiles])
+
+    # The second pass runs the scripts for real, if any of their
+    # dependencies, or the type info from the other scripts, are newer
+    toRun = [script for script in etgfiles
+             if newer_group(allDeps[script] + [typeinfo.MERGED_FILE], etg2sip(script))]
+
+    # Stubs for the package itself go with the stubs the scripts make
+    for name in ['__init__.pyi', '__version__.pyi', 'siplib.pyi']:
+        copyIfNewer(opj('src', name), opj(cfg.PKGDIR, name))
+
+    if not toRun:
+        return
+
+    if options.nodoc:
+        _runEtgScriptsParallel(options, toRun, flags)
+    else:
+        # The full doc generator does order-sensitive cross-module lookups,
+        # so it isn't safe to parallelize; run it the original way.
+        for script in toRun:
             runcmd('"%s" %s %s' % (PYTHON, script, flags))
 
 
@@ -1296,6 +1400,137 @@ def cmd_bdist_docs(options, args):
 
 
 
+def _sipModuleNeedsBuild(cfg, src_name):
+    """Whether sip needs to be re-run for this module."""
+    src_name = src_name.replace('\\', '/')
+    base = os.path.basename(os.path.splitext(src_name)[0])
+    sbf = posixjoin(cfg.ROOT_DIR, cfg.SIPOUT, base) + '.sbf'
+    pycode = base[1:] # remove the leading _
+    pycode = opj(cfg.ROOT_DIR, cfg.PKGDIR, pycode) + '.py'
+
+    etg = loadETG(posixjoin('etg', base + '.py'))
+    sipFiles = getSipFiles(etg.INCLUDES) + [opj(cfg.SIPGEN, base+'.sip')]
+    return newer_group(sipFiles, sbf) or not os.path.exists(pycode)
+
+
+def _buildSipModule(cfg, options, src_name):
+    """Run sip-build for one top-level module and copy changed output into cfg.SIPOUT.
+
+    Safe to call concurrently: uses absolute paths and cwd=, never os.chdir().
+    """
+    tmpdir = tempfile.mkdtemp()
+    tmpdir = tmpdir.replace('\\', '/')
+    src_name = src_name.replace('\\', '/')
+    base = os.path.basename(os.path.splitext(src_name)[0])
+    sbf = posixjoin(cfg.ROOT_DIR, cfg.SIPOUT, base) + '.sbf'
+    pycode = base[1:] # remove the leading _
+    pycode = opj(cfg.ROOT_DIR, cfg.PKGDIR, pycode) + '.py'
+
+    # SIP extracts are used to pull python snippets and put them into the
+    # module's .py file
+    pycode = 'pycode'+base+':'+pycode
+
+    # Write out a pyproject.toml to configure sip
+    pyproject_toml = textwrap.dedent("""\
+        [build-system]
+        requires = ["sip >=6.10, <7"]
+        build-backend = "sipbuild.api"
+
+        [project]
+        name = "{base}"
+
+        [tool.sip.bindings.{base}]
+        docstrings = true
+        release-gil = true
+        exceptions = false
+        tracing = {tracing}
+        protected-is-public = false
+        generate-extracts = [\'{extracts}\']
+        pep484-pyi = false
+
+        [tool.sip.project]
+        abi-version = "{abi_version}"
+        sip-files-dir = '{sip_gen_dir}'
+        sip-include-dirs = ['{src_dir}']
+        sip-module = "wx.siplib"
+        """.format(
+            base=base,
+            abi_version=cfg.SIP_ABI,
+            tracing=str(cfg.SIP_TRACE).lower(),
+            extracts=pycode,
+            src_dir=opj(phoenixDir(), 'src'),
+            sip_gen_dir=opj(phoenixDir(), 'sip', 'gen'),
+            )
+    )
+    Path(tmpdir, 'pyproject.toml').write_text(pyproject_toml)
+
+    cmd = 'sip-build --no-compile'
+    runcmd(cmd, cwd=tmpdir)
+
+    # Write out a sip build file (no longer done by sip itself)
+    sip_tmp_out_dir = opj(tmpdir, 'build', base)
+    header = os.path.basename(min(glob.glob(opj(sip_tmp_out_dir, '*.h'))))
+    sources = sorted(os.path.basename(s) for s in glob.glob(opj(sip_tmp_out_dir, '*.cpp')))
+    Path(sbf).write_text(f"sources = {' '.join(sources)}\nheaders = {header}\n")
+    classesNeedingClassInfo = { 'sip_corewxTreeCtrl.cpp' : 'wxTreeCtrl', }
+
+    def processSrc(src, keepHashLines=False):
+        with open(src, 'rt', encoding="utf-8") as f:
+            srcTxt = f.read()
+            if keepHashLines:
+                # Either just fix the pathnames in the #line lines...
+                srcTxt = srcTxt.replace(sip_tmp_out_dir, cfg.SIPOUT)
+            else:
+                # ...or totally remove them by replacing those lines with ''
+                import re
+                srcTxt = re.sub(r'^\s*#line.*\n', '', srcTxt, flags=re.MULTILINE)
+            className = classesNeedingClassInfo.get(os.path.basename(src))
+            if className:
+                srcTxt = injectClassInfo(className, srcTxt)
+        return srcTxt
+
+    def injectClassInfo(className, srcTxt):
+        # inject wxClassInfo macros into the sip generated wrapper class
+        lines = srcTxt.splitlines()
+        # find the beginning of the class declaration
+        for idx, line in enumerate(lines):
+            if line.startswith('class sip{}'.format(className)):
+                # next line is '{', insert after that
+                lines[idx+2:idx+2] = ['wxDECLARE_ABSTRACT_CLASS(sip{});'.format(className)]
+                break
+        # find the '};' that terminates the class
+        for idx, line in enumerate(lines[idx+2:], idx+2):
+            if line.startswith('};'):
+                lines[idx+1:idx+1] = ['\nwxIMPLEMENT_ABSTRACT_CLASS(sip{0}, {0});'.format(className)]
+                break
+        # join it back up and return
+        return '\n'.join(lines)
+
+
+    # Check each file in tmpdir to see if it is different than the same file
+    # in cfg.SIPOUT. If so then copy the new one to cfg.SIPOUT, otherwise
+    # ignore it.
+    for src in sorted(glob.glob(sip_tmp_out_dir + '/*')):
+        dest = Path(opj(cfg.SIPOUT, os.path.basename(src)))
+        if not dest.exists():
+            msg('%s is a new file, copying...' % os.path.basename(src))
+            srcTxt = processSrc(src, options.keep_hash_lines)
+            dest.write_text(srcTxt, encoding="utf-8")
+            continue
+
+        srcTxt = processSrc(src, options.keep_hash_lines)
+        destTxt = dest.read_text(encoding="utf-8")
+
+        if srcTxt == destTxt:
+            pass
+        else:
+            msg('%s is changed, copying...' % os.path.basename(src))
+            dest.write_text(srcTxt, encoding="utf-8")
+
+    # Remove tmpdir and its contents
+    shutil.rmtree(tmpdir)
+
+
 def cmd_sip(options, args):
     cmdTimer = CommandTimer('sip')
     cfg = Config()
@@ -1307,134 +1542,17 @@ def cmd_sip(options, args):
         modules.remove(core_file)
         modules.insert(0, core_file)
 
-    for src_name in modules:
-        tmpdir = tempfile.mkdtemp()
-        tmpdir = tmpdir.replace('\\', '/')
-        src_name = src_name.replace('\\', '/')
-        base = os.path.basename(os.path.splitext(src_name)[0])
-        sbf = posixjoin(cfg.ROOT_DIR, cfg.SIPOUT, base) + '.sbf'
-        pycode = base[1:] # remove the leading _
-        pycode = opj(cfg.ROOT_DIR, cfg.PKGDIR, pycode) + '.py'
+    # Each module's output is independent, so build the stale ones in parallel.
+    modules_to_build = [src_name for src_name in modules if _sipModuleNeedsBuild(cfg, src_name)]
 
-        # Check if any of the included files are newer than the .sbf file
-        # produced by the previous run of sip. If not then we don't need to
-        # run sip again.
-        etg = loadETG(posixjoin('etg', base + '.py'))
-        sipFiles = getSipFiles(etg.INCLUDES) + [opj(cfg.SIPGEN, base+'.sip')]
-        if not newer_group(sipFiles, sbf) and os.path.exists(pycode):
-            continue
-
-        # Leave it turned off for now. TODO: Experiment with this...
-        # pyi_extract = posixjoin(cfg.PKGDIR, base[1:]) + '.pyi'
-        pyi_extract = None
-
-        # SIP extracts are used to pull python snippets and put them into the
-        # module's .py file
-        pycode = 'pycode'+base+':'+pycode
-
-        # Write out a pyproject.toml to configure sip
-        pyproject_toml = textwrap.dedent("""\
-            [build-system]
-            requires = ["sip >=6.6.2, <7"]
-            build-backend = "sipbuild.api"
-
-            [project]
-            name = "{base}"
-
-            [tool.sip.bindings.{base}]
-            docstrings = true
-            release-gil = true
-            exceptions = false
-            tracing = {tracing}
-            protected-is-public = false
-            generate-extracts = [\'{extracts}\']
-            pep484-pyi = false
-
-            [tool.sip.project]
-            abi-version = "{abi_version}"
-            sip-files-dir = '{sip_gen_dir}'
-            sip-include-dirs = ['{src_dir}']
-            sip-module = "wx.siplib"
-            """.format(
-                base=base,
-                abi_version=cfg.SIP_ABI,
-                tracing=str(cfg.SIP_TRACE).lower(),
-                extracts=pycode,
-                src_dir=opj(phoenixDir(), 'src'),
-                sip_gen_dir=opj(phoenixDir(), 'sip', 'gen'),
-                )
-        )
-        Path(tmpdir, 'pyproject.toml').write_text(pyproject_toml)
-
-        sip_pwd = pushDir(tmpdir)
-        cmd = 'sip-build --no-compile'
-        runcmd(cmd)
-        del sip_pwd
-
-        # Write out a sip build file (no longer done by sip itself)
-        sip_tmp_out_dir = opj(tmpdir, 'build', base)
-        sip_pwd = pushDir(sip_tmp_out_dir)
-        header = min(glob.glob('*.h'))
-        sources = sorted(glob.glob('*.cpp'))
-        del sip_pwd
-        Path(sbf).write_text(f"sources = {' '.join(sources)}\nheaders = {header}\n")
-        classesNeedingClassInfo = { 'sip_corewxTreeCtrl.cpp' : 'wxTreeCtrl', }
-
-        def processSrc(src, keepHashLines=False):
-            with open(src, 'rt', encoding="utf-8") as f:
-                srcTxt = f.read()
-                if keepHashLines:
-                    # Either just fix the pathnames in the #line lines...
-                    srcTxt = srcTxt.replace(sip_tmp_out_dir, cfg.SIPOUT)
-                else:
-                    # ...or totally remove them by replacing those lines with ''
-                    import re
-                    srcTxt = re.sub(r'^\s*#line.*\n', '', srcTxt, flags=re.MULTILINE)
-                className = classesNeedingClassInfo.get(os.path.basename(src))
-                if className:
-                    srcTxt = injectClassInfo(className, srcTxt)
-            return srcTxt
-
-        def injectClassInfo(className, srcTxt):
-            # inject wxClassInfo macros into the sip generated wrapper class
-            lines = srcTxt.splitlines()
-            # find the beginning of the class declaration
-            for idx, line in enumerate(lines):
-                if line.startswith('class sip{}'.format(className)):
-                    # next line is '{', insert after that
-                    lines[idx+2:idx+2] = ['wxDECLARE_ABSTRACT_CLASS(sip{});'.format(className)]
-                    break
-            # find the '};' that terminates the class
-            for idx, line in enumerate(lines[idx+2:], idx+2):
-                if line.startswith('};'):
-                    lines[idx+1:idx+1] = ['\nwxIMPLEMENT_ABSTRACT_CLASS(sip{0}, {0});'.format(className)]
-                    break
-            # join it back up and return
-            return '\n'.join(lines)
-
-
-        # Check each file in tmpdir to see if it is different than the same file
-        # in cfg.SIPOUT. If so then copy the new one to cfg.SIPOUT, otherwise
-        # ignore it.
-        for src in sorted(glob.glob(sip_tmp_out_dir + '/*')):
-            dest = Path(opj(cfg.SIPOUT, os.path.basename(src)))
-            if not dest.exists():
-                msg('%s is a new file, copying...' % os.path.basename(src))
-                srcTxt = processSrc(src, options.keep_hash_lines)
-                dest.write_text(srcTxt, encoding="utf-8")
-                continue
-
-            srcTxt = processSrc(src, options.keep_hash_lines)
-            destTxt = dest.read_text(encoding="utf-8")
-
-            if srcTxt == destTxt:
-                pass
-            else:
-                msg('%s is changed, copying...' % os.path.basename(src))
-                dest.write_text(srcTxt, encoding="utf-8")
-
-        # Remove tmpdir and its contents
-        shutil.rmtree(tmpdir)
+    if modules_to_build:
+        maxWorkers = int(options.jobs) if options.jobs else max(2, numCPUs())
+        maxWorkers = min(maxWorkers, len(modules_to_build))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=maxWorkers) as executor:
+            futures = [executor.submit(_buildSipModule, cfg, options, src_name)
+                       for src_name in modules_to_build]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()  # re-raises on failure
 
     # Generate sip module code
     deleteIfExists(cfg.SIPINC)
@@ -1469,17 +1587,13 @@ def cmd_test(options, args, tests=None):
     cmdTimer = CommandTimer('test')
     pwd = pushDir(phoenixDir())
 
-    # --boxed runs each test in a new process (only for posix *&##$#@$^!!)
-    # -n is the number of processes to run in parallel
-    # --timeout will kill the test process if it gets stuck
+    # -n overrides the default (-nauto) set in pyproject.toml
+    # --timeout overrides the default set in pyproject.toml
     jobs = '-n{}'.format(options.pytest_jobs) if options.pytest_jobs else ''
-    boxed = '--forked' if not isWindows else ''
-    sec = options.pytest_timeout
-    timeout = '--timeout={}'.format(sec) if sec and sec != "0" else ''
-    cmd = '"{}" -m pytest {} {} {} {} {} '.format(
+    timeout = '--timeout={}'.format(options.pytest_timeout) if options.pytest_timeout else ''
+    cmd = '"{}" -m pytest {} {} {} {} '.format(
         PYTHON,
         '-v' if options.verbose else '',
-        boxed,
         jobs,
         timeout,
         options.extra_pytest)
@@ -1491,7 +1605,20 @@ def cmd_test(options, args, tests=None):
         # otherwise, run only the test modules given
         cmd += ' '.join(tests)
 
-    runcmd(cmd, fatal=False)
+    runcmd(cmd)
+
+
+
+def cmd_check_stubs(options, args):
+    cmdTimer = CommandTimer('check_stubs')
+    pwd = pushDir(phoenixDir())
+    runcmd('"%s" unittests/type_checks/check_stubs.py' % PYTHON)
+
+
+def cmd_stubtest(options, args):
+    cmdTimer = CommandTimer('stubtest')
+    pwd = pushDir(phoenixDir())
+    runcmd('"%s" unittests/type_checks/check_stubs.py --stubtest' % PYTHON)
 
 
 
@@ -1939,7 +2066,12 @@ def cmd_build_pdbzip(options, args):
         if not filenames:
             msg('No PDB files found in ./wx!')
             return
-        arch = 'win_amd64' if PYTHON_ARCH == '64bit' else 'win32'
+        if PYTHON_MACHINE == 'ARM64':
+            arch = 'win_arm64'
+        elif PYTHON_ARCH == '64bit':
+            arch = 'win_amd64'
+        else:
+            arch = 'win32'
         pyver = 'py{}'.format(PYSHORTVER)
         zipname = 'dist/{}-pdb-{}-{}-{}.zip'.format(baseName, cfg.VERSION, pyver, arch)
         from zipfile import ZipFile, ZIP_DEFLATED
@@ -1952,63 +2084,6 @@ def cmd_build_pdbzip(options, args):
             os.unlink(name)
         msg('PDB files removed from ./wx')
         return zipname
-
-
-def _doSimpleSetupCmd(options, args, setupCmd):
-    cmdTimer = CommandTimer(setupCmd)
-    VERBOSE = '--verbose' if options.verbose else ''
-    cmd = '"%s" setup.py %s --skip-build  %s %s' % (PYTHON, setupCmd, VERBOSE, options.extra_setup)
-    runcmd(cmd)
-
-
-def cmd_bdist_egg(options, args):
-    pdbzip = cmd_build_pdbzip(options, args)
-    _doSimpleSetupCmd(options, args, 'bdist_egg')
-    cfg = Config()
-    if options.upload:
-        filemask = "dist/%s-%s-*.egg" % (baseName, cfg.VERSION)
-        filenames = sorted(glob.glob(filemask))
-        assert len(filenames) == 1, "Unknown files found:"+repr(filenames)
-        uploadPackage(filenames[0], options)
-        if pdbzip:
-            uploadPackage(pdbzip, options, keep=24,
-                          mask='%s-pdb-%s*' % (baseName, cfg.VER_MAJOR))
-
-def cmd_bdist_wheel(options, args):
-    pdbzip = cmd_build_pdbzip(options, args)
-    _doSimpleSetupCmd(options, args, 'bdist_wheel')
-    cfg = Config()
-    if options.upload:
-        filemask = "dist/%s-%s-*.whl" % (baseName, cfg.VERSION)
-        filenames = sorted(glob.glob(filemask))
-        print(f'**** filemask: {filemask}')
-        print(f'**** matched:  {filenames}')
-        print(f'**** all dist: {sorted(glob.glob("dist/*"))}')
-
-        assert len(filenames) == 1, "Unknown files found:"+repr(filenames)
-        uploadPackage(filenames[0], options)
-        if pdbzip:
-            uploadPackage(pdbzip, options, keep=24,
-                          mask='%s-pdb-%s*' % (baseName, cfg.VER_MAJOR))
-
-
-def cmd_bdist_wininst(options, args):
-    pdbzip = cmd_build_pdbzip(options, args)
-    _doSimpleSetupCmd(options, args, 'bdist_wininst')
-    cfg = Config()
-    if options.upload:
-        filemask = "dist/%s-%s-*.exe" % (baseName, cfg.VERSION)
-        filenames = sorted(glob.glob(filemask))
-        assert len(filenames) == 1, "Unknown files found:"+repr(filenames)
-        uploadPackage(filenames[0], options)
-        if pdbzip:
-            uploadPackage(pdbzip, options, keep=24,
-                          mask='%s-pdb-%s*' % (baseName, cfg.VER_MAJOR))
-
-
-def cmd_bdist_msi(options, args):
-    cmd_build_pdbzip(options, args)
-    _doSimpleSetupCmd(options, args, 'bdist_msi')
 
 
 def cmd_egg_info(options, args, egg_base=None):
@@ -2138,6 +2213,7 @@ def cmd_cleanall(options, args):
     for wc in ['sip/cpp/*.h', 'sip/cpp/*.cpp', 'sip/cpp/*.sbf', 'sip/gen/*.sip']:
         files += sorted(glob.glob(wc))
     delFiles(files)
+    deleteIfExists(opj('sip', 'gen', 'typeinfo'))
 
     cmd_clean_docker(options, args)
 

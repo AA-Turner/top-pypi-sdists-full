@@ -40,6 +40,7 @@ Usage:
     cone.run([...4 config paths...], sources={"maize": ("outlook_X.db", "united_states_of_america_maize")})
 """
 
+from geocif.utils import display_model_name
 import argparse
 import ast
 import configparser
@@ -466,7 +467,7 @@ def plot_grid(nat, cov, crop, forecast_year, out_stem, units="bu/ac", ncols=5,
 
         fig.suptitle(
             f"{crop.title()} yield forecast cones vs observed, "
-            f"{years[0]}-{years[-1]} — {n_states}-state aggregate ({model})",
+            f"{years[0]}-{years[-1]} — {n_states}-state aggregate ({display_model_name(model)})",
             fontsize=11, x=0.01, ha="left",
         )
         fig.supylabel(f"Yield ({units}), {agg_label}", fontsize=9)
@@ -476,7 +477,7 @@ def plot_grid(nat, cov, crop, forecast_year, out_stem, units="bu/ac", ncols=5,
         handles = [
             Patch(facecolor=color, alpha=0.22, label="Confidence interval"),
             Line2D([], [], color=color, lw=1.4, marker="o", ms=3.5,
-                   label=f"Forecast ({model})"),
+                   label=f"Forecast ({display_model_name(model)})"),
         ]
         if n_ref:
             handles.append(Line2D([], [], color="black", lw=0.9, ls="--",
@@ -549,7 +550,7 @@ def plot_anatomy(nat, band, cov, crop, forecast_year, out_stem, units="bu/ac",
                                if i == 0 else None))
 
         ax.plot(gx, pred, color=color, lw=1.8, marker="o", ms=5,
-                label=f"Forecast ({model})", zorder=4)
+                label=f"Forecast ({display_model_name(model)})", zorder=4)
 
         if track is not None and len(track):
             tg = track[track["year"] == forecast_year].sort_values("season_order")
@@ -583,7 +584,7 @@ def plot_anatomy(nat, band, cov, crop, forecast_year, out_stem, units="bu/ac",
         ax.legend(frameon=False, fontsize=8.5, loc="lower right")
         ax.set_title(
             f"{crop.title()} {forecast_year} yield forecast cone — "
-            f"{n_states}-state aggregate ({model})",
+            f"{n_states}-state aggregate ({display_model_name(model)})",
             fontsize=10.5, loc="left",
         )
         fig.subplots_adjust(right=0.80)
@@ -708,7 +709,7 @@ def plot_states(df, crop, forecast_year, out_stem, units="bu/ac", ncols=5,
         _label_bottom_axes(axes, n, ncols)
 
         fig.suptitle(
-            f"{crop.title()} {forecast_year} state forecast cones ({model})",
+            f"{crop.title()} {forecast_year} state forecast cones ({display_model_name(model)})",
             fontsize=10.5, x=0.01, ha="left",
         )
         fig.supylabel(f"Yield ({units})", fontsize=9)
@@ -718,7 +719,7 @@ def plot_states(df, crop, forecast_year, out_stem, units="bu/ac", ncols=5,
         handles = [
             Patch(facecolor=color, alpha=0.22, label="Confidence interval"),
             Line2D([], [], color=color, lw=1.4, marker="o", ms=3.5,
-                   label=f"Forecast ({model})"),
+                   label=f"Forecast ({display_model_name(model)})"),
         ]
         if live[OBS].notna().any():
             handles.append(Line2D([], [], color="black", lw=0.9, ls="--",

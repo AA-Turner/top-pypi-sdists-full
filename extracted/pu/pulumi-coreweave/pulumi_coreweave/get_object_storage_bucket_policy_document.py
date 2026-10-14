@@ -88,7 +88,7 @@ class AwaitableGetObjectStorageBucketPolicyDocumentResult(GetObjectStorageBucket
 
 
 def get_object_storage_bucket_policy_document(id: Optional[_builtins.str] = None,
-                                              statements: Optional[Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict']]] = None,
+                                              statements: Optional[Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict', 'outputs.GetObjectStorageBucketPolicyDocumentStatementResult']]] = None,
                                               version: Optional[_builtins.str] = None,
                                               opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetObjectStorageBucketPolicyDocumentResult:
     """
@@ -114,7 +114,7 @@ def get_object_storage_bucket_policy_document(id: Optional[_builtins.str] = None
 
 
     :param _builtins.str id: An optional policy identifier
-    :param Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict']] statements: The main policy element that defines the access rules for buckets and objects. Multiple statement blocks can be specified.
+    :param Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict', 'outputs.GetObjectStorageBucketPolicyDocumentStatementResult']] statements: The main policy element that defines the access rules for buckets and objects. Multiple statement blocks can be specified.
     :param _builtins.str version: The policy version, e.g. `"2012-10-17"`
     """
     __args__ = dict()
@@ -130,7 +130,7 @@ def get_object_storage_bucket_policy_document(id: Optional[_builtins.str] = None
         statements=pulumi.get(__ret__, 'statements'),
         version=pulumi.get(__ret__, 'version'))
 def get_object_storage_bucket_policy_document_output(id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                                                     statements: pulumi.Input[Optional[Optional[Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict']]]]] = None,
+                                                     statements: pulumi.Input[Optional[Optional[Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict', 'outputs.GetObjectStorageBucketPolicyDocumentStatementResult']]]]] = None,
                                                      version: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                                      opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetObjectStorageBucketPolicyDocumentResult]:
     """
@@ -156,7 +156,7 @@ def get_object_storage_bucket_policy_document_output(id: pulumi.Input[Optional[O
 
 
     :param _builtins.str id: An optional policy identifier
-    :param Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict']] statements: The main policy element that defines the access rules for buckets and objects. Multiple statement blocks can be specified.
+    :param Sequence[Union['GetObjectStorageBucketPolicyDocumentStatementArgs', 'GetObjectStorageBucketPolicyDocumentStatementArgsDict', 'outputs.GetObjectStorageBucketPolicyDocumentStatementResult']] statements: The main policy element that defines the access rules for buckets and objects. Multiple statement blocks can be specified.
     :param _builtins.str version: The policy version, e.g. `"2012-10-17"`
     """
     __args__ = dict()

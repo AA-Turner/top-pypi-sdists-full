@@ -7,6 +7,18 @@
 # - Use `pre-commit run --all-files` to test all hooks before pushing
 
 repos:
+  # OMN-20940: deployment and lab configuration never lives in a shipped
+  # repository. This hook runs the same check, at the same omniclaude commit,
+  # as the required CI context public-repo-hygiene / deployment-config (the
+  # caller .github/workflows/public-repo-hygiene.yml), so the local and CI
+  # verdicts cannot diverge. It matches by shape: no vocabulary, no token,
+  # no OMNI_HOME, and it runs on a fork.
+  - repo: https://github.com/OmniNode-ai/omniclaude
+    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae
+    hooks:
+      - id: deployment-config
+        require_serial: true
+
   # Stub implementation detection — sourced from omnibase_core (OMN-5599)
   - repo: https://github.com/OmniNode-ai/omnibase_core
     rev: 458f44ef24564956c6430ae7671570aed035c853 # pragma: allowlist secret
@@ -20,12 +32,32 @@ repos:
   # .pre-commit-hooks.yaml export (core dev HEAD after #1430 squash-merges) — never a
   # moving ref like @dev (required gate; deterministic-truth doctrine). The token below
   # is a HOLD placeholder; this PR stays unopened until the real post-merge SHA is set.
+  #
+  # OMN-20304: the same block carries the canonical-file-shape ratchet (operator
+  # ruling 2026-10-01). It refuses a new code file outside the canonical
+  # contract/node/handler/models/protocols/tests/docs locations, new imperative
+  # lines in a SKILL.md, and any new baseline, allowlist or suppression entry.
+  # Shrink-only baseline at .onex_ratchets/canonical_file_shape_baseline.txt.
+  # The rev moved from 6363509770 to the OMN-20304 commit for both hooks; the
+  # lifecycle validator's source is identical at the two commits.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: 63635097705d832e0ee9c4811093efb31349105c # pragma: allowlist secret
+    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5 # pragma: allowlist secret
     hooks:
       - id: no-noncanonical-lifecycle-classes
         args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omnibase_spi]
         files: ^src/omnibase_spi/.*\.py$
+      - id: canonical-file-shape
+
+  # OMN-20298: shape-gate detector jobs must not depend on occ-preflight
+  # (guard from omnibase_core PR 1833).
+  - repo: local
+    hooks:
+      - id: check-shape-gate-independence
+        name: Shape-gate detectors never depend on the OCC preflight (OMN-20298)
+        entry: uv run --no-project --with "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@d17f5be8be88a8d35fc6a69e13cb8c1896c3025b" python -m omnibase_core.handlers.handler_shape_gate_independence
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+        pass_filenames: true
 
   # YAML formatting (standard across ecosystem)
   - repo: https://github.com/google/yamlfmt
@@ -45,9 +77,11 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1000]
 
-  # Cross-repo enforcement hooks from onex_change_control
-  - repo: https://github.com/OmniNode-ai/onex_change_control
-    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a
+  # Hardcoded topic strings, ticketed TODO format and cosmetic lint — sourced from
+  # omnibase_core (OMN-20074, OCC retirement S8: same hook ids, no longer pulled from
+  # the change-control repository)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 6f70e56604a9f9d98b34bb9c3768a4468aeca71e
     hooks:
       - id: no-hardcoded-topics
         # Pre-existing violations — pending migration to canonical topic constants.
@@ -59,13 +93,20 @@ repos:
         #   default_github_pr_poller.yaml     — topic in YAML contract default (1 violation)
         #   exceptions_skill_routing.py       — kafka_payload() event_type literal (1 violation)
         exclude: ^(src/omnibase_spi/contracts/events/contract_git_hook_event\.py|src/omnibase_spi/contracts/events/contract_linear_snapshot_event\.py|src/omnibase_spi/contracts/events/contract_github_pr_status_event\.py|src/omnibase_spi/registry/event_registry\.py|src/omnibase_spi/contracts/defaults/default_github_pr_poller\.yaml|src/omnibase_spi/exceptions_skill_routing\.py)$
-      - id: cosmetic-lint
       - id: no-untracked-todos
         stages: [pre-commit]
+      - id: cosmetic-lint
 
   # ONEX String Version Anti-Pattern Detection
   # TODO(OMN-3832-followup): Re-enable once validate-string-versions is packaged as a
   # proper Python CLI entrypoint in omnibase_core (currently only works as a local script).
+
+  # OMN-19183 plan task A3.x: shrink-only baseline config/hardcoded_model_config_baseline.yaml;
+  # no inline suppression marker; pin must equal core_ref in .github/workflows/hardcoded-model-config.yml.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: f873d2c30201c05d4be020fa0b281b5edbfb8307 # v0.47.24
+    hooks:
+      - id: check-hardcoded-model-config-compute
 
   # Configuration and Security Hooks
   - repo: local
@@ -167,12 +208,14 @@ repos:
         stages: [manual]
 
       # Enhanced namespace isolation
+      # CI keeps the whole-tree backstop in the spi-validation-gate job.
       - id: validate-namespace-isolation
         name: SPI Namespace Isolation Validation
         entry: ./scripts/validate-namespace-isolation.sh
         language: system
-        always_run: true
-        pass_filenames: false
+        types: [python]
+        files: ^src/omnibase_spi/.*\.py$
+        pass_filenames: true
         stages: [pre-commit]
 
       # Enhanced SPI purity check
@@ -185,6 +228,7 @@ repos:
         stages: [pre-commit]
 
       # Enhanced SPI typing pattern validation (adapted from omnibase_core)
+      # CI keeps the whole-tree backstop in the spi-validation-gate job.
       - id: validate-spi-typing-patterns
         name: SPI Typing Pattern Validation
         entry: uv run python scripts/validation/validate_spi_typing_patterns.py
@@ -192,11 +236,11 @@ repos:
         types: [python]
         files: ^src/.*\.py$
         exclude: ^(tests/|scripts/).*\.py$
-        pass_filenames: false
-        args: ['src/']
+        pass_filenames: true
         stages: [pre-commit]
 
       # Enhanced SPI naming convention validation (adapted from omnibase_core)
+      # CI keeps the whole-tree backstop in the spi-validation-gate job.
       - id: validate-spi-naming-conventions
         name: SPI Naming Convention Validation
         entry: uv run python scripts/validation/validate_spi_naming.py
@@ -204,8 +248,7 @@ repos:
         types: [python]
         files: ^src/.*\.py$
         exclude: ^(tests/|scripts/).*\.py$
-        pass_filenames: false
-        args: ['src/']
+        pass_filenames: true
         stages: [pre-commit]
 
       # ======================================================================
@@ -232,7 +275,7 @@ repos:
         types: [python]
         files: ^src/omnibase_spi/.*\.py$
         exclude: ^(tests/|scripts/).*\.py$
-        pass_filenames: false
+        pass_filenames: true
         stages: [pre-commit]
 
       # Namespace isolation - No Infra imports, no Pydantic models
@@ -243,7 +286,7 @@ repos:
         types: [python]
         files: ^src/omnibase_spi/.*\.py$
         exclude: ^(tests/|scripts/).*\.py$
-        pass_filenames: false
+        pass_filenames: true
         stages: [pre-commit]
 
       # Unified runner - Run all validators (for CI or manual runs)
@@ -359,7 +402,7 @@ repos:
 
   # Skip-token rejection gate (OMN-10414 / OMN-13296)
   # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
-  # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+  # There is no escape hatch (OMN-20074): a skip token is rejected whatever comment accompanies it.
   - repo: local
     hooks:
       - id: reject-deploy-gate-skip-token
@@ -498,8 +541,20 @@ repos:
         stages:
           - pre-commit
         additional_dependencies:
-          - omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core.git@5d562ab415bcbeb60eb852f5fb6d80b455da1624
+          - omnibase-core==0.47.20 # Match uv.lock; includes the 0.47.18 baseline fix.
 
+
+  # OMN-19666: VCS-backed additional_dependencies can inherit GIT_INDEX_FILE
+  # during a cold-cache commit and overwrite the committing worktree index.
+  - repo: local
+    hooks:
+      - id: no-git-precommit-additional-dependencies
+        name: Pre-commit additional dependencies come from package indexes (OMN-19666)
+        entry: bash tests/test_precommit_additional_dependencies_omn19666.sh
+        language: system
+        pass_filenames: false
+        files: ^(\.pre-commit-config\.yaml|scripts/validation/check_precommit_additional_dependencies\.sh|tests/test_precommit_additional_dependencies_omn19666\.sh|tests/fixtures/omn19666/.*)$
+        stages: [pre-commit]
 
 default_install_hook_types: [pre-commit, commit-msg]
 default_stages: [pre-commit]

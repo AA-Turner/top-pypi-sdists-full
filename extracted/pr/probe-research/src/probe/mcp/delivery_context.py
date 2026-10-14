@@ -13,7 +13,7 @@ import re
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Any, Iterator
 
 from ..sdk import errors
 
@@ -21,6 +21,11 @@ from ..sdk import errors
 @dataclass
 class DeliveryContext:
     snapshot: dict | None = None
+    #: What delivery binds this read's cursors to (`continuation.Request` or
+    #: its bare hash). A source that fits its page around a STAND-IN cursor
+    #: encodes the stand-in with this, so it carries the same arguments, and
+    #: costs the same tokens, as the cursor delivery will put there.
+    request: Any = None
 
 
 _current: ContextVar[DeliveryContext | None] = ContextVar("mcp_delivery", default=None)
@@ -35,7 +40,9 @@ def source_changed(reason: str = "requested content changed") -> errors.Validati
 
 
 @contextmanager
-def delivery_context(snapshot: dict | None = None) -> Iterator[DeliveryContext]:
+def delivery_context(
+    snapshot: dict | None = None, request: Any = None
+) -> Iterator[DeliveryContext]:
     """Pass a decoded hint in; carry the yielded ``snapshot`` into every cursor.
 
     The caller owns cursor binding/authentication. Validate the decoded shape
@@ -61,7 +68,7 @@ def delivery_context(snapshot: dict | None = None) -> Iterator[DeliveryContext]:
                 "Invalid document continuation; restart the read.", status=422
             )
         snapshot = dict(snapshot)
-    state = DeliveryContext(snapshot)
+    state = DeliveryContext(snapshot, request)
     token = _current.set(state)
     try:
         yield state

@@ -113,7 +113,7 @@ BASES = MappingProxyType(
     {
         # bs2 asks for the exact ring kernel where a segment is fat for its
         # length (momwire#1428): "auto" resolves True only when some segment
-        # has h/a < `BSplineSolver.EXACT_KERNEL_AUTO_H_OVER_A` (3), so every
+        # has h/a < `EXACT_KERNEL_AUTO_H_OVER_A` (3, `_exact_kernel_seam`), so every
         # mesh above that builds the call it always did, bit for bit. It is
         # bound HERE, on the roster name, so every front end that reads
         # `bspline` -- the NEC-5 and NEC-4.2 seams (`momwire.eznec`, SimNEC's
@@ -149,7 +149,18 @@ BASES = MappingProxyType(
         # convergence and certification work by constructing
         # `RazorSolver(...)` directly, whose `nec5_quadrature` kwarg
         # defaults to `False`.
-        "razor-2p": (RazorSolver, MappingProxyType({"nec5_quadrature": True})),
+        #
+        # Both razor names bind `exact_kernel="auto"` (momwire#1433), on the
+        # bs2 entry's terms: it engages only where some segment is under 3
+        # radii, so every mesh above that builds the call it always did, bit
+        # for bit. Below it, razor-2p's extended kernel leaves NEC-5's ladder
+        # (#1378, #1422), and the exact ring kernel puts it back on it: on
+        # Dan's tapered dipole at 2000 segs/lambda razor-2p reads X 0.355 ohm
+        # from NEC-5 and razor-2p exact 0.036 (scratch/1433, the PR's tables).
+        "razor-2p": (
+            RazorSolver,
+            MappingProxyType({"nec5_quadrature": True, "exact_kernel": "auto"}),
+        ),
         # DEPRECATED spelling of `razor-2p`, kept because it shipped: in the
         # EZNEC drop-in's launcher names (`momwire-eznec-razor-nec5`, which
         # momwire#819 keeps beside the current spelling) and in antennaknobs'
@@ -167,7 +178,10 @@ BASES = MappingProxyType(
         # Neither razor name serves the `nec2` dialect (momwire#821): see
         # `NEC2_BASES` below. Both stay in THIS roster because the NEC-5
         # dialect (`momwire.eznec`) reads it and serves them.
-        "razor-nec5": (RazorSolver, MappingProxyType({"nec5_quadrature": True})),
+        "razor-nec5": (
+            RazorSolver,
+            MappingProxyType({"nec5_quadrature": True, "exact_kernel": "auto"}),
+        ),
         # The pulse family, and ONE name for it (momwire#564), on momwire#654's
         # rule: a roster entry is a menu item, so it should be the dish worth
         # ordering. `HarringtonSolver` and `PulseSolver` are the same basis and
@@ -347,6 +361,12 @@ def basis_from_program_name(
 # executable's NAME is the only signal, as it already is for the basis.
 NEC4_MARKER = "nec4"
 
+# The marker the shipped launchers carry (momwire#1443): SimNEC recognises an
+# engine by `nec42` in its path, so `momwire-nec42[-<basis>]` is the name, and
+# the basis is read past `nec42` when the name carries it.  A name carrying
+# only `nec4` (a renamed copy) still reads past `nec4`, as it did before.
+NEC42_MARKER = "nec42"
+
 
 def _program_stem(prog: str) -> str:
     """``prog``'s basename, casefolded, a Windows ``.exe`` stripped — the
@@ -369,19 +389,23 @@ def dialect_from_program_name(prog: str) -> str:
 def nec4_basis_from_program_name(prog: str) -> str | None:
     """The basis a nec4 program name selects, or ``None`` for the default.
 
-    ``<anything>nec4`` ends the name: the default.  ``<anything>nec4-<basis>``
-    names ``<basis>``, and ``<anything>nec4-`` names the empty basis, which
+    The marker is :data:`NEC42_MARKER` when the name carries it, else
+    :data:`NEC4_MARKER` (momwire#1443).  ``<anything>nec42`` ends the name:
+    the default.  ``<anything>nec42-<basis>`` names ``<basis>``, and
+    ``<anything>nec42-`` names the empty basis, which
     :func:`basis_from_program_name` already treats as a typo to refuse rather
     than as the default.  Any other continuation is returned whole as the
-    suffix — ``momwire-nec42`` names the basis ``"2"`` — so it reaches the
+    suffix — ``momwire-nec42x`` names the basis ``"x"`` — so it reaches the
     refusal by name: an unknown suffix never falls back silently (momwire#628).
-    A name without the marker returns ``None``; the caller has already
-    decided the dialect with :func:`dialect_from_program_name`.
+    A name carrying ``nec4`` but not ``nec42`` reads the same way past
+    ``nec4``.  A name without either marker returns ``None``; the caller has
+    already decided the dialect with :func:`dialect_from_program_name`.
     """
     name = _program_stem(prog)
     if NEC4_MARKER not in name:
         return None
-    rest = name.split(NEC4_MARKER, 1)[1]
+    marker = NEC42_MARKER if NEC42_MARKER in name else NEC4_MARKER
+    rest = name.split(marker, 1)[1]
     if rest == "":
         return None
     return rest[1:] if rest.startswith("-") else rest
@@ -713,7 +737,8 @@ def group_loads(model: DeckModel) -> tuple[tuple[int, ...], ...]:
 
 
 def _wire_loading(materials) -> dict[str, object]:
-    """The per-wire conductivity / insulation / per-metre-RLC a solver takes.
+    """The per-wire conductivity / insulation / per-metre-RLC a solver takes
+    (and the jacket's loss tangent, momwire#765, when one is named).
 
     momwire's per-wire convention is one entry per wire with ``NaN`` for "not
     this one", and an array is only passed when SOMETHING in it is finite —
@@ -745,6 +770,16 @@ def _wire_loading(materials) -> dict[str, object]:
             for m in materials
         ]
     )
+    loss_tangent = np.array(
+        [
+            m.insulation_loss_tangent
+            if m is not None
+            and m.insulation_radius is not None
+            and m.insulation_loss_tangent is not None
+            else nan
+            for m in materials
+        ]
+    )
     distributed = [m.distributed_rlc if m is not None else None for m in materials]
     kwargs: dict[str, object] = {}
     if np.isfinite(conductivity).any():
@@ -752,6 +787,10 @@ def _wire_loading(materials) -> dict[str, object]:
     if np.isfinite(radius).any():
         kwargs["insulation_radius"] = radius
         kwargs["insulation_eps_r"] = eps_r
+        # Only when some jacket names one, so a lossless deck builds with
+        # exactly the kwargs it always did (momwire#765).
+        if np.isfinite(loss_tangent).any():
+            kwargs["insulation_loss_tangent"] = loss_tangent
     if any(entry is not None for entry in distributed):
         kwargs["distributed_rlc"] = distributed
     return kwargs

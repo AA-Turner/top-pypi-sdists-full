@@ -63,6 +63,7 @@ from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace import TracerProvider
 from pydantic import Field
 from pydantic import ValidationError
+import pydantic_core
 from starlette.types import Lifespan
 from typing_extensions import deprecated
 from typing_extensions import override
@@ -76,6 +77,7 @@ from ..agents.run_config import StreamingMode
 from ..apps.app import App
 from ..artifacts.base_artifact_service import ArtifactVersion
 from ..artifacts.base_artifact_service import BaseArtifactService
+from ..auth.auth_credential import _redact_credential_secrets
 from ..auth.credential_service.base_credential_service import BaseCredentialService
 from ..errors.already_exists_error import AlreadyExistsError
 from ..errors.input_validation_error import InputValidationError
@@ -85,9 +87,6 @@ from ..events._internal_metadata import public_event
 from ..events._internal_metadata import public_session
 from ..events.event import Event
 from ..events.event_actions import EventActions
-from ..flows.llm_flows.tools._functions import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
-from ..flows.llm_flows.tools._functions import REQUEST_EUC_FUNCTION_CALL_NAME
-from ..flows.llm_flows.tools._functions import REQUEST_INPUT_FUNCTION_CALL_NAME
 from ..live.live_request_queue import LiveRequest
 from ..live.live_request_queue import LiveRequestQueue
 from ..memory.base_memory_service import BaseMemoryService
@@ -96,15 +95,18 @@ from ..plugins.base_plugin import BasePlugin
 from ..runners import Runner
 from ..sessions.base_session_service import BaseSessionService
 from ..sessions.session import Session
+from ..utils._function_call_names import CLIENT_FUNCTION_CALL_NAMES as _CLIENT_FUNCTION_CALL_NAMES
 from ..utils._telemetry_config import read_telemetry_consent
 from ..utils.agent_info import AgentInfo
 from ..utils.agent_info import get_agents_dict
 from ..utils.context_utils import Aclosing
 from ..utils.feature_decorator import experimental
 from ..version import __version__
+from .cli_eval import _LEGACY_EVAL_SESSION_ID_PREFIX
 from .cli_eval import EVAL_SESSION_ID_PREFIX
 from .utils import cleanup
 from .utils import common
+from .utils.base_agent_loader import _AgentLoadError
 from .utils.base_agent_loader import BaseAgentLoader
 from .utils.shared_value import SharedValue
 
@@ -177,7 +179,7 @@ def _strip_optional_quotes(value: str) -> str:
 
 
 def _get_scope_header(
-    scope: dict[str, Any], header_name: bytes
+    scope: Mapping[str, Any], header_name: bytes
 ) -> Optional[str]:
   """Return the first matching header value from an ASGI scope."""
   for candidate_name, candidate_value in scope.get("headers", []):
@@ -227,6 +229,32 @@ def _get_server_host(scope: dict[str, Any]) -> Optional[str]:
   if server and len(server) == 2:
     return str(server[0])
   return None
+
+
+_FORWARDING_HEADERS = (b"forwarded", b"x-forwarded-for", b"x-forwarded-host")
+
+
+def _is_local_client(scope: Mapping[str, Any]) -> bool:
+  """Return True if the request came straight from a process on this machine.
+
+  Header-based checks only constrain browsers: ``Origin``, ``Sec-Fetch-*`` and
+  custom headers are all trivially forged by a non-browser HTTP client, and
+  ``_OriginCheckMiddleware`` deliberately lets a request through when
+  ``Origin`` is absent so that non-browser API clients keep working. The peer
+  address of the connection is the one signal a remote caller cannot fake, so
+  it is what endpoints that must not be reachable over the network have to
+  use.
+
+  A request that arrived through a proxy or a tunnel is never treated as
+  local: the peer address is then the forwarder's rather than the caller's.
+  """
+  for header_name in _FORWARDING_HEADERS:
+    if _get_scope_header(scope, header_name) is not None:
+      return False
+  client = scope.get("client")
+  if not client or len(client) != 2:
+    return False
+  return _is_loopback_address(str(client[0]))
 
 
 def _get_request_origin(scope: dict[str, Any]) -> Optional[str]:
@@ -406,6 +434,23 @@ def _accepts_kwargs(func: Callable[..., Any], kwargs: dict[str, Any]) -> bool:
       return False
 
   return True
+
+
+def _with_abort_signal_kwarg(
+    runner: Runner,
+    kwargs: dict[str, Any],
+    abort_signal: asyncio.Event,
+) -> dict[str, Any]:
+  """Adds abort_signal to kwargs when runner.run_async accepts it."""
+  try:
+    params = inspect.signature(runner.run_async).parameters
+    if "abort_signal" in params or any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+    ):
+      kwargs["abort_signal"] = abort_signal
+  except (ValueError, TypeError):
+    kwargs["abort_signal"] = abort_signal
+  return kwargs
 
 
 _current_session_options: contextvars.ContextVar[Optional[dict[str, Any]]] = (
@@ -604,11 +649,7 @@ class CreateSessionRequest(common.BaseModel):
 
 
 # Function calls ADK generates itself to drive human-in-the-loop flows.
-_ADK_RESERVED_FUNCTION_NAMES = frozenset({
-    REQUEST_CONFIRMATION_FUNCTION_CALL_NAME,
-    REQUEST_EUC_FUNCTION_CALL_NAME,
-    REQUEST_INPUT_FUNCTION_CALL_NAME,
-})
+_ADK_RESERVED_FUNCTION_NAMES = _CLIENT_FUNCTION_CALL_NAMES
 
 
 def _is_adk_reserved_function_name(name: Optional[str]) -> bool:
@@ -624,6 +665,30 @@ def _invalid_event_error(event_index: int, disallowed: str) -> HTTPException:
           f"Session initialization event {event_index} cannot include"
           f" {disallowed}."
       ),
+  )
+
+
+def _redacted_session_response(
+    session: Session | list[Session],
+) -> JSONResponse:
+  """Returns a JSONResponse with credential secrets redacted."""
+  if isinstance(session, list):
+    return JSONResponse(
+        content=[
+            _redact_credential_secrets(
+                public_session(s).model_dump(
+                    exclude_none=True, by_alias=True, mode="json"
+                )
+            )
+            for s in session
+        ]
+    )
+  return JSONResponse(
+      content=_redact_credential_secrets(
+          public_session(session).model_dump(
+              exclude_none=True, by_alias=True, mode="json"
+          )
+      )
   )
 
 
@@ -753,11 +818,12 @@ def _setup_gcp_telemetry(
 
   import google.auth
 
+  from ..telemetry.google_cloud import _CLOUD_PLATFORM_SCOPE
   from ..telemetry.google_cloud import get_gcp_exporters
   from ..telemetry.google_cloud import get_gcp_resource
   from ..telemetry.setup import maybe_set_otel_providers
 
-  credentials, project_id = google.auth.default()
+  credentials, project_id = google.auth.default(scopes=[_CLOUD_PLATFORM_SCOPE])
 
   otel_hooks_to_add.append(
       get_gcp_exporters(
@@ -931,6 +997,15 @@ class ApiServer:
     self.auto_create_session = auto_create_session
     self.trigger_sources = trigger_sources
     if (
+        trigger_sources
+        and not trigger_oidc_audience
+        and not trigger_auth_verifier
+    ):
+      raise ValueError(
+          "trigger_sources requires trigger_oidc_audience or"
+          " trigger_auth_verifier to be set."
+      )
+    if (
         trigger_oidc_service_accounts
         and not trigger_oidc_audience
         and not trigger_auth_verifier
@@ -938,6 +1013,18 @@ class ApiServer:
       raise ValueError(
           "trigger_oidc_service_accounts requires trigger_oidc_audience to be"
           " set."
+      )
+    if (
+        trigger_sources
+        and trigger_oidc_audience
+        and not trigger_oidc_service_accounts
+        and not trigger_auth_verifier
+    ):
+      logger.warning(
+          "trigger_oidc_audience is set without"
+          " trigger_oidc_service_accounts; any Google account can obtain a"
+          " token for this audience. Set trigger_oidc_service_accounts to"
+          " restrict caller identity."
       )
     self.trigger_oidc_audience = trigger_oidc_audience
     self.trigger_oidc_service_accounts = trigger_oidc_service_accounts
@@ -969,10 +1056,7 @@ class ApiServer:
       return self.runner_dict[app_name]
 
     # Create new runner
-    try:
-      agent_or_app = self.agent_loader.load_agent(app_name)
-    except ValueError as ve:
-      raise HTTPException(status_code=404, detail=str(ve)) from ve
+    agent_or_app = self._load_agent_or_raise(app_name)
 
     if self.default_llm_model:
       from .cli import _override_default_llm_model
@@ -1054,6 +1138,29 @@ class ApiServer:
     runner = self._create_runner(agentic_app, app_name)
     self.runner_dict[app_name] = runner
     return runner
+
+  def _load_agent_or_raise(self, app_name: str) -> BaseAgent | App:
+    """Loads an agent, mapping a load failure onto an HTTP status code.
+
+    Args:
+      app_name: The name of the agent to load.
+
+    Returns:
+      The loaded agent or app.
+
+    Raises:
+      HTTPException: 404 when the loader raises ValueError, which means no agent
+        exists under the name. 500 when the agent's own module or config fails
+        to load, with a generic detail because that exception text can carry
+        paths or config; the traceback goes to the log instead.
+    """
+    try:
+      return self.agent_loader.load_agent(app_name)
+    except ValueError as e:
+      raise HTTPException(status_code=404, detail=str(e)) from e
+    except _AgentLoadError as e:
+      logger.exception("Failed to load agent %s", app_name)
+      raise HTTPException(status_code=500, detail="Failed to load agent") from e
 
   def _get_root_agent(self, agent_or_app: BaseAgent | App) -> BaseAgent:
     """Extract root agent from either a BaseAgent or App object."""
@@ -1460,9 +1567,11 @@ class ApiServer:
       # user_id_validation_state is a proto `bytes` field; the connector delivers
       # it as a url-safe base64 string in the redirect query, so decode it back.
       try:
-        state_bytes = base64.urlsafe_b64decode(
+        state_bytes = base64.b64decode(
             req.user_id_validation_state
-            + "=" * (-len(req.user_id_validation_state) % 4)
+            + "=" * (-len(req.user_id_validation_state) % 4),
+            altchars=b"-_",
+            validate=True,
         )
       except (binascii.Error, ValueError, TypeError) as e:
         raise HTTPException(
@@ -1526,10 +1635,7 @@ class ApiServer:
                 " mode."
             ),
         )
-      try:
-        agent_or_app = self.agent_loader.load_agent(app_name)
-      except ValueError as ve:
-        raise HTTPException(status_code=404, detail=str(ve)) from ve
+      agent_or_app = self._load_agent_or_raise(app_name)
       root_agent = self._get_root_agent(agent_or_app)
       if isinstance(root_agent, LlmAgent):
         return AppInfo(
@@ -1546,36 +1652,41 @@ class ApiServer:
 
     @app.get(
         "/apps/{app_name}/users/{user_id}/sessions/{session_id}",
+        response_model=Session,
         response_model_exclude_none=True,
     )
     async def get_session(
         app_name: str, user_id: str, session_id: str
-    ) -> Session:
+    ) -> Response:
       session = await self.session_service.get_session(
           app_name=app_name, user_id=user_id, session_id=session_id
       )
       if not session:
         raise HTTPException(status_code=404, detail="Session not found")
       self.current_app_name_ref.value = app_name
-      return public_session(session)
+      return _redacted_session_response(session)
 
     @app.get(
         "/apps/{app_name}/users/{user_id}/sessions",
+        response_model=list[Session],
         response_model_exclude_none=True,
     )
-    async def list_sessions(app_name: str, user_id: str) -> list[Session]:
+    async def list_sessions(app_name: str, user_id: str) -> Response:
       list_sessions_response = await self.session_service.list_sessions(
           app_name=app_name, user_id=user_id
       )
-      return [
-          public_session(session)
+      return _redacted_session_response([
+          session
           for session in list_sessions_response.sessions
           # Remove sessions that were generated as a part of Eval.
-          if not session.id.startswith(EVAL_SESSION_ID_PREFIX)
-      ]
+          if not session.id.startswith(
+              (EVAL_SESSION_ID_PREFIX, _LEGACY_EVAL_SESSION_ID_PREFIX)
+          )
+      ])
 
     @app.post(
         "/apps/{app_name}/users/{user_id}/sessions/{session_id}",
+        response_model=Session,
         response_model_exclude_none=True,
     )
     @deprecated(
@@ -1587,29 +1698,28 @@ class ApiServer:
         user_id: str,
         session_id: str,
         state: Optional[dict[str, Any]] = None,
-    ) -> Session:
-      return public_session(
-          await self._create_session(
-              app_name=app_name,
-              user_id=user_id,
-              state=state,
-              session_id=session_id,
-          )
+    ) -> Response:
+      session = await self._create_session(
+          app_name=app_name,
+          user_id=user_id,
+          state=state,
+          session_id=session_id,
       )
+      return _redacted_session_response(session)
 
     @app.post(
         "/apps/{app_name}/users/{user_id}/sessions",
+        response_model=Session,
         response_model_exclude_none=True,
     )
     async def create_session(
         app_name: str,
         user_id: str,
         req: Optional[CreateSessionRequest] = None,
-    ) -> Session:
+    ) -> Response:
       if not req:
-        return public_session(
-            await self._create_session(app_name=app_name, user_id=user_id)
-        )
+        session = await self._create_session(app_name=app_name, user_id=user_id)
+        return _redacted_session_response(session)
 
       if req.events:
         _validate_session_initialization_events(req.events)
@@ -1631,7 +1741,7 @@ class ApiServer:
               session=session, event=mark_restored(event)
           )
 
-      return public_session(session)
+      return _redacted_session_response(session)
 
     @app.delete("/apps/{app_name}/users/{user_id}/sessions/{session_id}")
     async def delete_session(
@@ -1643,6 +1753,7 @@ class ApiServer:
 
     @app.patch(
         "/apps/{app_name}/users/{user_id}/sessions/{session_id}",
+        response_model=Session,
         response_model_exclude_none=True,
     )
     async def update_session(
@@ -1650,7 +1761,7 @@ class ApiServer:
         user_id: str,
         session_id: str,
         req: UpdateSessionRequest,
-    ) -> Session:
+    ) -> Response:
       """Updates session state without running the agent.
 
       Args:
@@ -1689,7 +1800,7 @@ class ApiServer:
           session=session, event=state_update_event
       )
 
-      return public_session(session)
+      return _redacted_session_response(session)
 
     @app.get(
         "/apps/{app_name}/users/{user_id}/sessions/{session_id}/artifacts/{artifact_name:path}/versions/{version_id}/metadata",
@@ -1929,8 +2040,10 @@ class ApiServer:
       else:
         _is_visual_builder.set(False)
 
-    @app.post("/run", response_model_exclude_none=True)
-    async def run_agent(req: RunAgentRequest, request: Request) -> list[Event]:
+    @app.post(
+        "/run", response_model=list[Event], response_model_exclude_none=True
+    )
+    async def run_agent(req: RunAgentRequest, request: Request) -> Response:
       app_name = req.app_name or self.default_app_name
       if not app_name:
         raise HTTPException(
@@ -1957,18 +2070,23 @@ class ApiServer:
             ),
         )
 
+      abort_signal = asyncio.Event()
+
       async def worker():
+        run_async_kwargs = _with_abort_signal_kwarg(
+            runner,
+            {
+                "user_id": req.user_id,
+                "session_id": req.session_id,
+                "new_message": req.new_message,
+                "state_delta": req.state_delta,
+                "invocation_id": req.invocation_id,
+                "run_config": run_config,
+            },
+            abort_signal,
+        )
         try:
-          async with Aclosing(
-              runner.run_async(
-                  user_id=req.user_id,
-                  session_id=req.session_id,
-                  new_message=req.new_message,
-                  state_delta=req.state_delta,
-                  invocation_id=req.invocation_id,
-                  run_config=run_config,
-              )
-          ) as agen:
+          async with Aclosing(runner.run_async(**run_async_kwargs)) as agen:
             return [public_event(event) async for event in agen]
         except SessionNotFoundError as e:
           raise HTTPException(status_code=404, detail=str(e)) from e
@@ -1984,6 +2102,7 @@ class ApiServer:
                   "Client disconnected. Aborting agent run for session %s.",
                   req.session_id,
               )
+              abort_signal.set()
               worker_task.cancel()
               break
         except asyncio.CancelledError:
@@ -1997,7 +2116,16 @@ class ApiServer:
         events = await worker_task
         logger.info("Generated %s events in agent run", len(events))
         logger.debug("Events generated: %s", events)
-        return events
+        return JSONResponse(
+            content=[
+                _redact_credential_secrets(
+                    event.model_dump(
+                        exclude_none=True, by_alias=True, mode="json"
+                    )
+                )
+                for event in events
+            ]
+        )
       except asyncio.CancelledError:
         if await request.is_disconnected():
           return Response(status_code=499)
@@ -2065,23 +2193,18 @@ class ApiServer:
 
         async def _produce_events() -> None:
           nonlocal is_closing, original_exc
-          run_async_kwargs: dict[str, Any] = {
-              "user_id": req.user_id,
-              "session_id": req.session_id,
-              "new_message": req.new_message,
-              "state_delta": req.state_delta,
-              "run_config": run_config,
-              "invocation_id": req.invocation_id,
-          }
-          try:
-            params = inspect.signature(runner.run_async).parameters
-            if "abort_signal" in params or any(
-                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
-            ):
-              run_async_kwargs["abort_signal"] = abort_signal
-          except (ValueError, TypeError):
-            run_async_kwargs["abort_signal"] = abort_signal
-
+          run_async_kwargs = _with_abort_signal_kwarg(
+              runner,
+              {
+                  "user_id": req.user_id,
+                  "session_id": req.session_id,
+                  "new_message": req.new_message,
+                  "state_delta": req.state_delta,
+                  "run_config": run_config,
+                  "invocation_id": req.invocation_id,
+              },
+              abort_signal,
+          )
           try:
             async with Aclosing(runner.run_async(**run_async_kwargs)) as agen:
               try:
@@ -2126,10 +2249,15 @@ class ApiServer:
                 events_to_stream = [content_event, artifact_event]
 
               for event_to_stream in events_to_stream:
-                sse_event = public_event(event_to_stream).model_dump_json(
-                    exclude_none=True,
-                    by_alias=True,
-                )
+                sse_event = pydantic_core.to_json(
+                    _redact_credential_secrets(
+                        public_event(event_to_stream).model_dump(
+                            exclude_none=True,
+                            by_alias=True,
+                            mode="json",
+                        )
+                    )
+                ).decode("utf-8")
                 logger.debug(
                     "Generated event in agent run streaming: %s", sse_event
                 )
@@ -2240,13 +2368,6 @@ class ApiServer:
       runner_for_context = await self.get_runner_async(app_name)
       _set_telemetry_context_if_needed(runner_for_context)
 
-      session = await self.session_service.get_session(
-          app_name=app_name, user_id=user_id, session_id=session_id
-      )
-      if not session:
-        await websocket.close(code=1002, reason="Session not found")
-        return
-
       live_request_queue = LiveRequestQueue()
 
       async def forward_events():
@@ -2284,16 +2405,21 @@ class ApiServer:
         )
         async with Aclosing(
             runner.run_live(
-                session=session,
+                user_id=user_id,
+                session_id=session_id,
                 live_request_queue=live_request_queue,
                 run_config=run_config,
             )
         ) as agen:
           async for event in agen:
             await websocket.send_text(
-                public_event(event).model_dump_json(
-                    exclude_none=True, by_alias=True
-                )
+                pydantic_core.to_json(
+                    _redact_credential_secrets(
+                        public_event(event).model_dump(
+                            exclude_none=True, by_alias=True, mode="json"
+                        )
+                    )
+                ).decode("utf-8")
             )
 
       async def process_messages():
@@ -2317,6 +2443,8 @@ class ApiServer:
         # This will re-raise any exception from the completed tasks.
         for task in done:
           task.result()
+      except SessionNotFoundError:
+        await websocket.close(code=1002, reason="Session not found")
       except WebSocketDisconnect:
         # Disconnection could happen when receive or send text via websocket
         logger.info("Client disconnected during live session.")

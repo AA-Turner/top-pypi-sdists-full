@@ -3,12 +3,9 @@
 Tools for centroiding sources using Gaussians.
 """
 
-import warnings
-
 import numpy as np
 from astropy.modeling.fitting import TRFLSQFitter
 from astropy.modeling.models import Gaussian1D, Gaussian2D
-from astropy.utils.exceptions import AstropyUserWarning
 
 from photutils.centroids._utils import (_gaussian1d_moments,
                                         _gaussian2d_moments,
@@ -25,22 +22,38 @@ def centroid_1dg(data, error=None, mask=None):
     Calculate the centroid of a 2D array by fitting 1D Gaussians to the
     marginal ``x`` and ``y`` distributions of the array.
 
-    Non-finite values (e.g., NaN or inf) in the ``data`` or ``error``
-    arrays are automatically masked. The final mask is a logical OR
-    combination of the input ``mask``, the automatically generated mask
-    for non-finite values, and the mask of the input ``data`` if it is a
-    `~numpy.ma.MaskedArray`. The centroid is calculated using only the
-    unmasked data values.
+    Nonfinite values (e.g., NaN or inf) in the ``data`` or ``error``
+    arrays are automatically masked. An
+    `~astropy.utils.exceptions.AstropyUserWarning` is emitted if any
+    nonfinite ``data`` value is not already masked. The final mask is
+    a logical OR combination of the input ``mask``, the automatically
+    generated mask for nonfinite values, and the mask of the input
+    ``data`` if it is a `~numpy.ma.MaskedArray`.
+
+    Masked pixels are excluded by substituting zero into the
+    marginal sums, and the fit weights are zeroed only for
+    fully masked rows or columns. A partially masked row or column
+    near the source peak therefore distorts the corresponding
+    marginal distribution and can bias the centroid. Consider using
+    `~photutils.centroids.centroid_2dg`, which excludes individual
+    masked pixels from the fit, when isolated masked or nonfinite
+    pixels fall near the source peak.
+
+    A `ValueError` is raised if either marginal distribution sums to
+    zero or is constant (e.g., if all of the data are masked). The
+    fitter emits an `~astropy.utils.exceptions.AstropyUserWarning` if a
+    fit did not converge.
 
     Parameters
     ----------
     data : 2D array_like
-        The 2D image data. ``data`` can be a `~numpy.ma.MaskedArray`.
-        The image should be a background-subtracted cutout image
-        containing a single source.
+        The 2D image data. ``data`` can be a `~numpy.ma.MaskedArray`
+        or a `~astropy.units.Quantity`. The image should be a
+        background-subtracted cutout image containing a single source.
 
-    error : 2D `~numpy.ndarray`, optional
-        The 2D array of the 1-sigma errors of the input ``data``.
+    error : 2D array_like, optional
+        The 2D array of the 1-sigma errors of the input ``data``. If
+        ``data`` has units, ``error`` must have the same units.
 
     mask : 2D bool `~numpy.ndarray`, optional
         A boolean mask, with the same shape as ``data``, where a `True`
@@ -51,7 +64,7 @@ def centroid_1dg(data, error=None, mask=None):
     Returns
     -------
     centroid : `~numpy.ndarray`
-        The ``x, y`` coordinates of the centroid.
+        The ``(x, y)`` coordinates of the centroid.
 
     Examples
     --------
@@ -76,7 +89,7 @@ def centroid_1dg(data, error=None, mask=None):
         data -= np.median(data[0:30, 0:125])
         data = data[40:80, 70:110]
         xycen = centroid_1dg(data)
-        fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(data, origin='lower')
         ax.scatter(*xycen, color='red', marker='+', s=100, label='Centroid')
         ax.legend()
@@ -99,6 +112,14 @@ def centroid_1dg(data, error=None, mask=None):
 
     xy_data = [np.sum(data, axis=i) for i in (0, 1)]
 
+    # A zero-sum or constant marginal distribution has undefined
+    # moment estimates (0/0) and cannot be fit with a 1D Gaussian.
+    for data_i in xy_data:
+        if np.sum(data_i) == 0 or np.ptp(data_i) == 0:
+            msg = ('Input data must have a nonzero sum and nonconstant '
+                   'values to fit 1D Gaussians.')
+            raise ValueError(msg)
+
     # Gaussian1D stddev is bounded to be strictly positive
     fitter = TRFLSQFitter()
 
@@ -119,22 +140,32 @@ def centroid_2dg(data, error=None, mask=None):
     Calculate the centroid of a 2D array by fitting a 2D Gaussian to the
     array.
 
-    Non-finite values (e.g., NaN or inf) in the ``data`` or ``error``
-    arrays are automatically masked. The final mask is a logical OR
-    combination of the input ``mask``, the automatically generated mask
-    for non-finite values, and the mask of the input ``data`` if it is a
-    `~numpy.ma.MaskedArray`. The centroid is calculated using only the
-    unmasked data values.
+    Nonfinite values (e.g., NaN or inf) in the ``data`` or ``error``
+    arrays are automatically masked. An
+    `~astropy.utils.exceptions.AstropyUserWarning` is emitted if any
+    nonfinite ``data`` value is not already masked. The final mask is
+    a logical OR combination of the input ``mask``, the automatically
+    generated mask for nonfinite values, and the mask of the input
+    ``data`` if it is a `~numpy.ma.MaskedArray`. The centroid is
+    calculated using only the unmasked data values.
+
+    A `ValueError` is raised if there are fewer than 6 unmasked values
+    or if the unmasked data are constant. The fitter emits an
+    `~astropy.utils.exceptions.AstropyUserWarning` if the fit did not
+    converge.
 
     Parameters
     ----------
     data : 2D array_like
-        The 2D image data. ``data`` can be a `~numpy.ma.MaskedArray`.
-        The image should be a background-subtracted cutout image
-        containing a single source.
+        The 2D image data. ``data`` can be a `~numpy.ma.MaskedArray`
+        or a `~astropy.units.Quantity`. The image should be a
+        background-subtracted cutout image containing a single source.
 
-    error : 2D `~numpy.ndarray`, optional
-        The 2D array of the 1-sigma errors of the input ``data``.
+    error : 2D array_like, optional
+        The 2D array of the 1-sigma errors of the input ``data``. If
+        ``data`` has units, ``error`` must have the same units.
+        The values should be positive. A zero or negative value gives
+        that pixel a very large weight in the fit.
 
     mask : 2D bool `~numpy.ndarray`, optional
         A boolean mask, with the same shape as ``data``, where a `True`
@@ -145,7 +176,7 @@ def centroid_2dg(data, error=None, mask=None):
     Returns
     -------
     centroid : `~numpy.ndarray`
-        The ``x, y`` coordinates of the centroid.
+        The ``(x, y)`` coordinates of the centroid.
 
     Examples
     --------
@@ -170,7 +201,7 @@ def centroid_2dg(data, error=None, mask=None):
         data -= np.median(data[0:30, 0:125])
         data = data[40:80, 70:110]
         xycen = centroid_2dg(data)
-        fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+        fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(data, origin='lower')
         ax.scatter(*xycen, color='red', marker='+', s=100, label='Centroid')
         ax.legend()
@@ -179,18 +210,24 @@ def centroid_2dg(data, error=None, mask=None):
     data, mask, error = _validate_gaussian_inputs(data, mask, error)
 
     if np.count_nonzero(~mask) < 6:
-        msg = ('Input data must have a least 6 unmasked values to fit a '
+        msg = ('Input data must have at least 6 unmasked values to fit a '
                '2D Gaussian.')
         raise ValueError(msg)
 
-    # Subtract the minimum of the data to make the data values positive.
-    # Moments from negative data values can yield undefined Gaussian
-    # parameters, e.g., x_stddev and y_stddev.
-    shifted = data - np.min(data)
-    if np.sum(shifted) == 0:
-        msg = ('Input data must have non-constant values to fit a '
+    # The masked pixels are zero in data, so only the unmasked values
+    # are tested
+    if np.ptp(data[~mask]) == 0:
+        msg = ('Input data must have nonconstant values to fit a '
                '2D Gaussian.')
         raise ValueError(msg)
+
+    # Subtract the minimum of the unmasked data to make the data values
+    # nonnegative. Moments from negative data values can yield
+    # undefined Gaussian parameters, e.g., x_stddev and y_stddev. The
+    # masked pixels are kept at zero so that they do not contribute to
+    # the moments.
+    shifted = data - np.min(data[~mask])
+    shifted[mask] = 0.0
 
     if error is not None:
         weights = 1.0 / error.clip(min=1.0e-30)
@@ -214,12 +251,7 @@ def centroid_2dg(data, error=None, mask=None):
 
     y, x = np.indices(data.shape)
 
-    with warnings.catch_warnings(record=True) as fit_warnings:
-        warnings.simplefilter('always', AstropyUserWarning)
-        gfit = fitter(g_init, x, y, data, weights=weights)
-
-    if any(issubclass(w.category, AstropyUserWarning) for w in fit_warnings):
-        msg = 'The fit may not have converged. Please check your results.'
-        warnings.warn(msg, AstropyUserWarning)
+    # The fitter emits an AstropyUserWarning if the fit did not converge
+    gfit = fitter(g_init, x, y, data, weights=weights)
 
     return np.array([gfit.x_mean.value, gfit.y_mean.value])

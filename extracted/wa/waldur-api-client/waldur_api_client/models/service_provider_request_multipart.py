@@ -1,12 +1,17 @@
+import json
 from collections.abc import Mapping
 from io import BytesIO
-from typing import Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from .. import types
 from ..types import UNSET, File, Unset
+
+if TYPE_CHECKING:
+    from ..models.provider_account_options_request import ProviderAccountOptionsRequest
+
 
 T = TypeVar("T", bound="ServiceProviderRequestMultipart")
 
@@ -21,6 +26,7 @@ class ServiceProviderRequestMultipart:
         image (Union[File, None, Unset]):
         allowed_domains (Union[Unset, list[str]]): List of allowed domains for offering endpoints. Only staff can modify
             this field.
+        account_options (Union[Unset, ProviderAccountOptionsRequest]):
     """
 
     customer: str
@@ -28,6 +34,7 @@ class ServiceProviderRequestMultipart:
     enable_notifications: Union[Unset, bool] = UNSET
     image: Union[File, None, Unset] = UNSET
     allowed_domains: Union[Unset, list[str]] = UNSET
+    account_options: Union[Unset, "ProviderAccountOptionsRequest"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,6 +57,10 @@ class ServiceProviderRequestMultipart:
         if not isinstance(self.allowed_domains, Unset):
             allowed_domains = self.allowed_domains
 
+        account_options: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.account_options, Unset):
+            account_options = self.account_options.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -65,6 +76,8 @@ class ServiceProviderRequestMultipart:
             field_dict["image"] = image
         if allowed_domains is not UNSET:
             field_dict["allowed_domains"] = allowed_domains
+        if account_options is not UNSET:
+            field_dict["account_options"] = account_options
 
         return field_dict
 
@@ -89,6 +102,11 @@ class ServiceProviderRequestMultipart:
             for allowed_domains_item_element in self.allowed_domains:
                 files.append(("allowed_domains", (None, str(allowed_domains_item_element).encode(), "text/plain")))
 
+        if not isinstance(self.account_options, Unset):
+            files.append(
+                ("account_options", (None, json.dumps(self.account_options.to_dict()).encode(), "application/json"))
+            )
+
         for prop_name, prop in self.additional_properties.items():
             files.append((prop_name, (None, str(prop).encode(), "text/plain")))
 
@@ -96,6 +114,8 @@ class ServiceProviderRequestMultipart:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.provider_account_options_request import ProviderAccountOptionsRequest
+
         d = dict(src_dict)
         customer = d.pop("customer")
 
@@ -122,12 +142,20 @@ class ServiceProviderRequestMultipart:
 
         allowed_domains = cast(list[str], d.pop("allowed_domains", UNSET))
 
+        _account_options = d.pop("account_options", UNSET)
+        account_options: Union[Unset, ProviderAccountOptionsRequest]
+        if isinstance(_account_options, Unset):
+            account_options = UNSET
+        else:
+            account_options = ProviderAccountOptionsRequest.from_dict(_account_options)
+
         service_provider_request_multipart = cls(
             customer=customer,
             description=description,
             enable_notifications=enable_notifications,
             image=image,
             allowed_domains=allowed_domains,
+            account_options=account_options,
         )
 
         service_provider_request_multipart.additional_properties = d

@@ -11,6 +11,8 @@ from numbers_parser import (
     Document,
     EmptyCell,
     ErrorCell,
+    FractionAccuracy,
+    PaddingType,
     Style,
     UnsupportedWarning,
     xl_rowcol_to_cell,
@@ -789,3 +791,187 @@ def test_issue_236(configurable_save_file):
         assert new_cell._flags == ref_cell._flags
         assert new_cell._extra_bits == ref_cell._extra_bits
         assert CellStorageFlags.__repr__(ref_cell) == CellStorageFlags.__repr__(new_cell)
+
+
+def test_issue_249(configurable_save_file):
+    doc = Document()
+    doc.sheets[0].tables[0].write(0, 0, 1.999)
+    custom_format = doc.add_custom_format(
+        type="number",
+        name="Two Decimals",
+        num_decimals=2,
+        decimal_format=PaddingType.ZEROS,
+    )
+    doc.sheets[0].tables[0].set_cell_formatting(0, 0, "custom", format=custom_format)
+    doc.save(configurable_save_file)
+
+    new_doc = Document(configurable_save_file)
+    assert new_doc.default_table.cell("A1").formatted_value == "2.00"
+
+
+def test_issue_250(configurable_save_file):
+    doc = Document()
+    doc.sheets[0].tables[0].write(0, 0, 0.00001)
+    doc.sheets[0].tables[0].write(1, 0, 0.00001)
+    doc.sheets[0].tables[0].write(2, 0, 0.00001)
+
+    custom_format_1 = doc.add_custom_format(
+        type="number",
+        name="Decimal 5DP Zeroes",
+        num_decimals=6,
+        num_integers=2,
+        integer_format=PaddingType.ZEROS,
+        decimal_format=PaddingType.ZEROS,
+    )
+    custom_format_2 = doc.add_custom_format(
+        type="number",
+        name="Decimal 5DP Spaces",
+        num_integers=2,
+        num_decimals=6,
+        integer_format=PaddingType.SPACES,
+        decimal_format=PaddingType.SPACES,
+    )
+    custom_format_3 = doc.add_custom_format(
+        type="number",
+        name="Decimal 5DP",
+        num_decimals=6,
+        integer_format=None,
+        decimal_format=None,
+    )
+
+    doc.sheets[0].tables[0].set_cell_formatting(0, 0, "custom", format=custom_format_1)
+    doc.sheets[0].tables[0].set_cell_formatting(1, 0, "custom", format=custom_format_2)
+    doc.sheets[0].tables[0].set_cell_formatting(2, 0, "custom", format=custom_format_3)
+    doc.save(configurable_save_file)
+
+    new_doc = Document(configurable_save_file)
+    assert new_doc.default_table.cell(0, 0).formatted_value == "00.000010"
+    assert new_doc.default_table.cell(1, 0).formatted_value == "  .000010"
+    assert new_doc.default_table.cell(2, 0).formatted_value == ".000010"
+
+
+def test_issue_251(script_runner, tmp_path, configurable_save_file):
+    csv_path = tmp_path / "dummy.csv"
+    with open(csv_path, "w") as f:
+        f.write("Account,Amount,Date\nChecking,100,2026-10-10\n")
+
+    ret = script_runner.run(["csv2numbers", csv_path, "--delete=1", "-o", configurable_save_file])
+    assert ret.stderr == ""
+    assert ret.success
+
+    doc = Document(configurable_save_file)
+    assert doc.default_table.cell(1, 0).value == "Checking"
+    assert doc.default_table.cell(1, 1).value == "2026-10-10"
+
+
+def test_issue_251_rename_with_header(script_runner, tmp_path, configurable_save_file):
+    csv_path = tmp_path / "named.csv"
+    csv_path.write_text("Account,Amount,Date\nChecking,100,2026-10-10\n")
+    ret = script_runner.run(
+        ["csv2numbers", csv_path, "--rename=1:Total", "-o", configurable_save_file]
+    )
+    assert ret.success, ret.stderr
+    table = Document(configurable_save_file).default_table
+    assert [table.cell(0, col).value for col in range(3)] == ["Account", "Total", "Date"]
+    assert table.cell(1, 1).value == 100
+
+
+def test_issue_251_date_with_header(script_runner, tmp_path, configurable_save_file):
+    csv_path = tmp_path / "named.csv"
+    csv_path.write_text("Account,Amount,Date\nChecking,100,2026-10-10\n")
+    ret = script_runner.run(["csv2numbers", csv_path, "--date=2", "-o", configurable_save_file])
+    assert ret.success, ret.stderr
+    assert isinstance(Document(configurable_save_file).default_table.cell(1, 2).value, datetime)
+
+
+def test_issue_251_transform_with_header(script_runner, tmp_path, configurable_save_file):
+    csv_path = tmp_path / "named.csv"
+    csv_path.write_text("Account,Amount,Date\nChecking,100,2026-10-10\n")
+    ret = script_runner.run(
+        ["csv2numbers", csv_path, "--transform=Paid=POS:1", "-o", configurable_save_file]
+    )
+    assert ret.success, ret.stderr
+    table = Document(configurable_save_file).default_table
+    assert table.cell(0, 3).value == "Paid"
+    assert table.cell(1, 3).value == 100
+
+
+def test_issue_251_rename_then_delete_index(script_runner, tmp_path, configurable_save_file):
+    csv_path = tmp_path / "named.csv"
+    csv_path.write_text("Account,Amount,Date\nChecking,100,2026-10-10\n")
+    ret = script_runner.run(
+        ["csv2numbers", csv_path, "--rename=1:Total", "--delete=1", "-o", configurable_save_file]
+    )
+    assert ret.success, ret.stderr
+    table = Document(configurable_save_file).default_table
+    assert [table.cell(0, col).value for col in range(2)] == ["Account", "Date"]
+    assert table.cell(1, 1).value == "2026-10-10"
+
+
+def test_issue_251_transform_index_across_files(script_runner, tmp_path):
+    first = tmp_path / "first.csv"
+    second = tmp_path / "second.csv"
+    first.write_text("Account,Amount\nChecking,100\n")
+    second.write_text("Account,Cost\nChecking,200\n")
+    outputs = [tmp_path / "first.numbers", tmp_path / "second.numbers"]
+    ret = script_runner.run(
+        ["csv2numbers", first, second, "--transform=Paid=POS:1", "-o", *outputs]
+    )
+    assert ret.success, ret.stderr
+    assert [Document(output).default_table.cell(1, 2).value for output in outputs] == [100, 200]
+
+
+def test_issue_252(script_runner, tmp_path, configurable_save_file):
+    csv_path = tmp_path / "dummy.csv"
+    with open(csv_path, "w") as f:
+        f.write("Val1,Val2\n,5\n0,10\n")
+
+    # The MERGE command intends to take Val1, falling back to Val2 if empty.
+    # For the second row, it will erroneously skip '0' and take '10'.
+    ret = script_runner.run(
+        [
+            "csv2numbers",
+            csv_path,
+            "--transform=Merged=MERGE:Val1;Val2",
+            "-o",
+            configurable_save_file,
+        ]
+    )
+    assert ret.stderr == ""
+    assert "merge found multiple values for cell 'B2'" in ret.stdout
+    assert ret.success
+
+    doc = Document(configurable_save_file)
+    assert doc.default_table.cell(1, 2).value == 5
+    assert doc.default_table.cell(2, 2).value == 0
+
+
+def test_issue_253():
+    doc = Document("tests/data/test-issue-253.numbers")
+    table = doc.sheets[0].tables[0]
+    assert table.cell(0, 0).formula == "12340000000000000"
+    assert table.cell(1, 0).formula == "12345670000000000"
+
+
+def test_issue_256():
+    table = Document().default_table
+    cases = [
+        (-2.5, FractionAccuracy.HALVES),
+        (-0.5, FractionAccuracy.HALVES),
+        (-2.0, FractionAccuracy.HALVES),
+        (-2.5, FractionAccuracy.THREE),
+        (-0.5, FractionAccuracy.THREE),
+        (-2.0, FractionAccuracy.THREE),
+    ]
+    for column, (value, accuracy) in enumerate(cases):
+        table.write(0, column, value)
+        table.set_cell_formatting(0, column, "fraction", fraction_accuracy=accuracy)
+
+    assert [table.cell(0, column).formatted_value for column in range(6)] == [
+        "-2 1/2",
+        "-1/2",
+        "-2",
+        "-2 1/2",
+        "-1/2",
+        "-2",
+    ]

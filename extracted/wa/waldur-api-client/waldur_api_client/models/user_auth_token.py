@@ -20,7 +20,6 @@ class UserAuthToken:
         user_is_active (bool): Designates whether this user should be treated as active. Unselect this instead of
             deleting accounts.
         user_token_lifetime (Union[None, int]): Token lifetime in seconds.
-        token (str):
     """
 
     created: datetime.datetime
@@ -29,7 +28,6 @@ class UserAuthToken:
     user_username: str
     user_is_active: bool
     user_token_lifetime: Union[None, int]
-    token: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -46,8 +44,6 @@ class UserAuthToken:
         user_token_lifetime: Union[None, int]
         user_token_lifetime = self.user_token_lifetime
 
-        token = self.token
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -58,7 +54,6 @@ class UserAuthToken:
                 "user_username": user_username,
                 "user_is_active": user_is_active,
                 "user_token_lifetime": user_token_lifetime,
-                "token": token,
             }
         )
 
@@ -84,8 +79,6 @@ class UserAuthToken:
 
         user_token_lifetime = _parse_user_token_lifetime(d.pop("user_token_lifetime"))
 
-        token = d.pop("token")
-
         user_auth_token = cls(
             created=created,
             user_first_name=user_first_name,
@@ -93,7 +86,6 @@ class UserAuthToken:
             user_username=user_username,
             user_is_active=user_is_active,
             user_token_lifetime=user_token_lifetime,
-            token=token,
         )
 
         user_auth_token.additional_properties = d

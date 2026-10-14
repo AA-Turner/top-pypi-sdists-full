@@ -20,6 +20,7 @@ import io
 import os
 import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -854,3 +855,60 @@ def test_the_windows_runtime_directory_falls_back_to_a_named_tmp(monkeypatch, tm
     expected = tmp_path / f"momwire-portal-{getpass.getuser()}"
     assert mech.runtime_dir() == str(expected)
     assert expected.is_dir()
+
+
+def test_a_client_with_a_runtime_dir_never_imports_tempfile(short_room):
+    """momwire#1445: ``tempfile`` costs a warm client launch ~5-7 ms and is
+    read only by the fallbacks for a box with no runtime directory, so the
+    path a client walks to its socket -- key, directory, name -- leaves it
+    unimported when the directory is given.
+
+    ``short_room`` and not tmp_path: on macOS tmp_path is long enough that
+    the socket name passes the 104-byte ``sun_path`` limit, and the probe
+    dies on that guard before it can answer the question asked here."""
+    probe = (
+        "import sys, momwire_eznec_client as c;"
+        "c._mech.socket_path(c.config_key(None, 900.0));"
+        "print('tempfile' in sys.modules)"
+    )
+    env = dict(os.environ, MOMWIRE_PORTAL_RUNTIME_DIR=str(short_room))
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "False", out.stderr
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        [],
+        [""],
+        ["eznec.0.76", sys.executable, "900.0", "basis=razor-2p"],
+        ["nec2c.1.2", "/opt/py/bin/python", "1e9", "dialect=nec4", "Ω µ"],
+    ],
+)
+def test_the_digest_is_sha256_whichever_module_computes_it(parts):
+    """momwire#1445 moved the key's hash off ``hashlib`` (whose OpenSSL load
+    cost a client launch ~1 ms) onto CPython's built-in SHA-256. The key is
+    shared with the C client and every resident server, so it is held to
+    ``hashlib``'s answer here, byte for byte."""
+    import hashlib
+
+    want = hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()[:16]
+    assert mech.digest(parts) == want
+
+
+def test_a_client_keys_its_server_without_loading_openssl():
+    probe = (
+        "import sys, momwire_eznec_client as c;"
+        "c.config_key(None, 900.0);"
+        "print('_hashlib' in sys.modules)"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip() == "False", out.stderr
